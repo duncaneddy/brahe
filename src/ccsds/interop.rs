@@ -26,7 +26,7 @@ use crate::ccsds::omm::{OMM, OMMMetadata, OMMTleParameters, OMMeanElements};
 use crate::frames::{
     BodyFrame, CelestialFrame, DStateAdapter, FrameAxes, FrameCenter, ObjectId,
     OrbitRelativeFrameKind, OrbitRelativeFrameVariant, OrientationProvider, ReferenceFrame,
-    register_frame, register_object, state_frame_to_frame,
+    register_frame, register_object,
 };
 use crate::math::SVector6;
 use crate::spice::NAIFId;
@@ -121,7 +121,11 @@ impl TryFrom<&ReferenceFrame> for CCSDSRefFrame {
     /// name the geocentric and Mars-centered realizations of the
     /// International Celestial Reference System. [`FrameAxes::ITRF`] writes as
     /// `ITRF2000`, the realization brahe records for the terrestrial frame,
-    /// and [`FrameAxes::TEME`] writes as `TEME`. Axes with no ODM token — MOD,
+    /// and [`FrameAxes::TEME`] writes as `TEME`. [`FrameAxes::TODofEpoch`] and
+    /// [`FrameAxes::TEMEofEpoch`] write as `TOD` and `TEME` respectively; a
+    /// writer emitting either of-epoch frame must also set the message's
+    /// `REF_FRAME_EPOCH` from [`CelestialFrame::frame_epoch`], since this
+    /// mapping only recovers the axes token. Axes with no ODM token — MOD,
     /// the body-fixed and synodic axes — and the orbit-relative and body
     /// frames return an error naming the frame.
     ///
@@ -182,26 +186,25 @@ impl TryFrom<&ReferenceFrame> for CCSDSRefFrame {
             FrameAxes::ITRF => Ok(CCSDSRefFrame::ITRF2000),
             FrameAxes::TOD => Ok(CCSDSRefFrame::TOD),
             FrameAxes::TEME => Ok(CCSDSRefFrame::TEME),
+            FrameAxes::TODofEpoch(_) => Ok(CCSDSRefFrame::TOD),
+            FrameAxes::TEMEofEpoch(_) => Ok(CCSDSRefFrame::TEME),
             _ => Err(no_token()),
         }
     }
 }
 
 /// Resolves an ODM `REF_FRAME`, `REF_FRAME_EPOCH`, and center to the
-/// [`CelestialFrame`] the message data is expressed in, and the epoch at which
-/// the message axes are frozen.
+/// [`CelestialFrame`] the message data is expressed in.
 ///
 /// `REF_FRAME` chooses the axes and the center chooses the origin, so the
 /// pair resolves to `CelestialFrame::centered(center, axes)`.
 ///
-/// `REF_FRAME_EPOCH` only has meaning for axes of date. `TOD` with a
-/// `REF_FRAME_EPOCH` names the true-of-date axes frozen at that epoch. Those
-/// axes do not move, so the frame is inertial rather than of-date and its
-/// axes are `ICRF`; the returned epoch is the one every state is converted
-/// from `TOD` at. Every other token needs no conversion, so the returned
-/// epoch is `None`. `TEME` with a `REF_FRAME_EPOCH` is currently loaded as
-/// the of-date `TEME` axes with the epoch ignored, since no frozen `TEME`
-/// frame exists yet.
+/// `REF_FRAME_EPOCH` only has meaning for axes of date. `TOD` or `TEME` with
+/// a `REF_FRAME_EPOCH` names those axes frozen at that epoch,
+/// [`FrameAxes::TODofEpoch`] or [`FrameAxes::TEMEofEpoch`], which are
+/// inertial; the message data is expressed in that frame and needs no
+/// conversion on load. A reference frame epoch on any other token is
+/// ignored, because those axes are already fixed by definition.
 ///
 /// # Arguments
 ///
@@ -214,9 +217,7 @@ impl TryFrom<&ReferenceFrame> for CCSDSRefFrame {
 ///
 /// # Returns
 ///
-/// * `Ok((CelestialFrame, Option<Epoch>))`: The frame the data is expressed
-///   in, and the frozen frame epoch to convert each state from `TOD` at, when
-///   the message declares one
+/// * `Ok(CelestialFrame)`: The frame the message data is expressed in
 /// * `Err(BraheError)`: If the token has no [`FrameAxes`] equivalent
 ///
 /// # Examples
@@ -228,35 +229,29 @@ impl TryFrom<&ReferenceFrame> for CCSDSRefFrame {
 /// use brahe::spice::NAIFId;
 ///
 /// // REF_FRAME = EME2000 with CENTER_NAME = MARS
-/// let (frame, frozen) =
-///     odm_celestial_frame(&CCSDSRefFrame::EME2000, None, NAIFId::Mars).unwrap();
+/// let frame = odm_celestial_frame(&CCSDSRefFrame::EME2000, None, NAIFId::Mars).unwrap();
 /// assert_eq!(frame, CelestialFrame::centered(499, FrameAxes::EME2000));
-/// assert_eq!(frozen, None);
 /// ```
 pub fn odm_celestial_frame(
     ref_frame: &CCSDSRefFrame,
     ref_frame_epoch: Option<Epoch>,
     center: impl Into<FrameCenter>,
-) -> Result<(CelestialFrame, Option<Epoch>), BraheError> {
-    let center = center.into();
-    let axes = FrameAxes::try_from(ref_frame)?;
-    match (axes, ref_frame_epoch) {
-        (FrameAxes::TOD, Some(epc)) => {
-            Ok((CelestialFrame::centered(center, FrameAxes::ICRF), Some(epc)))
-        }
-        _ => Ok((CelestialFrame::centered(center, axes), None)),
-    }
+) -> Result<CelestialFrame, BraheError> {
+    let axes = match (FrameAxes::try_from(ref_frame)?, ref_frame_epoch) {
+        (FrameAxes::TOD, Some(epc)) => FrameAxes::TODofEpoch(epc),
+        (FrameAxes::TEME, Some(epc)) => FrameAxes::TEMEofEpoch(epc),
+        (axes, _) => axes,
+    };
+    Ok(CelestialFrame::centered(center, axes))
 }
 
 /// [`CelestialFrame`] an OEM segment's states are expressed in.
 ///
 /// The segment's `REF_FRAME` names the axes and its `CENTER_NAME` names the
 /// origin, so the pair resolves through [`odm_celestial_frame`] to one
-/// [`CelestialFrame`]. A segment declaring `REF_FRAME = TOD` together with a
-/// `REF_FRAME_EPOCH` stores its states in the true-of-date axes frozen at that
-/// epoch; the returned frame is then the ICRF-axes frame about the same
-/// center, and the returned epoch is the one every stored state is converted
-/// from `TOD` at.
+/// [`CelestialFrame`]. A segment declaring `REF_FRAME = TOD` or `TEME`
+/// together with a `REF_FRAME_EPOCH` loads in the corresponding of-epoch
+/// frame; its samples are stored unchanged.
 ///
 /// # Arguments
 ///
@@ -264,8 +259,7 @@ pub fn odm_celestial_frame(
 ///
 /// # Returns
 ///
-/// * `Ok((CelestialFrame, Option<Epoch>))`: The frame the segment's states are
-///   expressed in, and the frozen frame epoch when the segment declares one
+/// * `Ok(CelestialFrame)`: The frame the segment's states are expressed in
 /// * `Err(BraheError)`: If `REF_FRAME` has no [`FrameAxes`] equivalent, or if
 ///   `CENTER_NAME` is not a known NAIF body name or ID
 ///
@@ -277,105 +271,15 @@ pub fn odm_celestial_frame(
 /// use brahe::frames::{CelestialFrame, FrameAxes};
 ///
 /// let oem = OEM::from_file("test_assets/ccsds/oem/OEMExample4.txt").unwrap();
-/// let (frame, frozen) = segment_celestial_frame(&oem.segments[0].metadata).unwrap();
+/// let frame = segment_celestial_frame(&oem.segments[0].metadata).unwrap();
 /// assert_eq!(frame, CelestialFrame::centered(499, FrameAxes::EME2000));
-/// assert_eq!(frozen, None);
 /// ```
-pub fn segment_celestial_frame(
-    metadata: &OEMMetadata,
-) -> Result<(CelestialFrame, Option<Epoch>), BraheError> {
+pub fn segment_celestial_frame(metadata: &OEMMetadata) -> Result<CelestialFrame, BraheError> {
     odm_celestial_frame(
         &metadata.ref_frame,
         metadata.ref_frame_epoch,
         NAIFId::from_name(&metadata.center_name)?,
     )
-}
-
-/// State to store in an OEM segment, given that state in the segment's
-/// [`CelestialFrame`].
-///
-/// This is the inverse of the conversion a reader applies. For every segment
-/// but a frozen-`TOD` one the segment frame is what is stored, so the state
-/// passes through unchanged. A segment declaring `REF_FRAME = TOD` with a
-/// `REF_FRAME_EPOCH` stores its states in the true-of-date axes frozen at that
-/// epoch, which a reader converts from `TOD` at the frame epoch, so writing
-/// rotates the ICRF-axes state back into `TOD` at that same epoch.
-///
-/// # Arguments
-///
-/// * `metadata` - Metadata of the segment being written
-/// * `x_frame` - Cartesian state in the frame [`segment_celestial_frame`]
-///   returns for `metadata`. Units: (*m*; *m/s*)
-///
-/// # Returns
-///
-/// * `Ok(SVector6)`: `[x, y, z, vx, vy, vz]` in the segment's stored axes.
-///   Units: (*m*; *m/s*)
-/// * `Err(BraheError)`: If `REF_FRAME` has no [`FrameAxes`] equivalent, if
-///   `CENTER_NAME` is not a known NAIF body name or ID, or if the router
-///   cannot apply the frozen-frame rotation
-///
-/// # Examples
-///
-/// ```
-/// use brahe::ccsds::interop::{segment_celestial_frame, state_for_segment};
-/// use brahe::ccsds::oem::OEM;
-/// use brahe::math::SVector6;
-///
-/// let oem = OEM::from_file("test_assets/ccsds/oem/OEMExample4.txt").unwrap();
-/// let metadata = &oem.segments[0].metadata;
-/// let (_frame, frozen) = segment_celestial_frame(metadata).unwrap();
-/// assert_eq!(frozen, None);
-///
-/// // A segment with no REF_FRAME_EPOCH stores its state unchanged.
-/// let x = SVector6::new(4.0e6, 1.0e6, 2.0e6, 1.0e3, 2.0e3, 3.0e3);
-/// assert_eq!(state_for_segment(metadata, x).unwrap(), x);
-/// ```
-pub fn state_for_segment(
-    metadata: &OEMMetadata,
-    x_frame: SVector6,
-) -> Result<SVector6, BraheError> {
-    let (_, frozen_epoch) = segment_celestial_frame(metadata)?;
-    state_into_segment_axes(frozen_epoch, x_frame)
-}
-
-/// Rotates a state in a segment's [`CelestialFrame`] into the segment's stored
-/// axes, given the frozen frame epoch [`segment_celestial_frame`] resolved for
-/// it.
-///
-/// Callers writing many states into one segment resolve the segment frame
-/// once and pass its frozen epoch here for every state.
-///
-/// # Arguments
-///
-/// * `frozen_epoch` - (Optional) `Some(epoch)` when the segment declares TOD
-///   axes frozen at `REF_FRAME_EPOCH`, `None` otherwise
-/// * `x_frame` - Cartesian state in the segment's [`CelestialFrame`].
-///   Units: (*m*; *m/s*)
-///
-/// # Returns
-///
-/// * `Ok(SVector6)`: `[x, y, z, vx, vy, vz]` in the segment's stored axes.
-///   Units: (*m*; *m/s*)
-/// * `Err(BraheError)`: If the router cannot apply the frozen-frame rotation
-///
-/// # Examples
-///
-/// ```
-/// use brahe::ccsds::interop::state_into_segment_axes;
-/// use brahe::math::SVector6;
-///
-/// let x = SVector6::new(4.0e6, 1.0e6, 2.0e6, 1.0e3, 2.0e3, 3.0e3);
-/// assert_eq!(state_into_segment_axes(None, x).unwrap(), x);
-/// ```
-pub fn state_into_segment_axes(
-    frozen_epoch: Option<Epoch>,
-    x_frame: SVector6,
-) -> Result<SVector6, BraheError> {
-    match frozen_epoch {
-        Some(epc) => state_frame_to_frame(CelestialFrame::GCRF, CelestialFrame::TOD, epc, x_frame),
-        None => Ok(x_frame),
-    }
 }
 
 impl OEM {
@@ -389,10 +293,9 @@ impl OEM {
     /// body its `CENTER_NAME` names, so a Mars-centered EME2000 segment loads
     /// as `CelestialFrame::centered(NAIFId::Mars, FrameAxes::EME2000)`.
     ///
-    /// A segment declaring `REF_FRAME = TOD` together with a
-    /// `REF_FRAME_EPOCH` names the true-of-date axes frozen at that epoch.
-    /// Those axes are inertial, so every state is converted from `TOD` at the
-    /// frame epoch and the trajectory carries `ICRF` axes.
+    /// A segment declaring `REF_FRAME = TOD` or `TEME` together with a
+    /// `REF_FRAME_EPOCH` loads in the corresponding of-epoch frame; its
+    /// samples are stored unchanged.
     ///
     /// # Arguments
     ///
@@ -413,7 +316,7 @@ impl OEM {
             ))
         })?;
 
-        let (frame, frozen_epoch) = odm_celestial_frame(
+        let frame = odm_celestial_frame(
             &segment.metadata.ref_frame,
             segment.metadata.ref_frame_epoch,
             NAIFId::from_name(&segment.metadata.center_name)?,
@@ -424,7 +327,7 @@ impl OEM {
         traj.name = Some(segment.metadata.object_name.clone());
 
         for sv in &segment.states {
-            let mut x = SVector6::new(
+            let x = SVector6::new(
                 sv.position[0],
                 sv.position[1],
                 sv.position[2],
@@ -432,9 +335,6 @@ impl OEM {
                 sv.velocity[1],
                 sv.velocity[2],
             );
-            if let Some(epc) = frozen_epoch {
-                x = state_frame_to_frame(CelestialFrame::TOD, CelestialFrame::GCRF, epc, x)?;
-            }
             traj.add(sv.epoch, DVector::from_column_slice(x.as_slice()))?;
         }
 
@@ -470,7 +370,7 @@ impl OEM {
             ))
         })?;
 
-        let (frame, frozen_epoch) = odm_celestial_frame(
+        let frame = odm_celestial_frame(
             &segment.metadata.ref_frame,
             segment.metadata.ref_frame_epoch,
             NAIFId::from_name(&segment.metadata.center_name)?,
@@ -481,7 +381,7 @@ impl OEM {
         traj.name = Some(segment.metadata.object_name.clone());
 
         for sv in &segment.states {
-            let mut state = SVector6::new(
+            let state = SVector6::new(
                 sv.position[0],
                 sv.position[1],
                 sv.position[2],
@@ -489,10 +389,6 @@ impl OEM {
                 sv.velocity[1],
                 sv.velocity[2],
             );
-            if let Some(epc) = frozen_epoch {
-                state =
-                    state_frame_to_frame(CelestialFrame::TOD, CelestialFrame::GCRF, epc, state)?;
-            }
             traj.add(sv.epoch, state)?;
         }
 
@@ -1437,9 +1333,11 @@ impl TryFrom<&ADMReferenceFrame> for ReferenceFrame {
     /// spacecraft frames map structurally onto unbound
     /// [`ReferenceFrame::OrbitRelative`] and [`ReferenceFrame::Body`] frames:
     /// a CCSDS message names the frame but not the object it belongs to, so
-    /// binding an [`ObjectId`] is the caller's job. All other frames return an
-    /// error; the containing message still loads and writes — only conversion
-    /// to native types is unsupported.
+    /// binding an [`ObjectId`] is the caller's job. `TEMEOFEPOCH` also returns
+    /// an error, since ADM metadata carries no reference frame epoch to
+    /// recover the frozen TEME axes. All other frames return an error; the
+    /// containing message still loads and writes — only conversion to native
+    /// types is unsupported.
     fn try_from(frame: &ADMReferenceFrame) -> Result<Self, Self::Error> {
         match frame {
             ADMReferenceFrame::Celestial(celestial) => {
@@ -1457,6 +1355,15 @@ impl TryFrom<&ADMReferenceFrame> for ReferenceFrame {
                     CCSDSCelestialBodyFrame::MoonPA(None)
                     | CCSDSCelestialBodyFrame::MoonPA(Some(440)) => CelestialFrame::LFPA,
                     CCSDSCelestialBodyFrame::MoonME => CelestialFrame::LFME,
+                    CCSDSCelestialBodyFrame::TEMEOfEpoch => {
+                        return Err(BraheError::Error(
+                            "CCSDS celestial frame 'TEMEOFEPOCH' names TEME axes frozen at an \
+                             epoch, but ADM metadata carries no reference frame epoch, so the \
+                             frozen epoch cannot be recovered; the message can still be read and \
+                             written, but not converted to native attitude types"
+                                .to_string(),
+                        ));
+                    }
                     other => {
                         return Err(BraheError::Error(format!(
                             "CCSDS celestial frame '{}' has no brahe CelestialFrame equivalent; \
@@ -1598,7 +1505,9 @@ impl TryFrom<&ReferenceFrame> for ADMReferenceFrame {
     /// ...) return an error. Orbit-relative and body frames map by
     /// kind/designator alone: an
     /// ADM frame keyword carries no object field, so a bound frame writes the
-    /// same token as its unbound counterpart and the binding is dropped.
+    /// same token as its unbound counterpart and the binding is dropped. A
+    /// celestial frame frozen at an epoch (TOD-of-epoch, TEME-of-epoch) also
+    /// returns an error, since ADM has no keyword to carry that epoch.
     fn try_from(frame: &ReferenceFrame) -> Result<Self, Self::Error> {
         match frame {
             ReferenceFrame::Celestial(reference) => {
@@ -1611,6 +1520,13 @@ impl TryFrom<&ReferenceFrame> for ADMReferenceFrame {
                     CelestialFrame::TEME => CCSDSCelestialBodyFrame::TEMEOfDate,
                     CelestialFrame::LFPA => CCSDSCelestialBodyFrame::MoonPA(None),
                     CelestialFrame::LFME => CCSDSCelestialBodyFrame::MoonME,
+                    frozen if frozen.frame_epoch().is_some() => {
+                        return Err(BraheError::Error(format!(
+                            "brahe frame '{}' is frozen at an epoch, and ADM has no keyword to \
+                             carry the frame epoch, so it cannot be written into an ADM message",
+                            frozen
+                        )));
+                    }
                     other => {
                         return Err(BraheError::Error(format!(
                             "brahe frame '{:?}' has no SANA celestial-body frame token and \
@@ -2006,9 +1922,8 @@ mod tests {
 
         // A Mars-centered MCI message resolves to the Mars-centered inertial
         // frame, and that frame writes the MCI token back out.
-        let (frame, frozen) = odm_celestial_frame(&CCSDSRefFrame::MCI, None, NAIFId::Mars).unwrap();
+        let frame = odm_celestial_frame(&CCSDSRefFrame::MCI, None, NAIFId::Mars).unwrap();
         assert_eq!(frame, CelestialFrame::MCI);
-        assert_eq!(frozen, None);
         assert_eq!(
             CCSDSRefFrame::try_from(&ReferenceFrame::from(CelestialFrame::MCI)).unwrap(),
             CCSDSRefFrame::MCI
@@ -2105,7 +2020,7 @@ mod tests {
 
     #[test]
     #[serial]
-    fn test_oem_in_tod_with_frame_epoch_loads_as_gcrf_trajectory() {
+    fn test_oem_in_tod_with_frame_epoch_loads_as_tod_of_epoch_trajectory() {
         setup_global_test_eop();
         let raw =
             OEM::from_str(&std::fs::read_to_string("test_assets/ccsds/oem/test.oem").unwrap())
@@ -2113,9 +2028,6 @@ mod tests {
         let content = std::fs::read_to_string("test_assets/ccsds/oem/test_tod_epoch.oem").unwrap();
         let oem = OEM::from_str(&content).unwrap();
         let ref_epoch = oem.segments[0].metadata.ref_frame_epoch.unwrap();
-
-        let traj = oem.segment_to_dorbit_trajectory(0).unwrap();
-        assert_eq!(traj.frame, CelestialFrame::GCRF);
 
         let sv = &raw.segments[0].states[0];
         let x_raw = SVector6::new(
@@ -2126,34 +2038,64 @@ mod tests {
             sv.velocity[1],
             sv.velocity[2],
         );
+
+        let traj = oem.segment_to_dorbit_trajectory(0).unwrap();
+        assert_eq!(traj.frame, CelestialFrame::tod_of_epoch(ref_epoch));
+        // Samples are stored unchanged in the declared frame.
+        for k in 0..6 {
+            assert_eq!(traj.states[0][k], x_raw[k]);
+        }
+        let e = traj.epochs[0];
+        let x_gcrf = traj.state_gcrf(e).unwrap();
         let expected = state_tod_to_gcrf(ref_epoch, x_raw);
         for k in 0..6 {
-            assert_abs_diff_eq!(traj.states[0][k], expected[k], epsilon = 1e-9);
+            assert_abs_diff_eq!(x_gcrf[k], expected[k], epsilon = 1e-9);
         }
-
+        let of_date = state_tod_to_gcrf(e, x_raw);
+        assert!((expected.fixed_rows::<3>(0) - of_date.fixed_rows::<3>(0)).norm() > 1.0);
         let straj = oem.segment_to_sorbit_trajectory(0).unwrap();
-        assert_eq!(straj.frame, CelestialFrame::GCRF);
-        for k in 0..6 {
-            assert_abs_diff_eq!(straj.states[0][k], expected[k], epsilon = 1e-9);
-        }
-
-        // The of-date rotation at the sample epoch is a different rotation, so
-        // the frozen frame epoch is what the conversion honors.
-        let of_date = state_tod_to_gcrf(traj.epochs[0], x_raw);
-        assert!(
-            (expected.fixed_rows::<3>(0) - of_date.fixed_rows::<3>(0)).norm() > 1.0,
-            "frozen-epoch rotation must differ from the of-date rotation"
-        );
-
+        assert_eq!(straj.frame, CelestialFrame::tod_of_epoch(ref_epoch));
         clear_object_registry();
         oem.register_for("TOD_EPOCH_SAT").unwrap();
-        let (registered_frame, x_reg) =
-            object_state(&"TOD_EPOCH_SAT".into(), traj.epochs[0]).unwrap();
-        assert_eq!(registered_frame, CelestialFrame::GCRF);
+        let (registered_frame, x_reg) = object_state(&"TOD_EPOCH_SAT".into(), e).unwrap();
+        assert_eq!(registered_frame, CelestialFrame::tod_of_epoch(ref_epoch));
         for k in 0..6 {
-            assert_abs_diff_eq!(x_reg[k], expected[k], epsilon = 1e-9);
+            assert_eq!(x_reg[k], x_raw[k]);
         }
         clear_object_registry();
+    }
+
+    #[test]
+    #[serial]
+    fn test_oem_in_teme_with_frame_epoch_loads_as_teme_of_epoch_trajectory() {
+        setup_global_test_eop();
+        let content = std::fs::read_to_string("test_assets/ccsds/oem/test_tod_epoch.oem").unwrap();
+        let mut oem = OEM::from_str(&content).unwrap();
+        oem.segments[0].metadata.ref_frame = CCSDSRefFrame::TEME;
+        let ref_epoch = oem.segments[0].metadata.ref_frame_epoch.unwrap();
+
+        let sv = &oem.segments[0].states[0];
+        let x_raw = SVector6::new(
+            sv.position[0],
+            sv.position[1],
+            sv.position[2],
+            sv.velocity[0],
+            sv.velocity[1],
+            sv.velocity[2],
+        );
+
+        let traj = oem.segment_to_dorbit_trajectory(0).unwrap();
+        assert_eq!(traj.frame, CelestialFrame::teme_of_epoch(ref_epoch));
+        // Samples are stored unchanged in the declared frame.
+        for k in 0..6 {
+            assert_eq!(traj.states[0][k], x_raw[k]);
+        }
+        let e = traj.epochs[0];
+        let x_gcrf = traj.state_gcrf(e).unwrap();
+        let expected = state_teme_to_gcrf(ref_epoch, x_raw);
+        for k in 0..6 {
+            assert_abs_diff_eq!(x_gcrf[k], expected[k], epsilon = 1e-9);
+        }
     }
 
     #[test]
@@ -2231,41 +2173,29 @@ mod tests {
     #[parallel]
     fn test_odm_celestial_frame_earth_center_tokens() {
         assert_eq!(
-            odm_celestial_frame(&CCSDSRefFrame::EME2000, None, NAIFId::Earth)
-                .unwrap()
-                .0,
+            odm_celestial_frame(&CCSDSRefFrame::EME2000, None, NAIFId::Earth).unwrap(),
             CelestialFrame::EME2000
         );
         assert_eq!(
-            odm_celestial_frame(&CCSDSRefFrame::GCRF, None, NAIFId::Earth)
-                .unwrap()
-                .0,
+            odm_celestial_frame(&CCSDSRefFrame::GCRF, None, NAIFId::Earth).unwrap(),
             CelestialFrame::GCRF
         );
         assert_eq!(
-            odm_celestial_frame(&CCSDSRefFrame::ITRF2000, None, NAIFId::Earth)
-                .unwrap()
-                .0,
+            odm_celestial_frame(&CCSDSRefFrame::ITRF2000, None, NAIFId::Earth).unwrap(),
             CelestialFrame::ITRF
         );
         assert_eq!(
-            odm_celestial_frame(&CCSDSRefFrame::J2000, None, NAIFId::Earth)
-                .unwrap()
-                .0,
+            odm_celestial_frame(&CCSDSRefFrame::J2000, None, NAIFId::Earth).unwrap(),
             CelestialFrame::EME2000
         );
         assert_eq!(
-            odm_celestial_frame(&CCSDSRefFrame::TOD, None, NAIFId::Earth)
-                .unwrap()
-                .0,
+            odm_celestial_frame(&CCSDSRefFrame::TOD, None, NAIFId::Earth).unwrap(),
             CelestialFrame::TOD
         );
         // Orbit-relative frames should fail
         assert!(odm_celestial_frame(&CCSDSRefFrame::RTN, None, NAIFId::Earth).is_err());
         assert_eq!(
-            odm_celestial_frame(&CCSDSRefFrame::TEME, None, NAIFId::Earth)
-                .unwrap()
-                .0,
+            odm_celestial_frame(&CCSDSRefFrame::TEME, None, NAIFId::Earth).unwrap(),
             CelestialFrame::TEME
         );
     }
@@ -2274,9 +2204,7 @@ mod tests {
     #[parallel]
     fn test_odm_celestial_frame_center_names() {
         assert_eq!(
-            odm_celestial_frame(&CCSDSRefFrame::EME2000, None, NAIFId::Mars)
-                .unwrap()
-                .0,
+            odm_celestial_frame(&CCSDSRefFrame::EME2000, None, NAIFId::Mars).unwrap(),
             CelestialFrame::centered(499, FrameAxes::EME2000)
         );
         // Callers holding a CENTER_NAME resolve it with `NAIFId::from_name`
@@ -2288,8 +2216,7 @@ mod tests {
                 None,
                 NAIFId::from_name("earth").unwrap()
             )
-            .unwrap()
-            .0,
+            .unwrap(),
             CelestialFrame::GCRF
         );
         assert_eq!(
@@ -2298,8 +2225,7 @@ mod tests {
                 None,
                 NAIFId::from_name("499").unwrap()
             )
-            .unwrap()
-            .0,
+            .unwrap(),
             CelestialFrame::centered(499, FrameAxes::ITRF)
         );
         let err = NAIFId::from_name("PLANET X").unwrap_err();
@@ -2314,69 +2240,59 @@ mod tests {
     #[parallel]
     fn test_odm_celestial_frame_frozen_tod_mars_center() {
         let ref_epoch = Epoch::from_datetime(2019, 9, 8, 0, 0, 0.0, 0.0, TimeSystem::UTC);
-        let (frame, frozen) =
-            odm_celestial_frame(&CCSDSRefFrame::TOD, Some(ref_epoch), NAIFId::Mars).unwrap();
-        assert_eq!(frame, CelestialFrame::centered(499, FrameAxes::ICRF));
-        assert_eq!(frozen, Some(ref_epoch));
-
-        // Without a REF_FRAME_EPOCH the axes stay of-date and no conversion is
-        // requested.
-        let (frame, frozen) = odm_celestial_frame(&CCSDSRefFrame::TOD, None, NAIFId::Mars).unwrap();
-        assert_eq!(frame, CelestialFrame::centered(499, FrameAxes::TOD));
-        assert_eq!(frozen, None);
+        assert_eq!(
+            odm_celestial_frame(&CCSDSRefFrame::TOD, Some(ref_epoch), NAIFId::Mars).unwrap(),
+            CelestialFrame::centered(499, FrameAxes::TODofEpoch(ref_epoch))
+        );
+        assert_eq!(
+            odm_celestial_frame(&CCSDSRefFrame::TOD, None, NAIFId::Mars).unwrap(),
+            CelestialFrame::centered(499, FrameAxes::TOD)
+        );
+        assert_eq!(
+            odm_celestial_frame(&CCSDSRefFrame::TEME, Some(ref_epoch), NAIFId::Earth).unwrap(),
+            CelestialFrame::teme_of_epoch(ref_epoch)
+        );
+        assert_eq!(
+            odm_celestial_frame(&CCSDSRefFrame::GCRF, Some(ref_epoch), NAIFId::Earth).unwrap(),
+            CelestialFrame::GCRF
+        );
     }
 
     #[test]
     #[parallel]
-    fn test_odm_celestial_frame_teme_ignores_frame_epoch() {
-        // TEME has no frozen counterpart, so a REF_FRAME_EPOCH is ignored and
-        // the states are loaded as of-date TEME axes.
-        let ref_epoch = Epoch::from_datetime(2019, 9, 8, 0, 0, 0.0, 0.0, TimeSystem::UTC);
-        let (frame, frozen) =
-            odm_celestial_frame(&CCSDSRefFrame::TEME, Some(ref_epoch), NAIFId::Earth).unwrap();
-        assert_eq!(frame, CelestialFrame::TEME);
-        assert_eq!(frozen, None);
+    fn test_of_epoch_frames_write_parent_odm_tokens() {
+        let e = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        assert_eq!(
+            CCSDSRefFrame::try_from(&ReferenceFrame::from(CelestialFrame::tod_of_epoch(e)))
+                .unwrap(),
+            CCSDSRefFrame::TOD
+        );
+        assert_eq!(
+            CCSDSRefFrame::try_from(&ReferenceFrame::from(CelestialFrame::teme_of_epoch(e)))
+                .unwrap(),
+            CCSDSRefFrame::TEME
+        );
     }
 
     #[test]
     #[serial] // EOP global
-    fn test_segment_celestial_frame_and_state_for_segment() {
+    fn test_segment_celestial_frame() {
         setup_global_test_eop();
 
-        // A segment with no REF_FRAME_EPOCH stores its state as is.
         let oem = OEM::from_file("test_assets/ccsds/oem/OEMExample4.txt").unwrap();
         let metadata = &oem.segments[0].metadata;
-        let (frame, frozen) = segment_celestial_frame(metadata).unwrap();
-        assert_eq!(frame, CelestialFrame::centered(499, FrameAxes::EME2000));
-        assert_eq!(frozen, None);
-        let x = SVector6::new(4.0e6, 1.0e6, 2.0e6, 1.0e3, 2.0e3, 3.0e3);
-        assert_eq!(state_for_segment(metadata, x).unwrap(), x);
+        assert_eq!(
+            segment_celestial_frame(metadata).unwrap(),
+            CelestialFrame::centered(499, FrameAxes::EME2000)
+        );
 
-        // A frozen-TOD segment reads from TOD at REF_FRAME_EPOCH, so writing
-        // is the inverse rotation at that same epoch.
         let frozen_oem = OEM::from_file("test_assets/ccsds/oem/test_tod_epoch.oem").unwrap();
         let metadata = &frozen_oem.segments[0].metadata;
         let ref_epoch = Epoch::from_datetime(2019, 9, 8, 0, 0, 0.0, 0.0, TimeSystem::UTC);
-        let (frame, frozen) = segment_celestial_frame(metadata).unwrap();
-        assert_eq!(frame, CelestialFrame::GCRF);
-        assert_eq!(frozen, Some(ref_epoch));
-
-        let stored = state_for_segment(metadata, x).unwrap();
-        let expected =
-            state_frame_to_frame(CelestialFrame::GCRF, CelestialFrame::TOD, ref_epoch, x).unwrap();
-        for k in 0..6 {
-            assert_abs_diff_eq!(stored[k], expected[k], epsilon = 1e-9);
-        }
-        assert_eq!(state_into_segment_axes(frozen, x).unwrap(), stored);
-        assert_eq!(state_into_segment_axes(None, x).unwrap(), x);
-
-        // Reading the stored state back returns the original state.
-        let read_back =
-            state_frame_to_frame(CelestialFrame::TOD, CelestialFrame::GCRF, ref_epoch, stored)
-                .unwrap();
-        for k in 0..6 {
-            assert_abs_diff_eq!(read_back[k], x[k], epsilon = 1e-6);
-        }
+        assert_eq!(
+            segment_celestial_frame(metadata).unwrap(),
+            CelestialFrame::tod_of_epoch(ref_epoch)
+        );
     }
 
     #[test]
@@ -2388,14 +2304,6 @@ mod tests {
         let metadata = &oem.segments[0].metadata;
 
         let err = segment_celestial_frame(metadata).unwrap_err();
-        assert!(
-            err.to_string().contains("PLANET X"),
-            "unexpected center-name message: {}",
-            err
-        );
-
-        let x = SVector6::new(4.0e6, 1.0e6, 2.0e6, 1.0e3, 2.0e3, 3.0e3);
-        let err = state_for_segment(metadata, x).unwrap_err();
         assert!(
             err.to_string().contains("PLANET X"),
             "unexpected center-name message: {}",
@@ -2651,6 +2559,21 @@ mod tests {
     fn test_reference_frame_to_adm_frame_unsupported() {
         let frame = ReferenceFrame::Celestial(CelestialFrame::EMR);
         assert!(ADMReferenceFrame::try_from(&frame).is_err());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_adm_teme_of_epoch_has_no_native_frame() {
+        let err = ReferenceFrame::try_from(&ADMReferenceFrame::parse("TEMEOFEPOCH")).unwrap_err();
+        assert!(err.to_string().contains("reference frame epoch"), "{err}");
+        let e = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        for frame in [
+            CelestialFrame::teme_of_epoch(e),
+            CelestialFrame::tod_of_epoch(e),
+        ] {
+            let err = ADMReferenceFrame::try_from(&ReferenceFrame::from(frame)).unwrap_err();
+            assert!(err.to_string().contains("frame epoch"), "{err}");
+        }
     }
 
     #[test]

@@ -15,7 +15,7 @@ use crate::ccsds::common::{
     CCSDSUserDefined, ODMHeader,
 };
 use crate::ccsds::interop::odm_celestial_frame;
-use crate::frames::{CelestialFrame, ReferenceFrame, state_frame_to_frame};
+use crate::frames::{ReferenceFrame, state_frame_to_frame};
 use crate::math::SVector6;
 use crate::spice::NAIFId;
 use crate::time::Epoch;
@@ -234,9 +234,9 @@ impl OPM {
     /// converts to any frame the router reaches from Moon-centered EME2000
     /// axes.
     ///
-    /// A `TOD` message that also carries a `REF_FRAME_EPOCH` names the
-    /// true-of-date axes frozen at that epoch. Its state is converted from
-    /// `TOD` at the frame epoch before routing.
+    /// A `TOD` or `TEME` message that also carries a `REF_FRAME_EPOCH` is
+    /// expressed in the corresponding of-epoch frame, which the router
+    /// converts to `frame` directly.
     ///
     /// # Arguments
     /// * `frame`: Target frame
@@ -260,17 +260,14 @@ impl OPM {
     /// let x_gcrf = opm.state_in_frame(CelestialFrame::GCRF).unwrap();
     /// ```
     pub fn state_in_frame(&self, frame: impl Into<ReferenceFrame>) -> Result<SVector6, BraheError> {
-        let (message_frame, frozen_epoch) = odm_celestial_frame(
+        let message_frame = odm_celestial_frame(
             &self.metadata.ref_frame,
             self.metadata.ref_frame_epoch,
             NAIFId::from_name(&self.metadata.center_name)?,
         )?;
         let p = self.state_vector.position;
         let v = self.state_vector.velocity;
-        let mut x = SVector6::new(p[0], p[1], p[2], v[0], v[1], v[2]);
-        if let Some(epc) = frozen_epoch {
-            x = state_frame_to_frame(CelestialFrame::TOD, CelestialFrame::GCRF, epc, x)?;
-        }
+        let x = SVector6::new(p[0], p[1], p[2], v[0], v[1], v[2]);
         state_frame_to_frame(message_frame, frame, self.state_vector.epoch, x)
     }
 
@@ -426,18 +423,15 @@ mod tests {
 
         // ICRF and GCRF name the same orientation, so both tokens resolve to
         // the ICRF axes and the center chooses the origin.
-        let (frame, frozen) = odm_celestial_frame(
+        let frame = odm_celestial_frame(
             &opm.metadata.ref_frame,
             opm.metadata.ref_frame_epoch,
             NAIFId::from_name(&opm.metadata.center_name).unwrap(),
         )
         .unwrap();
         assert_eq!(frame, CelestialFrame::SSBI);
-        assert_eq!(frozen, None);
         assert_eq!(
-            odm_celestial_frame(&opm.metadata.ref_frame, None, NAIFId::Earth)
-                .unwrap()
-                .0,
+            odm_celestial_frame(&opm.metadata.ref_frame, None, NAIFId::Earth).unwrap(),
             CelestialFrame::GCRF
         );
 
@@ -472,6 +466,41 @@ mod tests {
         assert!(
             (gcrf.fixed_rows::<3>(0) - of_date.fixed_rows::<3>(0)).norm() > 1.0,
             "frozen-epoch rotation must differ from the of-date rotation"
+        );
+
+        // The message data is expressed in the frozen frame directly, so
+        // requesting that frame back returns it unchanged.
+        assert_eq!(
+            opm.state_in_frame(CelestialFrame::tod_of_epoch(ref_epoch))
+                .unwrap(),
+            x
+        );
+    }
+
+    #[test]
+    #[serial]
+    fn test_opm_state_in_frame_teme_of_epoch() {
+        setup_global_test_eop();
+        let mut opm = OPM::from_file("test_assets/ccsds/opm/OPMExample2_ref_epoch.txt").unwrap();
+        opm.metadata.ref_frame = CCSDSRefFrame::TEME;
+        let ref_epoch = opm.metadata.ref_frame_epoch.unwrap();
+
+        let p = opm.state_vector.position;
+        let v = opm.state_vector.velocity;
+        let x = SVector6::new(p[0], p[1], p[2], v[0], v[1], v[2]);
+
+        let gcrf = opm.state_in_frame(CelestialFrame::GCRF).unwrap();
+        let expected = state_teme_to_gcrf(ref_epoch, x);
+        for k in 0..6 {
+            assert_abs_diff_eq!(gcrf[k], expected[k], epsilon = 1e-9);
+        }
+
+        // The message data is expressed in the frozen frame directly, so
+        // requesting that frame back returns it unchanged.
+        assert_eq!(
+            opm.state_in_frame(CelestialFrame::teme_of_epoch(ref_epoch))
+                .unwrap(),
+            x
         );
     }
 

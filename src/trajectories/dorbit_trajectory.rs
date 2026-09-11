@@ -2623,6 +2623,7 @@ mod tests {
     use crate::coordinates::{state_eci_to_koe, state_koe_to_eci};
     use crate::frames::{
         state_gcrf_to_itrf, state_gcrf_to_mod, state_gcrf_to_teme, state_gcrf_to_tod,
+        state_tod_to_gcrf,
     };
     use crate::time::{Epoch, TimeSystem};
     use crate::utils::testing::setup_global_test_eop;
@@ -2953,6 +2954,42 @@ mod tests {
         assert_abs_diff_eq!(state_kep[6], 11.0, epsilon = 1e-10);
         assert_abs_diff_eq!(state_kep[7], 22.0, epsilon = 1e-10);
         assert_abs_diff_eq!(state_kep[8], 33.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    #[serial]
+    fn test_trajectory_in_of_epoch_frame_round_trips() {
+        setup_global_test_eop();
+        let e = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let mut traj = DOrbitTrajectory::new(
+            6,
+            CelestialFrame::tod_of_epoch(e),
+            OrbitRepresentation::Cartesian,
+            None,
+        )
+        .unwrap();
+        let x = DVector::from_vec(vec![R_EARTH + 500e3, 1.0e6, -2.0e6, 100.0, 7500.0, 200.0]);
+        traj.add(e + 60.0, x.clone()).unwrap();
+
+        // The frame survives a serde round trip.
+        let json = serde_json::to_string(&traj.frame).unwrap();
+        assert_eq!(
+            serde_json::from_str::<ReferenceFrame>(&json).unwrap(),
+            ReferenceFrame::from(CelestialFrame::tod_of_epoch(e))
+        );
+
+        // Converting to GCRF evaluates the rotation at the frozen epoch, not
+        // at the sample epoch.
+        let traj_gcrf = traj.to_frame(CelestialFrame::GCRF).unwrap();
+        let (_, state_gcrf) = traj_gcrf.get(0).unwrap();
+        let expected = state_tod_to_gcrf(e, dvec_to_svec6(x.clone()));
+        for k in 0..6 {
+            assert_abs_diff_eq!(state_gcrf[k], expected[k], epsilon = 1e-9);
+        }
+
+        // The of-epoch frame is preserved through a representation change.
+        let traj_kep = traj.to_keplerian(AngleFormat::Degrees).unwrap();
+        assert_eq!(traj_kep.frame, CelestialFrame::tod_of_epoch(e));
     }
 
     #[test]

@@ -74,10 +74,11 @@ pub(crate) fn bci_fixed_frame(center: i32) -> Option<CelestialFrame> {
 /// defined.
 ///
 /// Elements are accepted in any celestial frame whose axes are `ICRF`,
-/// `EME2000`, `MOD`, `TOD`, or `TEME`, at any center. The ICRF and EME2000
-/// axes are fixed, and the of-date axes drift slowly enough with precession
-/// and nutation that elements about them are well defined. Every other frame
-/// (body-fixed, orbit-relative, body) is rejected.
+/// `EME2000`, `MOD`, `TOD`, `TEME`, `TODofEpoch`, or `TEMEofEpoch`, at any
+/// center. The ICRF and EME2000 axes are fixed, and the of-date axes drift
+/// slowly enough with precession and nutation that elements about them are
+/// well defined; the of-epoch axes are frozen and therefore inertial as
+/// well. Every other frame (body-fixed, orbit-relative, body) is rejected.
 ///
 /// # Arguments
 /// * `frame` - Frame the elements are declared in
@@ -95,6 +96,8 @@ pub(crate) fn keplerian_center(frame: &ReferenceFrame) -> Result<i32, BraheError
                     | FrameAxes::MOD
                     | FrameAxes::TOD
                     | FrameAxes::TEME
+                    | FrameAxes::TODofEpoch(_)
+                    | FrameAxes::TEMEofEpoch(_)
             ) =>
         {
             Ok(c.center_naif_id())
@@ -998,6 +1001,7 @@ pub trait SensitivityStorage: Trajectory {
 mod tests {
     use super::*;
     use crate::spice::NAIFId;
+    use crate::time::TimeSystem;
     use serial_test::parallel;
 
     // =========================================================================
@@ -1120,6 +1124,18 @@ mod tests {
         );
         assert_eq!(
             keplerian_center(&CelestialFrame::centered(499, FrameAxes::TEME).into()).unwrap(),
+            499
+        );
+        // The of-epoch axes are accepted at any center too, since they are
+        // inertial (frozen), the same reasoning as the of-date axes.
+        let e = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        assert_eq!(
+            keplerian_center(&CelestialFrame::tod_of_epoch(e).into()).unwrap(),
+            399
+        );
+        assert_eq!(
+            keplerian_center(&CelestialFrame::centered(499, FrameAxes::TEMEofEpoch(e)).into())
+                .unwrap(),
             499
         );
         // Body-fixed axes about that same body are still rejected.

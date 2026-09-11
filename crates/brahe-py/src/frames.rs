@@ -4502,13 +4502,18 @@ fn py_state_gse_to_gcrf<'py>(
 /// The argument-free orientations are class attributes (`ICRF`, `EME2000`,
 /// `MOD`, `TOD`, `TEME`, `ITRF`, `LunarPA`, `LunarME`, `MarsFixed`, `EMR`,
 /// `SER`, `GSE`); the parameterized ones are built with `BodyFixedIAU(naif_id)`,
-/// `BodyFixedPCK(frame_id)`, `BodyFixedCustom(key)` and
-/// `Synodic(primary, secondary)`.
+/// `BodyFixedPCK(frame_id)`, `BodyFixedCustom(key)`,
+/// `Synodic(primary, secondary)`, `TODofEpoch(epoch)` and `TEMEofEpoch(epoch)`.
 ///
 /// Rotating axes (`ITRF`, the body-fixed families, and the synodic
 /// families) carry transport-velocity terms that depend only on the axes'
 /// angular velocity, so they apply unchanged to a frame centered on a body
 /// other than the orientation's usual center.
+///
+/// `TODofEpoch(epoch)` and `TEMEofEpoch(epoch)` freeze the TOD and TEME
+/// axes at `epoch`, so the resulting axes are inertial rather than
+/// of-date; `frame_epoch` reads the frozen epoch back, returning `None`
+/// for every other orientation.
 ///
 /// Example:
 ///     ```python
@@ -4615,6 +4620,50 @@ impl PyFrameAxes {
         PyFrameAxes { axes: frames::FrameAxes::BodyFixedIAU(naif_id) }
     }
 
+    /// Earth true equator and equinox frozen at `epoch`: the TOD axes
+    /// evaluated once at that epoch and held fixed, so the axes are inertial.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Epoch at which the TOD axes are frozen
+    ///
+    /// Returns:
+    ///     FrameAxes: The TOD axes of `epoch`
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     e = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+    ///     axes = bh.FrameAxes.TODofEpoch(e)
+    ///     assert axes.frame_epoch == e
+    ///     ```
+    #[staticmethod]
+    #[allow(non_snake_case)]
+    fn TODofEpoch(epoch: &PyEpoch) -> Self {
+        PyFrameAxes { axes: frames::FrameAxes::TODofEpoch(epoch.obj) }
+    }
+
+    /// TEME axes frozen at `epoch` and held fixed, so the axes are inertial.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Epoch at which the TEME axes are frozen
+    ///
+    /// Returns:
+    ///     FrameAxes: The TEME axes of `epoch`
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     e = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+    ///     axes = bh.FrameAxes.TEMEofEpoch(e)
+    ///     ```
+    #[staticmethod]
+    #[allow(non_snake_case)]
+    fn TEMEofEpoch(epoch: &PyEpoch) -> Self {
+        PyFrameAxes { axes: frames::FrameAxes::TEMEofEpoch(epoch.obj) }
+    }
+
     /// Body-fixed axes evaluated from a loaded binary PCK's frame class ID.
     ///
     /// Args:
@@ -4658,12 +4707,21 @@ impl PyFrameAxes {
         PyFrameAxes { axes: frames::FrameAxes::Synodic { primary, secondary } }
     }
 
+    /// Epoch at which epoch-frozen axes are held fixed.
+    ///
+    /// Returns:
+    ///     Optional[Epoch]: The frozen epoch for `TODofEpoch` and `TEMEofEpoch`, or `None` for every other orientation
+    #[getter]
+    fn frame_epoch(&self) -> Option<PyEpoch> {
+        self.axes.frame_epoch().map(|obj| PyEpoch { obj })
+    }
+
     /// Parses `FrameAxes` from its string representation (the twelve
     /// argument-free names, case-insensitively).
     ///
     /// The parameterized variants are not parseable from a string;
     /// construct them with `BodyFixedIAU`, `BodyFixedPCK`,
-    /// `BodyFixedCustom` or `Synodic`.
+    /// `BodyFixedCustom`, `Synodic`, `TODofEpoch` or `TEMEofEpoch`.
     ///
     /// Args:
     ///     s (str): String representation of the axes
@@ -4910,6 +4968,12 @@ impl PySynodicOrigin {
 /// -> Moon (301); MCI/MCMF -> Mars (499); EMBI -> 3; SSBI ->
 /// 0; `BodyCenteredICRF(id)`/`BodyFixedIAU(id)` -> `id`; `BodyFixedPCK` ->
 /// its `center`.
+///
+/// `tod_of_epoch(epoch)` and `teme_of_epoch(epoch)` build Earth-centered
+/// frames whose axes are the TOD or TEME axes frozen at `epoch`
+/// (`Centered(399, FrameAxes.TODofEpoch(epoch))` and
+/// `Centered(399, FrameAxes.TEMEofEpoch(epoch))`); `frame_epoch` reads the
+/// frozen epoch back, returning `None` for every other frame.
 ///
 /// Example:
 ///     ```python
@@ -5215,6 +5279,49 @@ impl PyCelestialFrame {
         })
     }
 
+    /// Earth-centered frame whose axes are the true equator and equinox of
+    /// date frozen at `epoch`: `Centered(399, FrameAxes.TODofEpoch(epoch))`.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Epoch at which the TOD axes are frozen
+    ///
+    /// Returns:
+    ///     CelestialFrame: Inertial Earth-centered frame with the TOD axes of `epoch`
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     e = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+    ///     frame = bh.CelestialFrame.tod_of_epoch(e)
+    ///     assert frame.frame_epoch == e
+    ///     ```
+    #[staticmethod]
+    fn tod_of_epoch(epoch: &PyEpoch) -> Self {
+        PyCelestialFrame { frame: frames::CelestialFrame::tod_of_epoch(epoch.obj) }
+    }
+
+    /// Earth-centered frame whose axes are TEME frozen at `epoch`:
+    /// `Centered(399, FrameAxes.TEMEofEpoch(epoch))`.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Epoch at which the TEME axes are frozen
+    ///
+    /// Returns:
+    ///     CelestialFrame: Inertial Earth-centered frame with the TEME axes of `epoch`
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     e = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+    ///     frame = bh.CelestialFrame.teme_of_epoch(e)
+    ///     ```
+    #[staticmethod]
+    fn teme_of_epoch(epoch: &PyEpoch) -> Self {
+        PyCelestialFrame { frame: frames::CelestialFrame::teme_of_epoch(epoch.obj) }
+    }
+
     /// Orientation of this frame's axes, independent of its origin.
     ///
     /// Returns:
@@ -5222,6 +5329,15 @@ impl PyCelestialFrame {
     #[getter]
     fn axes(&self) -> PyFrameAxes {
         PyFrameAxes { axes: self.frame.axes() }
+    }
+
+    /// Epoch at which this frame's axes are held fixed.
+    ///
+    /// Returns:
+    ///     Optional[Epoch]: The frozen epoch when the axes are `TODofEpoch` or `TEMEofEpoch`, or `None` for every other frame
+    #[getter]
+    fn frame_epoch(&self) -> Option<PyEpoch> {
+        self.frame.frame_epoch().map(|obj| PyEpoch { obj })
     }
 
     /// Body or barycenter at this frame's origin.

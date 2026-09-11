@@ -904,6 +904,30 @@ class TestSGPPropagatorStateProviderTrait:
         raw = prop.state(e)
         np.testing.assert_allclose(stored, raw, atol=1e-9, rtol=0)
 
+    def test_sgppropagator_output_format_tod_of_epoch(
+        self, iss_tle, eop_original_brahe
+    ):
+        """Trajectory stores TOD-of-epoch states frozen at the initial epoch."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+        e = prop.epoch
+        prop.set_output_format(
+            brahe.CelestialFrame.tod_of_epoch(e),
+            brahe.OrbitRepresentation.CARTESIAN,
+            None,
+        )
+        prop.propagate_to(prop.epoch + 120.0)
+
+        traj = prop.trajectory
+        epoch = traj.epoch_at_idx(1)
+        stored = traj.state_at_idx(1)
+        expected = brahe.state_frame_to_frame(
+            brahe.CelestialFrame.TEME,
+            brahe.CelestialFrame.tod_of_epoch(e),
+            epoch,
+            prop.state(epoch),
+        )
+        np.testing.assert_allclose(stored, expected, atol=1e-9, rtol=0)
+
 
 class TestOldBraheTLEFunctions:
     """Test standalone TLE utility functions."""

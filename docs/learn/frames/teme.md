@@ -111,6 +111,16 @@ Transform a TEME state vector from an SGP4 propagator into the ITRF:
         --8<-- "./docs/outputs/orbit_propagation/sgp_propagation/state_in_tod.rs.txt"
         ```
 
+## Of-Epoch Frames
+
+`FrameAxes.TODofEpoch(epoch)` and `FrameAxes.TEMEofEpoch(epoch)` are the TOD and TEME axes evaluated once at `epoch` and held fixed. Because the axes do not move, a frame built on them is inertial: its rotation to the GCRF is
+
+$$R_{\mathrm{GCRF} \to \mathrm{TODofEpoch}(t_0)} = R_{\mathrm{GCRF} \to \mathrm{TOD}}(t_0)$$
+
+for every transform epoch, and velocities transform by the same rotation with no transport term. `CelestialFrame.tod_of_epoch(epoch)` and `CelestialFrame.teme_of_epoch(epoch)` build the Earth-centered frames, and `CelestialFrame.Centered(center, axes)` pairs the axes with any other center. Two of-epoch axes are equal only when their epochs are equal, and `frame_epoch` returns the frozen epoch on both `FrameAxes` and `CelestialFrame`.
+
+These frames are how Brahe represents a CCSDS ODM message whose `REF_FRAME` is `TOD` or `TEME` and which also carries a `REF_FRAME_EPOCH`: the message loads in the of-epoch frame and converts only when asked. The CCSDS ADM `TEMEOFEPOCH` token cannot be mapped, because ADM metadata has no keyword for the frozen epoch.
+
 ## References
 
 - [SOFA C Transformation Cookbook](https://www.iausofa.org/s/sofa_pn_c.pdf)

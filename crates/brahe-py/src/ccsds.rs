@@ -30,27 +30,15 @@ use brahe::ccsds::frames::ADMReferenceFrame;
 use brahe::ccsds::oem::{OEM as RustOEM, OEMMetadata, OEMSegment, OEMStateVector};
 use brahe::ccsds::omm::OMM as RustOMM;
 use brahe::ccsds::opm::{OPM as RustOPM, OPMManeuver};
-use brahe::ccsds::interop::{segment_celestial_frame, state_into_segment_axes};
-use brahe::math::SVector6;
+use brahe::ccsds::interop::segment_celestial_frame;
 use brahe::trajectories::DOrbitTrajectory;
-
-/// State a trajectory writes into an OEM segment at `epoch`, in the units and
-/// axes the segment's own metadata declares.
-fn trajectory_state_for_segment(
-    segment_frame: &(CelestialFrame, Option<brahe::time::Epoch>),
-    traj: &DOrbitTrajectory,
-    epoch: &brahe::time::Epoch,
-) -> Result<SVector6, brahe::utils::BraheError> {
-    let state = traj.state_in_frame(segment_frame.0, *epoch)?;
-    state_into_segment_axes(segment_frame.1, state)
-}
 
 /// Push all states from a trajectory into an OEM segment, converting to the
 /// frame the segment's metadata declares.
 fn push_trajectory_states(seg: &mut OEMSegment, traj: &DOrbitTrajectory) -> Result<(), brahe::utils::BraheError> {
     let segment_frame = segment_celestial_frame(&seg.metadata)?;
     for epoch in traj.epochs.iter() {
-        let state = trajectory_state_for_segment(&segment_frame, traj, epoch)?;
+        let state = traj.state_in_frame(segment_frame, *epoch)?;
         seg.states.push(OEMStateVector {
             epoch: *epoch,
             position: [state[0], state[1], state[2]],
@@ -505,6 +493,7 @@ enum SegmentMode {
 ///     stop_time (Epoch): Stop time of ephemeris data
 ///     interpolation (str | None): Interpolation method
 ///     interpolation_degree (int | None): Interpolation degree
+///     ref_frame_epoch (Epoch | None): `REF_FRAME_EPOCH` value. Only meaningful when `ref_frame` is `TOD` or `TEME`, in which case it names those axes frozen at that epoch instead of of-date
 ///
 /// Example:
 ///     ```python
@@ -534,6 +523,8 @@ impl PyOEMSegment {
                 let obj_id: String = parent.bind(py).call_method1("_seg_get_object_id", (*seg_idx,))?.extract()?;
                 let ctr_name: String = parent.bind(py).call_method1("_seg_get_center_name", (*seg_idx,))?.extract()?;
                 let rf_str: String = parent.bind(py).call_method1("_seg_get_ref_frame", (*seg_idx,))?.extract()?;
+                let rf_epoch_obj = parent.bind(py).call_method1("_seg_get_ref_frame_epoch", (*seg_idx,))?;
+                let rf_epoch: Option<PyEpoch> = extract_epoch_opt(&rf_epoch_obj)?;
                 let ts_str: String = parent.bind(py).call_method1("_seg_get_time_system", (*seg_idx,))?.extract()?;
                 let start_obj = parent.bind(py).call_method1("_seg_get_start_time", (*seg_idx,))?;
                 let start: PyEpoch = extract_epoch(&start_obj)?;
@@ -565,7 +556,7 @@ impl PyOEMSegment {
                 Ok(OEMSegment {
                     metadata: OEMMetadata {
                         object_name: obj_name, object_id: obj_id, center_name: ctr_name,
-                        ref_frame: rf, ref_frame_epoch: None, time_system: ts,
+                        ref_frame: rf, ref_frame_epoch: rf_epoch.map(|e| e.obj), time_system: ts,
                         start_time: start.obj, useable_start_time: None, useable_stop_time: None, stop_time: stop.obj,
                         interpolation: interp, interpolation_degree: interp_deg,
                         comments: Vec::new(),
@@ -582,7 +573,7 @@ impl PyOEMSegment {
 #[pymethods]
 impl PyOEMSegment {
     #[new]
-    #[pyo3(signature = (object_name, object_id, center_name, ref_frame, time_system, start_time, stop_time, interpolation=None, interpolation_degree=None))]
+    #[pyo3(signature = (object_name, object_id, center_name, ref_frame, time_system, start_time, stop_time, interpolation=None, interpolation_degree=None, ref_frame_epoch=None))]
     #[allow(clippy::too_many_arguments)]
     fn new(
         object_name: String,
@@ -594,6 +585,7 @@ impl PyOEMSegment {
         stop_time: PyEpoch,
         interpolation: Option<String>,
         interpolation_degree: Option<u32>,
+        ref_frame_epoch: Option<PyEpoch>,
     ) -> PyResult<Self> {
         let rf = CCSDSRefFrame::parse(&ref_frame);
         let ts = CCSDSTimeSystem::parse(&time_system).map_err(|e| {
@@ -607,7 +599,7 @@ impl PyOEMSegment {
                         object_id,
                         center_name,
                         ref_frame: rf,
-                        ref_frame_epoch: None,
+                        ref_frame_epoch: ref_frame_epoch.map(|e| e.obj),
                         time_system: ts,
                         start_time: start_time.obj,
                         useable_start_time: None,
@@ -733,6 +725,35 @@ impl PyOEMSegment {
             SegmentMode::Owned { data } => { data.metadata.ref_frame = CCSDSRefFrame::parse(&val); Ok(()) }
             SegmentMode::Proxy { parent, seg_idx } => {
                 parent.bind(py).call_method1("_seg_set_ref_frame", (*seg_idx, val))?; Ok(())
+            }
+        }
+    }
+
+    /// Epoch at which the segment's reference frame axes are frozen (`REF_FRAME_EPOCH`).
+    ///
+    /// Returns:
+    ///     Optional[Epoch]: The frozen frame epoch, or `None` when the segment declares none
+    #[getter]
+    fn ref_frame_epoch(&self, py: Python) -> PyResult<Option<PyEpoch>> {
+        match &self.mode {
+            SegmentMode::Owned { data } => Ok(data.metadata.ref_frame_epoch.map(|obj| PyEpoch { obj })),
+            SegmentMode::Proxy { parent, seg_idx } => {
+                let obj = parent.bind(py).call_method1("_seg_get_ref_frame_epoch", (*seg_idx,))?;
+                extract_epoch_opt(&obj)
+            }
+        }
+    }
+
+    /// Set the frozen reference frame epoch (`REF_FRAME_EPOCH`).
+    ///
+    /// Args:
+    ///     val (Epoch | None): The frozen frame epoch, or `None` to declare none
+    #[setter]
+    fn set_ref_frame_epoch(&mut self, py: Python, val: Option<PyEpoch>) -> PyResult<()> {
+        match &mut self.mode {
+            SegmentMode::Owned { data } => { data.metadata.ref_frame_epoch = val.map(|e| e.obj); Ok(()) }
+            SegmentMode::Proxy { parent, seg_idx } => {
+                parent.bind(py).call_method1("_seg_set_ref_frame_epoch", (*seg_idx, val))?; Ok(())
             }
         }
     }
@@ -1047,7 +1068,7 @@ impl PyOEMSegment {
                 let segment_frame = segment_celestial_frame(&metadata)?;
 
                 for epoch in traj.epochs.iter() {
-                    let state = trajectory_state_for_segment(&segment_frame, traj, epoch)?;
+                    let state = traj.state_in_frame(segment_frame, *epoch)?;
 
                     let pos = vec![state[0], state[1], state[2]];
                     let vel = vec![state[3], state[4], state[5]];
@@ -1693,6 +1714,7 @@ impl PyOEM {
     ///     interpolation (str | None): Interpolation method
     ///     interpolation_degree (int | None): Interpolation degree
     ///     trajectory (OrbitTrajectory | None): Optional trajectory to populate states from
+    ///     ref_frame_epoch (Epoch | None): `REF_FRAME_EPOCH` value. Only meaningful when `ref_frame` is `TOD` or `TEME`, in which case it names those axes frozen at that epoch instead of of-date. Set before `trajectory` is converted so the frozen axes are used
     ///
     /// Returns:
     ///     int: Index of the new segment
@@ -1711,7 +1733,7 @@ impl PyOEM {
     ///         trajectory=prop.trajectory,
     ///     )
     ///     ```
-    #[pyo3(signature = (object_name, object_id, center_name, ref_frame, time_system, start_time, stop_time, interpolation=None, interpolation_degree=None, trajectory=None))]
+    #[pyo3(signature = (object_name, object_id, center_name, ref_frame, time_system, start_time, stop_time, interpolation=None, interpolation_degree=None, trajectory=None, ref_frame_epoch=None))]
     #[allow(clippy::too_many_arguments)]
     fn add_segment(
         &mut self,
@@ -1725,6 +1747,7 @@ impl PyOEM {
         interpolation: Option<String>,
         interpolation_degree: Option<u32>,
         trajectory: Option<PyRef<PyOrbitalTrajectory>>,
+        ref_frame_epoch: Option<PyEpoch>,
     ) -> PyResult<usize> {
         let rf = CCSDSRefFrame::parse(&ref_frame);
         let ts = CCSDSTimeSystem::parse(&time_system).map_err(|e| {
@@ -1736,7 +1759,7 @@ impl PyOEM {
                 object_id,
                 center_name,
                 ref_frame: rf,
-                ref_frame_epoch: None,
+                ref_frame_epoch: ref_frame_epoch.map(|e| e.obj),
                 time_system: ts,
                 start_time: start_time.obj,
                 useable_start_time: None,
@@ -1823,6 +1846,15 @@ impl PyOEM {
 
     fn _seg_set_ref_frame(&mut self, idx: usize, val: String) -> PyResult<()> {
         self.get_seg_mut(idx)?.metadata.ref_frame = CCSDSRefFrame::parse(&val);
+        Ok(())
+    }
+
+    fn _seg_get_ref_frame_epoch(&self, idx: usize) -> PyResult<Option<PyEpoch>> {
+        Ok(self.get_seg(idx)?.metadata.ref_frame_epoch.map(|obj| PyEpoch { obj }))
+    }
+
+    fn _seg_set_ref_frame_epoch(&mut self, idx: usize, val: Option<PyEpoch>) -> PyResult<()> {
+        self.get_seg_mut(idx)?.metadata.ref_frame_epoch = val.map(|e| e.obj);
         Ok(())
     }
 
@@ -6068,6 +6100,15 @@ impl PyAPM {
 fn extract_epoch(obj: &pyo3::Bound<'_, pyo3::types::PyAny>) -> PyResult<PyEpoch> {
     let bound: &pyo3::Bound<'_, PyEpoch> = obj.cast()?;
     Ok(bound.borrow().clone())
+}
+
+/// Extract an `Option<PyEpoch>` from a Bound<PyAny>, treating `None` as `None`.
+fn extract_epoch_opt(obj: &pyo3::Bound<'_, pyo3::types::PyAny>) -> PyResult<Option<PyEpoch>> {
+    if obj.is_none() {
+        Ok(None)
+    } else {
+        extract_epoch(obj).map(Some)
+    }
 }
 
 /// Parse a format string into CCSDSFormat.

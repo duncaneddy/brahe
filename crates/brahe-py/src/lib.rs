@@ -605,6 +605,7 @@ include!("earth_models.rs");
 include!("spacetrack.rs");
 include!("celestrak.rs");
 include!("ccsds.rs");
+include!("itc.rs");
 include!("estimation.rs");
 
 // Define Module
@@ -1588,6 +1589,8 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyFileShareFileRecord>()?;
     module.add_class::<PyFolderRecord>()?;
     module.add_class::<PySPEphemerisFileRecord>()?;
+    module.add_class::<PyEphemerisFileName>()?;
+    module.add_class::<PyEphemerisFileCategory>()?;
     module.add_function(wrap_pyfunction!(py_spacetrack_greater_than, module)?)?;
     module.add_function(wrap_pyfunction!(py_spacetrack_less_than, module)?)?;
     module.add_function(wrap_pyfunction!(py_spacetrack_not_equal, module)?)?;
@@ -1615,6 +1618,12 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyOEMStateVector>()?;
     module.add_class::<PyOEMSegmentIterator>()?;
     module.add_class::<PyOEMStateIterator>()?;
+    module.add_class::<PyITC>()?;
+    module.add_class::<PyITCHeader>()?;
+    module.add_class::<PyITCStateVector>()?;
+    module.add_class::<PyITCCovarianceFrame>()?;
+    module.add_function(wrap_pyfunction!(py_state_frame_for_data_type, module)?)?;
+    module.add_function(wrap_pyfunction!(py_data_type_for_state_frame, module)?)?;
     module.add_class::<PyOMM>()?;
     module.add_class::<PyOPM>()?;
     module.add_class::<PyOPMManeuver>()?;

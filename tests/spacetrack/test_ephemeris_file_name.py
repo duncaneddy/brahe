@@ -1,0 +1,126 @@
+"""Tests for Space-Track ephemeris file names — parity with src/clients/spacetrack/file_name.rs."""
+
+import pytest
+
+import brahe as bh
+from brahe.spacetrack import EphemerisFileCategory, EphemerisFileName
+
+
+def test_ephemeris_file_name_parse_starlink():
+    name = EphemerisFileName.parse(
+        "MEME_100001_STARLINK-38128_2540142_Operational_1473385380_UNCLASSIFIED.txt"
+    )
+    assert name.data_type == "MEME"
+    assert name.norad_cat_id == 100001
+    assert name.object_name == "STARLINK-38128"
+    assert (name.day_of_year, name.hour, name.minute) == (254, 1, 42)
+    assert name.category == EphemerisFileCategory.OPERATIONAL
+    assert name.metadata == "1473385380"
+    assert name.classification == "UNCLASSIFIED"
+    assert name.extension == "txt"
+
+
+def test_ephemeris_file_name_parse_handbook_examples():
+    a = EphemerisFileName.parse("MEME_25544_ISS_1651200_oper__unclassified.txt")
+    assert (a.norad_cat_id, a.object_name, a.metadata, a.classification) == (
+        25544,
+        "ISS",
+        "",
+        "unclassified",
+    )
+    assert (a.day_of_year, a.hour, a.minute) == (165, 12, 0)
+    b = EphemerisFileName.parse(
+        "MEME_25544_ISS(ZARYA)_1651200_operational_nomnvr_UNCLASSIFIED.txt"
+    )
+    assert (b.object_name, b.metadata) == ("ISS(ZARYA)", "nomnvr")
+    c = EphemerisFileName.parse(
+        "MEME_799500234_Sat1_1651200_special_separation_unclassified.txt"
+    )
+    assert (c.norad_cat_id, c.category, c.metadata) == (
+        799500234,
+        EphemerisFileCategory.SPECIAL,
+        "separation",
+    )
+
+
+def test_ephemeris_file_name_parse_object_name_with_underscores():
+    name = EphemerisFileName.parse(
+        "MEME_12345_MY_SAT_A_0010530_Special_burn02_UNCLASSIFIED.txt"
+    )
+    assert name.object_name == "MY_SAT_A"
+    assert (name.day_of_year, name.hour, name.minute) == (1, 5, 30)
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        "MEME_25544_ISS_1651200_oper__unclassified",
+        "MEME_25544_ISS_1651200_oper.txt",
+        "MEME_abc_ISS_1651200_oper__unclassified.txt",
+        "MEME_25544_ISS_165120_oper__unclassified.txt",
+        "MEME_25544_ISS_1652500_oper__unclassified.txt",
+        "MEME_25544_ISS_1651260_oper__unclassified.txt",
+        "MEME_25544_ISS_3671200_oper__unclassified.txt",
+        "MEME_25544_ISS_1651200_planned__unclassified.txt",
+        "MEME_25544__1651200_oper__unclassified.txt",
+    ],
+)
+def test_ephemeris_file_name_parse_errors(bad):
+    with pytest.raises(bh.BraheError):
+        EphemerisFileName.parse(bad)
+
+
+def test_ephemeris_file_name_new_and_display():
+    start = bh.Epoch(2026, 9, 11, 1, 42, 42.0, 0.0)
+    name = EphemerisFileName(
+        100001, "STARLINK-38128", start, EphemerisFileCategory.OPERATIONAL, "1473385380"
+    )
+    assert (
+        str(name)
+        == "MEME_100001_STARLINK-38128_2540142_Operational_1473385380_UNCLASSIFIED.txt"
+    )
+    padded = EphemerisFileName(
+        900, "CALSPHERE 1", start, EphemerisFileCategory.SPECIAL, ""
+    )
+    assert str(padded) == "MEME_00900_CALSPHERE 1_2540142_Special__UNCLASSIFIED.txt"
+    custom = (
+        EphemerisFileName(
+            25544, "ISS", start, EphemerisFileCategory.OPERATIONAL, "nomnvr"
+        )
+        .with_data_type("TEME")
+        .with_classification("unclassified")
+        .with_extension("dat")
+    )
+    assert str(custom) == "TEME_25544_ISS_2540142_Operational_nomnvr_unclassified.dat"
+
+
+@pytest.mark.parametrize(
+    "original",
+    [
+        "MEME_100001_STARLINK-38128_2540142_Operational_1473385380_UNCLASSIFIED.txt",
+        "MEME_69995_STARLINK-38084_2540139_Operational_1473385200_UNCLASSIFIED.txt",
+        "MEME_799501571_STARLINK-36331_2540207_Operational_1473386880_UNCLASSIFIED.txt",
+    ],
+)
+def test_ephemeris_file_name_round_trip(original):
+    assert str(EphemerisFileName.parse(original)) == original
+
+
+def test_ephemeris_file_name_uses_utc_for_day_time_group():
+    start = bh.Epoch(2026, 9, 11, 1, 42, 42.0, 0.0)
+    in_tai = bh.Epoch(2026, 9, 11, 1, 43, 19.0, 0.0, time_system=bh.TimeSystem.TAI)
+    a = EphemerisFileName(1, "A", start, EphemerisFileCategory.OPERATIONAL, "")
+    b = EphemerisFileName(1, "A", in_tai, EphemerisFileCategory.OPERATIONAL, "")
+    assert str(a) == str(b)
+
+
+def test_ephemeris_file_category_parse_and_display():
+    assert EphemerisFileCategory.parse("oper") == EphemerisFileCategory.OPERATIONAL
+    assert (
+        EphemerisFileCategory.parse("OPERATIONAL") == EphemerisFileCategory.OPERATIONAL
+    )
+    assert EphemerisFileCategory.parse("Special") == EphemerisFileCategory.SPECIAL
+    with pytest.raises(bh.BraheError):
+        EphemerisFileCategory.parse("planned")
+    assert str(EphemerisFileCategory.OPERATIONAL) == "Operational"
+    assert str(EphemerisFileCategory.SPECIAL) == "Special"

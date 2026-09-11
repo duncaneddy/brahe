@@ -2041,6 +2041,9 @@ impl PyEphemerisFileName {
     ///
     /// Returns:
     ///     EphemerisFileName: The populated name.
+    ///
+    /// Raises:
+    ///     BraheError: If ``object_name`` is empty or contains ``/``, or ``metadata`` contains ``_`` or ``/``.
     #[new]
     fn new(
         norad_cat_id: u32,
@@ -2048,16 +2051,16 @@ impl PyEphemerisFileName {
         start_epoch: PyEpoch,
         category: PyEphemerisFileCategory,
         metadata: &str,
-    ) -> Self {
-        Self {
-            inner: spacetrack::EphemerisFileName::new(
-                norad_cat_id,
-                object_name,
-                start_epoch.obj,
-                category.inner,
-                metadata,
-            ),
-        }
+    ) -> PyResult<Self> {
+        spacetrack::EphemerisFileName::new(
+            norad_cat_id,
+            object_name,
+            start_epoch.obj,
+            category.inner,
+            metadata,
+        )
+        .map(|inner| Self { inner })
+        .map_err(|e| BraheError::new_err(e.to_string()))
     }
 
     /// Parse a file name in the Space-Track convention.
@@ -2084,8 +2087,15 @@ impl PyEphemerisFileName {
     ///
     /// Returns:
     ///     EphemerisFileName: The updated name.
-    fn with_data_type(&self, data_type: &str) -> Self {
-        Self { inner: self.inner.clone().with_data_type(data_type) }
+    ///
+    /// Raises:
+    ///     BraheError: If ``data_type`` is empty or contains ``_`` or ``/``.
+    fn with_data_type(&self, data_type: &str) -> PyResult<Self> {
+        self.inner
+            .clone()
+            .with_data_type(data_type)
+            .map(|inner| Self { inner })
+            .map_err(|e| BraheError::new_err(e.to_string()))
     }
 
     /// Return a copy with the classification replaced.
@@ -2095,8 +2105,15 @@ impl PyEphemerisFileName {
     ///
     /// Returns:
     ///     EphemerisFileName: The updated name.
-    fn with_classification(&self, classification: &str) -> Self {
-        Self { inner: self.inner.clone().with_classification(classification) }
+    ///
+    /// Raises:
+    ///     BraheError: If ``classification`` is empty or contains ``_`` or ``/``.
+    fn with_classification(&self, classification: &str) -> PyResult<Self> {
+        self.inner
+            .clone()
+            .with_classification(classification)
+            .map(|inner| Self { inner })
+            .map_err(|e| BraheError::new_err(e.to_string()))
     }
 
     /// Return a copy with the extension replaced.
@@ -2106,8 +2123,15 @@ impl PyEphemerisFileName {
     ///
     /// Returns:
     ///     EphemerisFileName: The updated name.
-    fn with_extension(&self, extension: &str) -> Self {
-        Self { inner: self.inner.clone().with_extension(extension) }
+    ///
+    /// Raises:
+    ///     BraheError: If ``extension`` is empty or contains ``_``, ``/`` or ``.``.
+    fn with_extension(&self, extension: &str) -> PyResult<Self> {
+        self.inner
+            .clone()
+            .with_extension(extension)
+            .map(|inner| Self { inner })
+            .map_err(|e| BraheError::new_err(e.to_string()))
     }
 
     /// Data type field.

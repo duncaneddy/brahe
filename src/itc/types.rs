@@ -377,6 +377,22 @@ impl ITC {
         Ok(())
     }
 
+    fn check_finite(
+        state: &ITCStateVector,
+        covariance: Option<&SMatrix<f64, 6, 6>>,
+    ) -> Result<(), BraheError> {
+        let finite = state.position.iter().all(|v| v.is_finite())
+            && state.velocity.iter().all(|v| v.is_finite())
+            && covariance.is_none_or(|c| c.iter().all(|v| v.is_finite()));
+        if !finite {
+            return Err(BraheError::Error(format!(
+                "Modified ITC record at {} has a non-finite position, velocity or covariance element",
+                state.epoch
+            )));
+        }
+        Ok(())
+    }
+
     /// Appends a record without covariance.
     ///
     /// # Arguments
@@ -404,6 +420,7 @@ impl ITC {
                     .to_string(),
             ));
         }
+        Self::check_finite(&state, None)?;
         self.check_epoch_order(state.epoch)?;
         self.states.push(state);
         Ok(())
@@ -443,6 +460,7 @@ impl ITC {
                     .to_string(),
             ));
         }
+        Self::check_finite(&state, Some(&covariance))?;
         self.check_epoch_order(state.epoch)?;
         self.states.push(state);
         self.covariances.push(covariance);
@@ -619,6 +637,15 @@ mod tests {
         assert!(itc.push_state(state(60.0)).is_err());
         assert!(itc.push_state(state(0.0)).is_err());
         assert_eq!(itc.len(), 1);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_itc_push_state_rejects_non_finite_values() {
+        let mut itc = ITC::new(ITCHeader::new());
+        let nan_state = ITCStateVector::new(epoch(0.0), [f64::NAN, 0.0, 0.0], [0.0, 7.5e3, 0.0]);
+        assert!(itc.push_state(nan_state).is_err());
+        assert!(itc.is_empty());
     }
 
     #[test]

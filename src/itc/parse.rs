@@ -178,12 +178,19 @@ fn parse_state_line(line: &str) -> Result<ITCStateVector, BraheError> {
     let epoch = parse_itc_epoch(tokens[0])?;
     let mut values = [0.0_f64; 6];
     for (index, token) in tokens[1..].iter().enumerate() {
-        values[index] = token.parse::<f64>().map_err(|_| {
+        let value: f64 = token.parse().map_err(|_| {
             parse_error(format!(
                 "invalid state component '{}' at epoch {}",
                 token, epoch
             ))
-        })? * KM_TO_M;
+        })?;
+        if !value.is_finite() {
+            return Err(parse_error(format!(
+                "non-finite state component '{}' at epoch {}",
+                token, epoch
+            )));
+        }
+        values[index] = value * KM_TO_M;
     }
     Ok(ITCStateVector::new(
         epoch,
@@ -205,14 +212,19 @@ fn parse_covariance_lines(lines: &[&str], epoch: Epoch) -> Result<SMatrix<f64, 6
             )));
         }
         for token in tokens {
-            values.push(
-                token.parse::<f64>().map_err(|_| {
-                    parse_error(format!(
-                        "invalid covariance value '{}' at epoch {}",
-                        token, epoch
-                    ))
-                })? * KM2_TO_M2,
-            );
+            let value: f64 = token.parse().map_err(|_| {
+                parse_error(format!(
+                    "invalid covariance value '{}' at epoch {}",
+                    token, epoch
+                ))
+            })?;
+            if !value.is_finite() {
+                return Err(parse_error(format!(
+                    "non-finite covariance value '{}' at epoch {}",
+                    token, epoch
+                )));
+            }
+            values.push(value * KM2_TO_M2);
         }
     }
     let mut matrix = SMatrix::<f64, 6, 6>::zeros();
@@ -253,6 +265,12 @@ impl ITC {
     /// The state frame is left at the header default (`EME2000`) because the
     /// text carries no frame token; use [`ITC::from_file`] to infer it from
     /// the file name.
+    ///
+    /// Covariance values must be written in scientific notation or with
+    /// fewer than thirteen integer digits, since a token with a
+    /// thirteen-digit integer part is taken as the next record's epoch;
+    /// every known producer, and this crate's writer, emits scientific
+    /// notation.
     ///
     /// # Arguments
     /// * `content` - Full file text
@@ -589,6 +607,16 @@ UVW\n{}",
         assert!(ITC::from_str(&header_and(&bad_state_component)).is_err());
         let bad_covariance_value = COV0.replace("4.6343390768e-07", "abc");
         assert!(ITC::from_str(&header_and(&format!("{}{}", REC0, bad_covariance_value))).is_err());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_parse_rejects_non_finite_values() {
+        let nan_state = REC0.replace("4244.3465367594", "NaN");
+        assert!(ITC::from_str(&header_and(&nan_state)).is_err());
+
+        let inf_covariance = COV0.replace("4.6343390768e-07", "inf");
+        assert!(ITC::from_str(&header_and(&format!("{}{}", REC0, inf_covariance))).is_err());
     }
 
     #[test]

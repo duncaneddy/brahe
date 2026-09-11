@@ -11,6 +11,7 @@ use std::fmt;
 
 use serde::{Deserialize, Serialize};
 
+use crate::time::conversions::day_of_year_from_calendar;
 use crate::time::{Epoch, TimeSystem};
 use crate::utils::BraheError;
 
@@ -96,7 +97,7 @@ impl fmt::Display for EphemerisFileCategory {
 /// use brahe::time::{Epoch, TimeSystem};
 ///
 /// let start = Epoch::from_datetime(2026, 9, 11, 1, 42, 42.0, 0.0, TimeSystem::UTC);
-/// let name = EphemerisFileName::new(100001, "STARLINK-38128", start, EphemerisFileCategory::Operational, "");
+/// let name = EphemerisFileName::new(100001, "STARLINK-38128", start, EphemerisFileCategory::Operational, "").unwrap();
 /// assert_eq!(name.to_string(), "MEME_100001_STARLINK-38128_2540142_Operational__UNCLASSIFIED.txt");
 ///
 /// let parsed = EphemerisFileName::parse(&name.to_string()).unwrap();
@@ -126,6 +127,24 @@ pub struct EphemerisFileName {
     pub extension: String,
 }
 
+/// Validates that a single-token file-name field is non-empty and does not
+/// contain the `_` delimiter or a `/` path separator.
+fn validate_field(field: &str, value: &str) -> Result<(), BraheError> {
+    if value.is_empty() {
+        return Err(BraheError::Error(format!(
+            "invalid ephemeris file name field {}: value must not be empty",
+            field
+        )));
+    }
+    if value.contains('_') || value.contains('/') {
+        return Err(BraheError::Error(format!(
+            "invalid ephemeris file name field {}: '{}' must not contain '_' or '/'",
+            field, value
+        )));
+    }
+    Ok(())
+}
+
 impl EphemerisFileName {
     /// Default data type, the mean equator and mean equinox of J2000.0.
     pub const DEFAULT_DATA_TYPE: &'static str = "MEME";
@@ -145,7 +164,8 @@ impl EphemerisFileName {
     /// * `metadata` - Operator-defined metadata, may be empty
     ///
     /// # Returns
-    /// * `EphemerisFileName`: The populated name
+    /// * `Ok(EphemerisFileName)`: The populated name
+    /// * `Err(BraheError)`: If `object_name` is empty or contains `/`, or `metadata` contains `_` or `/`
     ///
     /// # Examples
     ///
@@ -154,7 +174,7 @@ impl EphemerisFileName {
     /// use brahe::time::{Epoch, TimeSystem};
     ///
     /// let start = Epoch::from_datetime(2020, 10, 26, 12, 24, 0.0, 0.0, TimeSystem::UTC);
-    /// let name = EphemerisFileName::new(25544, "ISS", start, EphemerisFileCategory::Operational, "nomnvr");
+    /// let name = EphemerisFileName::new(25544, "ISS", start, EphemerisFileCategory::Operational, "nomnvr").unwrap();
     /// assert_eq!(name.to_string(), "MEME_25544_ISS_3001224_Operational_nomnvr_UNCLASSIFIED.txt");
     /// ```
     pub fn new(
@@ -163,12 +183,29 @@ impl EphemerisFileName {
         start_epoch: Epoch,
         category: EphemerisFileCategory,
         metadata: &str,
-    ) -> Self {
-        let (_, _, _, hour, minute, _, _) = start_epoch.to_datetime_as_time_system(TimeSystem::UTC);
-        let day_of_year = start_epoch
-            .day_of_year_as_time_system(TimeSystem::UTC)
-            .floor() as u16;
-        Self {
+    ) -> Result<Self, BraheError> {
+        if object_name.is_empty() {
+            return Err(BraheError::Error(
+                "invalid ephemeris file name field object_name: value must not be empty"
+                    .to_string(),
+            ));
+        }
+        if object_name.contains('/') {
+            return Err(BraheError::Error(format!(
+                "invalid ephemeris file name field object_name: '{}' must not contain '/'",
+                object_name
+            )));
+        }
+        if metadata.contains('_') || metadata.contains('/') {
+            return Err(BraheError::Error(format!(
+                "invalid ephemeris file name field metadata: '{}' must not contain '_' or '/'",
+                metadata
+            )));
+        }
+        let (year, month, day, hour, minute, _, _) =
+            start_epoch.to_datetime_as_time_system(TimeSystem::UTC);
+        let day_of_year = day_of_year_from_calendar(year, month, day) as u16;
+        Ok(Self {
             data_type: Self::DEFAULT_DATA_TYPE.to_string(),
             norad_cat_id,
             object_name: object_name.to_string(),
@@ -179,7 +216,7 @@ impl EphemerisFileName {
             metadata: metadata.to_string(),
             classification: Self::DEFAULT_CLASSIFICATION.to_string(),
             extension: Self::DEFAULT_EXTENSION.to_string(),
-        }
+        })
     }
 
     /// Sets the data type field.
@@ -188,7 +225,8 @@ impl EphemerisFileName {
     /// * `data_type` - Data type token, for example `MEME` or `TEME`
     ///
     /// # Returns
-    /// * `EphemerisFileName`: The name with the data type replaced
+    /// * `Ok(EphemerisFileName)`: The name with the data type replaced
+    /// * `Err(BraheError)`: If `data_type` is empty or contains `_` or `/`
     ///
     /// # Examples
     ///
@@ -197,12 +235,13 @@ impl EphemerisFileName {
     /// use brahe::time::{Epoch, TimeSystem};
     ///
     /// let start = Epoch::from_datetime(2026, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
-    /// let name = EphemerisFileName::new(1, "A", start, EphemerisFileCategory::Special, "").with_data_type("TEME");
+    /// let name = EphemerisFileName::new(1, "A", start, EphemerisFileCategory::Special, "").unwrap().with_data_type("TEME").unwrap();
     /// assert!(name.to_string().starts_with("TEME_"));
     /// ```
-    pub fn with_data_type(mut self, data_type: &str) -> Self {
+    pub fn with_data_type(mut self, data_type: &str) -> Result<Self, BraheError> {
+        validate_field("data_type", data_type)?;
         self.data_type = data_type.to_string();
-        self
+        Ok(self)
     }
 
     /// Sets the classification field.
@@ -211,7 +250,8 @@ impl EphemerisFileName {
     /// * `classification` - Classification token
     ///
     /// # Returns
-    /// * `EphemerisFileName`: The name with the classification replaced
+    /// * `Ok(EphemerisFileName)`: The name with the classification replaced
+    /// * `Err(BraheError)`: If `classification` is empty or contains `_` or `/`
     ///
     /// # Examples
     ///
@@ -220,12 +260,13 @@ impl EphemerisFileName {
     /// use brahe::time::{Epoch, TimeSystem};
     ///
     /// let start = Epoch::from_datetime(2026, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
-    /// let name = EphemerisFileName::new(1, "A", start, EphemerisFileCategory::Special, "").with_classification("unclassified");
+    /// let name = EphemerisFileName::new(1, "A", start, EphemerisFileCategory::Special, "").unwrap().with_classification("unclassified").unwrap();
     /// assert!(name.to_string().ends_with("_unclassified.txt"));
     /// ```
-    pub fn with_classification(mut self, classification: &str) -> Self {
+    pub fn with_classification(mut self, classification: &str) -> Result<Self, BraheError> {
+        validate_field("classification", classification)?;
         self.classification = classification.to_string();
-        self
+        Ok(self)
     }
 
     /// Sets the file extension (without the dot).
@@ -234,7 +275,8 @@ impl EphemerisFileName {
     /// * `extension` - Extension without a leading dot
     ///
     /// # Returns
-    /// * `EphemerisFileName`: The name with the extension replaced
+    /// * `Ok(EphemerisFileName)`: The name with the extension replaced
+    /// * `Err(BraheError)`: If `extension` is empty or contains `_`, `/` or `.`
     ///
     /// # Examples
     ///
@@ -243,12 +285,19 @@ impl EphemerisFileName {
     /// use brahe::time::{Epoch, TimeSystem};
     ///
     /// let start = Epoch::from_datetime(2026, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
-    /// let name = EphemerisFileName::new(1, "A", start, EphemerisFileCategory::Special, "").with_extension("dat");
+    /// let name = EphemerisFileName::new(1, "A", start, EphemerisFileCategory::Special, "").unwrap().with_extension("dat").unwrap();
     /// assert!(name.to_string().ends_with(".dat"));
     /// ```
-    pub fn with_extension(mut self, extension: &str) -> Self {
+    pub fn with_extension(mut self, extension: &str) -> Result<Self, BraheError> {
+        validate_field("extension", extension)?;
+        if extension.contains('.') {
+            return Err(BraheError::Error(format!(
+                "invalid ephemeris file name field extension: '{}' must not contain '.'",
+                extension
+            )));
+        }
         self.extension = extension.to_string();
-        self
+        Ok(self)
     }
 
     /// Parses a file name in the Space-Track convention.
@@ -468,7 +517,8 @@ mod tests {
             start,
             EphemerisFileCategory::Operational,
             "1473385380",
-        );
+        )
+        .unwrap();
         assert_eq!(
             name.to_string(),
             "MEME_100001_STARLINK-38128_2540142_Operational_1473385380_UNCLASSIFIED.txt"
@@ -480,7 +530,8 @@ mod tests {
             start,
             EphemerisFileCategory::Special,
             "",
-        );
+        )
+        .unwrap();
         assert_eq!(
             padded.to_string(),
             "MEME_00900_CALSPHERE 1_2540142_Special__UNCLASSIFIED.txt"
@@ -493,9 +544,13 @@ mod tests {
             EphemerisFileCategory::Operational,
             "nomnvr",
         )
+        .unwrap()
         .with_data_type("TEME")
+        .unwrap()
         .with_classification("unclassified")
-        .with_extension("dat");
+        .unwrap()
+        .with_extension("dat")
+        .unwrap();
         assert_eq!(
             custom.to_string(),
             "TEME_25544_ISS_2540142_Operational_nomnvr_unclassified.dat"
@@ -522,9 +577,24 @@ mod tests {
     fn test_ephemeris_file_name_uses_utc_for_day_time_group() {
         let start = Epoch::from_datetime(2026, 9, 11, 1, 42, 42.0, 0.0, TimeSystem::UTC);
         let in_tai = Epoch::from_datetime(2026, 9, 11, 1, 43, 19.0, 0.0, TimeSystem::TAI);
-        let a = EphemerisFileName::new(1, "A", start, EphemerisFileCategory::Operational, "");
-        let b = EphemerisFileName::new(1, "A", in_tai, EphemerisFileCategory::Operational, "");
+        let a =
+            EphemerisFileName::new(1, "A", start, EphemerisFileCategory::Operational, "").unwrap();
+        let b =
+            EphemerisFileName::new(1, "A", in_tai, EphemerisFileCategory::Operational, "").unwrap();
         assert_eq!(a.to_string(), b.to_string());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_ephemeris_file_name_new_leap_second_day_of_year() {
+        let leap: Epoch = Epoch::from_datetime(2017, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC) - 1.0;
+        let name =
+            EphemerisFileName::new(1, "A", leap, EphemerisFileCategory::Operational, "").unwrap();
+        assert_eq!((name.day_of_year, name.hour, name.minute), (366, 23, 59));
+        assert_eq!(
+            name.to_string(),
+            "MEME_00001_A_3662359_Operational__UNCLASSIFIED.txt"
+        );
     }
 
     #[test]
@@ -548,5 +618,24 @@ mod tests {
             "Operational"
         );
         assert_eq!(EphemerisFileCategory::Special.to_string(), "Special");
+    }
+
+    #[test]
+    #[parallel]
+    fn test_ephemeris_file_name_rejects_delimiter_in_fields() {
+        let start = Epoch::from_datetime(2026, 9, 11, 1, 42, 42.0, 0.0, TimeSystem::UTC);
+        assert!(
+            EphemerisFileName::new(1, "A", start, EphemerisFileCategory::Operational, "burn_02")
+                .is_err()
+        );
+        assert!(
+            EphemerisFileName::new(1, "", start, EphemerisFileCategory::Operational, "").is_err()
+        );
+
+        let name =
+            EphemerisFileName::new(1, "A", start, EphemerisFileCategory::Operational, "").unwrap();
+        assert!(name.clone().with_extension("txt.bak").is_err());
+        assert!(name.clone().with_classification("UN_CLASS").is_err());
+        assert!(name.with_data_type("MEME/EXTRA").is_err());
     }
 }

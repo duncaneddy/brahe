@@ -5,6 +5,7 @@
 use std::path::Path;
 
 use super::types::ITC;
+use crate::time::conversions::day_of_year_from_calendar;
 use crate::time::{Epoch, TimeSystem};
 use crate::utils::BraheError;
 
@@ -59,14 +60,14 @@ fn format_record_epoch(epoch: &Epoch) -> String {
     let (_, _, _, _, _, second, nanosecond) = epoch.to_datetime_as_time_system(TimeSystem::UTC);
     let raw_seconds = second + nanosecond * 1.0e-9;
     let mut rounded = *epoch + ((raw_seconds * 1.0e3).round() * 1.0e-3 - raw_seconds);
-    let (mut year, _, _, mut hour, mut minute, mut second, mut nanosecond) =
+    let (mut year, mut month, mut day, mut hour, mut minute, mut second, mut nanosecond) =
         rounded.to_datetime_as_time_system(TimeSystem::UTC);
     if ((second + nanosecond * 1.0e-9) * 1.0e3).round() >= 60.0e3 {
         rounded += 1.0e-6;
-        (year, _, _, hour, minute, second, nanosecond) =
+        (year, month, day, hour, minute, second, nanosecond) =
             rounded.to_datetime_as_time_system(TimeSystem::UTC);
     }
-    let day_of_year = rounded.day_of_year_as_time_system(TimeSystem::UTC).floor() as u32;
+    let day_of_year = day_of_year_from_calendar(year, month, day);
     format!(
         "{:04}{:03}{:02}{:02}{:06.3}",
         year,
@@ -125,6 +126,19 @@ impl ITC {
                 self.covariances.len()
             )));
         }
+        let non_finite = self.states.iter().any(|state| {
+            !state.position.iter().all(|v| v.is_finite())
+                || !state.velocity.iter().all(|v| v.is_finite())
+        }) || self
+            .covariances
+            .iter()
+            .any(|covariance| !covariance.iter().all(|v| v.is_finite()));
+        if non_finite {
+            return Err(BraheError::Error(
+                "cannot write a Modified ITC message with a non-finite position, velocity or covariance element"
+                    .to_string(),
+            ));
+        }
         let start = self.header.ephemeris_start.or_else(|| self.start_epoch());
         let stop = self.header.ephemeris_stop.or_else(|| self.end_epoch());
         let step = self.header.step_size.or_else(|| {
@@ -158,10 +172,21 @@ impl ITC {
         out.push_str(self.header.covariance_frame.token());
         out.push('\n');
 
+        let mut previous_token: Option<(Epoch, String)> = None;
         for (index, state) in self.states.iter().enumerate() {
+            let epoch_token = format_record_epoch(&state.epoch);
+            if let Some((previous_epoch, previous_epoch_token)) = &previous_token
+                && epoch_token.as_str() <= previous_epoch_token.as_str()
+            {
+                return Err(BraheError::Error(format!(
+                    "records at {} and {} render to the same millisecond {}",
+                    previous_epoch, state.epoch, epoch_token
+                )));
+            }
+            previous_token = Some((state.epoch, epoch_token.clone()));
             out.push_str(&format!(
                 "{} {:.10} {:.10} {:.10} {:.10} {:.10} {:.10}\n",
-                format_record_epoch(&state.epoch),
+                epoch_token,
                 state.position[0] * M_TO_KM,
                 state.position[1] * M_TO_KM,
                 state.position[2] * M_TO_KM,
@@ -276,6 +301,13 @@ mod tests {
             format_record_epoch(&(utc(2026, 9, 11, 1, 42, 42.0) + 0.0006)),
             "2026254014242.001"
         );
+    }
+
+    #[test]
+    #[parallel]
+    fn test_format_record_epoch_leap_second() {
+        let leap: Epoch = Epoch::from_datetime(2017, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC) - 1.0;
+        assert_eq!(format_record_epoch(&leap), "2016366235960.000");
     }
 
     #[test]
@@ -433,5 +465,61 @@ mod tests {
             [0.0, 7.5e3, 0.0],
         ));
         assert!(itc.to_string().is_err());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_write_rejects_non_finite_state() {
+        let mut itc = ITC::new(ITCHeader::new());
+        itc.push_state(ITCStateVector::new(
+            utc(2026, 9, 11, 1, 42, 42.0),
+            [7.0e6, 0.0, 0.0],
+            [0.0, 7.5e3, 0.0],
+        ))
+        .unwrap();
+        itc.states.push(ITCStateVector::new(
+            utc(2026, 9, 11, 1, 43, 42.0),
+            [f64::INFINITY, 0.0, 0.0],
+            [0.0, 7.5e3, 0.0],
+        ));
+        assert!(itc.to_string().is_err());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_write_rejects_colliding_rounded_epochs() {
+        let mut colliding = ITC::new(ITCHeader::new());
+        colliding
+            .push_state(ITCStateVector::new(
+                utc(2026, 9, 11, 1, 42, 42.0),
+                [7.0e6, 0.0, 0.0],
+                [0.0, 7.5e3, 0.0],
+            ))
+            .unwrap();
+        colliding
+            .push_state(ITCStateVector::new(
+                utc(2026, 9, 11, 1, 42, 42.0) + 0.0001,
+                [7.0e6, 0.0, 0.0],
+                [0.0, 7.5e3, 0.0],
+            ))
+            .unwrap();
+        assert!(colliding.to_string().is_err());
+
+        let mut distinct = ITC::new(ITCHeader::new());
+        distinct
+            .push_state(ITCStateVector::new(
+                utc(2026, 9, 11, 1, 42, 42.0),
+                [7.0e6, 0.0, 0.0],
+                [0.0, 7.5e3, 0.0],
+            ))
+            .unwrap();
+        distinct
+            .push_state(ITCStateVector::new(
+                utc(2026, 9, 11, 1, 42, 42.0) + 0.001,
+                [7.0e6, 0.0, 0.0],
+                [0.0, 7.5e3, 0.0],
+            ))
+            .unwrap();
+        assert!(distinct.to_string().is_ok());
     }
 }

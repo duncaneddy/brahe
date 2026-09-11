@@ -114,6 +114,22 @@ def test_ephemeris_file_name_uses_utc_for_day_time_group():
     assert str(a) == str(b)
 
 
+def test_ephemeris_file_name_rejects_delimiter_in_fields():
+    start = bh.Epoch(2026, 9, 11, 1, 42, 42.0, 0.0)
+    with pytest.raises(bh.BraheError):
+        EphemerisFileName(1, "A", start, EphemerisFileCategory.OPERATIONAL, "burn_02")
+    with pytest.raises(bh.BraheError):
+        EphemerisFileName(1, "", start, EphemerisFileCategory.OPERATIONAL, "")
+
+    name = EphemerisFileName(1, "A", start, EphemerisFileCategory.OPERATIONAL, "")
+    with pytest.raises(bh.BraheError):
+        name.with_extension("txt.bak")
+    with pytest.raises(bh.BraheError):
+        name.with_classification("UN_CLASS")
+    with pytest.raises(bh.BraheError):
+        name.with_data_type("MEME/EXTRA")
+
+
 def test_ephemeris_file_category_parse_and_display():
     assert EphemerisFileCategory.parse("oper") == EphemerisFileCategory.OPERATIONAL
     assert (

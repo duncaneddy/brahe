@@ -118,10 +118,8 @@ impl ITC {
                 )
             })?;
         let data_type = data_type_for_state_frame(&self.header.state_frame)?;
-        Ok(
-            EphemerisFileName::new(norad_cat_id, object_name, start, category, metadata)
-                .with_data_type(data_type),
-        )
+        EphemerisFileName::new(norad_cat_id, object_name, start, category, metadata)?
+            .with_data_type(data_type)
     }
 }
 

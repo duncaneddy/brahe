@@ -123,6 +123,16 @@ impl StarlinkManifestEntry {
         self.file_name.to_string()
     }
 
+    /// Builds an entry from a parsed file name, decoding the stop epoch from
+    /// the metadata field when possible and placing the start epoch in a year.
+    ///
+    /// # Arguments
+    /// * `file_name` - Parsed Space-Track file name
+    /// * `reference` - Epoch used to validate GPS-second metadata and to place the start in a year
+    ///
+    /// # Returns
+    /// * `Ok(StarlinkManifestEntry)`: The decoded entry
+    /// * `Err(BraheError)`: If the day of year cannot be placed in a calendar year
     fn from_file_name(file_name: EphemerisFileName, reference: Epoch) -> Result<Self, BraheError> {
         let ephemeris_stop = decode_gps_stop(&file_name.metadata, reference);
         let anchor = ephemeris_stop.unwrap_or(reference);

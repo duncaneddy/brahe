@@ -4,15 +4,19 @@
 
 use nalgebra::{DMatrix, DVector};
 
-use crate::frames::{CelestialFrame, OrbitRelativeFrameVariant, ReferenceFrame};
+use crate::frames::{
+    CelestialFrame, OrbitRelativeFrameVariant, ReferenceFrame, state_frame_to_frame,
+};
 use crate::math::linalg::{SMatrix3, SMatrix6, SVector6};
 use crate::relative_motion::{omega_rtn, rotation_rtn_to_eci};
 use crate::time::Epoch;
 use crate::trajectories::dorbit_trajectory::DOrbitTrajectory;
-use crate::trajectories::traits::{OrbitRepresentation, covariance_frame_allowed};
+use crate::trajectories::traits::{
+    OrbitRepresentation, covariance_frame_allowed, inertial_covariance_rotation,
+};
 use crate::utils::BraheError;
 
-use super::types::{ITC, ITCCovarianceFrame, ITCStateVector};
+use super::types::{ITC, ITCCovarianceFrame, ITCHeader, ITCStateVector};
 
 /// Places `r` on both diagonal blocks of a 6x6 matrix.
 pub(crate) fn block_diagonal(r: SMatrix3) -> SMatrix6 {
@@ -50,7 +54,6 @@ pub(crate) fn rtn_to_frame_jacobian(x: SVector6, variant: OrbitRelativeFrameVari
 
 /// Inverse of [`rtn_to_frame_jacobian`]: `[[Rᵀ, 0], [0, Rᵀ]]` or
 /// `[[Rᵀ, 0], [-[ω×]Rᵀ, Rᵀ]]`.
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn frame_to_rtn_jacobian(x: SVector6, variant: OrbitRelativeFrameVariant) -> SMatrix6 {
     let rt = rotation_rtn_to_eci(x).transpose();
     let mut j = block_diagonal(rt);
@@ -197,6 +200,170 @@ impl ITC {
         traj.name = self.source_name.as_ref().map(|n| n.object_name.clone());
         Ok(traj)
     }
+
+    /// Builds a message from a trajectory's stored samples.
+    ///
+    /// Equivalent to [`ITC::from_trajectory_with_covariance_variant`] with
+    /// `OrbitRelativeFrameVariant::Inertial`.
+    ///
+    /// # Arguments
+    /// * `trajectory` - Six-dimensional Cartesian trajectory
+    /// * `header` - Header whose `state_frame`, `covariance_frame`, `created` and `ephemeris_source` are kept; start, stop and step are filled from the samples
+    ///
+    /// # Returns
+    /// * `Ok(ITC)`: The message
+    /// * `Err(BraheError)`: If the trajectory is empty, not six-dimensional Cartesian, or its covariance cannot be expressed in the requested frames
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::itc::{ITC, ITCHeader};
+    ///
+    /// let itc = ITC::from_file(
+    ///     "test_assets/starlink/MEME_100002_STARLINK-37711_2540149_Operational_1473385800_UNCLASSIFIED.txt",
+    /// ).unwrap();
+    /// let traj = itc.to_trajectory().unwrap();
+    /// let back = ITC::from_trajectory(&traj, ITCHeader::new().with_ephemeris_source("brahe")).unwrap();
+    /// assert_eq!(back.len(), 50);
+    /// assert!(back.has_covariance());
+    /// ```
+    pub fn from_trajectory(
+        trajectory: &DOrbitTrajectory,
+        header: ITCHeader,
+    ) -> Result<Self, BraheError> {
+        Self::from_trajectory_with_covariance_variant(
+            trajectory,
+            header,
+            OrbitRelativeFrameVariant::Inertial,
+        )
+    }
+
+    /// Builds a message from a trajectory, choosing how covariance is rotated
+    /// into the RTN frame.
+    ///
+    /// Each stored sample is converted from the trajectory frame to
+    /// `header.state_frame`. When the trajectory carries covariance, its frame
+    /// and the state frame must both be GCRF or EME2000; the covariance is
+    /// rotated by the constant frame bias where needed and then, for an RTN
+    /// covariance frame, into the RTN frame of the converted state. An
+    /// `EME2000` covariance frame requires an `EME2000` state frame; `ITRF`
+    /// is not supported.
+    ///
+    /// # Arguments
+    /// * `trajectory` - Six-dimensional Cartesian trajectory
+    /// * `header` - Header template; start, stop and step are overwritten from the samples
+    /// * `variant` - RTN rotation convention for the covariance
+    ///
+    /// # Returns
+    /// * `Ok(ITC)`: The message
+    /// * `Err(BraheError)`: If the trajectory is empty, not six-dimensional Cartesian, or the frame combination is unsupported
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::frames::OrbitRelativeFrameVariant;
+    /// use brahe::itc::{ITC, ITCHeader};
+    ///
+    /// let itc = ITC::from_file(
+    ///     "test_assets/starlink/MEME_100002_STARLINK-37711_2540149_Operational_1473385800_UNCLASSIFIED.txt",
+    /// ).unwrap();
+    /// let traj = itc.to_trajectory_with_covariance_variant(OrbitRelativeFrameVariant::Rotating).unwrap();
+    /// let back = ITC::from_trajectory_with_covariance_variant(&traj, ITCHeader::new(), OrbitRelativeFrameVariant::Rotating).unwrap();
+    /// assert_eq!(back.len(), itc.len());
+    /// ```
+    pub fn from_trajectory_with_covariance_variant(
+        trajectory: &DOrbitTrajectory,
+        header: ITCHeader,
+        variant: OrbitRelativeFrameVariant,
+    ) -> Result<Self, BraheError> {
+        if trajectory.states.is_empty() {
+            return Err(BraheError::Error(
+                "cannot build a Modified ITC message from an empty trajectory".to_string(),
+            ));
+        }
+        if trajectory.representation != OrbitRepresentation::Cartesian
+            || trajectory.dimension() != 6
+        {
+            return Err(BraheError::Error(format!(
+                "Modified ITC requires a six-dimensional Cartesian trajectory; found dimension {} in {} representation (convert with to_frame or to_eci first)",
+                trajectory.dimension(),
+                trajectory.representation
+            )));
+        }
+        let target: ReferenceFrame = header.state_frame.into();
+        let covariance_frame = header.covariance_frame;
+        let state_frame = header.state_frame;
+
+        let axes_rotation = match &trajectory.covariances {
+            Some(_) => {
+                if covariance_frame == ITCCovarianceFrame::ITRF {
+                    return Err(BraheError::Error(
+                        "Modified ITC covariance frame ITRF cannot be produced from a trajectory"
+                            .to_string(),
+                    ));
+                }
+                if covariance_frame == ITCCovarianceFrame::EME2000
+                    && state_frame != crate::frames::CelestialFrame::EME2000
+                {
+                    return Err(BraheError::Error(format!(
+                        "Modified ITC covariance frame EME2000 requires an EME2000 state frame, found {}",
+                        target
+                    )));
+                }
+                Some(block_diagonal(inertial_covariance_rotation(
+                    &trajectory.frame,
+                    &target,
+                )?))
+            }
+            None => None,
+        };
+
+        let mut itc = ITC::new(header);
+        for (index, (epoch, x)) in trajectory.into_iter().enumerate() {
+            let x6 = SVector6::from_column_slice(&x.as_slice()[..6]);
+            let x_t = if trajectory.frame == target {
+                x6
+            } else {
+                state_frame_to_frame(trajectory.frame.clone(), target.clone(), epoch, x6)?
+            };
+            let sv = ITCStateVector::new(epoch, [x_t[0], x_t[1], x_t[2]], [x_t[3], x_t[4], x_t[5]]);
+            match (&trajectory.covariances, axes_rotation) {
+                (Some(covs), Some(r6)) => {
+                    let p = covs.get(index).ok_or_else(|| {
+                        BraheError::Error(format!(
+                            "trajectory has no covariance for sample {}",
+                            index
+                        ))
+                    })?;
+                    if p.nrows() < 6 || p.ncols() < 6 {
+                        return Err(BraheError::Error(format!(
+                            "trajectory covariance for sample {} is {}x{}; expected at least 6x6",
+                            index,
+                            p.nrows(),
+                            p.ncols()
+                        )));
+                    }
+                    let p6 = SMatrix6::from_fn(|i, k| p[(i, k)]);
+                    let p_target = r6 * p6 * r6.transpose();
+                    let p_out = match covariance_frame {
+                        ITCCovarianceFrame::RTN => {
+                            let jinv = frame_to_rtn_jacobian(x_t, variant);
+                            jinv * p_target * jinv.transpose()
+                        }
+                        _ => p_target,
+                    };
+                    itc.push_state_with_covariance(sv, symmetrize(p_out))?;
+                }
+                _ => itc.push_state(sv)?,
+            }
+        }
+
+        itc.header.ephemeris_start = itc.start_epoch();
+        itc.header.ephemeris_stop = itc.end_epoch();
+        itc.header.step_size =
+            (itc.states.len() >= 2).then(|| itc.states[1].epoch - itc.states[0].epoch);
+        Ok(itc)
+    }
 }
 
 impl TryFrom<&ITC> for DOrbitTrajectory {
@@ -311,6 +478,20 @@ mod tests {
         }
     }
 
+    fn strip_covariance(text: &str) -> String {
+        text.lines()
+            .enumerate()
+            .filter(|(i, l)| {
+                *i < 4
+                    || l.split_whitespace().next().is_some_and(|t| {
+                        t.len() >= 13 && t[..13].chars().all(|c| c.is_ascii_digit())
+                    })
+            })
+            .map(|(_, l)| l)
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+
     #[test]
     #[parallel]
     fn test_to_trajectory_full_asset() {
@@ -393,18 +574,7 @@ mod tests {
     fn test_to_trajectory_without_covariance() {
         setup_global_test_eop();
         let content = std::fs::read_to_string(TRUNCATED).unwrap();
-        let no_cov: String = content
-            .lines()
-            .enumerate()
-            .filter(|(i, l)| {
-                *i < 4
-                    || l.split_whitespace().next().is_some_and(|t| {
-                        t.len() >= 13 && t[..13].chars().all(|c| c.is_ascii_digit())
-                    })
-            })
-            .map(|(_, l)| l)
-            .collect::<Vec<_>>()
-            .join("\n");
+        let no_cov = strip_covariance(&content);
         let itc = ITC::from_str(&no_cov).unwrap();
         assert!(!itc.has_covariance());
         let traj = itc.to_trajectory().unwrap();
@@ -438,18 +608,7 @@ mod tests {
     fn test_to_trajectory_teme_without_covariance_is_allowed() {
         setup_global_test_eop();
         let content = std::fs::read_to_string(TRUNCATED).unwrap();
-        let no_cov: String = content
-            .lines()
-            .enumerate()
-            .filter(|(i, l)| {
-                *i < 4
-                    || l.split_whitespace().next().is_some_and(|t| {
-                        t.len() >= 13 && t[..13].chars().all(|c| c.is_ascii_digit())
-                    })
-            })
-            .map(|(_, l)| l)
-            .collect::<Vec<_>>()
-            .join("\n");
+        let no_cov = strip_covariance(&content);
         let mut itc = ITC::from_str(&no_cov).unwrap();
         itc.header.state_frame = CelestialFrame::TEME;
         let traj = itc.to_trajectory().unwrap();
@@ -473,5 +632,193 @@ mod tests {
         for w in &windows {
             assert!(w.window_open >= start && w.window_close <= end);
         }
+    }
+
+    #[test]
+    #[parallel]
+    fn test_from_trajectory_round_trip() {
+        setup_global_test_eop();
+        let itc = ITC::from_file(TRUNCATED).unwrap();
+        let traj = itc.to_trajectory().unwrap();
+        let back =
+            ITC::from_trajectory(&traj, ITCHeader::new().with_ephemeris_source("round-trip"))
+                .unwrap();
+        assert_eq!(back.len(), 50);
+        assert_eq!(back.header.ephemeris_source.as_deref(), Some("round-trip"));
+        assert_eq!(back.header.ephemeris_start, Some(itc.states[0].epoch));
+        assert_eq!(back.header.ephemeris_stop, Some(itc.states[49].epoch));
+        assert_abs_diff_eq!(back.header.step_size.unwrap(), 60.0, epsilon = 1e-9);
+        for (a, b) in itc.states.iter().zip(&back.states) {
+            assert_eq!(a.epoch, b.epoch);
+            for i in 0..3 {
+                assert_abs_diff_eq!(a.position[i], b.position[i], epsilon = 1e-6);
+                assert_abs_diff_eq!(a.velocity[i], b.velocity[i], epsilon = 1e-9);
+            }
+        }
+        for (a, b) in itc.covariances.iter().zip(&back.covariances) {
+            for i in 0..6 {
+                for k in 0..6 {
+                    assert_abs_diff_eq!(
+                        a[(i, k)],
+                        b[(i, k)],
+                        epsilon = 1e-9 * a[(i, k)].abs().max(1e-20)
+                    );
+                }
+            }
+        }
+        for variant in [
+            OrbitRelativeFrameVariant::Inertial,
+            OrbitRelativeFrameVariant::Rotating,
+        ] {
+            let t = itc.to_trajectory_with_covariance_variant(variant).unwrap();
+            let b = ITC::from_trajectory_with_covariance_variant(&t, ITCHeader::new(), variant)
+                .unwrap();
+            assert_abs_diff_eq!(
+                b.covariances[0][(3, 1)],
+                itc.covariances[0][(3, 1)],
+                epsilon = 1e-9 * itc.covariances[0][(3, 1)].abs()
+            );
+        }
+    }
+
+    #[test]
+    #[parallel]
+    fn test_from_trajectory_gcrf_covariance_rotates_through_bias() {
+        setup_global_test_eop();
+        let itc = ITC::from_file(TRUNCATED).unwrap();
+        let eme = itc.to_trajectory().unwrap();
+        let bias = crate::frames::rotation_eme2000_to_gcrf();
+        let b6 = block_diagonal(bias);
+        let epochs = eme.epochs.clone();
+        let states: Vec<DVector<f64>> = eme
+            .states
+            .iter()
+            .map(|s| {
+                let x = SVector6::from_column_slice(s.as_slice());
+                DVector::from_column_slice((b6 * x).as_slice())
+            })
+            .collect();
+        let covs: Vec<DMatrix<f64>> = eme
+            .covariances
+            .as_ref()
+            .unwrap()
+            .iter()
+            .map(|p| {
+                let p6 = SMatrix6::from_iterator(p.iter().cloned());
+                dmatrix_from(&(b6 * p6 * b6.transpose()))
+            })
+            .collect();
+        let gcrf = DOrbitTrajectory::from_orbital_data(
+            epochs,
+            states,
+            CelestialFrame::GCRF,
+            OrbitRepresentation::Cartesian,
+            None,
+            Some(covs),
+        )
+        .unwrap();
+        let back = ITC::from_trajectory(&gcrf, ITCHeader::new()).unwrap();
+        for (a, b) in itc.states.iter().zip(&back.states) {
+            for i in 0..3 {
+                assert_abs_diff_eq!(a.position[i], b.position[i], epsilon = 1e-5);
+                assert_abs_diff_eq!(a.velocity[i], b.velocity[i], epsilon = 1e-8);
+            }
+        }
+        for (a, b) in itc.covariances.iter().zip(&back.covariances) {
+            for i in 0..6 {
+                for k in 0..6 {
+                    assert_abs_diff_eq!(
+                        a[(i, k)],
+                        b[(i, k)],
+                        epsilon = 1e-8 * a[(i, k)].abs().max(1e-20)
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    #[parallel]
+    fn test_from_trajectory_without_covariance_and_frame_conversion() {
+        setup_global_test_eop();
+        let content = std::fs::read_to_string(TRUNCATED).unwrap();
+        let no_cov = strip_covariance(&content);
+        let itc = ITC::from_str(&no_cov).unwrap();
+        let eci = itc.to_trajectory().unwrap().to_eci().unwrap();
+        assert!(eci.covariances.is_none());
+        let back = ITC::from_trajectory(&eci, ITCHeader::new()).unwrap();
+        assert!(!back.has_covariance());
+        for (a, b) in itc.states.iter().zip(&back.states) {
+            for i in 0..3 {
+                assert_abs_diff_eq!(a.position[i], b.position[i], epsilon = 1e-5);
+            }
+        }
+        let teme = ITC::from_trajectory(
+            &eci,
+            ITCHeader::new().with_state_frame(CelestialFrame::TEME),
+        )
+        .unwrap();
+        assert_eq!(teme.header.state_frame, CelestialFrame::TEME);
+        let d = (teme.states[0].position[0] - itc.states[0].position[0]).abs();
+        assert!(d > 1.0e3);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_from_trajectory_errors() {
+        setup_global_test_eop();
+        let itc = ITC::from_file(TRUNCATED).unwrap();
+        let traj = itc.to_trajectory().unwrap();
+        assert!(
+            ITC::from_trajectory(
+                &traj,
+                ITCHeader::new().with_covariance_frame(ITCCovarianceFrame::ITRF)
+            )
+            .is_err()
+        );
+        assert!(
+            ITC::from_trajectory(
+                &traj,
+                ITCHeader::new().with_state_frame(CelestialFrame::TEME)
+            )
+            .is_err()
+        );
+        assert!(
+            ITC::from_trajectory(
+                &traj,
+                ITCHeader::new()
+                    .with_state_frame(CelestialFrame::GCRF)
+                    .with_covariance_frame(ITCCovarianceFrame::EME2000)
+            )
+            .is_err()
+        );
+        let gcrf_rtn = ITC::from_trajectory(
+            &traj,
+            ITCHeader::new().with_state_frame(CelestialFrame::GCRF),
+        )
+        .unwrap();
+        assert_eq!(gcrf_rtn.header.state_frame, CelestialFrame::GCRF);
+
+        let mut kep = traj.clone();
+        kep.representation = OrbitRepresentation::Keplerian;
+        assert!(ITC::from_trajectory(&kep, ITCHeader::new()).is_err());
+
+        let empty = DOrbitTrajectory::new(
+            6,
+            CelestialFrame::EME2000,
+            OrbitRepresentation::Cartesian,
+            None,
+        )
+        .unwrap();
+        assert!(ITC::from_trajectory(&empty, ITCHeader::new()).is_err());
+
+        let seven = DOrbitTrajectory::new(
+            7,
+            CelestialFrame::EME2000,
+            OrbitRepresentation::Cartesian,
+            None,
+        )
+        .unwrap();
+        assert!(ITC::from_trajectory(&seven, ITCHeader::new()).is_err());
     }
 }

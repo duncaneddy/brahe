@@ -143,7 +143,7 @@ use super::traits::{
     CovarianceInterpolationMethod, InterpolatableTrajectory, InterpolationConfig,
     InterpolationMethod, OrbitRepresentation, STMStorage, SensitivityStorage, Trajectory,
     TrajectoryEvictionPolicy, bci_fixed_frame, covariance_frame_allowed, frame_covariance_jacobian,
-    is_eme2000_axes_frame, is_icrf_axes_frame, keplerian_center,
+    frame_covariance_jacobian_6, is_eme2000_axes_frame, is_icrf_axes_frame, keplerian_center,
 };
 
 /// Dynamic (runtime-sized) orbital trajectory container.
@@ -2048,15 +2048,20 @@ impl DOrbitTrajectory {
         }
 
         let covariances = match (&self.covariances, self.representation) {
-            (Some(covs), OrbitRepresentation::Cartesian) => covs
-                .iter()
-                .map(|p| {
-                    let j = frame_covariance_jacobian(&self.frame, &frame, p.nrows())
-                        .filter(|_| p.nrows() == p.ncols())?;
-                    let rotated = &j * p * j.transpose();
-                    Some((&rotated + rotated.transpose()) * 0.5)
-                })
-                .collect::<Option<Vec<_>>>(),
+            (Some(covs), OrbitRepresentation::Cartesian)
+                if frame_covariance_jacobian_6(&self.frame, &frame).is_some() =>
+            {
+                covs.iter()
+                    .map(|p| {
+                        if p.nrows() != p.ncols() {
+                            return None;
+                        }
+                        let j = frame_covariance_jacobian(&self.frame, &frame, p.nrows())?;
+                        let rotated = &j * p * j.transpose();
+                        Some((&rotated + rotated.transpose()) * 0.5)
+                    })
+                    .collect::<Option<Vec<_>>>()
+            }
             _ => None,
         };
 
@@ -7497,6 +7502,13 @@ mod tests {
         let mut malformed = traj.clone();
         malformed.covariances = Some(vec![DMatrix::<f64>::identity(5, 5); traj.len()]);
         assert!(malformed.to_eme2000().unwrap().covariances.is_none());
+        malformed.covariances = Some(vec![DMatrix::<f64>::zeros(6, 3); traj.len()]);
+        assert!(malformed.to_eme2000().unwrap().covariances.is_none());
+
+        let mut empty = traj.clone();
+        empty.covariances = Some(Vec::new());
+        assert!(empty.to_itrf().unwrap().covariances.is_none());
+        assert_eq!(empty.to_eme2000().unwrap().covariances, Some(Vec::new()));
     }
 
     #[test]

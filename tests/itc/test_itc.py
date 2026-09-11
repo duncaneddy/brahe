@@ -499,6 +499,14 @@ def test_from_trajectory_round_trip_and_errors():
         ITC.from_trajectory(traj, ITCHeader(covariance_frame=ITCCovarianceFrame.ITRF))
     with pytest.raises(bh.BraheError):
         ITC.from_trajectory(traj, ITCHeader(state_frame=bh.CelestialFrame.TEME))
+    with pytest.raises(bh.BraheError):
+        ITC.from_trajectory(
+            traj,
+            ITCHeader(
+                state_frame=bh.CelestialFrame.GCRF,
+                covariance_frame=ITCCovarianceFrame.EME2000,
+            ),
+        )
     empty = bh.OrbitTrajectory(
         6, bh.CelestialFrame.EME2000, bh.OrbitRepresentation.CARTESIAN
     )

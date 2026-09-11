@@ -206,6 +206,22 @@ pub(crate) fn inertial_covariance_rotation(
 /// # Returns
 /// * `Some(DMatrix<f64>)`: The `dimension x dimension` Jacobian when both frames may carry covariance
 /// * `None`: When either frame cannot carry covariance or `dimension < 6`
+///
+/// # Examples
+///
+/// ```ignore
+/// use brahe::frames::{CelestialFrame, ReferenceFrame, rotation_gcrf_to_eme2000};
+/// use brahe::trajectories::traits::frame_covariance_jacobian;
+///
+/// let gcrf: ReferenceFrame = CelestialFrame::GCRF.into();
+/// let eme2000: ReferenceFrame = CelestialFrame::EME2000.into();
+/// let j = frame_covariance_jacobian(&gcrf, &eme2000, 7).unwrap();
+/// let r = rotation_gcrf_to_eme2000();
+/// assert_eq!(j[(0, 0)], r[(0, 0)]);
+/// assert_eq!(j[(3, 3)], r[(0, 0)]);
+/// assert_eq!(j[(6, 6)], 1.0);
+/// assert!(frame_covariance_jacobian(&gcrf, &CelestialFrame::ITRF.into(), 6).is_none());
+/// ```
 pub(crate) fn frame_covariance_jacobian(
     from: &ReferenceFrame,
     to: &ReferenceFrame,
@@ -234,6 +250,21 @@ pub(crate) fn frame_covariance_jacobian(
 /// # Returns
 /// * `Some(SMatrix6)`: `blockdiag(R, R)` when both frames may carry covariance
 /// * `None`: When either frame cannot carry covariance
+///
+/// # Examples
+///
+/// ```ignore
+/// use brahe::frames::{CelestialFrame, ReferenceFrame, rotation_gcrf_to_eme2000};
+/// use brahe::trajectories::traits::frame_covariance_jacobian_6;
+///
+/// let gcrf: ReferenceFrame = CelestialFrame::GCRF.into();
+/// let eme2000: ReferenceFrame = CelestialFrame::EME2000.into();
+/// let j = frame_covariance_jacobian_6(&gcrf, &eme2000).unwrap();
+/// let r = rotation_gcrf_to_eme2000();
+/// assert_eq!(j.fixed_view::<3, 3>(0, 0), r);
+/// assert_eq!(j.fixed_view::<3, 3>(3, 3), r);
+/// assert!(frame_covariance_jacobian_6(&gcrf, &CelestialFrame::ITRF.into()).is_none());
+/// ```
 pub(crate) fn frame_covariance_jacobian_6(
     from: &ReferenceFrame,
     to: &ReferenceFrame,

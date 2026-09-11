@@ -360,6 +360,10 @@ impl PyITCStateVector {
 ///     assert itc.has_covariance
 ///     assert itc.source_name.object_name == "STARLINK-37711"
 ///     text = itc.to_string()
+///
+///     traj = itc.to_trajectory()
+///     station = bh.PointLocation(-122.4194, 37.7749, 0.0)
+///     windows = bh.location_accesses([station], [traj], itc.start_epoch, itc.end_epoch, bh.ElevationConstraint(min_elevation_deg=10.0))
 ///     ```
 #[pyclass(module = "brahe._brahe", from_py_object)]
 #[pyo3(name = "ITC")]
@@ -582,5 +586,84 @@ impl PyITC {
     fn __repr__(&self) -> String {
         let covariance = if self.inner.has_covariance() { "True" } else { "False" };
         format!("ITC(records={}, covariance={}, state_frame={})", self.inner.len(), covariance, self.inner.header.state_frame)
+    }
+
+    /// Convert the message to an ``OrbitTrajectory`` in the header's state frame.
+    ///
+    /// Covariance is attached when present: RTN covariance is rotated into the
+    /// state frame with each record's own state, block-diagonally by default.
+    ///
+    /// Args:
+    ///     covariance_variant (OrbitRelativeFrameVariant, optional): ``INERTIAL`` (default, block-diagonal ``[[R, 0], [0, R]]``) or ``ROTATING`` (adds the frame-rate coupling block).
+    ///
+    /// Returns:
+    ///     OrbitTrajectory: Six-dimensional Cartesian trajectory, named after the source file's object when known.
+    ///
+    /// Raises:
+    ///     BraheError: If the message is empty or covariance is present with an unsupported frame combination.
+    #[pyo3(signature = (covariance_variant=None))]
+    fn to_trajectory(&self, covariance_variant: Option<PyOrbitRelativeFrameVariant>) -> PyResult<PyOrbitalTrajectory> {
+        let variant = covariance_variant.map(|v| v.variant).unwrap_or(frames::OrbitRelativeFrameVariant::Inertial);
+        self.inner
+            .to_trajectory_with_covariance_variant(variant)
+            .map(|trajectory| PyOrbitalTrajectory { trajectory })
+            .map_err(|e| BraheError::new_err(e.to_string()))
+    }
+
+    /// Convert the message to an ``OrbitTrajectory`` with an explicit RTN covariance convention.
+    ///
+    /// Args:
+    ///     variant (OrbitRelativeFrameVariant): ``INERTIAL`` or ``ROTATING``.
+    ///
+    /// Returns:
+    ///     OrbitTrajectory: The trajectory.
+    ///
+    /// Raises:
+    ///     BraheError: If the message is empty or the frame combination is unsupported.
+    fn to_trajectory_with_covariance_variant(&self, variant: PyOrbitRelativeFrameVariant) -> PyResult<PyOrbitalTrajectory> {
+        self.inner
+            .to_trajectory_with_covariance_variant(variant.variant)
+            .map(|trajectory| PyOrbitalTrajectory { trajectory })
+            .map_err(|e| BraheError::new_err(e.to_string()))
+    }
+
+    /// Build a message from a trajectory's stored samples.
+    ///
+    /// Args:
+    ///     trajectory (OrbitTrajectory): Six-dimensional Cartesian trajectory.
+    ///     header (ITCHeader): Header template; start, stop and step are filled from the samples.
+    ///     covariance_variant (OrbitRelativeFrameVariant, optional): RTN convention for the covariance; ``INERTIAL`` by default.
+    ///
+    /// Returns:
+    ///     ITC: The message.
+    ///
+    /// Raises:
+    ///     BraheError: If the trajectory is empty, not six-dimensional Cartesian, or the frame combination is unsupported.
+    #[staticmethod]
+    #[pyo3(signature = (trajectory, header, covariance_variant=None))]
+    fn from_trajectory(trajectory: PyRef<PyOrbitalTrajectory>, header: PyITCHeader, covariance_variant: Option<PyOrbitRelativeFrameVariant>) -> PyResult<Self> {
+        let variant = covariance_variant.map(|v| v.variant).unwrap_or(frames::OrbitRelativeFrameVariant::Inertial);
+        itc::ITC::from_trajectory_with_covariance_variant(&trajectory.trajectory, header.inner, variant)
+            .map(|inner| Self { inner })
+            .map_err(|e| BraheError::new_err(e.to_string()))
+    }
+
+    /// Build a message from a trajectory with an explicit RTN covariance convention.
+    ///
+    /// Args:
+    ///     trajectory (OrbitTrajectory): Six-dimensional Cartesian trajectory.
+    ///     header (ITCHeader): Header template.
+    ///     variant (OrbitRelativeFrameVariant): ``INERTIAL`` or ``ROTATING``.
+    ///
+    /// Returns:
+    ///     ITC: The message.
+    ///
+    /// Raises:
+    ///     BraheError: If the trajectory is empty, not six-dimensional Cartesian, or the frame combination is unsupported.
+    #[staticmethod]
+    fn from_trajectory_with_covariance_variant(trajectory: PyRef<PyOrbitalTrajectory>, header: PyITCHeader, variant: PyOrbitRelativeFrameVariant) -> PyResult<Self> {
+        itc::ITC::from_trajectory_with_covariance_variant(&trajectory.trajectory, header.inner, variant.variant)
+            .map(|inner| Self { inner })
+            .map_err(|e| BraheError::new_err(e.to_string()))
     }
 }

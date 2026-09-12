@@ -36,7 +36,8 @@ name: the DataType field `MEME`, `EME2000` or `J2000` all map to EME2000, and `T
 to those frames; the decoded name is kept on `source_name`. `ITC.from_str` parses only the file text
 and leaves the state frame at its default, EME2000, since there is no file name to read a DataType
 from. The header carries the creation time, the declared ephemeris start, stop and step, a free-text
-source label, and the state and covariance frames. `states` holds the parsed records and
+source label, and the covariance frame; the state frame comes from the file name rather than the
+body. `states` holds the parsed records and
 `covariances` holds one matrix per record when the file carries covariance; `has_covariance` is
 `true` only when every record does, since a Modified ITC message's covariance is all-or-none.
 
@@ -91,8 +92,7 @@ trajectory must be converted first.
         ```
 
 The resulting `OrbitTrajectory` interpolates position, velocity and covariance at any epoch within
-its span, and `to_itrf` and `to_eci` carry the covariance along when converting between GCRF and
-EME2000. Because it is an ordinary `OrbitTrajectory`, it can be used directly with
+its span, and `to_eci` carries the covariance through the constant frame bias between EME2000 and GCRF; converting to a frame that cannot hold covariance, such as ITRF with `to_itrf`, drops it and keeps only the converted states. Because it is an ordinary `OrbitTrajectory`, it can be used directly with
 `location_accesses` to compute ground-station access windows, as in the example above, without a
 separate conversion step.
 
@@ -124,12 +124,13 @@ start, stop and step from the trajectory's samples and keeps the header's state 
 frame, `created` and `ephemeris_source` fields. `ITC.file_name` then builds a Space-Track compliant
 name from the message: `<DataType>_<NORAD>_<Name>_<DDDHHMM>_<Category>_<Metadata>_<Classification>.<ext>`,
 where the DataType comes from the state frame, the day-time group from the ephemeris start, and the
-rest from the arguments passed to `file_name`. `EphemerisFileName` is the type behind this
-convention: `parse` reads a compliant name, `new` builds one with the `MEME` data type,
-`UNCLASSIFIED` classification and `txt` extension, and the `with_*` methods replace individual
-fields. Every field is rejected if it contains a path separator (`/` or `\`) or is `.` or `..`, so a
+catalog number, name, category and metadata from the arguments passed to `file_name`, and the
+classification and extension from the defaults of `EphemerisFileName`. That type is the one behind
+the convention: `parse` reads a compliant name, constructing an `EphemerisFileName` gives the `MEME`
+data type, `UNCLASSIFIED` classification and `txt` extension, and the `with_*` methods replace
+individual fields. Every field is rejected if it contains a path separator (`/` or `\`) or is `.` or `..`, so a
 name built from untrusted input can never address a file outside its directory; the data type,
-metadata and classification fields are additionally rejected if they contain an underscore, since
+metadata, classification and extension fields are additionally rejected if they contain an underscore, since
 that is the field delimiter -- the object name is the exception, since `parse` recovers it by
 anchoring the other six fixed-position fields from either end and taking whatever remains between
 them.

@@ -61,8 +61,9 @@ already cached; the downloaded body is validated as a Modified ITC message befor
 and every other cached file for that NORAD ID is then deleted. `get_ephemeris` downloads (if
 needed) and returns the parsed `ITC` message. `get_trajectory` does the same and converts it to an
 `OrbitTrajectory` in the file's state frame (EME2000), with the RTN covariance rotated into that
-frame using the block-diagonal convention; `get_trajectory_with_covariance_variant` takes an
-explicit `covariance_variant`, including `OrbitRelativeFrameVariant.ROTATING` for the alternative
+frame using the block-diagonal convention; `get_trajectory` accepts an optional
+`covariance_variant`, and `get_trajectory_with_covariance_variant` takes it as a required
+`variant`, including `OrbitRelativeFrameVariant.ROTATING` for the alternative
 rotation. `save_ephemeris` copies the downloaded file to a destination outside the cache: an
 existing directory, or a path whose last component has no extension, is treated as a directory and
 the original file name is kept; a path with an extension is used as the file name directly. Saved

@@ -2,7 +2,7 @@
 
 For many modeling tasks it is useful to access satellite ephemeris (orbit) data. This data is made available by a number of sources, including public sources such as [Celestrak](https://celestrak.com/), [Space-Track](https://www.space-track.org/), and Starlink's own public ephemeris mirror. Brahe provides functions for accessing satellite data from all three sources, as well as initializing SGP4 propagators from data.
 
-Both clients have integrated, default rate-limiting and caching to ensure efficient and responsible access to the data. For more information on the configuration of the clients, see the respective language API documentation.
+All three clients have integrated, default rate-limiting and caching to ensure efficient and responsible access to the data. For more information on the configuration of the clients, see the respective language API documentation.
 
 !!! tip "Moving Beyond TLEs"
     While TLEs have been historically used for satellite ephemeris data, we will soon encounter the problem of catalog number exhaustion. Brahe supports both alpha-5 and GP Record formats that are being adopted to address the issue.

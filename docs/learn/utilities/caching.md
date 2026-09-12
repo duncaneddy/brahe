@@ -86,13 +86,13 @@ client pointed at a different mirror never shares files with the public endpoint
 === "Python"
 
     ``` python
-    --8<-- "./examples/utilities/caching.py:28:29"
+    --8<-- "./examples/utilities/caching.py:27:29"
     ```
 
 === "Rust"
 
     ``` rust
-    --8<-- "./examples/utilities/caching.rs:25:26"
+    --8<-- "./examples/utilities/caching.rs:24:26"
     ```
 
 ### Custom Subdirectories

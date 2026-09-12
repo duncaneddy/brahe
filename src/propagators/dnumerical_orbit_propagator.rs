@@ -16,8 +16,9 @@ use nalgebra::{DMatrix, DVector, Vector3, Vector6};
 
 use crate::earth_models::{density_harris_priester, density_nrlmsise00};
 use crate::frames::{
-    CelestialFrame, earth_rotation, rotation_eci_to_ecef, rotation_frame_to_frame,
-    rotation_lci_to_lfpa, rotation_mci_to_mcmf, state_frame_to_frame,
+    CelestialFrame, OrbitRelativeFrameVariant, earth_rotation, rotate_covariance,
+    rotation_eci_to_ecef, rotation_frame_to_frame, rotation_lci_to_lfpa, rotation_mci_to_mcmf,
+    state_frame_to_frame,
 };
 use crate::integrators::traits::DIntegrator;
 use crate::math::SMatrix3;
@@ -42,7 +43,7 @@ use crate::propagators::{
     AtmosphericModel, CentralBody, EclipseModel, ForceModelConfig, FrameTransformationModel,
     GravityConfiguration, GravityModelSource, ThirdBody,
 };
-use crate::relative_motion::rotation_eci_to_rtn;
+use crate::relative_motion::jacobian_eci_to_rtn;
 use crate::spice::{SPICEKernel, moon_position_spice, spk_position, spk_state, sun_position_spice};
 use crate::time::Epoch;
 use crate::traits::OrbitRepresentation;
@@ -3700,56 +3701,9 @@ impl DOrbitCovarianceProvider for DNumericalOrbitPropagator {
 
     fn covariance_rtn(&self, epoch: Epoch) -> Result<DMatrix<f64>, BraheError> {
         let cov_eci = DCovarianceProvider::covariance(self, epoch)?;
-
-        // Get state at this epoch for RTN rotation
         let state_eci = self.state_eci(epoch)?;
-
-        // Compute RTN rotation matrix using the library function
-        let rot_eci_to_rtn = rotation_eci_to_rtn(state_eci);
-
-        // Extract position and velocity
-        let r = state_eci.fixed_rows::<3>(0);
-        let v = state_eci.fixed_rows::<3>(3);
-
-        // Get angular velocity of RTN frame with respect to ECI frame (Alfriend equation 2.16)
-        let f_dot = (r.cross(&v)).norm() / (r.norm().powi(2));
-        let omega = nalgebra::Vector3::new(0.0, 0.0, f_dot);
-
-        // Build skew-symmetric matrix of omega
-        let omega_skew = nalgebra::SMatrix::<f64, 3, 3>::new(
-            0.0, -omega[2], omega[1], omega[2], 0.0, -omega[0], -omega[1], omega[0], 0.0,
-        );
-
-        let j21 = -omega_skew * rot_eci_to_rtn;
-
-        // Build full transformation Jacobian for dynamic-sized covariance
-        let dim = cov_eci.nrows();
-        let mut jacobian = DMatrix::<f64>::zeros(dim, dim);
-
-        // Block diagonal rotation parts (6x6 core)
-        for i in 0..3 {
-            for j in 0..3 {
-                jacobian[(i, j)] = rot_eci_to_rtn[(i, j)];
-                jacobian[(3 + i, 3 + j)] = rot_eci_to_rtn[(i, j)];
-            }
-        }
-
-        // Off-diagonal parts due to angular velocity
-        for i in 3..6 {
-            for j in 0..3 {
-                jacobian[(i, j)] = j21[(i - 3, j)];
-            }
-        }
-
-        // For extended state dimensions (beyond 6D), leave as identity
-        for i in 6..dim {
-            jacobian[(i, i)] = 1.0;
-        }
-
-        // Transform covariance: C_RTN = J * C_ECI * J^T
-        let cov_rtn = &jacobian * &cov_eci * jacobian.transpose();
-
-        Ok(cov_rtn)
+        let jacobian = jacobian_eci_to_rtn(state_eci, OrbitRelativeFrameVariant::Rotating);
+        rotate_covariance(&cov_eci, &jacobian)
     }
 }
 

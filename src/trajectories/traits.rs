@@ -126,35 +126,6 @@ pub(crate) fn is_icrf_axes_frame(frame: &ReferenceFrame) -> bool {
     matches!(frame, ReferenceFrame::Celestial(c) if c.axes() == FrameAxes::ICRF)
 }
 
-/// Whether `frame` is a celestial frame whose axes are the EME2000 (J2000)
-/// mean equator and equinox.
-///
-/// True for `EME2000` and for any frame built as
-/// `CelestialFrame::centered(.., FrameAxes::EME2000)`. Orientation alone
-/// decides: the rotation from EME2000 axes to ICRF axes is the constant frame
-/// bias whatever body the frame is centered on, so a rotation-only quantity
-/// such as a covariance takes the same Jacobian at every center.
-///
-/// # Arguments
-/// * `frame` - Frame to test
-///
-/// # Returns
-/// * `bool`: `true` if `frame` is a celestial frame with EME2000 axes
-pub(crate) fn is_eme2000_axes_frame(frame: &ReferenceFrame) -> bool {
-    matches!(frame, ReferenceFrame::Celestial(c) if c.axes() == FrameAxes::EME2000)
-}
-
-/// Whether covariances may be attached to a trajectory declared in `frame`.
-///
-/// # Arguments
-/// * `frame` - Frame the trajectory is declared in
-///
-/// # Returns
-/// * `bool`: `true` for `GCRF` (equivalently `ECI`) and `EME2000`
-pub(crate) fn covariance_frame_allowed(frame: &ReferenceFrame) -> bool {
-    *frame == CelestialFrame::GCRF || *frame == CelestialFrame::EME2000
-}
-
 /// Enumeration of orbit state representations
 #[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum OrbitRepresentation {
@@ -1144,17 +1115,6 @@ mod tests {
         assert!(err.to_string().contains("inertial frame"));
     }
 
-    #[test]
-    #[parallel]
-    fn test_covariance_frame_allowed_only_gcrf_and_eme2000() {
-        assert!(covariance_frame_allowed(&CelestialFrame::GCRF.into()));
-        assert!(covariance_frame_allowed(&CelestialFrame::ECI.into()));
-        assert!(covariance_frame_allowed(&CelestialFrame::EME2000.into()));
-        assert!(!covariance_frame_allowed(&CelestialFrame::ITRF.into()));
-        assert!(!covariance_frame_allowed(&CelestialFrame::LCI.into()));
-        assert!(!covariance_frame_allowed(&ReferenceFrame::RTN("SC")));
-    }
-
     // =========================================================================
     // OrbitRepresentation Display/Debug Tests
     // =========================================================================
@@ -1205,37 +1165,14 @@ mod tests {
             CelestialFrame::BodyCenteredICRF(299),
         ] {
             assert!(is_icrf_axes_frame(&ReferenceFrame::from(frame)));
-            assert!(!is_eme2000_axes_frame(&ReferenceFrame::from(frame)));
         }
 
         assert!(!is_icrf_axes_frame(&ReferenceFrame::from(
             CelestialFrame::ITRF
         )));
+        assert!(!is_icrf_axes_frame(&ReferenceFrame::from(
+            CelestialFrame::EME2000
+        )));
         assert!(!is_icrf_axes_frame(&ReferenceFrame::RTN("SC")));
-    }
-
-    #[test]
-    #[parallel]
-    fn test_is_eme2000_axes_frame() {
-        // The EME2000 axes are the same at any center, so a Mars-centered
-        // EME2000 frame takes the same frame-bias Jacobian as the
-        // Earth-centered shorthand.
-        for frame in [
-            CelestialFrame::EME2000,
-            CelestialFrame::centered(NAIFId::Mars, FrameAxes::EME2000),
-            CelestialFrame::centered(499, FrameAxes::EME2000),
-            CelestialFrame::centered(NAIFId::SolarSystemBarycenter, FrameAxes::EME2000),
-        ] {
-            assert!(is_eme2000_axes_frame(&ReferenceFrame::from(frame)));
-            assert!(!is_icrf_axes_frame(&ReferenceFrame::from(frame)));
-        }
-
-        assert!(!is_eme2000_axes_frame(&ReferenceFrame::from(
-            CelestialFrame::GCRF
-        )));
-        assert!(!is_eme2000_axes_frame(&ReferenceFrame::from(
-            CelestialFrame::MOD
-        )));
-        assert!(!is_eme2000_axes_frame(&ReferenceFrame::RTN("SC")));
     }
 }

@@ -152,7 +152,7 @@ Delete a file by its ID.
 
 ## SP Ephemeris
 
-The SP Ephemeris subsystem provides access to Special Perturbations ephemeris files. These are higher-fidelity orbital predictions than the standard GP (General Perturbations) data. All SP Ephemeris operations require authentication.
+The SP Ephemeris subsystem provides access to Special Perturbations ephemeris files. These are higher-fidelity orbital predictions than the standard GP (General Perturbations) data. All SP Ephemeris operations require authentication. The downloaded files are Modified ITC text, which `ITC.from_str` parses, and their names follow the `EphemerisFileName` convention described in [Modified ITC Ephemeris Format](../itc.md); Starlink's public mirror serves the same format under the same naming convention, without requiring an account (see [Starlink Public Ephemerides](../starlink.md)).
 
 ### Listing Ephemeris Files
 
@@ -309,3 +309,5 @@ Download a public file by name.
 - [Client](client.md) -- Authentication, query execution, and response handling
 - [SpaceTrackClient Reference](../../../library_api/ephemeris/spacetrack/client.md) -- Complete method documentation
 - [Response Types Reference](../../../library_api/ephemeris/spacetrack/responses.md) -- All response type field definitions
+- [Modified ITC Ephemeris Format](../itc.md) -- The format of SP Ephemeris downloads
+- [Starlink Public Ephemerides](../starlink.md) -- Public mirror serving the same format

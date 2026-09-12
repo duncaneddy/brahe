@@ -77,6 +77,24 @@ Satellite TLE data downloaded from CelesTrak is stored in its own subdirectory:
     --8<-- "./examples/utilities/caching.rs:20:22"
     ```
 
+### Starlink Cache Directory
+
+Starlink's manifest and ephemeris files are stored in their own subdirectory. A client
+constructed with a non-default `base_url` caches under a `mirrors/` subdirectory instead, so a
+client pointed at a different mirror never shares files with the public endpoint's cache.
+
+=== "Python"
+
+    ``` python
+    --8<-- "./examples/utilities/caching.py:28:29"
+    ```
+
+=== "Rust"
+
+    ``` rust
+    --8<-- "./examples/utilities/caching.rs:25:26"
+    ```
+
 ### Custom Subdirectories
 
 You can create custom subdirectories within the cache for your own data:
@@ -132,7 +150,7 @@ Here's a complete example demonstrating all cache directory functions:
 
 ## Working Offline
 
-Set `BRAHE_NETWORK_MODE=offline` to run entirely from the cache. Every artifact already under `BRAHE_CACHE` is used regardless of its age, and any request for something not cached fails with an error naming the resource instead of opening a connection. `BRAHE_NETWORK_MODE=offline-strict` additionally rejects cached data that has passed its time-to-live. See [Environment Variables](environment_variables.md#brahe_network_mode) for the full behavior table.
+Set `BRAHE_NETWORK_MODE=offline` to run entirely from the cache. Every artifact already under `BRAHE_CACHE` is used regardless of its age, and any request for something not cached fails with an error naming the resource instead of opening a connection. `BRAHE_NETWORK_MODE=offline-strict` additionally rejects cached data that has passed its time-to-live. See [Environment Variables](environment_variables.md#brahe_network_mode) for the full behavior table. The Starlink examples run from the manifest and ephemeris fixture files installed by `just download-resources`, so they need no network access either.
 
 ---
 

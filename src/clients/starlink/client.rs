@@ -606,8 +606,8 @@ impl StarlinkClient {
         etag: Option<&str>,
         last_modified: Option<&str>,
     ) -> Result<FetchOutcome, BraheError> {
-        let mut last_error = None;
-        for attempt in 0..=self.max_retries {
+        let mut attempt = 0;
+        loop {
             self.wait_for_rate_limit(url)?;
             if attempt > 0 {
                 std::thread::sleep(backoff_delay(attempt));
@@ -634,39 +634,31 @@ impl StarlinkClient {
                         .get("last-modified")
                         .and_then(|v| v.to_str().ok())
                         .map(str::to_string);
-                    let body = match response.body_mut().read_to_string() {
-                        Ok(body) => body,
+                    match response.body_mut().read_to_string() {
+                        Ok(body) => {
+                            return Ok(FetchOutcome::Fresh {
+                                body,
+                                etag,
+                                last_modified,
+                            });
+                        }
+                        Err(_) if attempt < self.max_retries => {}
                         Err(e) => {
-                            if attempt < self.max_retries {
-                                last_error = Some(e);
-                                continue;
-                            }
                             return Err(BraheError::IoError(format!(
                                 "Failed to read Starlink response for {url}: {e}"
                             )));
                         }
-                    };
-                    return Ok(FetchOutcome::Fresh {
-                        body,
-                        etag,
-                        last_modified,
-                    });
-                }
-                Err(e) => {
-                    if attempt < self.max_retries && is_retryable_error(&e) {
-                        last_error = Some(e);
-                        continue;
                     }
+                }
+                Err(e) if attempt < self.max_retries && is_retryable_error(&e) => {}
+                Err(e) => {
                     return Err(BraheError::IoError(format!(
                         "Starlink request {url} failed: {e}"
                     )));
                 }
             }
+            attempt += 1;
         }
-        Err(BraheError::IoError(format!(
-            "Starlink request {url} failed: {}",
-            last_error.unwrap()
-        )))
     }
 
     /// Downloads a satellite's current ephemeris file into the cache.
@@ -1657,6 +1649,106 @@ mod tests {
         assert_eq!(manifest.len(), 5);
         conditional.assert_calls(1);
         assert!(!client.is_cache_stale(&dir.join(MANIFEST_FILE)).unwrap());
+    }
+
+    #[test]
+    #[serial]
+    fn test_cache_dir_errors_when_mirror_root_is_a_file() {
+        let cache = CacheRedirect::new();
+        let root = cache.cache_path().join("starlink");
+        fs::create_dir_all(&root).unwrap();
+        fs::write(root.join("mirrors"), "not a directory").unwrap();
+        let err = StarlinkClient::with_base_url("http://127.0.0.1:1")
+            .cache_dir()
+            .unwrap_err();
+        assert!(err.to_string().contains("mirror cache directory"), "{err}");
+    }
+
+    #[test]
+    #[serial]
+    fn test_manifest_reads_fail_when_cache_entries_are_directories() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("offline"));
+        let client = StarlinkClient::with_base_url("https://brahe-network-mode-test.invalid");
+        let dir = starlink_dir(&client);
+        fs::create_dir_all(dir.join(MANIFEST_FILE)).unwrap();
+        let err = client.get_manifest().unwrap_err();
+        assert!(
+            err.to_string().contains("cached Starlink manifest"),
+            "{err}"
+        );
+        fs::create_dir_all(dir.join(PREVIOUS_MANIFEST_FILE)).unwrap();
+        let err = client.previous_manifest().unwrap_err();
+        assert!(
+            err.to_string().contains("previous Starlink manifest"),
+            "{err}"
+        );
+    }
+
+    #[test]
+    #[serial]
+    fn test_refresh_manifest_fails_when_sidecar_is_a_directory() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("online"));
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET).path("/MANIFEST.txt");
+            then.status(200).body(fixture_manifest());
+        });
+        let client = StarlinkClient::with_base_url(&server.base_url());
+        let dir = starlink_dir(&client);
+        fs::create_dir_all(dir.join(MANIFEST_META_FILE)).unwrap();
+        let err = client.refresh_manifest().unwrap_err();
+        assert!(err.to_string().contains("manifest metadata"), "{err}");
+    }
+
+    #[test]
+    #[serial]
+    fn test_save_destinations_that_cannot_be_created() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("online"));
+        let server = MockServer::start();
+        mock_site(&server, two_line_manifest());
+        let out = tempfile::tempdir().unwrap();
+        let blocker = out.path().join("blocker");
+        fs::write(&blocker, "x").unwrap();
+        let client = StarlinkClient::with_base_url(&server.base_url());
+
+        let err = client
+            .save_ephemeris(100002, blocker.join("as_dir"))
+            .unwrap_err();
+        assert!(err.to_string().contains("Failed to create"), "{err}");
+        let err = client
+            .save_ephemeris(100002, blocker.join("nested").join("file.txt"))
+            .unwrap_err();
+        assert!(err.to_string().contains("Failed to create"), "{err}");
+        let err = client.save_all(blocker.join("all"), 1).unwrap_err();
+        assert!(err.to_string().contains("Failed to create"), "{err}");
+
+        let occupied = out.path().join("occupied");
+        fs::create_dir_all(occupied.join(SHORT_FILE)).unwrap();
+        let err = client.save_ephemeris(100002, &occupied).unwrap_err();
+        assert!(err.to_string().contains("Failed to copy"), "{err}");
+    }
+
+    #[test]
+    #[serial]
+    fn test_download_ephemeris_rejects_not_modified_answer() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("online"));
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET).path("/MANIFEST.txt");
+            then.status(200).body(two_line_manifest());
+        });
+        server.mock(|when, then| {
+            when.method(GET).path(format!("/{SHORT_FILE}"));
+            then.status(304);
+        });
+        let client = StarlinkClient::with_base_url(&server.base_url());
+        let err = client.download_ephemeris(100002).unwrap_err();
+        assert!(err.to_string().contains("304"), "{err}");
+        assert!(!starlink_dir(&client).join(SHORT_FILE).exists());
     }
 
     #[test]

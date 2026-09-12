@@ -325,6 +325,13 @@ impl StarlinkClient {
         match self.fetch_text(&url, etag)? {
             FetchOutcome::NotModified => {
                 touch(&path)?;
+                self.write_meta(
+                    &dir,
+                    &ManifestMeta {
+                        retrieved: Some(now_rounded().to_string()),
+                        ..meta
+                    },
+                )?;
                 self.read_cached_manifest(&dir)
             }
             FetchOutcome::Fresh {
@@ -332,7 +339,7 @@ impl StarlinkClient {
                 etag,
                 last_modified,
             } => {
-                let retrieved = Epoch::now();
+                let retrieved = now_rounded();
                 let manifest = StarlinkManifest::parse(
                     &body,
                     retrieved,
@@ -440,11 +447,10 @@ impl StarlinkClient {
             BraheError::IoError(format!("Failed to read cached Starlink manifest: {e}"))
         })?;
         let meta = self.read_meta(dir);
-        let retrieved = meta
-            .retrieved
-            .as_deref()
-            .and_then(Epoch::from_string)
-            .unwrap_or(file_epoch(&path)?);
+        let retrieved = match meta.retrieved.as_deref().and_then(Epoch::from_string) {
+            Some(retrieved) => retrieved,
+            None => file_epoch(&path)?,
+        };
         let last_modified = meta.last_modified.as_deref().and_then(parse_http_date);
         StarlinkManifest::parse(&text, retrieved, last_modified)
     }
@@ -592,6 +598,17 @@ impl StarlinkClient {
     }
 }
 
+/// The current instant, rounded to whatever precision the manifest sidecar's
+/// `retrieved` field preserves through a display/parse round trip, so a
+/// value written to the sidecar and read back compares equal.
+///
+/// # Returns
+/// * `Epoch`: The current instant, in UTC, rounded to millisecond precision
+fn now_rounded() -> Epoch {
+    let now = Epoch::now();
+    Epoch::from_string(&now.to_string()).unwrap_or(now)
+}
+
 /// Sets a file's modification time to now, so a `304 Not Modified` answer
 /// restarts the cache's freshness window without rewriting its content.
 ///
@@ -686,6 +703,7 @@ mod tests {
                 .unwrap()
                 .ends_with("starlink")
         );
+        assert!(StarlinkClient::new().cached_manifest().unwrap().is_none());
     }
 
     #[test]
@@ -719,6 +737,7 @@ mod tests {
         let again = client.get_manifest().unwrap();
         assert_eq!(again.len(), 5);
         assert_eq!(again.last_modified, manifest.last_modified);
+        assert_eq!(again.retrieved, manifest.retrieved);
         mock.assert_calls(1);
         assert_eq!(client.cached_manifest().unwrap().unwrap().len(), 5);
         assert!(client.previous_manifest().unwrap().is_none());
@@ -754,6 +773,7 @@ mod tests {
             serde_json::from_str(&fs::read_to_string(dir.join(MANIFEST_META_FILE)).unwrap())
                 .unwrap();
         assert_eq!(meta["etag"], "\"m1\"");
+        assert_ne!(meta["retrieved"], serde_json::json!("2026-09-11T05:20:00Z"));
     }
 
     #[test]
@@ -847,16 +867,29 @@ mod tests {
     fn test_get_manifest_offline_strict_serves_fresh_cache_only() {
         let cache = CacheRedirect::new();
         let _mode = NetworkModeGuard::set(Some("offline-strict"));
-        let client = StarlinkClient::with_base_url("http://127.0.0.1:1");
-        let err = client.get_manifest().unwrap_err();
-        assert!(err.to_string().contains("MANIFEST.txt"), "{err}");
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(GET).path("/MANIFEST.txt");
+            then.status(200).body(fixture_manifest());
+        });
+        let client = StarlinkClient::with_base_url("https://brahe-network-mode-test.invalid");
+        let err = client.get_manifest().unwrap_err().to_string();
+        assert!(
+            err.contains("BRAHE_NETWORK_MODE is offline-strict"),
+            "{err}"
+        );
         let dir = starlink_dir(&cache);
         fs::write(dir.join(MANIFEST_FILE), fixture_manifest()).unwrap();
         assert_eq!(client.get_manifest().unwrap().len(), 5);
         age_file(&dir.join(MANIFEST_FILE), 7200);
         let err = client.get_manifest().unwrap_err();
         assert!(err.to_string().contains("offline-strict"), "{err}");
-        assert!(client.refresh_manifest().is_err());
+        let err = client.refresh_manifest().unwrap_err().to_string();
+        assert!(
+            err.contains("BRAHE_NETWORK_MODE is offline-strict"),
+            "{err}"
+        );
+        mock.assert_calls(0);
     }
 
     #[test]
@@ -864,12 +897,20 @@ mod tests {
     fn test_get_manifest_offline_serves_stale_cache() {
         let cache = CacheRedirect::new();
         let _mode = NetworkModeGuard::set(Some("offline"));
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(GET).path("/MANIFEST.txt");
+            then.status(200).body(fixture_manifest());
+        });
         let dir = starlink_dir(&cache);
         fs::write(dir.join(MANIFEST_FILE), fixture_manifest()).unwrap();
         age_file(&dir.join(MANIFEST_FILE), 7200);
-        let client = StarlinkClient::with_base_url("http://127.0.0.1:1").max_retries(0);
+        let client =
+            StarlinkClient::with_base_url("https://brahe-network-mode-test.invalid").max_retries(0);
         assert_eq!(client.get_manifest().unwrap().len(), 5);
-        assert!(client.refresh_manifest().is_err());
+        let err = client.refresh_manifest().unwrap_err().to_string();
+        assert!(err.contains("BRAHE_NETWORK_MODE is offline"), "{err}");
+        mock.assert_calls(0);
     }
 
     #[test]
@@ -925,5 +966,32 @@ mod tests {
             fs::read_to_string(dir.join(MANIFEST_FILE)).unwrap(),
             fixture_manifest()
         );
+    }
+
+    #[test]
+    #[serial]
+    fn test_get_manifest_corrupt_sidecar_refreshes_unconditionally() {
+        let cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("online"));
+        let server = MockServer::start();
+        let conditional = server.mock(|when, then| {
+            when.method(GET)
+                .path("/MANIFEST.txt")
+                .header_exists("If-None-Match");
+            then.status(304);
+        });
+        let unconditional = server.mock(|when, then| {
+            when.method(GET).path("/MANIFEST.txt");
+            then.status(200).body(fixture_manifest());
+        });
+        let dir = starlink_dir(&cache);
+        fs::write(dir.join(MANIFEST_FILE), fixture_manifest()).unwrap();
+        fs::write(dir.join(MANIFEST_META_FILE), "{").unwrap();
+        age_file(&dir.join(MANIFEST_FILE), 7200);
+        let client = StarlinkClient::with_base_url(&server.base_url());
+        let manifest = client.get_manifest().unwrap();
+        assert_eq!(manifest.len(), 5);
+        conditional.assert_calls(0);
+        unconditional.assert_calls(1);
     }
 }

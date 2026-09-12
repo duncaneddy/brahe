@@ -102,13 +102,13 @@ You can create custom subdirectories within the cache for your own data:
 === "Python"
 
     ``` python
-    --8<-- "./examples/utilities/caching.py:27:29"
+    --8<-- "./examples/utilities/caching.py:31:33"
     ```
 
 === "Rust"
 
     ``` rust
-    --8<-- "./examples/utilities/caching.rs:24:26"
+    --8<-- "./examples/utilities/caching.rs:28:30"
     ```
 
 ## Complete Example

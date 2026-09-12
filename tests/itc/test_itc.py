@@ -557,6 +557,23 @@ def test_eme2000_covariance_frame_keeps_inertial_covariance():
     )
 
 
+def test_from_trajectory_builds_rtn_about_the_earth_for_lunar_centered_frames(
+    naif_cache_setup,
+):
+    """Rust: test_from_trajectory_builds_rtn_about_the_earth_for_lunar_centered_frames"""
+    itc = bh.ITC.from_file(TRUNCATED)
+    gcrf = itc.to_trajectory().to_gcrf()
+    lci = gcrf.to_frame(bh.CelestialFrame.LCI)
+    from_gcrf = bh.ITC.from_trajectory(gcrf, bh.ITCHeader())
+    from_lci = bh.ITC.from_trajectory(lci, bh.ITCHeader())
+    assert from_lci.header.state_frame == bh.CelestialFrame.EME2000
+    for a, b in zip(from_gcrf.states, from_lci.states):
+        np.testing.assert_allclose(b.position, a.position, rtol=0, atol=1e-3)
+        np.testing.assert_allclose(b.velocity, a.velocity, rtol=0, atol=1e-6)
+    for a, b in zip(from_gcrf.covariances, from_lci.covariances):
+        np.testing.assert_allclose(b, a, rtol=1e-9, atol=1e-12)
+
+
 def test_from_trajectory_rtn_round_trips_for_both_variants():
     itc = ITC.from_file(TRUNCATED)
     for variant in [

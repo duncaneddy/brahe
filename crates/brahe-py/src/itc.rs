@@ -632,10 +632,10 @@ impl PyITC {
     ///     ```
     ///
     /// References:
-    ///     1. *Spaceflight Safety Handbook for Satellite Operators*, Version 1.7, 18th Space Defense Squadron, Space-Track.org, https://www.space-track.org/documents/Spaceflight_Safety_Handbook_for_Operators.pdf
+    ///     1. *Spaceflight Safety Handbook for Satellite Operators*, Version 1.7, 18th Space Defense Squadron, Space-Track.org, https://www.space-track.org/documents/SFS_Handbook_For_Operators_V1.7.pdf
     ///     2. NASA Conjunction Assessment Risk Analysis (CARA), *Conjunction Assessment Handbook*, NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13), https://ntrs.nasa.gov/citations/20205011318
     ///     3. NASA CARA Analysis Tools, ``RIC2ECI.m``, https://github.com/nasa/CARA_Analysis_Tools
-    ///     4. D. A. Vallado and S. Alfano, "Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003, https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf
+    ///     4. D. A. Vallado, "Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003, https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf
     #[pyo3(signature = (covariance_variant=None))]
     fn to_trajectory(&self, covariance_variant: Option<PyOrbitRelativeFrameVariant>) -> PyResult<PyOrbitalTrajectory> {
         let variant = covariance_variant.map(|v| v.variant).unwrap_or(frames::OrbitRelativeFrameVariant::Inertial);
@@ -648,8 +648,8 @@ impl PyITC {
     /// Convert the message to an ``OrbitTrajectory`` with an explicit RTN covariance convention.
     ///
     /// The covariance is attached in the state frame whatever frame the header names for it.
-    /// An ``RTN`` covariance is rotated with the record's own state taken in ICRF axes about the
-    /// state frame's center; ``INERTIAL`` uses the block-diagonal rotation and ``ROTATING`` adds
+    /// An ``RTN`` covariance is rotated with the record's own state expressed in GCRF (the geocentric RTN basis, whatever center the
+    /// source used); ``INERTIAL`` uses the block-diagonal rotation and ``ROTATING`` adds
     /// the frame-rate coupling. An ``EME2000`` or ``ITRF`` covariance is rotated by the
     /// state-transform Jacobian from that frame to the state frame at the record epoch, which is
     /// the identity when the two agree.
@@ -673,10 +673,10 @@ impl PyITC {
     ///     ```
     ///
     /// References:
-    ///     1. *Spaceflight Safety Handbook for Satellite Operators*, Version 1.7, 18th Space Defense Squadron, Space-Track.org, https://www.space-track.org/documents/Spaceflight_Safety_Handbook_for_Operators.pdf
+    ///     1. *Spaceflight Safety Handbook for Satellite Operators*, Version 1.7, 18th Space Defense Squadron, Space-Track.org, https://www.space-track.org/documents/SFS_Handbook_For_Operators_V1.7.pdf
     ///     2. NASA Conjunction Assessment Risk Analysis (CARA), *Conjunction Assessment Handbook*, NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13), https://ntrs.nasa.gov/citations/20205011318
     ///     3. NASA CARA Analysis Tools, ``RIC2ECI.m``, https://github.com/nasa/CARA_Analysis_Tools
-    ///     4. D. A. Vallado and S. Alfano, "Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003, https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf
+    ///     4. D. A. Vallado, "Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003, https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf
     fn to_trajectory_with_covariance_variant(&self, variant: PyOrbitRelativeFrameVariant) -> PyResult<PyOrbitalTrajectory> {
         self.inner
             .to_trajectory_with_covariance_variant(variant.variant)
@@ -707,10 +707,10 @@ impl PyITC {
     ///     ```
     ///
     /// References:
-    ///     1. *Spaceflight Safety Handbook for Satellite Operators*, Version 1.7, 18th Space Defense Squadron, Space-Track.org, https://www.space-track.org/documents/Spaceflight_Safety_Handbook_for_Operators.pdf
+    ///     1. *Spaceflight Safety Handbook for Satellite Operators*, Version 1.7, 18th Space Defense Squadron, Space-Track.org, https://www.space-track.org/documents/SFS_Handbook_For_Operators_V1.7.pdf
     ///     2. NASA Conjunction Assessment Risk Analysis (CARA), *Conjunction Assessment Handbook*, NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13), https://ntrs.nasa.gov/citations/20205011318
     ///     3. NASA CARA Analysis Tools, ``RIC2ECI.m``, https://github.com/nasa/CARA_Analysis_Tools
-    ///     4. D. A. Vallado and S. Alfano, "Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003, https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf
+    ///     4. D. A. Vallado, "Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003, https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf
     #[staticmethod]
     #[pyo3(signature = (trajectory, header, covariance_variant=None))]
     fn from_trajectory(trajectory: PyRef<PyOrbitalTrajectory>, header: PyITCHeader, covariance_variant: Option<PyOrbitRelativeFrameVariant>) -> PyResult<Self> {
@@ -748,10 +748,10 @@ impl PyITC {
     ///     ```
     ///
     /// References:
-    ///     1. *Spaceflight Safety Handbook for Satellite Operators*, Version 1.7, 18th Space Defense Squadron, Space-Track.org, https://www.space-track.org/documents/Spaceflight_Safety_Handbook_for_Operators.pdf
+    ///     1. *Spaceflight Safety Handbook for Satellite Operators*, Version 1.7, 18th Space Defense Squadron, Space-Track.org, https://www.space-track.org/documents/SFS_Handbook_For_Operators_V1.7.pdf
     ///     2. NASA Conjunction Assessment Risk Analysis (CARA), *Conjunction Assessment Handbook*, NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13), https://ntrs.nasa.gov/citations/20205011318
     ///     3. NASA CARA Analysis Tools, ``RIC2ECI.m``, https://github.com/nasa/CARA_Analysis_Tools
-    ///     4. D. A. Vallado and S. Alfano, "Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003, https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf
+    ///     4. D. A. Vallado, "Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003, https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf
     #[staticmethod]
     fn from_trajectory_with_covariance_variant(trajectory: PyRef<PyOrbitalTrajectory>, header: PyITCHeader, variant: PyOrbitRelativeFrameVariant) -> PyResult<Self> {
         itc::ITC::from_trajectory_with_covariance_variant(&trajectory.trajectory, header.inner, variant.variant)

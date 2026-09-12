@@ -91,8 +91,8 @@ def starlink_server(tmp_path, monkeypatch):
         server.server_close()
 
 
-def cache_dir(tmp_path):
-    return tmp_path / "starlink"
+def cache_dir(client):
+    return Path(client.cache_dir())
 
 
 def test_starlink_client_constructors(tmp_path, monkeypatch):
@@ -110,7 +110,27 @@ def test_starlink_client_constructors(tmp_path, monkeypatch):
         rate_limit=bh.RateLimitConfig(max_per_minute=1, max_per_hour=1)
     )
     assert limited.cache_max_age == 3600.0
-    assert Path(client.cache_dir()).name == "starlink"
+    assert Path(bh.StarlinkClient().cache_dir()).name == "starlink"
+
+
+def test_cache_dir_is_namespaced_by_base_url(tmp_path, monkeypatch):
+    """Rust: test_cache_dir_is_namespaced_by_base_url"""
+    monkeypatch.setenv("BRAHE_CACHE", str(tmp_path))
+    default_dir = Path(bh.StarlinkClient().cache_dir())
+    assert default_dir.name == "starlink"
+
+    mirror_a = bh.StarlinkClient(base_url="http://127.0.0.1:1")
+    dir_a = Path(mirror_a.cache_dir())
+    assert dir_a.parent == default_dir / "mirrors"
+    assert dir_a.name.startswith("127.0.0.1-")
+    assert dir_a.is_dir()
+
+    mirror_b = bh.StarlinkClient(base_url="http://127.0.0.1:2")
+    dir_b = Path(mirror_b.cache_dir())
+    assert dir_a != dir_b
+
+    trailing_slash = bh.StarlinkClient(base_url="http://127.0.0.1:1/")
+    assert dir_a == Path(trailing_slash.cache_dir())
 
 
 def test_get_manifest_downloads_and_caches(starlink_server, tmp_path):
@@ -120,9 +140,9 @@ def test_get_manifest_downloads_and_caches(starlink_server, tmp_path):
     manifest = client.get_manifest()
     assert len(manifest) == 2
     assert manifest.last_modified is not None
-    meta = json.loads((cache_dir(tmp_path) / "MANIFEST.meta.json").read_text())
+    meta = json.loads((cache_dir(client) / "MANIFEST.meta.json").read_text())
     assert meta["etag"] == '"m1"'
-    assert (cache_dir(tmp_path) / "MANIFEST.txt").read_text() == TWO_LINE_MANIFEST
+    assert (cache_dir(client) / "MANIFEST.txt").read_text() == TWO_LINE_MANIFEST
     client.get_manifest()
     assert [h[0] for h in hits] == ["/MANIFEST.txt"]
     assert len(client.cached_manifest()) == 2
@@ -136,11 +156,11 @@ def test_get_manifest_stale_uses_conditional_get_and_304_keeps_cache(
     base_url, hits, _ = starlink_server
     client = bh.StarlinkClient(base_url=base_url, cache_max_age=3600.0)
     client.get_manifest()
-    age_file(cache_dir(tmp_path) / "MANIFEST.txt", 7200)
+    age_file(cache_dir(client) / "MANIFEST.txt", 7200)
     manifest = client.get_manifest()
     assert len(manifest) == 2
     assert hits[-1] == ("/MANIFEST.txt", '"m1"')
-    assert time.time() - (cache_dir(tmp_path) / "MANIFEST.txt").stat().st_mtime < 60
+    assert time.time() - (cache_dir(client) / "MANIFEST.txt").stat().st_mtime < 60
     assert client.previous_manifest() is None
 
 
@@ -151,16 +171,16 @@ def test_get_manifest_changed_rotates_previous(starlink_server, tmp_path):
     client.get_manifest()
     updated = f"MEME_100001_STARLINK-38128_2540942_Operational_1473414180_UNCLASSIFIED.txt\n{SHORT_FILE}\n"
     files["/MANIFEST.txt"] = (updated, {"ETag": '"m2"'})
-    age_file(cache_dir(tmp_path) / "MANIFEST.txt", 7200)
+    age_file(cache_dir(client) / "MANIFEST.txt", 7200)
     manifest = client.refresh_manifest()
     assert manifest.find_by_norad_id(100001).file_name.metadata == "1473414180"
     assert (
-        cache_dir(tmp_path) / "MANIFEST.previous.txt"
+        cache_dir(client) / "MANIFEST.previous.txt"
     ).read_text() == TWO_LINE_MANIFEST
     previous = client.previous_manifest()
     assert [e.norad_cat_id for e in manifest.changed_since(previous)] == [100001]
     assert (
-        json.loads((cache_dir(tmp_path) / "MANIFEST.meta.json").read_text())["etag"]
+        json.loads((cache_dir(client) / "MANIFEST.meta.json").read_text())["etag"]
         == '"m2"'
     )
 
@@ -191,12 +211,11 @@ def test_refresh_manifest_ignores_freshness_and_identical_body_keeps_previous(
     threading.Thread(target=server.serve_forever, daemon=True).start()
     try:
         host, port = server.server_address
-        d = cache_dir(tmp_path)
-        d.mkdir(parents=True)
+        client = bh.StarlinkClient(base_url=f"http://{host}:{port}")
+        d = cache_dir(client)
         (d / "MANIFEST.previous.txt").write_text(
             "MEME_100009_STARLINK-1_0010000_Operational_nomnvr_UNCLASSIFIED.txt\n"
         )
-        client = bh.StarlinkClient(base_url=f"http://{host}:{port}")
         client.refresh_manifest()
         client.refresh_manifest()
         assert hits == ["/MANIFEST.txt", "/MANIFEST.txt"]
@@ -215,10 +234,9 @@ def test_get_manifest_offline_strict_serves_fresh_cache_only(tmp_path, monkeypat
     client = bh.StarlinkClient(base_url="https://brahe-network-mode-test.invalid")
     with pytest.raises(bh.BraheError, match="BRAHE_NETWORK_MODE is offline-strict"):
         client.get_manifest()
-    cache_dir(tmp_path).mkdir(parents=True, exist_ok=True)
-    (cache_dir(tmp_path) / "MANIFEST.txt").write_text(TWO_LINE_MANIFEST)
+    (cache_dir(client) / "MANIFEST.txt").write_text(TWO_LINE_MANIFEST)
     assert len(client.get_manifest()) == 2
-    age_file(cache_dir(tmp_path) / "MANIFEST.txt", 7200)
+    age_file(cache_dir(client) / "MANIFEST.txt", 7200)
     with pytest.raises(bh.BraheError, match="offline-strict"):
         client.get_manifest()
     with pytest.raises(bh.BraheError, match="BRAHE_NETWORK_MODE is offline-strict"):
@@ -229,10 +247,9 @@ def test_get_manifest_offline_serves_stale_cache(tmp_path, monkeypatch):
     """Rust: test_get_manifest_offline_serves_stale_cache"""
     monkeypatch.setenv("BRAHE_CACHE", str(tmp_path))
     monkeypatch.setenv("BRAHE_NETWORK_MODE", "offline")
-    cache_dir(tmp_path).mkdir(parents=True)
-    (cache_dir(tmp_path) / "MANIFEST.txt").write_text(TWO_LINE_MANIFEST)
-    age_file(cache_dir(tmp_path) / "MANIFEST.txt", 7200)
     client = bh.StarlinkClient(base_url="https://brahe-network-mode-test.invalid")
+    (cache_dir(client) / "MANIFEST.txt").write_text(TWO_LINE_MANIFEST)
+    age_file(cache_dir(client) / "MANIFEST.txt", 7200)
     assert len(client.get_manifest()) == 2
     with pytest.raises(bh.BraheError, match="BRAHE_NETWORK_MODE is offline"):
         client.refresh_manifest()
@@ -242,14 +259,13 @@ def test_get_manifest_online_refresh_failure_is_an_error(tmp_path, monkeypatch):
     """Rust: test_get_manifest_online_refresh_failure_is_an_error"""
     monkeypatch.setenv("BRAHE_CACHE", str(tmp_path))
     monkeypatch.setenv("BRAHE_NETWORK_MODE", "online")
-    cache_dir(tmp_path).mkdir(parents=True)
-    (cache_dir(tmp_path) / "MANIFEST.txt").write_text(TWO_LINE_MANIFEST)
     client = bh.StarlinkClient(base_url="http://127.0.0.1:1", max_retries=0)
+    (cache_dir(client) / "MANIFEST.txt").write_text(TWO_LINE_MANIFEST)
     assert len(client.get_manifest()) == 2
-    age_file(cache_dir(tmp_path) / "MANIFEST.txt", 7200)
+    age_file(cache_dir(client) / "MANIFEST.txt", 7200)
     with pytest.raises(bh.BraheError):
         client.get_manifest()
-    assert (cache_dir(tmp_path) / "MANIFEST.txt").read_text() == TWO_LINE_MANIFEST
+    assert (cache_dir(client) / "MANIFEST.txt").read_text() == TWO_LINE_MANIFEST
     assert len(client.cached_manifest()) == 2
 
 
@@ -289,11 +305,10 @@ def test_get_manifest_rejects_malformed_manifest_and_keeps_old_cache(
     """Rust: test_get_manifest_rejects_malformed_manifest_and_keeps_old_cache"""
     base_url, _, files = starlink_server
     files["/MANIFEST.txt"] = ("garbage line\n", {"ETag": '"garbage"'})
-    d = cache_dir(tmp_path)
-    d.mkdir(parents=True)
+    client = bh.StarlinkClient(base_url=base_url)
+    d = cache_dir(client)
     (d / "MANIFEST.txt").write_text(TWO_LINE_MANIFEST)
     age_file(d / "MANIFEST.txt", 7200)
-    client = bh.StarlinkClient(base_url=base_url)
     with pytest.raises(bh.BraheError):
         client.get_manifest()
     assert (d / "MANIFEST.txt").read_text() == TWO_LINE_MANIFEST
@@ -304,12 +319,11 @@ def test_get_manifest_corrupt_sidecar_refreshes_unconditionally(
 ):
     """Rust: test_get_manifest_corrupt_sidecar_refreshes_unconditionally"""
     base_url, hits, _ = starlink_server
-    d = cache_dir(tmp_path)
-    d.mkdir(parents=True)
+    client = bh.StarlinkClient(base_url=base_url)
+    d = cache_dir(client)
     (d / "MANIFEST.txt").write_text(TWO_LINE_MANIFEST)
     (d / "MANIFEST.meta.json").write_text("{")
     age_file(d / "MANIFEST.txt", 7200)
-    client = bh.StarlinkClient(base_url=base_url)
     manifest = client.get_manifest()
     assert len(manifest) == 2
     assert hits[-1] == ("/MANIFEST.txt", None)
@@ -318,8 +332,8 @@ def test_get_manifest_corrupt_sidecar_refreshes_unconditionally(
 def test_download_ephemeris_caches_and_evicts_superseded(starlink_server, tmp_path):
     """Rust: test_download_ephemeris_caches_and_evicts_superseded"""
     base_url, _, _ = starlink_server
-    d = cache_dir(tmp_path)
-    d.mkdir(parents=True)
+    client = bh.StarlinkClient(base_url=base_url)
+    d = cache_dir(client)
     old_name = (
         "MEME_100002_STARLINK-37711_2530149_Operational_1472521800_UNCLASSIFIED.txt"
     )
@@ -332,7 +346,6 @@ def test_download_ephemeris_caches_and_evicts_superseded(starlink_server, tmp_pa
     (d / old_name).write_text("x")
     (d / padded_name).write_text("x")
     (d / unrelated).write_text("x")
-    client = bh.StarlinkClient(base_url=base_url)
     path = Path(client.download_ephemeris(100002))
     assert path == d / SHORT_FILE
     assert path.read_text() == (ASSETS / SHORT_FILE).read_text()
@@ -347,10 +360,9 @@ def test_download_ephemeris_serves_cached_file_without_request(
 ):
     """Rust: test_download_ephemeris_serves_cached_file_without_request"""
     base_url, hits, _ = starlink_server
-    d = cache_dir(tmp_path)
-    d.mkdir(parents=True)
-    (d / SHORT_FILE).write_text((ASSETS / SHORT_FILE).read_text())
     client = bh.StarlinkClient(base_url=base_url)
+    d = cache_dir(client)
+    (d / SHORT_FILE).write_text((ASSETS / SHORT_FILE).read_text())
     client.download_ephemeris(100002)
     assert [h[0] for h in hits] == ["/MANIFEST.txt"]
     itc = client.get_ephemeris(100002)
@@ -374,8 +386,8 @@ def test_download_ephemeris_unknown_id_malformed_body_and_offline(
     """Rust: test_download_ephemeris_unknown_id_malformed_body_and_offline"""
     base_url, _, files = starlink_server
     files[f"/{FULL_FILE}"] = ("not an ephemeris\n", {})
-    d = cache_dir(tmp_path)
     client = bh.StarlinkClient(base_url=base_url)
+    d = cache_dir(client)
     with pytest.raises(bh.BraheError, match="424242"):
         client.download_ephemeris(424242)
     with pytest.raises(bh.BraheError):
@@ -383,10 +395,12 @@ def test_download_ephemeris_unknown_id_malformed_body_and_offline(
     assert not (d / FULL_FILE).exists()
     monkeypatch.setenv("BRAHE_NETWORK_MODE", "offline-strict")
     strict = bh.StarlinkClient(base_url="https://brahe-network-mode-test.invalid")
+    strict_dir = cache_dir(strict)
+    (strict_dir / "MANIFEST.txt").write_text(TWO_LINE_MANIFEST)
     with pytest.raises(bh.BraheError, match="BRAHE_NETWORK_MODE is offline-strict"):
         strict.download_ephemeris(100002)
-    (d / SHORT_FILE).write_text((ASSETS / SHORT_FILE).read_text())
-    assert Path(strict.download_ephemeris(100002)) == d / SHORT_FILE
+    (strict_dir / SHORT_FILE).write_text((ASSETS / SHORT_FILE).read_text())
+    assert Path(strict.download_ephemeris(100002)) == strict_dir / SHORT_FILE
 
 
 def test_save_ephemeris_directory_and_file_destinations(starlink_server, tmp_path):
@@ -411,12 +425,11 @@ def test_save_ephemeris_directory_and_file_destinations(starlink_server, tmp_pat
 def test_download_all_downloads_missing_and_keeps_cached(starlink_server, tmp_path):
     """Rust: test_download_all_downloads_missing_and_keeps_cached"""
     base_url, hits, _ = starlink_server
-    d = cache_dir(tmp_path)
-    d.mkdir(parents=True)
+    client = bh.StarlinkClient(base_url=base_url)
+    d = cache_dir(client)
     (d / SHORT_FILE).write_text((ASSETS / SHORT_FILE).read_text())
     stale = "MEME_100009_STARLINK-9_2530149_Operational_1472521800_UNCLASSIFIED.txt"
     (d / stale).write_text("x")
-    client = bh.StarlinkClient(base_url=base_url)
     paths = [Path(p) for p in client.download_all(concurrency=4)]
     assert paths == [d / FULL_FILE, d / SHORT_FILE]
     assert [h[0] for h in hits] == ["/MANIFEST.txt", f"/{FULL_FILE}"]
@@ -432,8 +445,8 @@ def test_download_all_stops_on_first_error(starlink_server, tmp_path):
     """Rust: test_download_all_stops_on_first_error"""
     base_url, _, files = starlink_server
     del files[f"/{FULL_FILE}"]
-    d = cache_dir(tmp_path)
     client = bh.StarlinkClient(base_url=base_url, max_retries=0)
+    d = cache_dir(client)
     with pytest.raises(bh.BraheError, match="404"):
         client.download_all(concurrency=1)
     assert not (d / SHORT_FILE).exists()
@@ -452,7 +465,7 @@ def test_save_all_copies_into_directory(starlink_server, tmp_path):
     file_dest.write_text("x")
     with pytest.raises(bh.BraheError):
         client.save_all(str(file_dest))
-    assert (cache_dir(tmp_path) / FULL_FILE).exists()
+    assert (cache_dir(client) / FULL_FILE).exists()
 
 
 def test_get_manifest_rejects_path_traversal_line(starlink_server, tmp_path):
@@ -460,14 +473,13 @@ def test_get_manifest_rejects_path_traversal_line(starlink_server, tmp_path):
     base_url, _, files = starlink_server
     escape = "MEME_100001_../../../../evil_2540142_Operational__UNCLASSIFIED.txt"
     files["/MANIFEST.txt"] = (f"{escape}\n", {"ETag": '"escape"'})
-    d = cache_dir(tmp_path)
-    d.mkdir(parents=True)
     client = bh.StarlinkClient(base_url=base_url)
+    d = cache_dir(client)
     with pytest.raises(bh.BraheError):
         client.get_manifest()
     with pytest.raises(bh.BraheError):
         client.download_all(concurrency=1)
-    assert not (tmp_path / "evil").exists()
+    assert not (d.parent / "evil").exists()
     assert not (tmp_path.parent / "evil").exists()
     assert client.cached_files() == []
 
@@ -478,8 +490,8 @@ def test_download_uses_literal_manifest_line(starlink_server, tmp_path):
     short_id = "MEME_1001_STARLINK-1_2540149_Operational_1473385800_UNCLASSIFIED.txt"
     files["/MANIFEST.txt"] = (f"{short_id}\n", {"ETag": '"short"'})
     files[f"/{short_id}"] = ((ASSETS / SHORT_FILE).read_text(), {})
-    d = cache_dir(tmp_path)
     client = bh.StarlinkClient(base_url=base_url)
+    d = cache_dir(client)
     path = Path(client.download_ephemeris(1001))
     assert [h[0] for h in hits] == ["/MANIFEST.txt", f"/{short_id}"]
     assert path == d / short_id
@@ -498,8 +510,8 @@ def test_download_all_deduplicates_repeated_norad_ids(starlink_server, tmp_path)
         {"ETag": '"dup"'},
     )
     files[f"/{duplicate}"] = ((ASSETS / SHORT_FILE).read_text(), {})
-    d = cache_dir(tmp_path)
     client = bh.StarlinkClient(base_url=base_url)
+    d = cache_dir(client)
     paths = [Path(p) for p in client.download_all(concurrency=2)]
     assert paths == [d / SHORT_FILE, d / FULL_FILE]
     assert f"/{duplicate}" not in [h[0] for h in hits]
@@ -511,8 +523,8 @@ def test_download_all_deduplicates_repeated_norad_ids(starlink_server, tmp_path)
 def test_save_ephemeris_onto_cache_file_keeps_it_intact(starlink_server, tmp_path):
     """Rust: test_save_ephemeris_onto_cache_file_keeps_it_intact"""
     base_url, _, _ = starlink_server
-    d = cache_dir(tmp_path)
     client = bh.StarlinkClient(base_url=base_url)
+    d = cache_dir(client)
     cached = Path(client.download_ephemeris(100002))
     original = cached.read_text()
     saved = Path(client.save_ephemeris(100002, str(cached)))
@@ -529,8 +541,8 @@ def test_get_manifest_sends_if_modified_since_without_etag(starlink_server, tmp_
         f"{FULL_FILE}\n",
         {"Last-Modified": last_modified},
     )
-    d = cache_dir(tmp_path)
-    d.mkdir(parents=True)
+    client = bh.StarlinkClient(base_url=base_url)
+    d = cache_dir(client)
     (d / "MANIFEST.txt").write_text(TWO_LINE_MANIFEST)
     (d / "MANIFEST.meta.json").write_text(
         json.dumps(
@@ -542,7 +554,6 @@ def test_get_manifest_sends_if_modified_since_without_etag(starlink_server, tmp_
         )
     )
     age_file(d / "MANIFEST.txt", 7200)
-    client = bh.StarlinkClient(base_url=base_url)
     manifest = client.get_manifest()
     assert len(manifest) == 2
     assert len(hits) == 1

@@ -20,5 +20,4 @@ mod parse;
 mod types;
 mod write;
 
-pub use frames::{data_type_for_state_frame, state_frame_for_data_type};
 pub use types::{ITC, ITCCovarianceFrame, ITCHeader, ITCStateVector};

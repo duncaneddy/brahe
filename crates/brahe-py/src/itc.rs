@@ -584,37 +584,3 @@ impl PyITC {
         format!("ITC(records={}, covariance={}, state_frame={})", self.inner.len(), covariance, self.inner.header.state_frame)
     }
 }
-
-/// State frame implied by a Space-Track file name's DataType field.
-///
-/// Args:
-///     data_type (str): DataType token, case-insensitive (``MEME``, ``EME2000``, ``J2000``, ``TEME``, ``ITRF``).
-///
-/// Returns:
-///     CelestialFrame: EME2000, TEME or ITRF.
-///
-/// Raises:
-///     BraheError: If the token is unsupported.
-#[pyfunction(name = "state_frame_for_data_type")]
-fn py_state_frame_for_data_type(data_type: &str) -> PyResult<PyCelestialFrame> {
-    itc::state_frame_for_data_type(data_type)
-        .map(|frame| PyCelestialFrame { frame })
-        .map_err(|e| BraheError::new_err(e.to_string()))
-}
-
-/// DataType token to write for a state frame.
-///
-/// Args:
-///     frame (CelestialFrame): State frame of the ephemeris.
-///
-/// Returns:
-///     str: ``MEME``, ``TEME`` or ``ITRF``.
-///
-/// Raises:
-///     BraheError: For any other frame.
-#[pyfunction(name = "data_type_for_state_frame")]
-fn py_data_type_for_state_frame(frame: PyCelestialFrame) -> PyResult<String> {
-    itc::data_type_for_state_frame(&frame.frame)
-        .map(|s| s.to_string())
-        .map_err(|e| BraheError::new_err(e.to_string()))
-}

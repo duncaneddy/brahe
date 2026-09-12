@@ -1622,8 +1622,6 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyITCHeader>()?;
     module.add_class::<PyITCStateVector>()?;
     module.add_class::<PyITCCovarianceFrame>()?;
-    module.add_function(wrap_pyfunction!(py_state_frame_for_data_type, module)?)?;
-    module.add_function(wrap_pyfunction!(py_data_type_for_state_frame, module)?)?;
     module.add_class::<PyOMM>()?;
     module.add_class::<PyOPM>()?;
     module.add_class::<PyOPMManeuver>()?;

@@ -9,19 +9,9 @@ use nalgebra::SMatrix;
 
 use crate::clients::spacetrack::SpaceTrackEphemerisFileName;
 use crate::frames::CelestialFrame;
+use crate::math::is_symmetric;
 use crate::time::Epoch;
 use crate::utils::BraheError;
-
-/// Whether a 6x6 covariance matrix is symmetric to within floating-point noise.
-pub(super) fn is_symmetric(m: &SMatrix<f64, 6, 6>) -> bool {
-    (0..6).all(|i| {
-        (0..i).all(|k| {
-            let a = m[(i, k)];
-            let b = m[(k, i)];
-            (a - b).abs() <= 1.0e-9 * a.abs().max(b.abs()).max(f64::MIN_POSITIVE)
-        })
-    })
-}
 
 /// Frame in which a Modified ITC file expresses its covariance.
 ///
@@ -472,7 +462,7 @@ impl ITC {
             ));
         }
         Self::check_finite(&state, Some(&covariance))?;
-        if !is_symmetric(&covariance) {
+        if !is_symmetric(&covariance, 1.0e-9) {
             return Err(BraheError::Error(format!(
                 "Modified ITC covariance at {} is not symmetric",
                 state.epoch

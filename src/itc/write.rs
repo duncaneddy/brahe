@@ -4,7 +4,8 @@
 
 use std::path::Path;
 
-use super::types::{ITC, is_symmetric};
+use super::types::ITC;
+use crate::math::is_symmetric;
 use crate::time::conversions::day_of_year_from_calendar;
 use crate::time::{Epoch, TimeSystem};
 use crate::utils::BraheError;
@@ -140,7 +141,7 @@ impl ITC {
             ));
         }
         for (index, covariance) in self.covariances.iter().enumerate() {
-            if !is_symmetric(covariance) {
+            if !is_symmetric(covariance, 1.0e-9) {
                 return Err(BraheError::Error(format!(
                     "Modified ITC covariance at record {} is not symmetric",
                     index

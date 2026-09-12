@@ -7,7 +7,6 @@ conjunction screening submissions and for Starlink's public ephemerides.
 This module provides:
 - ITC: A parsed message with SI-unit records and optional 6x6 covariance
 - ITCHeader, ITCStateVector, ITCCovarianceFrame: Message components
-- state_frame_for_data_type, data_type_for_state_frame: File-name DataType mapping
 
 Example:
     ```python
@@ -23,8 +22,6 @@ from brahe._brahe import (
     ITCCovarianceFrame,
     ITCHeader,
     ITCStateVector,
-    data_type_for_state_frame,
-    state_frame_for_data_type,
 )
 
 __all__ = [
@@ -32,6 +29,4 @@ __all__ = [
     "ITCCovarianceFrame",
     "ITCHeader",
     "ITCStateVector",
-    "data_type_for_state_frame",
-    "state_frame_for_data_type",
 ]

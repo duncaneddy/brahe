@@ -9,8 +9,6 @@ from brahe.itc import (
     ITCCovarianceFrame,
     ITCHeader,
     ITCStateVector,
-    data_type_for_state_frame,
-    state_frame_for_data_type,
 )
 from brahe.spacetrack import SpaceTrackEphemerisFileCategory
 
@@ -298,20 +296,6 @@ def test_write_fractional_step_and_other_frames():
     assert len(lines) == 12
 
 
-def test_state_frame_data_type_mapping():
-    for token in ["MEME", "meme", "EME2000", "J2000"]:
-        assert state_frame_for_data_type(token) == bh.CelestialFrame.EME2000
-    assert state_frame_for_data_type("TEME") == bh.CelestialFrame.TEME
-    assert state_frame_for_data_type("ITRF") == bh.CelestialFrame.ITRF
-    with pytest.raises(bh.BraheError):
-        state_frame_for_data_type("GCRF")
-    assert data_type_for_state_frame(bh.CelestialFrame.EME2000) == "MEME"
-    assert data_type_for_state_frame(bh.CelestialFrame.TEME) == "TEME"
-    assert data_type_for_state_frame(bh.CelestialFrame.ITRF) == "ITRF"
-    with pytest.raises(bh.BraheError):
-        data_type_for_state_frame(bh.CelestialFrame.GCRF)
-
-
 def test_from_file_infers_frame_from_data_type(tmp_path):
     with open(TRUNCATED) as f:
         text = f.read()
@@ -376,8 +360,6 @@ def test_top_level_exports():
     assert bh.ITCHeader is ITCHeader
     assert bh.ITCStateVector is ITCStateVector
     assert bh.ITCCovarianceFrame is ITCCovarianceFrame
-    assert bh.state_frame_for_data_type is state_frame_for_data_type
-    assert bh.data_type_for_state_frame is data_type_for_state_frame
     assert bh.SpaceTrackEphemerisFileName is bh.spacetrack.SpaceTrackEphemerisFileName
     assert (
         bh.SpaceTrackEphemerisFileCategory

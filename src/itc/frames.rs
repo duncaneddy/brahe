@@ -20,17 +20,7 @@ use crate::utils::BraheError;
 /// # Returns
 /// * `Ok(CelestialFrame)`: `EME2000`, `TEME` or `ITRF`
 /// * `Err(BraheError)`: If the token is not one of the supported values
-///
-/// # Examples
-///
-/// ```
-/// use brahe::itc::state_frame_for_data_type;
-/// use brahe::frames::CelestialFrame;
-///
-/// assert_eq!(state_frame_for_data_type("MEME").unwrap(), CelestialFrame::EME2000);
-/// assert!(state_frame_for_data_type("GCRF").is_err());
-/// ```
-pub fn state_frame_for_data_type(data_type: &str) -> Result<CelestialFrame, BraheError> {
+pub(crate) fn state_frame_for_data_type(data_type: &str) -> Result<CelestialFrame, BraheError> {
     match data_type.trim().to_ascii_uppercase().as_str() {
         "MEME" | "EME2000" | "J2000" => Ok(CelestialFrame::EME2000),
         "TEME" => Ok(CelestialFrame::TEME),
@@ -50,17 +40,9 @@ pub fn state_frame_for_data_type(data_type: &str) -> Result<CelestialFrame, Brah
 /// # Returns
 /// * `Ok(&'static str)`: `MEME` for `EME2000`, `TEME` for `TEME`, `ITRF` for `ITRF`
 /// * `Err(BraheError)`: For any other frame
-///
-/// # Examples
-///
-/// ```
-/// use brahe::itc::data_type_for_state_frame;
-/// use brahe::frames::CelestialFrame;
-///
-/// assert_eq!(data_type_for_state_frame(&CelestialFrame::EME2000).unwrap(), "MEME");
-/// assert!(data_type_for_state_frame(&CelestialFrame::GCRF).is_err());
-/// ```
-pub fn data_type_for_state_frame(frame: &CelestialFrame) -> Result<&'static str, BraheError> {
+pub(crate) fn data_type_for_state_frame(
+    frame: &CelestialFrame,
+) -> Result<&'static str, BraheError> {
     match frame {
         CelestialFrame::EME2000 => Ok("MEME"),
         CelestialFrame::TEME => Ok("TEME"),

@@ -346,12 +346,14 @@ impl PyStarlinkManifest {
 ///
 /// Requests are blocking, rate limited (1000 per minute and 30000 per hour by
 /// default), retried on transient failures, and honour ``BRAHE_NETWORK_MODE``.
-/// The manifest is cached under ``$BRAHE_CACHE/starlink/MANIFEST.txt`` and
-/// re-fetched with a conditional GET once it is older than ``cache_max_age``;
-/// when the listing changes, the prior copy is kept as
-/// ``MANIFEST.previous.txt`` so the caller can ask which satellites moved.
-/// The cache directory is not coordinated across processes or across clients
-/// sharing it; run one bulk download at a time.
+/// The manifest is cached under ``$BRAHE_CACHE/starlink/MANIFEST.txt`` for
+/// the default base URL, or under ``$BRAHE_CACHE/starlink/mirrors/<label>``
+/// for any other base URL so clients pointed at different mirrors never
+/// share a cache, and re-fetched with a conditional GET once it is older
+/// than ``cache_max_age``; when the listing changes, the prior copy is kept
+/// as ``MANIFEST.previous.txt`` so the caller can ask which satellites
+/// moved. The cache directory is not coordinated across processes or across
+/// clients sharing it; run one bulk download at a time.
 ///
 /// Args:
 ///     base_url (str, optional): Custom base URL for testing or a mirror.
@@ -420,8 +422,14 @@ impl PyStarlinkClient {
 
     /// Directory holding the cached manifest and ephemeris files.
     ///
+    /// For the default base URL this is ``$BRAHE_CACHE/starlink``. For any
+    /// other base URL it is ``$BRAHE_CACHE/starlink/mirrors/<label>``, where
+    /// ``<label>`` is derived from the base URL's host so that clients
+    /// pointed at different mirrors do not read or write each other's
+    /// cached manifest and ephemeris files.
+    ///
     /// Returns:
-    ///     str: ``$BRAHE_CACHE/starlink``, created if missing.
+    ///     str: The cache directory, created if missing.
     ///
     /// Raises:
     ///     BraheError: If the cache directory cannot be created.

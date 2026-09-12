@@ -290,8 +290,9 @@ impl ITC {
     /// Each stored sample is converted from the trajectory frame to
     /// `header.state_frame`. A covariance is rotated from the trajectory frame
     /// into `header.covariance_frame`: `EME2000` and `ITRF` through the
-    /// state-transform Jacobian between the two frames, `RTN` through ICRF axes
-    /// and the RTN frame of the sample's own state. The trajectory must hold a
+    /// state-transform Jacobian between the two frames, `RTN` through the
+    /// geocentric RTN frame of the sample's own state expressed in GCRF,
+    /// whatever center the trajectory frame uses. The trajectory must hold a
     /// six-dimensional Cartesian state.
     ///
     /// # Arguments
@@ -710,17 +711,26 @@ mod tests {
         let itc = ITC::from_file(TRUNCATED).unwrap();
         let gcrf = itc.to_trajectory().unwrap().to_gcrf().unwrap();
         let lci = gcrf.to_frame(CelestialFrame::LCI).unwrap();
-        let from_gcrf = ITC::from_trajectory(&gcrf, ITCHeader::new()).unwrap();
-        let from_lci = ITC::from_trajectory(&lci, ITCHeader::new()).unwrap();
-        assert_eq!(from_lci.header.state_frame, CelestialFrame::EME2000);
-        for (a, b) in from_gcrf.states.iter().zip(&from_lci.states) {
-            for i in 0..3 {
-                assert_abs_diff_eq!(a.position[i], b.position[i], epsilon = 1e-3);
-                assert_abs_diff_eq!(a.velocity[i], b.velocity[i], epsilon = 1e-6);
+        for variant in [
+            OrbitRelativeFrameVariant::Inertial,
+            OrbitRelativeFrameVariant::Rotating,
+        ] {
+            let from_gcrf =
+                ITC::from_trajectory_with_covariance_variant(&gcrf, ITCHeader::new(), variant)
+                    .unwrap();
+            let from_lci =
+                ITC::from_trajectory_with_covariance_variant(&lci, ITCHeader::new(), variant)
+                    .unwrap();
+            assert_eq!(from_lci.header.state_frame, CelestialFrame::EME2000);
+            for (a, b) in from_gcrf.states.iter().zip(&from_lci.states) {
+                for i in 0..3 {
+                    assert_abs_diff_eq!(a.position[i], b.position[i], epsilon = 1e-3);
+                    assert_abs_diff_eq!(a.velocity[i], b.velocity[i], epsilon = 1e-6);
+                }
             }
-        }
-        for (a, b) in from_gcrf.covariances.iter().zip(&from_lci.covariances) {
-            assert_covariance_close(b, a, 1e-9);
+            for (a, b) in from_gcrf.covariances.iter().zip(&from_lci.covariances) {
+                assert_covariance_close(b, a, 1e-9);
+            }
         }
     }
 

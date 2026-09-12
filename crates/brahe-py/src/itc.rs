@@ -496,10 +496,10 @@ impl PyITC {
     /// Parsed file name, when loaded from a compliant file name.
     ///
     /// Returns:
-    ///     EphemerisFileName | None: The parsed name.
+    ///     SpaceTrackEphemerisFileName | None: The parsed name.
     #[getter]
-    fn source_name(&self) -> Option<PyEphemerisFileName> {
-        self.inner.source_name.clone().map(|inner| PyEphemerisFileName { inner })
+    fn source_name(&self) -> Option<PySpaceTrackEphemerisFileName> {
+        self.inner.source_name.clone().map(|inner| PySpaceTrackEphemerisFileName { inner })
     }
 
     /// Epoch of the first record.
@@ -560,18 +560,18 @@ impl PyITC {
     /// Args:
     ///     norad_cat_id (int): NORAD catalog number or analyst number.
     ///     object_name (str): Common name of the object.
-    ///     category (EphemerisFileCategory): Operational or Special.
+    ///     category (SpaceTrackEphemerisFileCategory): Operational or Special.
     ///     metadata (str): Operator-defined metadata; may be empty.
     ///
     /// Returns:
-    ///     EphemerisFileName: The name; ``str()`` gives the text.
+    ///     SpaceTrackEphemerisFileName: The name; ``str()`` gives the text.
     ///
     /// Raises:
     ///     BraheError: If the message has no start epoch or its state frame has no DataType.
-    fn file_name(&self, norad_cat_id: u32, object_name: &str, category: PyEphemerisFileCategory, metadata: &str) -> PyResult<PyEphemerisFileName> {
+    fn file_name(&self, norad_cat_id: u32, object_name: &str, category: PySpaceTrackEphemerisFileCategory, metadata: &str) -> PyResult<PySpaceTrackEphemerisFileName> {
         self.inner
             .file_name(norad_cat_id, object_name, category.inner, metadata)
-            .map(|inner| PyEphemerisFileName { inner })
+            .map(|inner| PySpaceTrackEphemerisFileName { inner })
             .map_err(|e| BraheError::new_err(e.to_string()))
     }
 

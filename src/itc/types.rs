@@ -7,7 +7,7 @@ use std::str::FromStr;
 
 use nalgebra::SMatrix;
 
-use crate::clients::spacetrack::EphemerisFileName;
+use crate::clients::spacetrack::SpaceTrackEphemerisFileName;
 use crate::frames::CelestialFrame;
 use crate::time::Epoch;
 use crate::utils::BraheError;
@@ -343,7 +343,7 @@ pub struct ITC {
     /// Header fields.
     pub header: ITCHeader,
     /// Parsed file name, when loaded from a compliant file name.
-    pub source_name: Option<EphemerisFileName>,
+    pub source_name: Option<SpaceTrackEphemerisFileName>,
     /// Ephemeris records in increasing epoch order.
     pub states: Vec<ITCStateVector>,
     /// Covariance per record, or empty when the file carries none.

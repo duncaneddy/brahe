@@ -3,7 +3,7 @@
  */
 
 use super::types::ITC;
-use crate::clients::spacetrack::{EphemerisFileCategory, EphemerisFileName};
+use crate::clients::spacetrack::{SpaceTrackEphemerisFileCategory, SpaceTrackEphemerisFileName};
 use crate::frames::CelestialFrame;
 use crate::time::Epoch;
 use crate::utils::BraheError;
@@ -86,28 +86,28 @@ impl ITC {
     /// * `metadata` - Operator-defined metadata, may be empty
     ///
     /// # Returns
-    /// * `Ok(EphemerisFileName)`: The name; call `to_string()` for the text
+    /// * `Ok(SpaceTrackEphemerisFileName)`: The name; call `to_string()` for the text
     /// * `Err(BraheError)`: If the message has no start epoch or its frame has no DataType
     ///
     /// # Examples
     ///
     /// ```
     /// use brahe::itc::ITC;
-    /// use brahe::spacetrack::EphemerisFileCategory;
+    /// use brahe::spacetrack::SpaceTrackEphemerisFileCategory;
     ///
     /// let itc = ITC::from_file(
     ///     "test_assets/starlink/MEME_100002_STARLINK-37711_2540149_Operational_1473385800_UNCLASSIFIED.txt",
     /// ).unwrap();
-    /// let name = itc.file_name(100002, "STARLINK-37711", EphemerisFileCategory::Operational, "").unwrap();
+    /// let name = itc.file_name(100002, "STARLINK-37711", SpaceTrackEphemerisFileCategory::Operational, "").unwrap();
     /// assert_eq!(name.to_string(), "MEME_100002_STARLINK-37711_2540149_Operational__UNCLASSIFIED.txt");
     /// ```
     pub fn file_name(
         &self,
         norad_cat_id: u32,
         object_name: &str,
-        category: EphemerisFileCategory,
+        category: SpaceTrackEphemerisFileCategory,
         metadata: &str,
-    ) -> Result<EphemerisFileName, BraheError> {
+    ) -> Result<SpaceTrackEphemerisFileName, BraheError> {
         let start: Epoch = self
             .header
             .ephemeris_start
@@ -118,7 +118,7 @@ impl ITC {
                 )
             })?;
         let data_type = data_type_for_state_frame(&self.header.state_frame)?;
-        EphemerisFileName::new(norad_cat_id, object_name, start, category, metadata)?
+        SpaceTrackEphemerisFileName::new(norad_cat_id, object_name, start, category, metadata)?
             .with_data_type(data_type)
     }
 }
@@ -216,7 +216,7 @@ mod tests {
             .file_name(
                 100002,
                 "STARLINK-37711",
-                EphemerisFileCategory::Operational,
+                SpaceTrackEphemerisFileCategory::Operational,
                 "1473385800",
             )
             .unwrap();
@@ -233,7 +233,7 @@ mod tests {
         ))
         .unwrap();
         let name = teme
-            .file_name(25544, "ISS", EphemerisFileCategory::Special, "")
+            .file_name(25544, "ISS", SpaceTrackEphemerisFileCategory::Special, "")
             .unwrap();
         assert_eq!(
             name.to_string(),
@@ -242,7 +242,7 @@ mod tests {
 
         assert!(
             ITC::new(ITCHeader::new())
-                .file_name(1, "A", EphemerisFileCategory::Operational, "")
+                .file_name(1, "A", SpaceTrackEphemerisFileCategory::Operational, "")
                 .is_err()
         );
         let mut gcrf = ITC::new(ITCHeader::new().with_state_frame(CelestialFrame::GCRF));
@@ -253,7 +253,7 @@ mod tests {
         ))
         .unwrap();
         assert!(
-            gcrf.file_name(1, "A", EphemerisFileCategory::Operational, "")
+            gcrf.file_name(1, "A", SpaceTrackEphemerisFileCategory::Operational, "")
                 .is_err()
         );
     }

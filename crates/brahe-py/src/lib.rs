@@ -1589,8 +1589,8 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyFileShareFileRecord>()?;
     module.add_class::<PyFolderRecord>()?;
     module.add_class::<PySPEphemerisFileRecord>()?;
-    module.add_class::<PyEphemerisFileName>()?;
-    module.add_class::<PyEphemerisFileCategory>()?;
+    module.add_class::<PySpaceTrackEphemerisFileName>()?;
+    module.add_class::<PySpaceTrackEphemerisFileCategory>()?;
     module.add_function(wrap_pyfunction!(py_spacetrack_greater_than, module)?)?;
     module.add_function(wrap_pyfunction!(py_spacetrack_less_than, module)?)?;
     module.add_function(wrap_pyfunction!(py_spacetrack_not_equal, module)?)?;

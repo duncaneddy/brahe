@@ -45,7 +45,7 @@ pub mod types;
 pub use crate::clients::rate_limiter::RateLimitConfig;
 pub use crate::types::GPRecord;
 pub use client::SpaceTrackClient;
-pub use file_name::{EphemerisFileCategory, EphemerisFileName};
+pub use file_name::{SpaceTrackEphemerisFileCategory, SpaceTrackEphemerisFileName};
 pub use query::SpaceTrackQuery;
 pub use responses::{FileShareFileRecord, FolderRecord, SATCATRecord, SPEphemerisFileRecord};
 pub use types::{OutputFormat, RequestClass, RequestController, SortOrder};

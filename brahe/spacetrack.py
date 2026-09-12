@@ -28,8 +28,6 @@ Example:
 """
 
 from brahe._brahe import (
-    EphemerisFileCategory,
-    EphemerisFileName,
     FileShareFileRecord,
     FolderRecord,
     # Response types
@@ -44,6 +42,8 @@ from brahe._brahe import (
     SortOrder,
     # Client
     SpaceTrackClient,
+    SpaceTrackEphemerisFileCategory,
+    SpaceTrackEphemerisFileName,
     # Query builder
     SpaceTrackQuery,
     SPEphemerisFileRecord,
@@ -94,8 +94,6 @@ class _OperatorsNamespace:
 operators = _OperatorsNamespace()
 
 __all__ = [
-    "EphemerisFileCategory",
-    "EphemerisFileName",
     "FileShareFileRecord",
     "FolderRecord",
     # Response types
@@ -111,6 +109,8 @@ __all__ = [
     "SortOrder",
     # Client
     "SpaceTrackClient",
+    "SpaceTrackEphemerisFileCategory",
+    "SpaceTrackEphemerisFileName",
     # Query builder
     "SpaceTrackQuery",
     # Operators namespace

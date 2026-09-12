@@ -7,7 +7,7 @@ use std::path::Path;
 use nalgebra::SMatrix;
 
 use super::types::{ITC, ITCCovarianceFrame, ITCHeader, ITCStateVector};
-use crate::clients::spacetrack::EphemerisFileName;
+use crate::clients::spacetrack::SpaceTrackEphemerisFileName;
 use crate::time::{Epoch, TimeSystem};
 use crate::utils::BraheError;
 
@@ -373,7 +373,7 @@ impl ITC {
         })?;
         let mut itc = Self::from_str(&content)?;
         if let Some(name) = path.file_name().and_then(|n| n.to_str())
-            && let Ok(parsed) = EphemerisFileName::parse(name)
+            && let Ok(parsed) = SpaceTrackEphemerisFileName::parse(name)
         {
             itc.header.state_frame = super::frames::state_frame_for_data_type(&parsed.data_type)?;
             itc.source_name = Some(parsed);

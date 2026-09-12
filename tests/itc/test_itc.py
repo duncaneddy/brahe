@@ -12,7 +12,7 @@ from brahe.itc import (
     data_type_for_state_frame,
     state_frame_for_data_type,
 )
-from brahe.spacetrack import EphemerisFileCategory
+from brahe.spacetrack import SpaceTrackEphemerisFileCategory
 
 FULL = "test_assets/starlink/MEME_100001_STARLINK-38128_2540142_Operational_1473385380_UNCLASSIFIED.txt"
 TRUNCATED = "test_assets/starlink/MEME_100002_STARLINK-37711_2540149_Operational_1473385800_UNCLASSIFIED.txt"
@@ -340,7 +340,10 @@ def test_from_file_infers_frame_from_data_type(tmp_path):
 def test_itc_file_name():
     itc = ITC.from_file(TRUNCATED)
     name = itc.file_name(
-        100002, "STARLINK-37711", EphemerisFileCategory.OPERATIONAL, "1473385800"
+        100002,
+        "STARLINK-37711",
+        SpaceTrackEphemerisFileCategory.OPERATIONAL,
+        "1473385800",
     )
     assert (
         str(name)
@@ -355,14 +358,16 @@ def test_itc_file_name():
         )
     )
     assert (
-        str(teme.file_name(25544, "ISS", EphemerisFileCategory.SPECIAL, ""))
+        str(teme.file_name(25544, "ISS", SpaceTrackEphemerisFileCategory.SPECIAL, ""))
         == "TEME_25544_ISS_3001224_Special__UNCLASSIFIED.txt"
     )
     with pytest.raises(bh.BraheError):
-        ITC(ITCHeader()).file_name(1, "A", EphemerisFileCategory.OPERATIONAL, "")
+        ITC(ITCHeader()).file_name(
+            1, "A", SpaceTrackEphemerisFileCategory.OPERATIONAL, ""
+        )
     with pytest.raises(bh.BraheError):
         ITC(ITCHeader(state_frame=bh.CelestialFrame.GCRF)).file_name(
-            1, "A", EphemerisFileCategory.OPERATIONAL, ""
+            1, "A", SpaceTrackEphemerisFileCategory.OPERATIONAL, ""
         )
 
 
@@ -373,5 +378,8 @@ def test_top_level_exports():
     assert bh.ITCCovarianceFrame is ITCCovarianceFrame
     assert bh.state_frame_for_data_type is state_frame_for_data_type
     assert bh.data_type_for_state_frame is data_type_for_state_frame
-    assert bh.EphemerisFileName is bh.spacetrack.EphemerisFileName
-    assert bh.EphemerisFileCategory is bh.spacetrack.EphemerisFileCategory
+    assert bh.SpaceTrackEphemerisFileName is bh.spacetrack.SpaceTrackEphemerisFileName
+    assert (
+        bh.SpaceTrackEphemerisFileCategory
+        is bh.spacetrack.SpaceTrackEphemerisFileCategory
+    )

@@ -1936,30 +1936,30 @@ fn py_spacetrack_or_list(values: Vec<String>) -> String {
 ///     ```python
 ///     import brahe as bh
 ///
-///     category = bh.EphemerisFileCategory.parse("oper")
-///     assert category == bh.EphemerisFileCategory.OPERATIONAL
+///     category = bh.SpaceTrackEphemerisFileCategory.parse("oper")
+///     assert category == bh.SpaceTrackEphemerisFileCategory.OPERATIONAL
 ///     ```
 #[pyclass(module = "brahe._brahe", from_py_object)]
-#[pyo3(name = "EphemerisFileCategory")]
+#[pyo3(name = "SpaceTrackEphemerisFileCategory")]
 #[derive(Clone, PartialEq)]
-pub struct PyEphemerisFileCategory {
-    pub(crate) inner: spacetrack::EphemerisFileCategory,
+pub struct PySpaceTrackEphemerisFileCategory {
+    pub(crate) inner: spacetrack::SpaceTrackEphemerisFileCategory,
 }
 
 #[pymethods]
-impl PyEphemerisFileCategory {
+impl PySpaceTrackEphemerisFileCategory {
     /// Operational: the trajectory the satellite is planned to fly.
     #[classattr]
     #[allow(non_snake_case)]
     fn OPERATIONAL() -> Self {
-        Self { inner: spacetrack::EphemerisFileCategory::Operational }
+        Self { inner: spacetrack::SpaceTrackEphemerisFileCategory::Operational }
     }
 
     /// Special: a planning-only trajectory assuming a special maneuver.
     #[classattr]
     #[allow(non_snake_case)]
     fn SPECIAL() -> Self {
-        Self { inner: spacetrack::EphemerisFileCategory::Special }
+        Self { inner: spacetrack::SpaceTrackEphemerisFileCategory::Special }
     }
 
     /// Parse the category field of a file name.
@@ -1971,13 +1971,13 @@ impl PyEphemerisFileCategory {
     ///     token (str): Category field of a file name.
     ///
     /// Returns:
-    ///     EphemerisFileCategory: The parsed category.
+    ///     SpaceTrackEphemerisFileCategory: The parsed category.
     ///
     /// Raises:
     ///     BraheError: If the token is not a recognized category.
     #[staticmethod]
     fn parse(token: &str) -> PyResult<Self> {
-        spacetrack::EphemerisFileCategory::parse(token)
+        spacetrack::SpaceTrackEphemerisFileCategory::parse(token)
             .map(|inner| Self { inner })
             .map_err(|e| BraheError::new_err(e.to_string()))
     }
@@ -1987,7 +1987,7 @@ impl PyEphemerisFileCategory {
     }
 
     fn __repr__(&self) -> String {
-        format!("EphemerisFileCategory.{}", self.inner.to_string().to_uppercase())
+        format!("SpaceTrackEphemerisFileCategory.{}", self.inner.to_string().to_uppercase())
     }
 
     fn __eq__(&self, other: &Self) -> bool {
@@ -1996,8 +1996,8 @@ impl PyEphemerisFileCategory {
 
     fn __hash__(&self) -> u64 {
         match self.inner {
-            spacetrack::EphemerisFileCategory::Operational => 0,
-            spacetrack::EphemerisFileCategory::Special => 1,
+            spacetrack::SpaceTrackEphemerisFileCategory::Operational => 0,
+            spacetrack::SpaceTrackEphemerisFileCategory::Special => 1,
         }
     }
 }
@@ -2014,21 +2014,21 @@ impl PyEphemerisFileCategory {
 ///     import brahe as bh
 ///
 ///     start = bh.Epoch(2026, 9, 11, 1, 42, 42.0, 0.0, time_system=bh.TimeSystem.UTC)
-///     name = bh.EphemerisFileName(100001, "STARLINK-38128", start, bh.EphemerisFileCategory.OPERATIONAL, "")
+///     name = bh.SpaceTrackEphemerisFileName(100001, "STARLINK-38128", start, bh.SpaceTrackEphemerisFileCategory.OPERATIONAL, "")
 ///     assert str(name) == "MEME_100001_STARLINK-38128_2540142_Operational__UNCLASSIFIED.txt"
 ///
-///     parsed = bh.EphemerisFileName.parse("MEME_25544_ISS_1651200_oper__unclassified.txt")
+///     parsed = bh.SpaceTrackEphemerisFileName.parse("MEME_25544_ISS_1651200_oper__unclassified.txt")
 ///     assert parsed.norad_cat_id == 25544
 ///     ```
 #[pyclass(module = "brahe._brahe", from_py_object)]
-#[pyo3(name = "EphemerisFileName")]
+#[pyo3(name = "SpaceTrackEphemerisFileName")]
 #[derive(Clone, PartialEq)]
-pub struct PyEphemerisFileName {
-    pub(crate) inner: spacetrack::EphemerisFileName,
+pub struct PySpaceTrackEphemerisFileName {
+    pub(crate) inner: spacetrack::SpaceTrackEphemerisFileName,
 }
 
 #[pymethods]
-impl PyEphemerisFileName {
+impl PySpaceTrackEphemerisFileName {
     /// Build a file name with the ``MEME`` data type, ``UNCLASSIFIED``
     /// classification and ``txt`` extension.
     ///
@@ -2036,11 +2036,11 @@ impl PyEphemerisFileName {
     ///     norad_cat_id (int): NORAD catalog number or analyst number.
     ///     object_name (str): Common name of the object.
     ///     start_epoch (Epoch): Ephemeris start; the day-time group is taken in UTC.
-    ///     category (EphemerisFileCategory): Operational or Special.
+    ///     category (SpaceTrackEphemerisFileCategory): Operational or Special.
     ///     metadata (str): Operator-defined metadata; may be empty.
     ///
     /// Returns:
-    ///     EphemerisFileName: The populated name.
+    ///     SpaceTrackEphemerisFileName: The populated name.
     ///
     /// Raises:
     ///     BraheError: If ``object_name`` is empty or contains ``/``, or ``metadata`` contains ``_`` or ``/``.
@@ -2049,10 +2049,10 @@ impl PyEphemerisFileName {
         norad_cat_id: u32,
         object_name: &str,
         start_epoch: PyEpoch,
-        category: PyEphemerisFileCategory,
+        category: PySpaceTrackEphemerisFileCategory,
         metadata: &str,
     ) -> PyResult<Self> {
-        spacetrack::EphemerisFileName::new(
+        spacetrack::SpaceTrackEphemerisFileName::new(
             norad_cat_id,
             object_name,
             start_epoch.obj,
@@ -2069,13 +2069,13 @@ impl PyEphemerisFileName {
     ///     name (str): File name with extension, without directory components.
     ///
     /// Returns:
-    ///     EphemerisFileName: The parsed fields.
+    ///     SpaceTrackEphemerisFileName: The parsed fields.
     ///
     /// Raises:
     ///     BraheError: If the name does not follow the convention.
     #[staticmethod]
     fn parse(name: &str) -> PyResult<Self> {
-        spacetrack::EphemerisFileName::parse(name)
+        spacetrack::SpaceTrackEphemerisFileName::parse(name)
             .map(|inner| Self { inner })
             .map_err(|e| BraheError::new_err(e.to_string()))
     }
@@ -2086,7 +2086,7 @@ impl PyEphemerisFileName {
     ///     data_type (str): Data type token, for example ``MEME`` or ``TEME``.
     ///
     /// Returns:
-    ///     EphemerisFileName: The updated name.
+    ///     SpaceTrackEphemerisFileName: The updated name.
     ///
     /// Raises:
     ///     BraheError: If ``data_type`` is empty or contains ``_`` or ``/``.
@@ -2104,7 +2104,7 @@ impl PyEphemerisFileName {
     ///     classification (str): Classification token.
     ///
     /// Returns:
-    ///     EphemerisFileName: The updated name.
+    ///     SpaceTrackEphemerisFileName: The updated name.
     ///
     /// Raises:
     ///     BraheError: If ``classification`` is empty or contains ``_`` or ``/``.
@@ -2122,7 +2122,7 @@ impl PyEphemerisFileName {
     ///     extension (str): Extension without the leading dot.
     ///
     /// Returns:
-    ///     EphemerisFileName: The updated name.
+    ///     SpaceTrackEphemerisFileName: The updated name.
     ///
     /// Raises:
     ///     BraheError: If ``extension`` is empty or contains ``_``, ``/`` or ``.``.
@@ -2191,10 +2191,10 @@ impl PyEphemerisFileName {
     /// Operational or Special.
     ///
     /// Returns:
-    ///     EphemerisFileCategory: The category.
+    ///     SpaceTrackEphemerisFileCategory: The category.
     #[getter]
-    fn category(&self) -> PyEphemerisFileCategory {
-        PyEphemerisFileCategory { inner: self.inner.category }
+    fn category(&self) -> PySpaceTrackEphemerisFileCategory {
+        PySpaceTrackEphemerisFileCategory { inner: self.inner.category }
     }
 
     /// Operator-defined metadata.
@@ -2229,7 +2229,7 @@ impl PyEphemerisFileName {
     }
 
     fn __repr__(&self) -> String {
-        format!("EphemerisFileName('{}')", self.inner)
+        format!("SpaceTrackEphemerisFileName('{}')", self.inner)
     }
 
     fn __eq__(&self, other: &Self) -> bool {

@@ -6,7 +6,7 @@ from typer.testing import CliRunner
 
 from brahe.cli.__main__ import app
 
-runner = CliRunner()
+runner = CliRunner(env={"COLUMNS": "200"})
 
 
 def _entry(norad_cat_id, object_name):

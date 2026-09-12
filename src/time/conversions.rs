@@ -705,6 +705,34 @@ pub fn time_system_offset_for_datetime(
     time_system_offset(jd, fd, time_system_src, time_system_dst)
 }
 
+/// Day of year (1 to 366) for a calendar date.
+///
+/// # Arguments
+/// * `year` - Calendar year
+/// * `month` - Month, 1 to 12
+/// * `day` - Day of month, 1 to 31
+///
+/// # Returns
+/// * `u32`: Ordinal day, 1 for 1 January
+pub(crate) fn day_of_year_from_calendar(year: u32, month: u8, day: u8) -> u32 {
+    let leap = (year.is_multiple_of(4) && !year.is_multiple_of(100)) || year.is_multiple_of(400);
+    let days_in_month: [u32; 12] = [
+        31,
+        if leap { 29 } else { 28 },
+        31,
+        30,
+        31,
+        30,
+        31,
+        31,
+        30,
+        31,
+        30,
+        31,
+    ];
+    days_in_month[..(month as usize - 1)].iter().sum::<u32>() + day as u32
+}
+
 #[cfg(test)]
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
@@ -716,6 +744,16 @@ mod tests {
     use crate::utils::testing::setup_global_test_eop;
 
     use super::*;
+
+    #[test]
+    #[parallel]
+    fn test_day_of_year_from_calendar() {
+        assert_eq!(day_of_year_from_calendar(2025, 1, 1), 1);
+        assert_eq!(day_of_year_from_calendar(2024, 3, 1), 61);
+        assert_eq!(day_of_year_from_calendar(2025, 3, 1), 60);
+        assert_eq!(day_of_year_from_calendar(2024, 12, 31), 366);
+        assert_eq!(day_of_year_from_calendar(2025, 12, 31), 365);
+    }
 
     #[test]
     #[parallel]

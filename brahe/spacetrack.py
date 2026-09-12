@@ -42,6 +42,8 @@ from brahe._brahe import (
     SortOrder,
     # Client
     SpaceTrackClient,
+    SpaceTrackEphemerisFileCategory,
+    SpaceTrackEphemerisFileName,
     # Query builder
     SpaceTrackQuery,
     SPEphemerisFileRecord,
@@ -107,6 +109,8 @@ __all__ = [
     "SortOrder",
     # Client
     "SpaceTrackClient",
+    "SpaceTrackEphemerisFileCategory",
+    "SpaceTrackEphemerisFileName",
     # Query builder
     "SpaceTrackQuery",
     # Operators namespace

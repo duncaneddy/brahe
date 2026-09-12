@@ -2540,8 +2540,8 @@ impl PyOrbitalTrajectory {
     /// unchanged.
     ///
     /// Args:
-    ///     epoch (Epoch): Time at which to retrieve the covariance
     ///     frame (CelestialFrame | ReferenceFrame): Reference frame to express the covariance in
+    ///     epoch (Epoch): Time at which to retrieve the covariance
     ///
     /// Returns:
     ///     np.ndarray: Covariance matrix in `frame`
@@ -2565,17 +2565,17 @@ impl PyOrbitalTrajectory {
     ///         covariances=np.array([cov])
     ///     )
     ///
-    ///     result = traj.covariance_in_frame(epoch, bh.CelestialFrame.ITRF)
+    ///     result = traj.covariance_in_frame(bh.CelestialFrame.ITRF, epoch)
     ///     ```
-    #[pyo3(text_signature = "(epoch, frame)")]
+    #[pyo3(text_signature = "(frame, epoch)")]
     fn covariance_in_frame<'py>(
         &self,
         py: Python<'py>,
-        epoch: PyRef<PyEpoch>,
         frame: &Bound<'py, PyAny>,
+        epoch: PyRef<PyEpoch>,
     ) -> PyResult<Bound<'py, PyArray<f64, Ix2>>> {
         let frame = extract_frame(frame)?;
-        let cov_mat = self.trajectory.covariance_in_frame(epoch.obj, frame)?;
+        let cov_mat = self.trajectory.covariance_in_frame(frame, epoch.obj)?;
         let cov_ref = &cov_mat;
         let (nrows, ncols) = (cov_mat.nrows(), cov_mat.ncols());
         Ok(matrix_to_numpy!(py, cov_ref, nrows, ncols, f64).to_owned())

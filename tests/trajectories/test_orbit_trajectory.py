@@ -4330,7 +4330,7 @@ def test_to_itrf_to_gcrf_covariance_round_trip(eop):
 def test_covariance_in_frame_matches_to_frame(eop):
     """Rust: test_dorbittrajectory_covariance_in_frame_matches_to_frame"""
     traj, epoch, _ = _covariance_routing_trajectory(brahe.CelestialFrame.GCRF)
-    via_accessor = traj.covariance_in_frame(epoch, brahe.CelestialFrame.ITRF)
+    via_accessor = traj.covariance_in_frame(brahe.CelestialFrame.ITRF, epoch)
     via_conversion = traj.to_itrf().covariance(epoch)
 
     np.testing.assert_allclose(via_accessor, via_conversion, atol=1e-12, rtol=0)
@@ -4347,7 +4347,7 @@ def test_covariance_eme2000_matches_in_frame(eop):
     traj, epoch, _ = _covariance_routing_trajectory(brahe.CelestialFrame.GCRF)
     np.testing.assert_allclose(
         traj.covariance_eme2000(epoch),
-        traj.covariance_in_frame(epoch, brahe.CelestialFrame.EME2000),
+        traj.covariance_in_frame(brahe.CelestialFrame.EME2000, epoch),
         atol=1e-15,
         rtol=0,
     )
@@ -4398,12 +4398,12 @@ def test_covariance_in_frame_rejects_keplerian(eop):
         covariances=np.array([np.eye(6)]),
     )
 
-    assert kep_with_cov.covariance_in_frame(epoch, brahe.CelestialFrame.GCRF).shape == (
+    assert kep_with_cov.covariance_in_frame(brahe.CelestialFrame.GCRF, epoch).shape == (
         6,
         6,
     )
     with pytest.raises(Exception, match="Cartesian representation"):
-        kep_with_cov.covariance_in_frame(epoch, brahe.CelestialFrame.ITRF)
+        kep_with_cov.covariance_in_frame(brahe.CelestialFrame.ITRF, epoch)
 
 
 def test_keplerian_to_frame_drops_covariance(eop):

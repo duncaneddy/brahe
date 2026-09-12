@@ -2173,13 +2173,13 @@ impl SOrbitTrajectory {
     ///     Matrix6::identity() * 100.0,
     /// ).unwrap();
     ///
-    /// let cov_itrf = traj.covariance_in_frame(epoch, CelestialFrame::ITRF).unwrap();
+    /// let cov_itrf = traj.covariance_in_frame(CelestialFrame::ITRF, epoch).unwrap();
     /// assert_eq!(cov_itrf.nrows(), 6);
     /// ```
     pub fn covariance_in_frame(
         &self,
-        epoch: Epoch,
         frame: impl Into<ReferenceFrame>,
+        epoch: Epoch,
     ) -> Result<SMatrix<f64, 6, 6>, BraheError> {
         let frame = frame.into();
         let cov_native = self.covariance(epoch)?;
@@ -2202,7 +2202,7 @@ impl SOrbitTrajectory {
     /// * `Ok(SMatrix<f64, 6, 6>)` - Covariance in ITRF
     /// * `Err(BraheError)` - If the covariance is unavailable or cannot be rotated
     pub fn covariance_itrf(&self, epoch: Epoch) -> Result<SMatrix<f64, 6, 6>, BraheError> {
-        self.covariance_in_frame(epoch, CelestialFrame::ITRF)
+        self.covariance_in_frame(CelestialFrame::ITRF, epoch)
     }
 
     /// Returns the covariance at `epoch` in the ECEF frame.
@@ -2217,7 +2217,7 @@ impl SOrbitTrajectory {
     /// * `Ok(SMatrix<f64, 6, 6>)` - Covariance in ITRF
     /// * `Err(BraheError)` - If the covariance is unavailable or cannot be rotated
     pub fn covariance_ecef(&self, epoch: Epoch) -> Result<SMatrix<f64, 6, 6>, BraheError> {
-        self.covariance_in_frame(epoch, CelestialFrame::ITRF)
+        self.covariance_in_frame(CelestialFrame::ITRF, epoch)
     }
 
     /// Returns the covariance at `epoch` in the EME2000 frame.
@@ -2231,7 +2231,7 @@ impl SOrbitTrajectory {
     /// * `Ok(SMatrix<f64, 6, 6>)` - Covariance in EME2000
     /// * `Err(BraheError)` - If the covariance is unavailable or cannot be rotated
     pub fn covariance_eme2000(&self, epoch: Epoch) -> Result<SMatrix<f64, 6, 6>, BraheError> {
-        self.covariance_in_frame(epoch, CelestialFrame::EME2000)
+        self.covariance_in_frame(CelestialFrame::EME2000, epoch)
     }
 
     /// Returns the covariance at `epoch` in RTN axes about the trajectory's
@@ -2288,7 +2288,7 @@ impl SOrbitTrajectory {
         variant: OrbitRelativeFrameVariant,
     ) -> Result<SMatrix<f64, 6, 6>, BraheError> {
         require_cartesian_covariance(self.representation)?;
-        let cov_eci = self.covariance_in_frame(epoch, CelestialFrame::GCRF)?;
+        let cov_eci = self.covariance_in_frame(CelestialFrame::GCRF, epoch)?;
         let state_eci = self.state_eci(epoch)?;
         Ok(covariance_eci_to_rtn(state_eci, &cov_eci, variant))
     }
@@ -2297,11 +2297,11 @@ impl SOrbitTrajectory {
 // Implementation of SOrbitCovarianceProvider trait (frame-specific methods)
 impl SOrbitCovarianceProvider for SOrbitTrajectory {
     fn covariance_eci(&self, epoch: Epoch) -> Result<SMatrix<f64, 6, 6>, BraheError> {
-        self.covariance_in_frame(epoch, CelestialFrame::GCRF)
+        self.covariance_in_frame(CelestialFrame::GCRF, epoch)
     }
 
     fn covariance_gcrf(&self, epoch: Epoch) -> Result<SMatrix<f64, 6, 6>, BraheError> {
-        self.covariance_in_frame(epoch, CelestialFrame::GCRF)
+        self.covariance_in_frame(CelestialFrame::GCRF, epoch)
     }
 
     fn covariance_rtn(&self, epoch: Epoch) -> Result<SMatrix<f64, 6, 6>, BraheError> {
@@ -5593,7 +5593,7 @@ mod tests {
 
         let (traj, epoch, _) = covariance_routing_trajectory(CelestialFrame::GCRF);
         let via_accessor = traj
-            .covariance_in_frame(epoch, CelestialFrame::ITRF)
+            .covariance_in_frame(CelestialFrame::ITRF, epoch)
             .unwrap();
         let via_conversion = traj.to_itrf().unwrap().covariance(epoch).unwrap();
 
@@ -5618,7 +5618,7 @@ mod tests {
         let (traj, epoch, _) = covariance_routing_trajectory(CelestialFrame::GCRF);
         let direct = traj.covariance_eme2000(epoch).unwrap();
         let via_frame = traj
-            .covariance_in_frame(epoch, CelestialFrame::EME2000)
+            .covariance_in_frame(CelestialFrame::EME2000, epoch)
             .unwrap();
         assert_abs_diff_eq!((direct - via_frame).norm(), 0.0, epsilon = 1e-15);
     }
@@ -5654,10 +5654,10 @@ mod tests {
         kep.covariances = Some(vec![cov]);
 
         // Elements in the native frame are returned as stored.
-        assert!(kep.covariance_in_frame(epoch, CelestialFrame::GCRF).is_ok());
+        assert!(kep.covariance_in_frame(CelestialFrame::GCRF, epoch).is_ok());
 
         let err = kep
-            .covariance_in_frame(epoch, CelestialFrame::ITRF)
+            .covariance_in_frame(CelestialFrame::ITRF, epoch)
             .unwrap_err();
         assert!(err.to_string().contains("Cartesian representation"));
     }

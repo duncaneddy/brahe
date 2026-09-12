@@ -593,6 +593,7 @@ mod tests {
             Some(utc(2024, 1, 1, 0, 0, 0.0))
         );
         assert_eq!(parse_http_date("Fri, 11 Sep 2026 05:15:30"), None);
+        assert_eq!(parse_http_date("Fri, 11 Sep 2026 05:15 GMT"), None);
         assert_eq!(parse_http_date("11 Sep 2026 05:15:30 GMT"), None);
         assert_eq!(parse_http_date("Fri, 11 Xyz 2026 05:15:30 GMT"), None);
         assert_eq!(parse_http_date(""), None);

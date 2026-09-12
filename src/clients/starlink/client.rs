@@ -5,14 +5,21 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::time::{Duration, SystemTime};
 
 use serde::{Deserialize, Serialize};
 
+use crate::clients::spacetrack::EphemerisFileName;
 use crate::clients::starlink::STARLINK_RATE_LIMIT;
-use crate::clients::starlink::manifest::{StarlinkManifest, parse_http_date};
+use crate::clients::starlink::manifest::{
+    StarlinkManifest, StarlinkManifestEntry, parse_http_date,
+};
 use crate::clients::{RateLimitConfig, RateLimiter};
+use crate::frames::OrbitRelativeFrameVariant;
+use crate::itc::ITC;
 use crate::time::Epoch;
+use crate::trajectories::DOrbitTrajectory;
 use crate::utils::download::{backoff_delay, is_retryable_error};
 use crate::utils::network::{CacheDecision, cache_policy, ensure_online};
 use crate::utils::{BraheError, atomic_write, get_starlink_cache_dir};
@@ -596,6 +603,438 @@ impl StarlinkClient {
             last_error.unwrap()
         )))
     }
+
+    /// Downloads a satellite's current ephemeris file into the cache.
+    ///
+    /// The manifest names one file per satellite; if that file is already
+    /// cached no request is made. After a download every other cached file
+    /// for the same NORAD ID is deleted.
+    ///
+    /// # Arguments
+    /// * `norad_cat_id` - NORAD catalog number
+    ///
+    /// # Returns
+    /// * `Ok(PathBuf)`: Path of the cached file
+    /// * `Err(BraheError)`: If the ID is not listed, the download fails, or the body is not a valid ITC file
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use brahe::starlink::StarlinkClient;
+    ///
+    /// let path = StarlinkClient::new().download_ephemeris(100001).unwrap();
+    /// println!("{}", path.display());
+    /// ```
+    pub fn download_ephemeris(&self, norad_cat_id: u32) -> Result<PathBuf, BraheError> {
+        let manifest = self.get_manifest()?;
+        let entry = manifest.find_by_norad_id(norad_cat_id).ok_or_else(|| {
+            BraheError::Error(format!(
+                "NORAD ID {} is not in the Starlink manifest",
+                norad_cat_id
+            ))
+        })?;
+        self.download_entry(entry)
+    }
+
+    /// Downloads one manifest entry's file into the cache if it is not
+    /// already present, then evicts any other cached file for the same
+    /// NORAD ID.
+    ///
+    /// # Arguments
+    /// * `entry` - Manifest entry naming the file to download
+    ///
+    /// # Returns
+    /// * `Ok(PathBuf)`: Path of the cached file
+    /// * `Err(BraheError)`: If the download fails or the body is not a valid ITC file
+    fn download_entry(&self, entry: &StarlinkManifestEntry) -> Result<PathBuf, BraheError> {
+        let dir = self.cache_dir()?;
+        let name = entry.file_name_string();
+        let path = dir.join(&name);
+        if path.exists() {
+            return Ok(path);
+        }
+        let url = format!("{}/{}", self.base_url, name);
+        let body = match self.fetch_text(&url, None)? {
+            FetchOutcome::Fresh { body, .. } => body,
+            FetchOutcome::NotModified => {
+                return Err(BraheError::IoError(format!(
+                    "Starlink request {} returned 304 without a validator",
+                    url
+                )));
+            }
+        };
+        ITC::from_str(&body).map_err(|e| {
+            BraheError::ParseError(format!(
+                "Starlink file {} is not a valid ITC message: {}",
+                name, e
+            ))
+        })?;
+        atomic_write(&path, body.as_bytes()).map_err(|e| {
+            BraheError::IoError(format!("Failed to write {}: {}", path.display(), e))
+        })?;
+        for other in self.cached_files()? {
+            if other != path
+                && let Some(parsed) = other
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .and_then(|n| EphemerisFileName::parse(n).ok())
+                && parsed.norad_cat_id == entry.norad_cat_id
+            {
+                fs::remove_file(&other).map_err(|e| {
+                    BraheError::IoError(format!("Failed to delete {}: {}", other.display(), e))
+                })?;
+            }
+        }
+        Ok(path)
+    }
+
+    /// Downloads (if needed) and parses a satellite's current ephemeris.
+    ///
+    /// # Arguments
+    /// * `norad_cat_id` - NORAD catalog number
+    ///
+    /// # Returns
+    /// * `Ok(ITC)`: The parsed message in SI units
+    /// * `Err(BraheError)`: See [`StarlinkClient::download_ephemeris`]
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use brahe::starlink::StarlinkClient;
+    ///
+    /// let itc = StarlinkClient::new().get_ephemeris(100001).unwrap();
+    /// println!("{} records", itc.len());
+    /// ```
+    pub fn get_ephemeris(&self, norad_cat_id: u32) -> Result<ITC, BraheError> {
+        ITC::from_file(self.download_ephemeris(norad_cat_id)?)
+    }
+
+    /// Downloads (if needed) a satellite's ephemeris as an `OrbitTrajectory`
+    /// in the file's state frame with covariance rotated from RTN using the
+    /// block-diagonal (inertial) convention.
+    ///
+    /// # Arguments
+    /// * `norad_cat_id` - NORAD catalog number
+    ///
+    /// # Returns
+    /// * `Ok(DOrbitTrajectory)`: Six-dimensional Cartesian trajectory
+    /// * `Err(BraheError)`: See [`StarlinkClient::download_ephemeris`]
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use brahe::starlink::StarlinkClient;
+    /// use brahe::traits::Trajectory;
+    ///
+    /// let traj = StarlinkClient::new().get_trajectory(100001).unwrap();
+    /// println!("{} samples", traj.len());
+    /// ```
+    pub fn get_trajectory(&self, norad_cat_id: u32) -> Result<DOrbitTrajectory, BraheError> {
+        self.get_ephemeris(norad_cat_id)?.to_trajectory()
+    }
+
+    /// Like [`StarlinkClient::get_trajectory`] with an explicit RTN covariance convention.
+    ///
+    /// # Arguments
+    /// * `norad_cat_id` - NORAD catalog number
+    /// * `variant` - `Inertial` (block-diagonal) or `Rotating` RTN rotation
+    ///
+    /// # Returns
+    /// * `Ok(DOrbitTrajectory)`: Six-dimensional Cartesian trajectory
+    /// * `Err(BraheError)`: See [`StarlinkClient::download_ephemeris`]
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use brahe::frames::OrbitRelativeFrameVariant;
+    /// use brahe::starlink::StarlinkClient;
+    /// use brahe::traits::Trajectory;
+    ///
+    /// let traj = StarlinkClient::new()
+    ///     .get_trajectory_with_covariance_variant(100001, OrbitRelativeFrameVariant::Rotating)
+    ///     .unwrap();
+    /// println!("{} samples", traj.len());
+    /// ```
+    pub fn get_trajectory_with_covariance_variant(
+        &self,
+        norad_cat_id: u32,
+        variant: OrbitRelativeFrameVariant,
+    ) -> Result<DOrbitTrajectory, BraheError> {
+        self.get_ephemeris(norad_cat_id)?
+            .to_trajectory_with_covariance_variant(variant)
+    }
+
+    /// Downloads (if needed) a satellite's ephemeris and copies it to `destination`.
+    ///
+    /// An existing directory, or a path whose last component has no
+    /// extension, is treated as a directory (created if missing) and the
+    /// original file name is kept; a path with an extension is the file name.
+    /// Saved copies are outside the cache and never evicted.
+    ///
+    /// # Arguments
+    /// * `norad_cat_id` - NORAD catalog number
+    /// * `destination` - Directory or file path
+    ///
+    /// # Returns
+    /// * `Ok(PathBuf)`: Path written
+    /// * `Err(BraheError)`: On download or filesystem failure
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use brahe::starlink::StarlinkClient;
+    ///
+    /// let path = StarlinkClient::new()
+    ///     .save_ephemeris(100001, "./ephemerides")
+    ///     .unwrap();
+    /// println!("{}", path.display());
+    /// ```
+    pub fn save_ephemeris<P: AsRef<Path>>(
+        &self,
+        norad_cat_id: u32,
+        destination: P,
+    ) -> Result<PathBuf, BraheError> {
+        let source = self.download_ephemeris(norad_cat_id)?;
+        let name = source
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or_default()
+            .to_string();
+        let target = resolve_destination(destination.as_ref(), &name)?;
+        copy_file(&source, &target)?;
+        Ok(target)
+    }
+
+    /// Downloads every file the manifest lists that is not already cached,
+    /// using up to `concurrency` threads that share the rate limiter.
+    ///
+    /// Stops at the first failure and returns it. Files already cached are
+    /// not re-fetched and no cached files are removed; call
+    /// [`StarlinkClient::prune_cache`] for that.
+    ///
+    /// # Arguments
+    /// * `concurrency` - Worker threads, at least 1 (8 is a reasonable default)
+    ///
+    /// # Returns
+    /// * `Ok(Vec<PathBuf>)`: Cache path of every listed file, in manifest order
+    /// * `Err(BraheError)`: The first failure, or `concurrency == 0`
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use brahe::starlink::StarlinkClient;
+    ///
+    /// let paths = StarlinkClient::new().download_all(8).unwrap();
+    /// println!("{} files cached", paths.len());
+    /// ```
+    pub fn download_all(&self, concurrency: usize) -> Result<Vec<PathBuf>, BraheError> {
+        if concurrency == 0 {
+            return Err(BraheError::Error(
+                "download_all requires concurrency >= 1".to_string(),
+            ));
+        }
+        let manifest = self.get_manifest()?;
+        let dir = self.cache_dir()?;
+        let pending: Vec<&StarlinkManifestEntry> = manifest
+            .iter()
+            .filter(|e| !dir.join(e.file_name_string()).exists())
+            .collect();
+        let cursor = AtomicUsize::new(0);
+        let stop = AtomicBool::new(false);
+        let failure: Mutex<Option<BraheError>> = Mutex::new(None);
+        std::thread::scope(|scope| {
+            for _ in 0..concurrency.min(pending.len()) {
+                scope.spawn(|| {
+                    loop {
+                        if stop.load(Ordering::SeqCst) {
+                            break;
+                        }
+                        let index = cursor.fetch_add(1, Ordering::SeqCst);
+                        let Some(entry) = pending.get(index) else {
+                            break;
+                        };
+                        if let Err(e) = self.download_entry(entry) {
+                            stop.store(true, Ordering::SeqCst);
+                            if let Ok(mut slot) = failure.lock()
+                                && slot.is_none()
+                            {
+                                *slot = Some(e);
+                            }
+                            break;
+                        }
+                    }
+                });
+            }
+        });
+        if let Some(e) = failure.into_inner().unwrap_or(None) {
+            return Err(e);
+        }
+        Ok(manifest
+            .iter()
+            .map(|e| dir.join(e.file_name_string()))
+            .collect())
+    }
+
+    /// Runs [`StarlinkClient::download_all`] and copies every file into `destination`.
+    ///
+    /// # Arguments
+    /// * `destination` - Directory, created if missing
+    /// * `concurrency` - Worker threads, at least 1
+    ///
+    /// # Returns
+    /// * `Ok(Vec<PathBuf>)`: Paths written, in manifest order
+    /// * `Err(BraheError)`: On download failure or if `destination` is an existing file
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use brahe::starlink::StarlinkClient;
+    ///
+    /// let paths = StarlinkClient::new().save_all("./ephemerides", 8).unwrap();
+    /// println!("{} files saved", paths.len());
+    /// ```
+    pub fn save_all<P: AsRef<Path>>(
+        &self,
+        destination: P,
+        concurrency: usize,
+    ) -> Result<Vec<PathBuf>, BraheError> {
+        let destination = destination.as_ref();
+        if destination.is_file() {
+            return Err(BraheError::Error(format!(
+                "save_all destination {} is a file, expected a directory",
+                destination.display()
+            )));
+        }
+        fs::create_dir_all(destination).map_err(|e| {
+            BraheError::IoError(format!("Failed to create {}: {}", destination.display(), e))
+        })?;
+        let mut written = Vec::new();
+        for source in self.download_all(concurrency)? {
+            let target = destination.join(source.file_name().unwrap_or_default());
+            copy_file(&source, &target)?;
+            written.push(target);
+        }
+        Ok(written)
+    }
+
+    /// Deletes cached ephemeris files the current manifest no longer lists.
+    ///
+    /// # Returns
+    /// * `Ok(usize)`: Number of files deleted
+    /// * `Err(BraheError)`: If the manifest cannot be obtained or a file cannot be removed
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use brahe::starlink::StarlinkClient;
+    ///
+    /// let removed = StarlinkClient::new().prune_cache().unwrap();
+    /// println!("{} stale files removed", removed);
+    /// ```
+    pub fn prune_cache(&self) -> Result<usize, BraheError> {
+        let manifest = self.get_manifest()?;
+        let listed: std::collections::HashSet<String> =
+            manifest.iter().map(|e| e.file_name_string()).collect();
+        let mut removed = 0;
+        for path in self.cached_files()? {
+            let name = path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or_default();
+            if !listed.contains(name) {
+                fs::remove_file(&path).map_err(|e| {
+                    BraheError::IoError(format!("Failed to delete {}: {}", path.display(), e))
+                })?;
+                removed += 1;
+            }
+        }
+        Ok(removed)
+    }
+
+    /// Cached ephemeris files, sorted by name.
+    ///
+    /// # Returns
+    /// * `Ok(Vec<PathBuf>)`: Files whose names are Space-Track ephemeris names
+    /// * `Err(BraheError)`: If the cache directory cannot be read
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::starlink::StarlinkClient;
+    ///
+    /// let files = StarlinkClient::new().cached_files().unwrap();
+    /// println!("{} cached", files.len());
+    /// ```
+    pub fn cached_files(&self) -> Result<Vec<PathBuf>, BraheError> {
+        let dir = self.cache_dir()?;
+        let mut files: Vec<PathBuf> = fs::read_dir(&dir)
+            .map_err(|e| BraheError::IoError(format!("Failed to read {}: {}", dir.display(), e)))?
+            .filter_map(|entry| entry.ok().map(|e| e.path()))
+            .filter(|p| {
+                p.is_file()
+                    && p.file_name()
+                        .and_then(|n| n.to_str())
+                        .is_some_and(|n| EphemerisFileName::parse(n).is_ok())
+            })
+            .collect();
+        files.sort();
+        Ok(files)
+    }
+}
+
+/// Resolves where a downloaded ephemeris file should be copied.
+///
+/// An existing directory, or a path whose last component has no extension,
+/// is treated as a directory (created if missing) and `file_name` is
+/// appended; otherwise `destination` itself is the target file (its parent
+/// directories are created).
+///
+/// # Arguments
+/// * `destination` - Caller-supplied directory or file path
+/// * `file_name` - Name to use when `destination` is a directory
+///
+/// # Returns
+/// * `Ok(PathBuf)`: The file path to write
+/// * `Err(BraheError)`: If a directory cannot be created
+fn resolve_destination(destination: &Path, file_name: &str) -> Result<PathBuf, BraheError> {
+    let is_directory =
+        destination.is_dir() || (!destination.exists() && destination.extension().is_none());
+    let target = if is_directory {
+        fs::create_dir_all(destination).map_err(|e| {
+            BraheError::IoError(format!("Failed to create {}: {}", destination.display(), e))
+        })?;
+        destination.join(file_name)
+    } else {
+        if let Some(parent) = destination.parent()
+            && !parent.as_os_str().is_empty()
+        {
+            fs::create_dir_all(parent).map_err(|e| {
+                BraheError::IoError(format!("Failed to create {}: {}", parent.display(), e))
+            })?;
+        }
+        destination.to_path_buf()
+    };
+    Ok(target)
+}
+
+/// Copies a cached file to a destination path, overwriting it if present.
+///
+/// # Arguments
+/// * `source` - File to copy
+/// * `target` - Destination path
+///
+/// # Returns
+/// * `Ok(())`: The file was copied
+/// * `Err(BraheError)`: If the copy fails
+fn copy_file(source: &Path, target: &Path) -> Result<(), BraheError> {
+    fs::copy(source, target).map(|_| ()).map_err(|e| {
+        BraheError::IoError(format!(
+            "Failed to copy {} to {}: {}",
+            source.display(),
+            target.display(),
+            e
+        ))
+    })
 }
 
 /// The current instant, rounded to whatever precision the manifest sidecar's
@@ -656,6 +1095,7 @@ mod tests {
     use serial_test::serial;
 
     use super::*;
+    use crate::trajectories::traits::Trajectory;
     use crate::utils::testing::{CacheRedirect, NetworkModeGuard};
 
     const MANIFEST_FIXTURE: &str = "test_assets/starlink/MANIFEST.txt";
@@ -674,6 +1114,249 @@ mod tests {
         let file = fs::OpenOptions::new().write(true).open(path).unwrap();
         file.set_modified(SystemTime::now() - Duration::from_secs(seconds))
             .unwrap();
+    }
+
+    const FULL_FILE: &str =
+        "MEME_100001_STARLINK-38128_2540142_Operational_1473385380_UNCLASSIFIED.txt";
+    const SHORT_FILE: &str =
+        "MEME_100002_STARLINK-37711_2540149_Operational_1473385800_UNCLASSIFIED.txt";
+
+    fn asset(name: &str) -> String {
+        fs::read_to_string(format!("test_assets/starlink/{name}")).unwrap()
+    }
+
+    /// Manifest listing only the two committed assets.
+    fn two_line_manifest() -> String {
+        format!("{FULL_FILE}\n{SHORT_FILE}\n")
+    }
+
+    fn mock_site(server: &MockServer, manifest: String) {
+        server.mock(|when, then| {
+            when.method(GET).path("/MANIFEST.txt");
+            then.status(200).body(manifest);
+        });
+        server.mock(|when, then| {
+            when.method(GET).path(format!("/{FULL_FILE}"));
+            then.status(200).body(asset(FULL_FILE));
+        });
+        server.mock(|when, then| {
+            when.method(GET).path(format!("/{SHORT_FILE}"));
+            then.status(200).body(asset(SHORT_FILE));
+        });
+    }
+
+    #[test]
+    #[serial]
+    fn test_download_ephemeris_caches_and_evicts_superseded() {
+        let cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("online"));
+        let server = MockServer::start();
+        mock_site(&server, two_line_manifest());
+        let dir = starlink_dir(&cache);
+        let old_name = "MEME_100002_STARLINK-37711_2530149_Operational_1472521800_UNCLASSIFIED.txt";
+        fs::write(dir.join(old_name), asset(SHORT_FILE)).unwrap();
+        let unrelated =
+            "MEME_100003_STARLINK-38123_2540140_Operational_1473385260_UNCLASSIFIED.txt";
+        fs::write(dir.join(unrelated), asset(SHORT_FILE)).unwrap();
+        let client = StarlinkClient::with_base_url(&server.base_url());
+        let path = client.download_ephemeris(100002).unwrap();
+        assert_eq!(path, dir.join(SHORT_FILE));
+        assert_eq!(fs::read_to_string(&path).unwrap(), asset(SHORT_FILE));
+        assert!(!dir.join(old_name).exists());
+        assert!(dir.join(unrelated).exists());
+        assert!(dir.join(MANIFEST_FILE).exists());
+        let names: Vec<String> = client
+            .cached_files()
+            .unwrap()
+            .iter()
+            .map(|p| p.file_name().unwrap().to_string_lossy().into_owned())
+            .collect();
+        assert_eq!(names, vec![SHORT_FILE.to_string(), unrelated.to_string()]);
+    }
+
+    #[test]
+    #[serial]
+    fn test_download_ephemeris_serves_cached_file_without_request() {
+        let cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("online"));
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET).path("/MANIFEST.txt");
+            then.status(200).body(two_line_manifest());
+        });
+        let file_mock = server.mock(|when, then| {
+            when.method(GET).path(format!("/{SHORT_FILE}"));
+            then.status(200).body(asset(SHORT_FILE));
+        });
+        let dir = starlink_dir(&cache);
+        fs::write(dir.join(SHORT_FILE), asset(SHORT_FILE)).unwrap();
+        let client = StarlinkClient::with_base_url(&server.base_url());
+        client.download_ephemeris(100002).unwrap();
+        file_mock.assert_calls(0);
+        let itc = client.get_ephemeris(100002).unwrap();
+        assert_eq!(itc.len(), 50);
+        let traj = client.get_trajectory(100002).unwrap();
+        assert_eq!(traj.len(), 50);
+        assert!(traj.covariances.is_some());
+        let rotating = client
+            .get_trajectory_with_covariance_variant(
+                100002,
+                crate::frames::OrbitRelativeFrameVariant::Rotating,
+            )
+            .unwrap();
+        assert_eq!(rotating.len(), 50);
+    }
+
+    #[test]
+    #[serial]
+    fn test_download_ephemeris_unknown_id_malformed_body_and_offline() {
+        let cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("online"));
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET).path("/MANIFEST.txt");
+            then.status(200).body(two_line_manifest());
+        });
+        server.mock(|when, then| {
+            when.method(GET).path(format!("/{FULL_FILE}"));
+            then.status(200).body("not an ephemeris\n");
+        });
+        let dir = starlink_dir(&cache);
+        let client = StarlinkClient::with_base_url(&server.base_url());
+        let err = client.download_ephemeris(424242).unwrap_err();
+        assert!(err.to_string().contains("424242"), "{err}");
+        assert!(client.download_ephemeris(100001).is_err());
+        assert!(!dir.join(FULL_FILE).exists());
+        drop(_mode);
+        let _strict = NetworkModeGuard::set(Some("offline-strict"));
+        let strict = StarlinkClient::with_base_url("https://brahe-network-mode-test.invalid");
+        let err = strict.download_ephemeris(100002).unwrap_err();
+        assert!(
+            err.to_string()
+                .contains("BRAHE_NETWORK_MODE is offline-strict"),
+            "{err}"
+        );
+        fs::write(dir.join(SHORT_FILE), asset(SHORT_FILE)).unwrap();
+        assert_eq!(
+            strict.download_ephemeris(100002).unwrap(),
+            dir.join(SHORT_FILE)
+        );
+    }
+
+    #[test]
+    #[serial]
+    fn test_save_ephemeris_directory_and_file_destinations() {
+        let cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("online"));
+        let server = MockServer::start();
+        mock_site(&server, two_line_manifest());
+        let out = tempfile::tempdir().unwrap();
+        let client = StarlinkClient::with_base_url(&server.base_url());
+
+        let existing_dir = out.path().join("existing");
+        fs::create_dir_all(&existing_dir).unwrap();
+        let saved = client.save_ephemeris(100002, &existing_dir).unwrap();
+        assert_eq!(saved, existing_dir.join(SHORT_FILE));
+
+        let new_dir = out.path().join("nested").join("new_dir");
+        let saved = client.save_ephemeris(100002, &new_dir).unwrap();
+        assert_eq!(saved, new_dir.join(SHORT_FILE));
+        assert!(new_dir.is_dir());
+
+        let renamed = out.path().join("renamed").join("sat.txt");
+        let saved = client.save_ephemeris(100002, &renamed).unwrap();
+        assert_eq!(saved, renamed);
+        assert_eq!(fs::read_to_string(&renamed).unwrap(), asset(SHORT_FILE));
+        let saved_again = client.save_ephemeris(100002, &renamed).unwrap();
+        assert_eq!(saved_again, renamed);
+
+        let dir = starlink_dir(&cache);
+        assert!(dir.join(SHORT_FILE).exists());
+        assert!(client.prune_cache().unwrap() == 0);
+        assert!(renamed.exists());
+    }
+
+    #[test]
+    #[serial]
+    fn test_download_all_downloads_missing_and_keeps_cached() {
+        let cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("online"));
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET).path("/MANIFEST.txt");
+            then.status(200).body(two_line_manifest());
+        });
+        let full = server.mock(|when, then| {
+            when.method(GET).path(format!("/{FULL_FILE}"));
+            then.status(200).body(asset(FULL_FILE));
+        });
+        let short = server.mock(|when, then| {
+            when.method(GET).path(format!("/{SHORT_FILE}"));
+            then.status(200).body(asset(SHORT_FILE));
+        });
+        let dir = starlink_dir(&cache);
+        fs::write(dir.join(SHORT_FILE), asset(SHORT_FILE)).unwrap();
+        let stale = "MEME_100009_STARLINK-9_2530149_Operational_1472521800_UNCLASSIFIED.txt";
+        fs::write(dir.join(stale), asset(SHORT_FILE)).unwrap();
+        let client = StarlinkClient::with_base_url(&server.base_url());
+        let paths = client.download_all(4).unwrap();
+        assert_eq!(paths, vec![dir.join(FULL_FILE), dir.join(SHORT_FILE)]);
+        full.assert_calls(1);
+        short.assert_calls(0);
+        assert!(dir.join(stale).exists());
+        assert!(client.download_all(0).is_err());
+        assert_eq!(client.prune_cache().unwrap(), 1);
+        assert!(!dir.join(stale).exists());
+        assert!(dir.join(MANIFEST_FILE).exists());
+    }
+
+    #[test]
+    #[serial]
+    fn test_download_all_stops_on_first_error() {
+        let cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("online"));
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET).path("/MANIFEST.txt");
+            then.status(200).body(two_line_manifest());
+        });
+        server.mock(|when, then| {
+            when.method(GET).path(format!("/{FULL_FILE}"));
+            then.status(404);
+        });
+        server.mock(|when, then| {
+            when.method(GET).path(format!("/{SHORT_FILE}"));
+            then.status(200).body(asset(SHORT_FILE));
+        });
+        let dir = starlink_dir(&cache);
+        let client = StarlinkClient::with_base_url(&server.base_url()).max_retries(0);
+        let err = client.download_all(1).unwrap_err();
+        assert!(err.to_string().contains("404"), "{err}");
+        assert!(!dir.join(SHORT_FILE).exists());
+        assert!(!dir.join(FULL_FILE).exists());
+    }
+
+    #[test]
+    #[serial]
+    fn test_save_all_copies_into_directory() {
+        let cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("online"));
+        let server = MockServer::start();
+        mock_site(&server, two_line_manifest());
+        let out = tempfile::tempdir().unwrap();
+        let dest = out.path().join("ephemerides");
+        let client = StarlinkClient::with_base_url(&server.base_url());
+        let saved = client.save_all(&dest, 2).unwrap();
+        assert_eq!(saved, vec![dest.join(FULL_FILE), dest.join(SHORT_FILE)]);
+        assert_eq!(
+            fs::read_to_string(dest.join(FULL_FILE)).unwrap(),
+            asset(FULL_FILE)
+        );
+        let file_dest = out.path().join("a_file.txt");
+        fs::write(&file_dest, "x").unwrap();
+        assert!(client.save_all(&file_dest, 2).is_err());
+        let dir = starlink_dir(&cache);
+        assert!(dir.join(FULL_FILE).exists());
     }
 
     #[test]

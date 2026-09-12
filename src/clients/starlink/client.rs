@@ -199,6 +199,28 @@ impl StarlinkClient {
         client
     }
 
+    /// Sets the rate limiter's request caps.
+    ///
+    /// # Arguments
+    /// * `config` - Per-minute and per-hour request caps
+    ///
+    /// # Returns
+    /// * `StarlinkClient`: The client, for chaining
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::clients::RateLimitConfig;
+    /// use brahe::starlink::StarlinkClient;
+    ///
+    /// let client = StarlinkClient::new().rate_limit(RateLimitConfig { max_per_minute: 60, max_per_hour: 1000 });
+    /// assert_eq!(client.cache_max_age(), 3600.0);
+    /// ```
+    pub fn rate_limit(mut self, config: RateLimitConfig) -> Self {
+        self.rate_limiter = Mutex::new(RateLimiter::new(config));
+        self
+    }
+
     /// Sets the number of retries for transient failures.
     ///
     /// # Arguments
@@ -1116,7 +1138,7 @@ mod tests {
     use std::time::{Duration, SystemTime};
 
     use httpmock::prelude::*;
-    use serial_test::serial;
+    use serial_test::{parallel, serial};
 
     use super::*;
     use crate::trajectories::traits::Trajectory;
@@ -1702,5 +1724,33 @@ mod tests {
         assert_eq!(manifest.len(), 5);
         conditional.assert_calls(0);
         unconditional.assert_calls(1);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_starlink_client_rate_limit() {
+        let client = StarlinkClient::with_base_url_and_cache_age("http://127.0.0.1:1", 10.0)
+            .rate_limit(RateLimitConfig {
+                max_per_minute: 5,
+                max_per_hour: 50,
+            });
+        assert_eq!(client.base_url(), "http://127.0.0.1:1");
+        assert_eq!(client.cache_max_age(), 10.0);
+    }
+
+    #[test]
+    #[serial]
+    #[cfg_attr(not(feature = "integration"), ignore)]
+    fn test_integration_manifest_and_one_download() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(None);
+        let client = StarlinkClient::with_cache_age(0.0);
+        let manifest = client.get_manifest().unwrap();
+        assert!(manifest.len() > 1000);
+        let entry = &manifest.entries()[0];
+        assert!(entry.ephemeris_stop.is_some());
+        let traj = client.get_trajectory(entry.norad_cat_id).unwrap();
+        assert!(traj.len() > 100);
+        assert_eq!(manifest.to_dataframe().unwrap().height(), manifest.len());
     }
 }

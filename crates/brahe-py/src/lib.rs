@@ -604,6 +604,7 @@ include!("utils.rs");
 include!("earth_models.rs");
 include!("spacetrack.rs");
 include!("celestrak.rs");
+include!("starlink.rs");
 include!("ccsds.rs");
 include!("itc.rs");
 include!("estimation.rs");
@@ -1609,6 +1610,11 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyCelestrakQuery>()?;
     module.add_class::<PyCelestrakClient>()?;
     module.add_class::<PyCelestrakSATCATRecord>()?;
+
+    //* StarlinkClient *//
+    module.add_class::<PyStarlinkManifestEntry>()?;
+    module.add_class::<PyStarlinkManifest>()?;
+    module.add_class::<PyStarlinkClient>()?;
 
     //* CCSDS *//
     module.add_class::<PyOEM>()?;

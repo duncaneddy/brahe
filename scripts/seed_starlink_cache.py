@@ -1,0 +1,71 @@
+#!/usr/bin/env python3
+"""Copy the committed Starlink fixtures into the local brahe cache.
+
+Installs ``test_assets/starlink/MANIFEST.txt`` and the two ephemeris files it
+names under ``$BRAHE_CACHE/starlink/`` with a fresh modification time, and
+removes any manifest sidecar or previous listing left by a live download, so
+the Starlink examples and the documentation build run without contacting
+api.starlink.com. Run as ``just seed-starlink-cache`` and by the CI example and
+documentation jobs; a manifest that is not the fixture is left alone unless
+``--force`` is given.
+"""
+
+from __future__ import annotations
+
+import argparse
+import os
+import shutil
+import sys
+from pathlib import Path
+
+ASSETS = Path(__file__).resolve().parents[1] / "test_assets" / "starlink"
+
+
+def cache_dir() -> Path:
+    base = os.environ.get("BRAHE_CACHE")
+    root = Path(base) if base else Path.home() / ".cache" / "brahe"
+    return root / "starlink"
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--cache-dir", type=Path, default=None)
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Replace a manifest that is not the fixture (a live Starlink listing).",
+    )
+    args = parser.parse_args()
+
+    target = args.cache_dir or cache_dir()
+    target.mkdir(parents=True, exist_ok=True)
+
+    files = sorted(p for p in ASSETS.iterdir() if p.suffix == ".txt")
+    if not any(p.name == "MANIFEST.txt" for p in files):
+        print(f"error: {ASSETS / 'MANIFEST.txt'} is missing", file=sys.stderr)
+        return 1
+
+    existing = target / "MANIFEST.txt"
+    fixture = ASSETS / "MANIFEST.txt"
+    if (
+        existing.exists()
+        and existing.read_text() != fixture.read_text()
+        and not args.force
+    ):
+        print(
+            f"error: {existing} is not the fixture manifest; it looks like a live Starlink "
+            "listing. Re-run with --force to replace it, or point --cache-dir elsewhere.",
+            file=sys.stderr,
+        )
+        return 1
+
+    for stale in ("MANIFEST.meta.json", "MANIFEST.previous.txt"):
+        (target / stale).unlink(missing_ok=True)
+    for path in files:
+        shutil.copyfile(path, target / path.name)
+    print(f"Seeded {len(files)} Starlink files into {target}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

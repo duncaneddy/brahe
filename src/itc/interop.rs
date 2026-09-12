@@ -135,7 +135,9 @@ impl ITC {
     ///
     /// The covariance is attached in the state frame, whatever frame the
     /// header names for it. An `RTN` covariance is rotated with the record's
-    /// own state, taken in ICRF axes: `Inertial` uses `[[R, 0], [0, R]]`,
+    /// own state, taken in ICRF axes about the state frame's center (the
+    /// format's frames are all Earth-centered, so the RTN basis is the
+    /// geocentric one): `Inertial` uses `[[R, 0], [0, R]]`,
     /// `Rotating` uses `[[R, 0], [R·[ω×], R]]` with ω the RTN frame rate. An
     /// `EME2000` or `ITRF` covariance is rotated by the state-transform
     /// Jacobian from that frame to the state frame, which is the identity when
@@ -589,6 +591,24 @@ mod tests {
                     .unwrap()
                     .expect("covariance attached");
                 assert!(cov[(0, 0)] > 0.0, "{} / {}", state_frame, covariance_frame);
+                let identity_pair = (state_frame == CelestialFrame::ITRF
+                    && covariance_frame == ITCCovarianceFrame::ITRF)
+                    || (state_frame == CelestialFrame::EME2000
+                        && covariance_frame == ITCCovarianceFrame::EME2000);
+                if identity_pair {
+                    let original = itc.covariances[0];
+                    for i in 0..6 {
+                        for k in 0..6 {
+                            assert_eq!(
+                                cov[(i, k)],
+                                original[(i, k)],
+                                "{} / {}",
+                                state_frame,
+                                covariance_frame
+                            );
+                        }
+                    }
+                }
             }
         }
     }

@@ -2526,7 +2526,7 @@ impl PyOrbitalTrajectory {
     ///     np.ndarray: Covariance matrix in `frame`
     ///
     /// Raises:
-    ///     RuntimeError: If covariance tracking is not enabled, `epoch` lies outside the trajectory, or the router cannot transform states between the frames
+    ///     RuntimeError: If covariance tracking is not enabled, `epoch` lies outside the trajectory, the representation is not Cartesian, or the router cannot transform states between the frames
     ///
     /// Example:
     ///     ```python

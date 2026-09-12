@@ -2535,7 +2535,7 @@ impl DOrbitTrajectory {
     ///
     /// # Returns
     /// * `Ok(DMatrix<f64>)` - Covariance in `frame`
-    /// * `Err(BraheError)` - If covariance tracking is not enabled, `epoch` lies outside the trajectory, or the router cannot transform states between the frames
+    /// * `Err(BraheError)` - If covariance tracking is not enabled, `epoch` lies outside the trajectory, the representation is not Cartesian, or the router cannot transform states between the frames
     ///
     /// # Examples
     /// ```rust
@@ -2576,6 +2576,12 @@ impl DOrbitTrajectory {
         let cov_native = self.covariance(epoch)?;
         if self.frame == frame {
             return Ok(cov_native);
+        }
+        if self.representation != OrbitRepresentation::Cartesian {
+            return Err(BraheError::Error(
+                "Covariances require a Cartesian representation to be rotated between frames"
+                    .to_string(),
+            ));
         }
         covariance_frame_to_frame(self.frame.clone(), frame, epoch, &cov_native)
     }
@@ -6932,6 +6938,24 @@ mod tests {
             .covariance_rtn_with_variant(epoch, OrbitRelativeFrameVariant::Inertial)
             .unwrap();
         assert!((&rtn - inertial).norm() > 1e-6);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_dorbittrajectory_covariance_in_frame_rejects_keplerian() {
+        setup_global_test_eop();
+
+        let (traj, epoch, cov) = covariance_routing_trajectory(CelestialFrame::GCRF, 6);
+        let mut kep = traj.to_keplerian(AngleFormat::Degrees).unwrap();
+        kep.covariances = Some(vec![cov]);
+
+        // Elements in the native frame are returned as stored.
+        assert!(kep.covariance_in_frame(epoch, CelestialFrame::GCRF).is_ok());
+
+        let err = kep
+            .covariance_in_frame(epoch, CelestialFrame::ITRF)
+            .unwrap_err();
+        assert!(err.to_string().contains("Cartesian representation"));
     }
 
     #[test]

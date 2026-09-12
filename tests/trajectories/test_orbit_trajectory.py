@@ -4380,3 +4380,27 @@ def test_covariance_eci_from_ecef(eop):
     )
     np.testing.assert_allclose(retrieved, expected, atol=1e-12, rtol=0)
     assert np.linalg.norm(retrieved - cov) > 1.0
+
+
+def test_covariance_in_frame_rejects_keplerian(eop):
+    """Rust: test_dorbittrajectory_covariance_in_frame_rejects_keplerian"""
+    traj, epoch, _ = _covariance_routing_trajectory(brahe.CelestialFrame.GCRF)
+    kep = traj.to_keplerian(brahe.AngleFormat.DEGREES)
+
+    # to_keplerian drops the covariance, so rebuild the elements trajectory
+    # with the covariance attached to exercise the representation check.
+    kep_with_cov = brahe.OrbitTrajectory.from_orbital_data(
+        [epoch],
+        np.array([kep.state(epoch)]),
+        brahe.CelestialFrame.GCRF,
+        brahe.OrbitRepresentation.KEPLERIAN,
+        angle_format=brahe.AngleFormat.DEGREES,
+        covariances=np.array([np.eye(6)]),
+    )
+
+    assert kep_with_cov.covariance_in_frame(epoch, brahe.CelestialFrame.GCRF).shape == (
+        6,
+        6,
+    )
+    with pytest.raises(Exception, match="Cartesian representation"):
+        kep_with_cov.covariance_in_frame(epoch, brahe.CelestialFrame.ITRF)

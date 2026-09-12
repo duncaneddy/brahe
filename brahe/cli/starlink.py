@@ -11,7 +11,7 @@ from rich.table import Table
 import brahe as bh
 
 app = typer.Typer(help="Retrieve Starlink public ephemerides.")
-console = Console(width=200)
+console = Console()
 
 
 @app.command()

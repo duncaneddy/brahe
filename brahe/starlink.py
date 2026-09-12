@@ -9,6 +9,7 @@ This module provides:
 - StarlinkClient: Manifest and ephemeris retrieval with caching, rate limiting, and ``BRAHE_NETWORK_MODE`` handling
 - StarlinkManifest: The manifest as a queryable table with change detection and ``to_dataframe()``
 - StarlinkManifestEntry: One manifest line with the epochs decoded from the file name
+- RateLimitConfig: Per-minute and per-hour request caps for the client
 
 Example:
     ```python
@@ -22,12 +23,14 @@ Example:
 """
 
 from brahe._brahe import (
+    RateLimitConfig,
     StarlinkClient,
     StarlinkManifest,
     StarlinkManifestEntry,
 )
 
 __all__ = [
+    "RateLimitConfig",
     "StarlinkClient",
     "StarlinkManifest",
     "StarlinkManifestEntry",

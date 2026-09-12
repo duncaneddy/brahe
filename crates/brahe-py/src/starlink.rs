@@ -28,7 +28,11 @@ pub struct PyStarlinkManifestEntry {
 
 #[pymethods]
 impl PyStarlinkManifestEntry {
-    /// Parsed file name.
+    /// Parsed view of the listing's file name.
+    ///
+    /// Rendering it back to a string normalises the catalog number and the
+    /// category spelling, so requests, cache files and prune keys use
+    /// ``file_name_string()``, which returns the listing's exact text.
     ///
     /// Returns:
     ///     EphemerisFileName: The manifest line's file name, field by field.
@@ -88,10 +92,11 @@ impl PyStarlinkManifestEntry {
         self.inner.ephemeris_stop.map(|obj| PyEpoch { obj })
     }
 
-    /// The file name as listed in the manifest.
+    /// The file name exactly as listed in the manifest, which is what the
+    /// mirror serves and what the cache stores.
     ///
     /// Returns:
-    ///     str: Compliant file name with extension.
+    ///     str: The listing's file name with extension.
     fn file_name_string(&self) -> String {
         self.inner.file_name_string()
     }
@@ -345,6 +350,8 @@ impl PyStarlinkManifest {
 /// re-fetched with a conditional GET once it is older than ``cache_max_age``;
 /// when the listing changes, the prior copy is kept as
 /// ``MANIFEST.previous.txt`` so the caller can ask which satellites moved.
+/// The cache directory is not coordinated across processes or across clients
+/// sharing it; run one bulk download at a time.
 ///
 /// Args:
 ///     base_url (str, optional): Custom base URL for testing or a mirror.
@@ -454,9 +461,10 @@ impl PyStarlinkClient {
 
     /// Fetches the manifest from the server regardless of cache age.
     ///
-    /// Sends the cached ETag; a 304 answer touches the cached file so it is
-    /// fresh again. A changed listing moves the old copy to
-    /// ``MANIFEST.previous.txt`` before the new one is written.
+    /// Sends the cached ``ETag`` and ``Last-Modified`` as conditional
+    /// headers; a 304 answer touches the cached file so it is fresh again. A
+    /// changed listing moves the old copy to ``MANIFEST.previous.txt`` before
+    /// the new one is written.
     ///
     /// Returns:
     ///     StarlinkManifest: The listing now on disk.
@@ -626,14 +634,16 @@ impl PyStarlinkClient {
     ///
     /// The full manifest is about 11,100 files and about 22 GB, so a first
     /// run against the public mirror is a long transfer. Stops at the first
-    /// failure and returns it. Files already cached are not re-fetched and no
-    /// cached files are removed; call ``prune_cache`` for that.
+    /// failure and returns it. Files already cached are not re-fetched. No
+    /// files are pruned; superseded files for a satellite whose file is
+    /// downloaded are still evicted. Call ``prune_cache`` to remove files the
+    /// manifest no longer lists.
     ///
     /// Args:
     ///     concurrency (int, optional): Worker threads, at least 1. Default: 8.
     ///
     /// Returns:
-    ///     list[str]: Cache path of every listed file, in manifest order.
+    ///     list[str]: Cache path of one file per listed NORAD ID, in manifest order.
     ///
     /// Raises:
     ///     BraheError: The first failure, or ``concurrency == 0``.

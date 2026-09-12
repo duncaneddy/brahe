@@ -2,6 +2,7 @@
  * Blocking client for Starlink's public ephemeris mirror.
  */
 
+use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
@@ -629,7 +630,7 @@ impl StarlinkClient {
         let manifest = self.get_manifest()?;
         let entry = manifest.find_by_norad_id(norad_cat_id).ok_or_else(|| {
             BraheError::Error(format!(
-                "NORAD ID {} is not in the Starlink manifest",
+                "No Starlink ephemeris for NORAD ID {} in the current manifest",
                 norad_cat_id
             ))
         })?;
@@ -672,20 +673,42 @@ impl StarlinkClient {
         atomic_write(&path, body.as_bytes()).map_err(|e| {
             BraheError::IoError(format!("Failed to write {}: {}", path.display(), e))
         })?;
-        for other in self.cached_files()? {
-            if other != path
-                && let Some(parsed) = other
-                    .file_name()
-                    .and_then(|n| n.to_str())
-                    .and_then(|n| EphemerisFileName::parse(n).ok())
-                && parsed.norad_cat_id == entry.norad_cat_id
-            {
+        for other in self.cached_files_for_id(&dir, entry.norad_cat_id)? {
+            if other != path {
                 fs::remove_file(&other).map_err(|e| {
                     BraheError::IoError(format!("Failed to delete {}: {}", other.display(), e))
                 })?;
             }
         }
         Ok(path)
+    }
+
+    /// Cached ephemeris files whose parsed name carries `norad_cat_id`.
+    ///
+    /// # Arguments
+    /// * `dir` - Cache directory
+    /// * `norad_cat_id` - Catalog number to match
+    ///
+    /// # Returns
+    /// * `Ok(Vec<PathBuf>)`: Matching files
+    /// * `Err(BraheError)`: If the directory cannot be read
+    fn cached_files_for_id(
+        &self,
+        dir: &Path,
+        norad_cat_id: u32,
+    ) -> Result<Vec<PathBuf>, BraheError> {
+        let marker = format!("_{}_", norad_cat_id);
+        let entries = fs::read_dir(dir)
+            .map_err(|e| BraheError::IoError(format!("Failed to read {}: {}", dir.display(), e)))?;
+        Ok(entries
+            .filter_map(|entry| entry.ok().map(|e| e.path()))
+            .filter(|p| {
+                p.file_name().and_then(|n| n.to_str()).is_some_and(|n| {
+                    n.contains(&marker)
+                        && EphemerisFileName::parse(n).is_ok_and(|f| f.norad_cat_id == norad_cat_id)
+                }) && p.is_file()
+            })
+            .collect())
     }
 
     /// Downloads (if needed) and parses a satellite's current ephemeris.
@@ -808,9 +831,10 @@ impl StarlinkClient {
     /// Downloads every file the manifest lists that is not already cached,
     /// using up to `concurrency` threads that share the rate limiter.
     ///
-    /// Stops at the first failure and returns it. Files already cached are
-    /// not re-fetched and no cached files are removed; call
-    /// [`StarlinkClient::prune_cache`] for that.
+    /// The full manifest is about 11,100 files and about 22 GB, so a first
+    /// run against the public mirror is a long transfer. Stops at the first
+    /// failure and returns it. Files already cached are not re-fetched and no
+    /// cached files are removed; call [`StarlinkClient::prune_cache`] for that.
     ///
     /// # Arguments
     /// * `concurrency` - Worker threads, at least 1 (8 is a reasonable default)
@@ -835,9 +859,10 @@ impl StarlinkClient {
         }
         let manifest = self.get_manifest()?;
         let dir = self.cache_dir()?;
+        let mut seen = HashSet::new();
         let pending: Vec<&StarlinkManifestEntry> = manifest
             .iter()
-            .filter(|e| !dir.join(e.file_name_string()).exists())
+            .filter(|e| seen.insert(e.norad_cat_id) && !dir.join(e.file_name_string()).exists())
             .collect();
         let cursor = AtomicUsize::new(0);
         let stop = AtomicBool::new(false);
@@ -855,9 +880,8 @@ impl StarlinkClient {
                         };
                         if let Err(e) = self.download_entry(entry) {
                             stop.store(true, Ordering::SeqCst);
-                            if let Ok(mut slot) = failure.lock()
-                                && slot.is_none()
-                            {
+                            let mut slot = failure.lock().unwrap_or_else(|p| p.into_inner());
+                            if slot.is_none() {
                                 *slot = Some(e);
                             }
                             break;
@@ -866,7 +890,7 @@ impl StarlinkClient {
                 });
             }
         });
-        if let Some(e) = failure.into_inner().unwrap_or(None) {
+        if let Some(e) = failure.into_inner().unwrap_or_else(|p| p.into_inner()) {
             return Err(e);
         }
         Ok(manifest
@@ -905,11 +929,12 @@ impl StarlinkClient {
                 destination.display()
             )));
         }
+        let sources = self.download_all(concurrency)?;
         fs::create_dir_all(destination).map_err(|e| {
             BraheError::IoError(format!("Failed to create {}: {}", destination.display(), e))
         })?;
         let mut written = Vec::new();
-        for source in self.download_all(concurrency)? {
+        for source in sources {
             let target = destination.join(source.file_name().unwrap_or_default());
             copy_file(&source, &target)?;
             written.push(target);
@@ -933,8 +958,7 @@ impl StarlinkClient {
     /// ```
     pub fn prune_cache(&self) -> Result<usize, BraheError> {
         let manifest = self.get_manifest()?;
-        let listed: std::collections::HashSet<String> =
-            manifest.iter().map(|e| e.file_name_string()).collect();
+        let listed: HashSet<String> = manifest.iter().map(|e| e.file_name_string()).collect();
         let mut removed = 0;
         for path in self.cached_files()? {
             let name = path
@@ -1346,6 +1370,8 @@ mod tests {
         let out = tempfile::tempdir().unwrap();
         let dest = out.path().join("ephemerides");
         let client = StarlinkClient::with_base_url(&server.base_url());
+        assert!(client.save_all(&dest, 0).is_err());
+        assert!(!dest.exists());
         let saved = client.save_all(&dest, 2).unwrap();
         assert_eq!(saved, vec![dest.join(FULL_FILE), dest.join(SHORT_FILE)]);
         assert_eq!(

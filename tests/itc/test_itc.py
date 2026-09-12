@@ -9,10 +9,8 @@ from brahe.itc import (
     ITCCovarianceFrame,
     ITCHeader,
     ITCStateVector,
-    data_type_for_state_frame,
-    state_frame_for_data_type,
 )
-from brahe.spacetrack import EphemerisFileCategory
+from brahe.spacetrack import SpaceTrackEphemerisFileCategory
 
 FULL = "test_assets/starlink/MEME_100001_STARLINK-38128_2540142_Operational_1473385380_UNCLASSIFIED.txt"
 TRUNCATED = "test_assets/starlink/MEME_100002_STARLINK-37711_2540149_Operational_1473385800_UNCLASSIFIED.txt"
@@ -95,6 +93,18 @@ def test_itc_covariance_all_or_none():
         without.push_state_with_covariance(state(60.0), cov)
     with pytest.raises(ValueError):
         ITC(ITCHeader()).push_state_with_covariance(state(0.0), np.eye(3))
+
+
+def test_itc_state_vector_to_vector():
+    sv = ITCStateVector(
+        utc(2026, 9, 11, 1, 42, 42.0),
+        np.array([1.0, 2.0, 3.0]),
+        np.array([4.0, 5.0, 6.0]),
+    )
+    x = sv.to_vector()
+    assert x.shape == (6,)
+    np.testing.assert_array_equal(x[:3], sv.position)
+    np.testing.assert_array_equal(x[3:], sv.velocity)
 
 
 def test_itc_push_state_with_covariance_rejects_asymmetric():
@@ -298,20 +308,6 @@ def test_write_fractional_step_and_other_frames():
     assert len(lines) == 12
 
 
-def test_state_frame_data_type_mapping():
-    for token in ["MEME", "meme", "EME2000", "J2000"]:
-        assert state_frame_for_data_type(token) == bh.CelestialFrame.EME2000
-    assert state_frame_for_data_type("TEME") == bh.CelestialFrame.TEME
-    assert state_frame_for_data_type("ITRF") == bh.CelestialFrame.ITRF
-    with pytest.raises(bh.BraheError):
-        state_frame_for_data_type("GCRF")
-    assert data_type_for_state_frame(bh.CelestialFrame.EME2000) == "MEME"
-    assert data_type_for_state_frame(bh.CelestialFrame.TEME) == "TEME"
-    assert data_type_for_state_frame(bh.CelestialFrame.ITRF) == "ITRF"
-    with pytest.raises(bh.BraheError):
-        data_type_for_state_frame(bh.CelestialFrame.GCRF)
-
-
 def test_from_file_infers_frame_from_data_type(tmp_path):
     with open(TRUNCATED) as f:
         text = f.read()
@@ -340,7 +336,10 @@ def test_from_file_infers_frame_from_data_type(tmp_path):
 def test_itc_file_name():
     itc = ITC.from_file(TRUNCATED)
     name = itc.file_name(
-        100002, "STARLINK-37711", EphemerisFileCategory.OPERATIONAL, "1473385800"
+        100002,
+        "STARLINK-37711",
+        SpaceTrackEphemerisFileCategory.OPERATIONAL,
+        "1473385800",
     )
     assert (
         str(name)
@@ -355,14 +354,16 @@ def test_itc_file_name():
         )
     )
     assert (
-        str(teme.file_name(25544, "ISS", EphemerisFileCategory.SPECIAL, ""))
+        str(teme.file_name(25544, "ISS", SpaceTrackEphemerisFileCategory.SPECIAL, ""))
         == "TEME_25544_ISS_3001224_Special__UNCLASSIFIED.txt"
     )
     with pytest.raises(bh.BraheError):
-        ITC(ITCHeader()).file_name(1, "A", EphemerisFileCategory.OPERATIONAL, "")
+        ITC(ITCHeader()).file_name(
+            1, "A", SpaceTrackEphemerisFileCategory.OPERATIONAL, ""
+        )
     with pytest.raises(bh.BraheError):
         ITC(ITCHeader(state_frame=bh.CelestialFrame.GCRF)).file_name(
-            1, "A", EphemerisFileCategory.OPERATIONAL, ""
+            1, "A", SpaceTrackEphemerisFileCategory.OPERATIONAL, ""
         )
 
 
@@ -371,10 +372,11 @@ def test_top_level_exports():
     assert bh.ITCHeader is ITCHeader
     assert bh.ITCStateVector is ITCStateVector
     assert bh.ITCCovarianceFrame is ITCCovarianceFrame
-    assert bh.state_frame_for_data_type is state_frame_for_data_type
-    assert bh.data_type_for_state_frame is data_type_for_state_frame
-    assert bh.EphemerisFileName is bh.spacetrack.EphemerisFileName
-    assert bh.EphemerisFileCategory is bh.spacetrack.EphemerisFileCategory
+    assert bh.SpaceTrackEphemerisFileName is bh.spacetrack.SpaceTrackEphemerisFileName
+    assert (
+        bh.SpaceTrackEphemerisFileCategory
+        is bh.spacetrack.SpaceTrackEphemerisFileCategory
+    )
 
 
 def _rtn_to_eme_block(x):
@@ -389,6 +391,17 @@ def _rtn_to_eme_block(x):
     J[:3, :3] = R
     J[3:, 3:] = R
     return J
+
+
+def _assert_covariance_close(actual, expected, rel):
+    """Compare covariances with each tolerance scaled by the Cauchy-Schwarz
+    bound ``sqrt(P_ii P_kk)`` rather than by the element itself. Off-diagonal
+    covariance entries are differences of much larger products, so an
+    element-relative tolerance measures the cancellation in the input data
+    rather than the accuracy of the transformation."""
+    d = np.sqrt(np.diag(expected))
+    scale = np.outer(d, d)
+    np.testing.assert_array_less(np.abs(actual - expected), rel * scale + 1e-300)
 
 
 def _strip_covariance(text):
@@ -446,7 +459,7 @@ def test_to_trajectory_rotating_variant_changes_only_velocity_blocks():
     assert not np.allclose(a[3:, :], b[3:, :], rtol=1e-12, atol=0.0)
 
 
-def test_to_trajectory_without_covariance_and_frame_errors():
+def test_to_trajectory_without_covariance():
     with open(TRUNCATED) as f:
         text = f.read()
     itc = ITC.from_str(_strip_covariance(text))
@@ -457,17 +470,31 @@ def test_to_trajectory_without_covariance_and_frame_errors():
         traj.covariance(itc.states[0].epoch)
     assert traj.get_name() is None
 
-    with_cov = ITC.from_file(TRUNCATED)
-    h = with_cov.header
-    h.state_frame = bh.CelestialFrame.TEME
-    with_cov.header = h
-    with pytest.raises(bh.BraheError):
-        with_cov.to_trajectory()
-    h.state_frame = bh.CelestialFrame.EME2000
-    h.covariance_frame = ITCCovarianceFrame.ITRF
-    with_cov.header = h
-    with pytest.raises(bh.BraheError):
-        with_cov.to_trajectory()
+
+def test_to_trajectory_accepts_every_frame_combination():
+    itc = ITC.from_file(TRUNCATED)
+    for state_frame in [
+        bh.CelestialFrame.EME2000,
+        bh.CelestialFrame.GCRF,
+        bh.CelestialFrame.TEME,
+        bh.CelestialFrame.ITRF,
+    ]:
+        for covariance_frame in [
+            ITCCovarianceFrame.RTN,
+            ITCCovarianceFrame.EME2000,
+            ITCCovarianceFrame.ITRF,
+        ]:
+            h = itc.header
+            h.state_frame = state_frame
+            h.covariance_frame = covariance_frame
+            itc.header = h
+            traj = itc.to_trajectory()
+            assert traj.frame == state_frame
+            cov = traj.covariance(itc.states[0].epoch)
+            assert cov[0, 0] > 0.0
+
+
+def test_to_trajectory_empty_message_is_error():
     with pytest.raises(bh.BraheError):
         ITC(ITCHeader()).to_trajectory()
 
@@ -486,30 +513,8 @@ def test_from_trajectory_round_trip_and_errors():
         np.testing.assert_allclose(a.velocity, b.velocity, rtol=0, atol=1e-9)
     assert len(back.covariances) == len(itc.covariances) == 50
     for a, b in zip(itc.covariances, back.covariances):
-        np.testing.assert_allclose(a, b, rtol=1e-9, atol=1e-20)
+        _assert_covariance_close(b, a, 1e-11)
 
-    rot = itc.to_trajectory_with_covariance_variant(
-        bh.OrbitRelativeFrameVariant.ROTATING
-    )
-    back_rot = ITC.from_trajectory_with_covariance_variant(
-        rot, ITCHeader(), bh.OrbitRelativeFrameVariant.ROTATING
-    )
-    np.testing.assert_allclose(
-        back_rot.covariances[0], itc.covariances[0], rtol=1e-9, atol=1e-20
-    )
-
-    with pytest.raises(bh.BraheError):
-        ITC.from_trajectory(traj, ITCHeader(covariance_frame=ITCCovarianceFrame.ITRF))
-    with pytest.raises(bh.BraheError):
-        ITC.from_trajectory(traj, ITCHeader(state_frame=bh.CelestialFrame.TEME))
-    with pytest.raises(bh.BraheError):
-        ITC.from_trajectory(
-            traj,
-            ITCHeader(
-                state_frame=bh.CelestialFrame.GCRF,
-                covariance_frame=ITCCovarianceFrame.EME2000,
-            ),
-        )
     empty = bh.OrbitTrajectory(
         6, bh.CelestialFrame.EME2000, bh.OrbitRepresentation.CARTESIAN
     )
@@ -543,6 +548,75 @@ def test_eme2000_covariance_frame_keeps_inertial_covariance():
     )
 
 
+def test_from_trajectory_rtn_round_trips_for_both_variants():
+    itc = ITC.from_file(TRUNCATED)
+    for variant in [
+        bh.OrbitRelativeFrameVariant.INERTIAL,
+        bh.OrbitRelativeFrameVariant.ROTATING,
+    ]:
+        traj = itc.to_trajectory_with_covariance_variant(variant)
+        back = ITC.from_trajectory_with_covariance_variant(traj, ITCHeader(), variant)
+        assert back.header.covariance_frame == ITCCovarianceFrame.RTN
+        for a, b in zip(itc.covariances, back.covariances):
+            _assert_covariance_close(b, a, 1e-11)
+
+
+def test_itrf_covariance_round_trips_through_an_eme2000_trajectory():
+    # Mirrors src/itc/interop.rs
+    # test_itrf_covariance_round_trips_through_an_eme2000_trajectory.
+    # Relabelling the fixture's covariance as ITRF changes what the numbers
+    # mean, but the pair of rotations must still invert one another.
+    itc = ITC.from_file(TRUNCATED)
+    h = itc.header
+    h.covariance_frame = ITCCovarianceFrame.ITRF
+    itc.header = h
+    traj = itc.to_trajectory()
+    assert traj.frame == bh.CelestialFrame.EME2000
+    cov0 = traj.covariance(itc.states[0].epoch)
+    assert abs(cov0[0, 0] - itc.covariances[0][0, 0]) > 1e-6
+
+    back = ITC.from_trajectory(
+        traj, ITCHeader(covariance_frame=ITCCovarianceFrame.ITRF)
+    )
+    assert back.header.covariance_frame == ITCCovarianceFrame.ITRF
+    for a, b in zip(itc.covariances, back.covariances):
+        _assert_covariance_close(b, a, 1e-11)
+
+
+def test_eme2000_covariance_round_trips_through_a_teme_trajectory():
+    # Mirrors src/itc/interop.rs
+    # test_eme2000_covariance_round_trips_through_a_teme_trajectory.
+    itc = ITC.from_file(TRUNCATED)
+    h = itc.header
+    h.state_frame = bh.CelestialFrame.TEME
+    h.covariance_frame = ITCCovarianceFrame.EME2000
+    itc.header = h
+    traj = itc.to_trajectory()
+    assert traj.frame == bh.CelestialFrame.TEME
+
+    back = ITC.from_trajectory(
+        traj,
+        ITCHeader(
+            state_frame=bh.CelestialFrame.TEME,
+            covariance_frame=ITCCovarianceFrame.EME2000,
+        ),
+    )
+    for a, b in zip(itc.covariances, back.covariances):
+        _assert_covariance_close(b, a, 1e-11)
+
+
+def test_from_trajectory_teme_state_frame_carries_covariance():
+    # Mirrors src/itc/interop.rs
+    # test_from_trajectory_teme_state_frame_carries_covariance.
+    itc = ITC.from_file(TRUNCATED)
+    traj = itc.to_trajectory()
+    teme = ITC.from_trajectory(traj, ITCHeader(state_frame=bh.CelestialFrame.TEME))
+    assert teme.header.state_frame == bh.CelestialFrame.TEME
+    assert teme.has_covariance
+    for a, b in zip(itc.covariances, teme.covariances):
+        _assert_covariance_close(b, a, 1e-11)
+
+
 def test_from_trajectory_gcrf_covariance_rotates_through_bias():
     itc = ITC.from_file(TRUNCATED)
     eme = itc.to_trajectory()
@@ -567,7 +641,7 @@ def test_from_trajectory_gcrf_covariance_rotates_through_bias():
         np.testing.assert_allclose(a.velocity, b.velocity, rtol=0, atol=1e-8)
     assert len(back.covariances) == len(itc.covariances) == 50
     for a, b in zip(itc.covariances, back.covariances):
-        np.testing.assert_allclose(a, b, rtol=1e-8, atol=1e-20)
+        _assert_covariance_close(b, a, 1e-10)
 
 
 def test_to_trajectory_teme_without_covariance_is_allowed():

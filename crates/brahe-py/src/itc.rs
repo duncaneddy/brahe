@@ -647,6 +647,13 @@ impl PyITC {
 
     /// Convert the message to an ``OrbitTrajectory`` with an explicit RTN covariance convention.
     ///
+    /// The covariance is attached in the state frame whatever frame the header names for it.
+    /// An ``RTN`` covariance is rotated with the record's own state taken in ICRF axes about the
+    /// state frame's center; ``INERTIAL`` uses the block-diagonal rotation and ``ROTATING`` adds
+    /// the frame-rate coupling. An ``EME2000`` or ``ITRF`` covariance is rotated by the
+    /// state-transform Jacobian from that frame to the state frame at the record epoch, which is
+    /// the identity when the two agree.
+    ///
     /// Args:
     ///     variant (OrbitRelativeFrameVariant): ``INERTIAL`` or ``ROTATING``.
     ///

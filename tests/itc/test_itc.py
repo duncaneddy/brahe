@@ -492,6 +492,15 @@ def test_to_trajectory_accepts_every_frame_combination():
             assert traj.frame == state_frame
             cov = traj.covariance(itc.states[0].epoch)
             assert cov[0, 0] > 0.0
+            identity_pair = (
+                state_frame == bh.CelestialFrame.ITRF
+                and covariance_frame == bh.ITCCovarianceFrame.ITRF
+            ) or (
+                state_frame == bh.CelestialFrame.EME2000
+                and covariance_frame == bh.ITCCovarianceFrame.EME2000
+            )
+            if identity_pair:
+                np.testing.assert_array_equal(cov, itc.covariances[0])
 
 
 def test_to_trajectory_empty_message_is_error():

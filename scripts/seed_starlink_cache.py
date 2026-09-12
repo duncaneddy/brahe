@@ -2,9 +2,11 @@
 """Copy the committed Starlink fixtures into the local brahe cache.
 
 Installs ``test_assets/starlink/MANIFEST.txt`` and the two ephemeris files it
-names under ``$BRAHE_CACHE/starlink/`` so the Starlink examples and the
-documentation build run without contacting api.starlink.com. Used by
-``just download-resources`` and the CI example and documentation jobs.
+names under ``$BRAHE_CACHE/starlink/`` with a fresh modification time, and
+removes any manifest sidecar or previous listing left by a live download, so
+the Starlink examples and the documentation build run without contacting
+api.starlink.com. Used by ``just download-resources`` and the CI example and
+documentation jobs.
 """
 
 from __future__ import annotations
@@ -37,8 +39,10 @@ def main() -> int:
         print(f"error: {ASSETS / 'MANIFEST.txt'} is missing", file=sys.stderr)
         return 1
 
+    for stale in ("MANIFEST.meta.json", "MANIFEST.previous.txt"):
+        (target / stale).unlink(missing_ok=True)
     for path in files:
-        shutil.copy2(path, target / path.name)
+        shutil.copyfile(path, target / path.name)
     print(f"Seeded {len(files)} Starlink files into {target}")
     return 0
 

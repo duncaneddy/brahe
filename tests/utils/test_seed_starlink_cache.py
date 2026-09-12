@@ -3,6 +3,7 @@
 import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
@@ -27,6 +28,25 @@ def test_seed_starlink_cache_copies_fixtures(tmp_path):
         ASSETS / "MANIFEST.txt"
     ).read_text()
     assert "Seeded" in result.stdout
+    assert time.time() - (target / "MANIFEST.txt").stat().st_mtime < 300
+
+
+def test_seed_starlink_cache_removes_stale_manifest_state(tmp_path):
+    target = tmp_path / "starlink"
+    target.mkdir(parents=True)
+    (target / "MANIFEST.meta.json").write_text("{}")
+    (target / "MANIFEST.previous.txt").write_text("old")
+    env = {**os.environ, "BRAHE_CACHE": str(tmp_path)}
+    result = subprocess.run(
+        [sys.executable, str(SCRIPT)],
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    assert not (target / "MANIFEST.meta.json").exists()
+    assert not (target / "MANIFEST.previous.txt").exists()
 
 
 def test_seed_starlink_cache_explicit_dir(tmp_path):

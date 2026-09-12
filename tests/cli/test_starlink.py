@@ -120,6 +120,34 @@ def test_download_with_output(mock_client_cls, tmp_path):
 
 
 @patch("brahe.cli.starlink.bh.starlink.StarlinkClient")
+def test_download_output_with_extension_is_still_a_directory(mock_client_cls, tmp_path):
+    client = MagicMock()
+    mock_client_cls.return_value = client
+    client.save_ephemeris.side_effect = lambda i, d: f"{d}/{i}.txt"
+    dest = tmp_path / "ephemerides.v1"
+    result = runner.invoke(
+        app, ["starlink", "download", "100001", "100002", "--output", str(dest)]
+    )
+    assert result.exit_code == 0
+    assert dest.is_dir()
+    assert client.save_ephemeris.call_count == 2
+    assert all(
+        call.args[1] == str(dest) for call in client.save_ephemeris.call_args_list
+    )
+
+
+@patch("brahe.cli.starlink.bh.starlink.StarlinkClient")
+def test_norad_ids_must_be_positive_u32(mock_client_cls):
+    result = runner.invoke(app, ["starlink", "download", "-5"])
+    assert result.exit_code == 2
+    result = runner.invoke(app, ["starlink", "manifest", "--norad-id", "0"])
+    assert result.exit_code == 2
+    result = runner.invoke(app, ["starlink", "manifest", "--norad-id", "4294967296"])
+    assert result.exit_code == 2
+    mock_client_cls.assert_not_called()
+
+
+@patch("brahe.cli.starlink.bh.starlink.StarlinkClient")
 def test_download_error(mock_client_cls):
     client = MagicMock()
     mock_client_cls.return_value = client

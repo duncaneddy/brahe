@@ -18,7 +18,12 @@ console = Console()
 def manifest(
     norad_id: Annotated[
         int | None,
-        typer.Option("--norad-id", help="Show only this NORAD catalog number."),
+        typer.Option(
+            "--norad-id",
+            min=1,
+            max=4_294_967_295,
+            help="Show only this NORAD catalog number.",
+        ),
     ] = None,
     name: Annotated[
         str | None,
@@ -84,7 +89,10 @@ def manifest(
 @app.command()
 def download(
     norad_ids: Annotated[
-        list[int], typer.Argument(help="NORAD catalog numbers to download.")
+        list[int],
+        typer.Argument(
+            min=1, max=4_294_967_295, help="NORAD catalog numbers to download."
+        ),
     ],
     output: Annotated[
         Path | None,
@@ -96,6 +104,12 @@ def download(
     ] = None,
 ) -> None:
     """Download ephemeris files for one or more satellites."""
+    if output is not None:
+        try:
+            output.mkdir(parents=True, exist_ok=True)
+        except OSError as e:
+            console.print(f"[red]ERROR: {e}[/red]")
+            raise typer.Exit(code=1) from e
     client = bh.starlink.StarlinkClient()
     for norad_id in norad_ids:
         try:

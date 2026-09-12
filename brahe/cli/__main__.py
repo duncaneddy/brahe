@@ -4,6 +4,7 @@ import typer
 
 import brahe.cli.celestrak as celestrak_cli
 import brahe.cli.spacetrack as spacetrack_cli
+import brahe.cli.starlink as starlink_cli
 import brahe.logging
 from brahe.cli import access, datasets, eop, orbits, time, transform
 
@@ -16,6 +17,7 @@ app.add_typer(access.app, name="access")
 app.add_typer(datasets.app, name="datasets")
 app.add_typer(celestrak_cli.app, name="celestrak")
 app.add_typer(spacetrack_cli.app, name="spacetrack")
+app.add_typer(starlink_cli.app, name="starlink")
 
 
 @app.callback()

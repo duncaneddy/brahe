@@ -52,11 +52,18 @@ def starlink_server(tmp_path, monkeypatch):
                 self.end_headers()
                 return
             body, headers = entry
-            if self.path == "/MANIFEST.txt" and self.headers.get(
+            matches_etag = headers.get("ETag") is not None and self.headers.get(
                 "If-None-Match"
-            ) == headers.get("ETag"):
+            ) == headers.get("ETag")
+            matches_date = headers.get(
+                "Last-Modified"
+            ) is not None and self.headers.get("If-Modified-Since") == headers.get(
+                "Last-Modified"
+            )
+            if self.path == "/MANIFEST.txt" and (matches_etag or matches_date):
                 self.send_response(304)
-                self.send_header("ETag", headers["ETag"])
+                if headers.get("ETag") is not None:
+                    self.send_header("ETag", headers["ETag"])
                 self.send_header("Connection", "close")
                 self.end_headers()
                 return
@@ -441,6 +448,119 @@ def test_save_all_copies_into_directory(starlink_server, tmp_path):
     with pytest.raises(bh.BraheError):
         client.save_all(str(file_dest))
     assert (cache_dir(tmp_path) / FULL_FILE).exists()
+
+
+def test_get_manifest_rejects_path_traversal_line(starlink_server, tmp_path):
+    """Rust: test_get_manifest_rejects_path_traversal_line"""
+    base_url, _, files = starlink_server
+    escape = "MEME_100001_../../../../evil_2540142_Operational__UNCLASSIFIED.txt"
+    files["/MANIFEST.txt"] = (f"{escape}\n", {"ETag": '"escape"'})
+    d = cache_dir(tmp_path)
+    d.mkdir(parents=True)
+    client = bh.StarlinkClient(base_url=base_url)
+    with pytest.raises(bh.BraheError):
+        client.get_manifest()
+    with pytest.raises(bh.BraheError):
+        client.download_all(concurrency=1)
+    assert not (tmp_path / "evil").exists()
+    assert not (tmp_path.parent / "evil").exists()
+    assert client.cached_files() == []
+
+
+def test_download_uses_literal_manifest_line(starlink_server, tmp_path):
+    """Rust: test_download_uses_literal_manifest_line"""
+    base_url, hits, files = starlink_server
+    short_id = "MEME_1001_STARLINK-1_2540149_Operational_1473385800_UNCLASSIFIED.txt"
+    files["/MANIFEST.txt"] = (f"{short_id}\n", {"ETag": '"short"'})
+    files[f"/{short_id}"] = ((ASSETS / SHORT_FILE).read_text(), {})
+    d = cache_dir(tmp_path)
+    client = bh.StarlinkClient(base_url=base_url)
+    path = Path(client.download_ephemeris(1001))
+    assert [h[0] for h in hits] == ["/MANIFEST.txt", f"/{short_id}"]
+    assert path == d / short_id
+    assert client.prune_cache() == 0
+    assert (d / short_id).exists()
+
+
+def test_download_all_deduplicates_repeated_norad_ids(starlink_server, tmp_path):
+    """Rust: test_download_all_deduplicates_repeated_norad_ids"""
+    base_url, hits, files = starlink_server
+    duplicate = (
+        "MEME_100002_STARLINK-37711_2540949_Operational_1473414600_UNCLASSIFIED.txt"
+    )
+    files["/MANIFEST.txt"] = (
+        f"{SHORT_FILE}\n{duplicate}\n{FULL_FILE}\n",
+        {"ETag": '"dup"'},
+    )
+    files[f"/{duplicate}"] = ((ASSETS / SHORT_FILE).read_text(), {})
+    d = cache_dir(tmp_path)
+    client = bh.StarlinkClient(base_url=base_url)
+    paths = [Path(p) for p in client.download_all(concurrency=2)]
+    assert paths == [d / SHORT_FILE, d / FULL_FILE]
+    assert f"/{duplicate}" not in [h[0] for h in hits]
+    out = tmp_path / "out"
+    saved = [Path(p) for p in client.save_all(str(out), concurrency=2)]
+    assert saved == [out / SHORT_FILE, out / FULL_FILE]
+
+
+def test_save_ephemeris_onto_cache_file_keeps_it_intact(starlink_server, tmp_path):
+    """Rust: test_save_ephemeris_onto_cache_file_keeps_it_intact"""
+    base_url, _, _ = starlink_server
+    d = cache_dir(tmp_path)
+    client = bh.StarlinkClient(base_url=base_url)
+    cached = Path(client.download_ephemeris(100002))
+    original = cached.read_text()
+    saved = Path(client.save_ephemeris(100002, str(cached)))
+    assert saved == cached
+    assert cached.read_text() == original
+    assert (d / SHORT_FILE).read_text() == original
+
+
+def test_get_manifest_sends_if_modified_since_without_etag(starlink_server, tmp_path):
+    """Rust: test_get_manifest_sends_if_modified_since_without_etag"""
+    base_url, hits, files = starlink_server
+    last_modified = "Fri, 11 Sep 2026 05:15:30 GMT"
+    files["/MANIFEST.txt"] = (
+        f"{FULL_FILE}\n",
+        {"Last-Modified": last_modified},
+    )
+    d = cache_dir(tmp_path)
+    d.mkdir(parents=True)
+    (d / "MANIFEST.txt").write_text(TWO_LINE_MANIFEST)
+    (d / "MANIFEST.meta.json").write_text(
+        json.dumps(
+            {
+                "etag": None,
+                "last_modified": last_modified,
+                "retrieved": "2026-09-11T05:20:00Z",
+            }
+        )
+    )
+    age_file(d / "MANIFEST.txt", 7200)
+    client = bh.StarlinkClient(base_url=base_url)
+    manifest = client.get_manifest()
+    assert len(manifest) == 2
+    assert len(hits) == 1
+    assert time.time() - (d / "MANIFEST.txt").stat().st_mtime < 60
+    assert (d / "MANIFEST.txt").read_text() == TWO_LINE_MANIFEST
+
+
+def test_parse_http_date_rejects_impossible_days(starlink_server, tmp_path):
+    """Rust: test_parse_http_date"""
+    base_url, _, files = starlink_server
+    files["/MANIFEST.txt"] = (
+        TWO_LINE_MANIFEST,
+        {"ETag": '"bad-date"', "Last-Modified": "Fri, 31 Feb 2026 05:15:30 GMT"},
+    )
+    client = bh.StarlinkClient(base_url=base_url)
+    assert client.get_manifest().last_modified is None
+    files["/MANIFEST.txt"] = (
+        TWO_LINE_MANIFEST,
+        {"ETag": '"good-date"', "Last-Modified": "Thu, 29 Feb 2024 05:15:30 GMT"},
+    )
+    assert client.refresh_manifest().last_modified == bh.Epoch(
+        2024, 2, 29, 5, 15, 30.0, 0.0, time_system=bh.UTC
+    )
 
 
 def test_starlink_client_releases_gil(starlink_server):

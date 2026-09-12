@@ -81,6 +81,7 @@ def test_ephemeris_file_name_parse_errors(bad):
         "MEME_100001_X_2540142_Operational__UNCLASSIFIED.txt/../evil",
         "MEME_100001_X_2540142_Operational__UNCLASS/IFIED.txt",
         "MEME_100001_X_2540142_Operational__UNCLASSIFIED.t\0xt",
+        "MEME_100001_X_2540142_oper/../../../evil_meta_UNCLASSIFIED.txt",
     ],
 )
 def test_ephemeris_file_name_parse_rejects_path_traversal(bad):

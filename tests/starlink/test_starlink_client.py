@@ -326,13 +326,18 @@ def test_download_ephemeris_caches_and_evicts_superseded(starlink_server, tmp_pa
     unrelated = (
         "MEME_100003_STARLINK-38123_2540140_Operational_1473385260_UNCLASSIFIED.txt"
     )
+    padded_name = (
+        "MEME_0100002_STARLINK-37711_2520149_Operational_1471657800_UNCLASSIFIED.txt"
+    )
     (d / old_name).write_text("x")
+    (d / padded_name).write_text("x")
     (d / unrelated).write_text("x")
     client = bh.StarlinkClient(base_url=base_url)
     path = Path(client.download_ephemeris(100002))
     assert path == d / SHORT_FILE
     assert path.read_text() == (ASSETS / SHORT_FILE).read_text()
     assert not (d / old_name).exists()
+    assert not (d / padded_name).exists()
     assert (d / unrelated).exists()
     assert [Path(p).name for p in client.cached_files()] == [SHORT_FILE, unrelated]
 

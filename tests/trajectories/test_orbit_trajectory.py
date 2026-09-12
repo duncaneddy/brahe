@@ -19,6 +19,7 @@ from brahe import (
     OrbitRepresentation,
     OrbitTrajectory,
     TimeSystem,
+    rotation_gcrf_to_eme2000,
     state_ecef_to_eci,
     state_eci_to_ecef,
     state_eci_to_koe,
@@ -4306,3 +4307,63 @@ def test_orbittrajectory_state_koe_osc_fast_path_for_icrf_axes_frames(eop):
 
         koe = traj.state_koe_osc(epoch, AngleFormat.RADIANS)
         np.testing.assert_array_equal(koe, state, err_msg=str(frame))
+
+
+def _covariance_or_none(traj, epoch):
+    try:
+        return traj.covariance(epoch)
+    except BraheError:
+        return None
+
+
+def _covariance_trajectory(frame):
+    epoch = Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
+    epochs = [epoch + 60.0 * i for i in range(3)]
+    states = np.array(
+        [[6.878e6, 1.0e5 * i, -2.0e5, 10.0, 7.5e3, 20.0] for i in range(3)]
+    )
+    cov = np.diag([1.0, 2.0, 3.0, 4.0, 5.0, 6.0])
+    cov[0, 1] = cov[1, 0] = 0.25
+    cov[1, 4] = cov[4, 1] = -0.1
+    covariances = np.stack([cov, cov, cov])
+    traj = OrbitTrajectory.from_orbital_data(
+        epochs, states, frame, OrbitRepresentation.CARTESIAN, None, covariances
+    )
+    return traj, epochs, cov
+
+
+def test_orbittrajectory_to_frame_rotates_covariance_between_gcrf_and_eme2000(eop):
+    """Rust: test_dorbittrajectory_to_frame_rotates_covariance_between_gcrf_and_eme2000"""
+    traj, epochs, cov = _covariance_trajectory(CelestialFrame.GCRF)
+    eme = traj.to_eme2000()
+    q = eme.covariance(epochs[0])
+    r = rotation_gcrf_to_eme2000()
+    np.testing.assert_allclose(q[:3, :3], r @ cov[:3, :3] @ r.T, rtol=0, atol=1e-12)
+    assert np.trace(q) == pytest.approx(np.trace(cov), abs=1e-12)
+    assert abs(q[0, 1] - cov[0, 1]) > 0.0
+    back = eme.to_gcrf()
+    np.testing.assert_allclose(back.covariance(epochs[0]), cov, rtol=1e-12, atol=1e-12)
+
+
+def test_orbittrajectory_to_frame_drops_covariance_for_unsupported_targets(eop):
+    """Rust: test_dorbittrajectory_to_frame_drops_covariance_for_unsupported_targets_and_keplerian"""
+    traj, epochs, cov = _covariance_trajectory(CelestialFrame.GCRF)
+    np.testing.assert_array_equal(
+        traj.to_frame(CelestialFrame.GCRF).covariance(epochs[1]), cov
+    )
+    assert _covariance_or_none(traj.to_itrf(), epochs[0]) is None
+    assert _covariance_or_none(traj.to_frame(CelestialFrame.TEME), epochs[0]) is None
+
+    kep_states = np.array(
+        [state_eci_to_koe(s, AngleFormat.DEGREES) for s in traj.states()]
+    )
+    kep = OrbitTrajectory.from_orbital_data(
+        epochs,
+        kep_states,
+        CelestialFrame.GCRF,
+        OrbitRepresentation.KEPLERIAN,
+        AngleFormat.DEGREES,
+        np.stack([cov, cov, cov]),
+    )
+    np.testing.assert_array_equal(kep.covariance(epochs[0]), cov)
+    assert _covariance_or_none(kep.to_eme2000(), epochs[0]) is None

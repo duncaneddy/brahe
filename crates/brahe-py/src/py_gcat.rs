@@ -1,6 +1,6 @@
-// Python bindings for the GCAT datasets module.
+// Python bindings for the GCAT client module.
 
-use brahe::datasets::gcat;
+use brahe::gcat;
 
 // ─── Record wrappers ───────────────────────────────────────────────
 

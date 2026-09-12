@@ -10,6 +10,7 @@ use nalgebra::SMatrix;
 use crate::clients::spacetrack::SpaceTrackEphemerisFileName;
 use crate::frames::CelestialFrame;
 use crate::math::is_symmetric;
+use crate::math::linalg::SVector6;
 use crate::time::Epoch;
 use crate::utils::BraheError;
 
@@ -309,6 +310,39 @@ impl ITCStateVector {
             velocity,
         }
     }
+
+    /// The record's position and velocity as a single Cartesian state.
+    ///
+    /// # Returns
+    /// * `SVector6`: `[x, y, z, vx, vy, vz]` in the header's state frame, meters and meters per second
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::itc::ITCStateVector;
+    /// use brahe::time::{Epoch, TimeSystem};
+    ///
+    /// let epoch = Epoch::from_datetime(2026, 9, 11, 1, 42, 42.0, 0.0, TimeSystem::UTC);
+    /// let state = ITCStateVector::new(epoch, [7.0e6, 0.0, 0.0], [0.0, 7.5e3, 0.0]);
+    /// assert_eq!(state.to_vector()[0], 7.0e6);
+    /// assert_eq!(state.to_vector()[4], 7.5e3);
+    /// ```
+    pub fn to_vector(&self) -> SVector6 {
+        SVector6::new(
+            self.position[0],
+            self.position[1],
+            self.position[2],
+            self.velocity[0],
+            self.velocity[1],
+            self.velocity[2],
+        )
+    }
+}
+
+impl From<&ITCStateVector> for SVector6 {
+    fn from(state: &ITCStateVector) -> Self {
+        state.to_vector()
+    }
 }
 
 /// A Modified ITC ephemeris message.
@@ -568,6 +602,18 @@ mod tests {
 
     fn state(sec: f64) -> ITCStateVector {
         ITCStateVector::new(epoch(sec), [7.0e6, 0.0, 0.0], [0.0, 7.5e3, 0.0])
+    }
+
+    #[test]
+    #[parallel]
+    fn test_itc_state_vector_to_vector() {
+        let sv = ITCStateVector::new(epoch(0.0), [1.0, 2.0, 3.0], [4.0, 5.0, 6.0]);
+        let x = sv.to_vector();
+        for i in 0..3 {
+            assert_eq!(x[i], sv.position[i]);
+            assert_eq!(x[3 + i], sv.velocity[i]);
+        }
+        assert_eq!(SVector6::from(&sv), x);
     }
 
     #[test]

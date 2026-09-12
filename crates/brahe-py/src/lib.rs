@@ -1178,6 +1178,10 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_rotation_rtn_to_eci, module)?)?;
     module.add_function(wrap_pyfunction!(py_rotation_eci_to_rtn, module)?)?;
     module.add_function(wrap_pyfunction!(py_omega_rtn, module)?)?;
+    module.add_function(wrap_pyfunction!(py_jacobian_rtn_to_eci, module)?)?;
+    module.add_function(wrap_pyfunction!(py_jacobian_eci_to_rtn, module)?)?;
+    module.add_function(wrap_pyfunction!(py_covariance_rtn_to_eci, module)?)?;
+    module.add_function(wrap_pyfunction!(py_covariance_eci_to_rtn, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_eci_to_rtn, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_rtn_to_eci, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_oe_to_roe, module)?)?;

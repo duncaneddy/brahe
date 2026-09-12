@@ -503,3 +503,153 @@ fn py_state_roe_to_eci<'py>(
         |cs, ds| relative_motion::states_roe_to_eci(cs, ds, af),
     )
 }
+
+/// 6x6 Jacobian taking an RTN state covariance into ECI axes.
+///
+/// The RTN-to-ECI state map is `r_eci = R @ rho` and
+/// `v_eci = R @ (rho_dot + omega x rho)`, with `R` the RTN-to-ECI rotation
+/// and `omega` the RTN frame's angular velocity in RTN components. Its
+/// Jacobian is `[[R, 0], [R @ skew(omega), R]]`. The `INERTIAL` variant
+/// freezes the axes at the evaluation epoch, taking `omega = 0`, and so gives
+/// the plain block diagonal; `ROTATING` carries the coupling term.
+///
+/// Args:
+///     x_eci (numpy.ndarray or list): 6D state vector of the frame's origin in the ECI frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,)
+///     variant (OrbitRelativeFrameVariant): Whether the RTN axes rotate with the orbit or are frozen at the epoch
+///
+/// Returns:
+///     numpy.ndarray: 6x6 Jacobian such that `P_eci = J @ P_rtn @ J.T`, shape (6, 6)
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     sma = bh.R_EARTH + 700e3
+///     x_eci = np.array([sma, 0.0, 0.0, 0.0, bh.perigee_velocity(sma, 0.0), 0.0])
+///     j = bh.jacobian_rtn_to_eci(x_eci, bh.OrbitRelativeFrameVariant.ROTATING)
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(x_eci, variant)")]
+#[pyo3(name = "jacobian_rtn_to_eci")]
+fn py_jacobian_rtn_to_eci<'py>(
+    py: Python<'py>,
+    x_eci: &Bound<'py, PyAny>,
+    variant: &PyOrbitRelativeFrameVariant,
+) -> PyResult<Bound<'py, PyArray<f64, Ix2>>> {
+    let x = pyany_to_svector::<6>(x_eci)?;
+    let j = relative_motion::jacobian_rtn_to_eci(x, variant.variant);
+    Ok(matrix_to_numpy!(py, j, 6, 6, f64).to_owned())
+}
+
+/// 6x6 Jacobian taking an ECI state covariance into RTN axes.
+///
+/// Exact inverse of `jacobian_rtn_to_eci`: with `R.T` the ECI-to-RTN
+/// rotation, the Jacobian is `[[R.T, 0], [-skew(omega) @ R.T, R.T]]`.
+///
+/// Args:
+///     x_eci (numpy.ndarray or list): 6D state vector of the frame's origin in the ECI frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,)
+///     variant (OrbitRelativeFrameVariant): Whether the RTN axes rotate with the orbit or are frozen at the epoch
+///
+/// Returns:
+///     numpy.ndarray: 6x6 Jacobian such that `P_rtn = J @ P_eci @ J.T`, shape (6, 6)
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     sma = bh.R_EARTH + 700e3
+///     x_eci = np.array([sma, 0.0, 0.0, 0.0, bh.perigee_velocity(sma, 0.0), 0.0])
+///     j = bh.jacobian_eci_to_rtn(x_eci, bh.OrbitRelativeFrameVariant.ROTATING)
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(x_eci, variant)")]
+#[pyo3(name = "jacobian_eci_to_rtn")]
+fn py_jacobian_eci_to_rtn<'py>(
+    py: Python<'py>,
+    x_eci: &Bound<'py, PyAny>,
+    variant: &PyOrbitRelativeFrameVariant,
+) -> PyResult<Bound<'py, PyArray<f64, Ix2>>> {
+    let x = pyany_to_svector::<6>(x_eci)?;
+    let j = relative_motion::jacobian_eci_to_rtn(x, variant.variant);
+    Ok(matrix_to_numpy!(py, j, 6, 6, f64).to_owned())
+}
+
+/// Transforms a 6x6 state covariance from RTN axes into ECI axes.
+///
+/// Applies the congruence `P_eci = J @ P_rtn @ J.T` with `J` from
+/// `jacobian_rtn_to_eci`, and symmetrizes the result.
+///
+/// Args:
+///     x_eci (numpy.ndarray or list): 6D state vector of the frame's origin in the ECI frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,)
+///     covariance (numpy.ndarray): 6x6 state covariance in RTN axes, shape (6, 6)
+///     variant (OrbitRelativeFrameVariant): Whether the RTN axes rotate with the orbit or are frozen at the epoch
+///
+/// Returns:
+///     numpy.ndarray: 6x6 state covariance in ECI axes, shape (6, 6)
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     sma = bh.R_EARTH + 700e3
+///     x_eci = np.array([sma, 0.0, 0.0, 0.0, bh.perigee_velocity(sma, 0.0), 0.0])
+///     p_eci = bh.covariance_rtn_to_eci(
+///         x_eci, np.eye(6) * 100.0, bh.OrbitRelativeFrameVariant.ROTATING
+///     )
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(x_eci, covariance, variant)")]
+#[pyo3(name = "covariance_rtn_to_eci")]
+fn py_covariance_rtn_to_eci<'py>(
+    py: Python<'py>,
+    x_eci: &Bound<'py, PyAny>,
+    covariance: &Bound<'py, PyAny>,
+    variant: &PyOrbitRelativeFrameVariant,
+) -> PyResult<Bound<'py, PyArray<f64, Ix2>>> {
+    let x = pyany_to_svector::<6>(x_eci)?;
+    let p = pyany_to_smatrix::<6, 6>(covariance)?;
+    let rotated = relative_motion::covariance_rtn_to_eci(x, &p, variant.variant);
+    Ok(matrix_to_numpy!(py, rotated, 6, 6, f64).to_owned())
+}
+
+/// Transforms a 6x6 state covariance from ECI axes into RTN axes.
+///
+/// Applies the congruence `P_rtn = J @ P_eci @ J.T` with `J` from
+/// `jacobian_eci_to_rtn`, and symmetrizes the result.
+///
+/// Args:
+///     x_eci (numpy.ndarray or list): 6D state vector of the frame's origin in the ECI frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,)
+///     covariance (numpy.ndarray): 6x6 state covariance in ECI axes, shape (6, 6)
+///     variant (OrbitRelativeFrameVariant): Whether the RTN axes rotate with the orbit or are frozen at the epoch
+///
+/// Returns:
+///     numpy.ndarray: 6x6 state covariance in RTN axes, shape (6, 6)
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     sma = bh.R_EARTH + 700e3
+///     x_eci = np.array([sma, 0.0, 0.0, 0.0, bh.perigee_velocity(sma, 0.0), 0.0])
+///     p_rtn = bh.covariance_eci_to_rtn(
+///         x_eci, np.eye(6) * 100.0, bh.OrbitRelativeFrameVariant.ROTATING
+///     )
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(x_eci, covariance, variant)")]
+#[pyo3(name = "covariance_eci_to_rtn")]
+fn py_covariance_eci_to_rtn<'py>(
+    py: Python<'py>,
+    x_eci: &Bound<'py, PyAny>,
+    covariance: &Bound<'py, PyAny>,
+    variant: &PyOrbitRelativeFrameVariant,
+) -> PyResult<Bound<'py, PyArray<f64, Ix2>>> {
+    let x = pyany_to_svector::<6>(x_eci)?;
+    let p = pyany_to_smatrix::<6, 6>(covariance)?;
+    let rotated = relative_motion::covariance_eci_to_rtn(x, &p, variant.variant);
+    Ok(matrix_to_numpy!(py, rotated, 6, 6, f64).to_owned())
+}

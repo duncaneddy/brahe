@@ -329,6 +329,7 @@ nav:
           - Transform: learn/cli/transform.md
           - Datasets: learn/cli/datasets.md
           - Access: learn/cli/access.md
+          - Starlink: learn/cli/starlink.md
       - Numerical Integration:
           - learn/integrators/index.md
           - Fixed-Step Integrators: learn/integrators/fixed_step.md

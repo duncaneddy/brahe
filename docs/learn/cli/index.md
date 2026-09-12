@@ -88,6 +88,12 @@ Convert between coordinate systems and reference frames:
 Satellite access window calculations:
 - `compute` - Calculate visibility windows for ground stations
 
+### [starlink](starlink.md)
+
+Retrieve Starlink public ephemerides:
+- `manifest` - List the satellites in the Starlink manifest
+- `download` - Download ephemeris files into the cache or a directory
+
 
 ## Global Options
 

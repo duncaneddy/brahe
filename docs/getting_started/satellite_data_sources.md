@@ -1,6 +1,6 @@
 # Satellite Data Sources
 
-For many modeling tasks it is useful to access satellite ephemeris (orbit) data. This data is made available by a number of sources, including public sources such as [Celestrak](https://celestrak.com/) and [Space-Track](https://www.space-track.org/). Brahe provides functions for accessing satellite data from both of these sources, as well as initializing SGP4 propagators from data.
+For many modeling tasks it is useful to access satellite ephemeris (orbit) data. This data is made available by a number of sources, including public sources such as [Celestrak](https://celestrak.com/), [Space-Track](https://www.space-track.org/), and Starlink's own public ephemeris mirror. Brahe provides functions for accessing satellite data from all three sources, as well as initializing SGP4 propagators from data.
 
 Both clients have integrated, default rate-limiting and caching to ensure efficient and responsible access to the data. For more information on the configuration of the clients, see the respective language API documentation.
 
@@ -59,4 +59,34 @@ The space-track client requires a user account to access the data. Once authenti
     === "Rust"
         ```
         --8<-- "./docs/outputs/getting_started/clients_spacetrack.rs.txt"
+        ```
+
+## Starlink
+
+Starlink publishes the Modified ITC ephemerides it submits to Space-Track at a public,
+unauthenticated mirror. The `StarlinkClient` reads them directly and returns `ITC` messages and
+`OrbitTrajectory` objects, rather than the `GPRecord` returned by the CelesTrak and Space-Track
+clients above.
+
+=== "Python"
+
+    ``` python
+    --8<-- "./examples/datasets/starlink_get_ephemeris.py:12"
+    ```
+
+=== "Rust"
+
+    ``` rust
+    --8<-- "./examples/datasets/starlink_get_ephemeris.rs:7"
+    ```
+
+???+ example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/datasets/starlink_get_ephemeris.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/datasets/starlink_get_ephemeris.rs.txt"
         ```

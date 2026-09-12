@@ -30,6 +30,20 @@ For `GPRecord` (shared with CelesTrak), see [Shared Types](../shared_types.md).
       show_root_heading: true
       show_root_full_path: false
 
+## EphemerisFileName
+
+::: brahe.EphemerisFileName
+    options:
+      show_root_heading: true
+      show_root_full_path: false
+
+## EphemerisFileCategory
+
+::: brahe.EphemerisFileCategory
+    options:
+      show_root_heading: true
+      show_root_full_path: false
+
 ---
 
 ## See Also
@@ -38,3 +52,4 @@ For `GPRecord` (shared with CelesTrak), see [Shared Types](../shared_types.md).
 - [File Operations Guide](../../../learn/ephemeris/spacetrack/file_operations.md) -- FileShare, SP Ephemeris, and Public Files
 - [SpaceTrackClient](client.md) -- Methods that return these response types
 - [Shared Types](../shared_types.md) -- GPRecord and operator functions
+- [Modified ITC Ephemeris Format](../../../learn/ephemeris/itc.md) -- The format these file names name

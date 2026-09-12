@@ -4,7 +4,7 @@ Space-Track.org enforces rate limits of **30 requests per minute** and **300 req
 
 By default, the client uses conservative limits of **25 requests per minute** and **250 requests per hour** (~83% of the actual limits), providing safety margin for clock drift and shared accounts. Most users do not need to configure rate limiting at all -- the defaults are applied automatically.
 
-The limiter itself is shared by every brahe client that exposes a configurable request rate. `RateLimitConfig` is the same type whichever client it is passed to; only the defaults differ, and `SpaceTrackClient` uses the Space-Track values above.
+The limiter itself is shared by every brahe client that exposes a configurable request rate. `RateLimitConfig` is the same type whichever client it is passed to; only the defaults differ, and `SpaceTrackClient` uses the Space-Track values above. `StarlinkClient` uses `RateLimitConfig(max_per_minute=1000, max_per_hour=30000)` by default.
 
 For the complete API reference, see the [RateLimitConfig Reference](../../../library_api/ephemeris/spacetrack/rate_limiting.md).
 

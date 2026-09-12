@@ -2043,7 +2043,7 @@ impl PyEphemerisFileName {
     ///     EphemerisFileName: The populated name.
     ///
     /// Raises:
-    ///     BraheError: If ``object_name`` is empty or contains ``/``, or ``metadata`` contains ``_`` or ``/``.
+    ///     BraheError: If ``object_name`` is empty, if ``metadata`` contains ``_``, or if either contains ``/``, ``\`` or NUL or is ``.`` or ``..``.
     #[new]
     fn new(
         norad_cat_id: u32,
@@ -2072,7 +2072,7 @@ impl PyEphemerisFileName {
     ///     EphemerisFileName: The parsed fields.
     ///
     /// Raises:
-    ///     BraheError: If the name does not follow the convention.
+    ///     BraheError: If the name does not follow the convention or a field names a path.
     #[staticmethod]
     fn parse(name: &str) -> PyResult<Self> {
         spacetrack::EphemerisFileName::parse(name)
@@ -2089,7 +2089,7 @@ impl PyEphemerisFileName {
     ///     EphemerisFileName: The updated name.
     ///
     /// Raises:
-    ///     BraheError: If ``data_type`` is empty or contains ``_`` or ``/``.
+    ///     BraheError: If ``data_type`` is empty, contains ``_``, ``/``, ``\`` or NUL, or is ``.`` or ``..``.
     fn with_data_type(&self, data_type: &str) -> PyResult<Self> {
         self.inner
             .clone()
@@ -2107,7 +2107,7 @@ impl PyEphemerisFileName {
     ///     EphemerisFileName: The updated name.
     ///
     /// Raises:
-    ///     BraheError: If ``classification`` is empty or contains ``_`` or ``/``.
+    ///     BraheError: If ``classification`` is empty, contains ``_``, ``/``, ``\`` or NUL, or is ``.`` or ``..``.
     fn with_classification(&self, classification: &str) -> PyResult<Self> {
         self.inner
             .clone()
@@ -2125,7 +2125,7 @@ impl PyEphemerisFileName {
     ///     EphemerisFileName: The updated name.
     ///
     /// Raises:
-    ///     BraheError: If ``extension`` is empty or contains ``_``, ``/`` or ``.``.
+    ///     BraheError: If ``extension`` is empty or contains ``_``, ``.``, ``/``, ``\`` or NUL.
     fn with_extension(&self, extension: &str) -> PyResult<Self> {
         self.inner
             .clone()

@@ -1881,15 +1881,22 @@ impl DOrbitTrajectory {
     /// * `frame` - Reference frame
     /// * `representation` - State representation (Cartesian or Keplerian)
     /// * `angle_format` - Angle format (None for Cartesian, Radians/Degrees for Keplerian)
-    /// * `covariances` - Optional vector of 6x6 covariance matrices corresponding to states
+    /// * `covariances` - Optional vector of covariance matrices, one per state
+    ///
+    /// Covariance is accepted in any frame. It is stored exactly as given and
+    /// rotated on demand by [`Self::covariance_in_frame`] and
+    /// [`Self::to_frame`], which require a Cartesian representation and a
+    /// square matrix of at least 6x6 whose leading six elements are the
+    /// Cartesian state.
     ///
     /// # Returns
     /// * `Ok(DOrbitTrajectory)` - New orbital trajectory with data
     /// * `Err(BraheError)` - If parameters are invalid or data validation fails
     ///
     /// # Errors
-    /// * If covariances are provided but the frame is neither GCRF nor EME2000
-    /// * If covariances length does not match states length
+    /// * If the covariances length does not match the states length
+    /// * If the states are empty, shorter than 6 elements, or of differing lengths
+    /// * If the representation is Keplerian and the frame's axes do not admit orbital elements
     pub fn from_orbital_data(
         epochs: Vec<Epoch>,
         states: Vec<DVector<f64>>,

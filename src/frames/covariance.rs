@@ -12,7 +12,7 @@
 use nalgebra::DMatrix;
 
 use crate::frames::ReferenceFrame;
-use crate::frames::transform::state_frame_to_frame;
+use crate::frames::transform::{CelestialFrame, state_frame_to_frame};
 use crate::math::covariance::{symmetrize, symmetrize_6};
 use crate::math::linalg::{SMatrix6, SVector6};
 use crate::time::Epoch;
@@ -26,6 +26,16 @@ use crate::utils::errors::BraheError;
 /// of `1e4` m/s keep the differences well above the rounding of any
 /// heliocentric translation.
 ///
+/// Only the two orientations matter. A change of center is a translation,
+/// whose Jacobian is the identity whatever the offset, and the router
+/// evaluates a given orientation identically at every center. Between two
+/// celestial frames the probe therefore never crosses centers: identical axes
+/// return the identity outright, and otherwise the target axes are probed
+/// about the source's own center. A covariance query between, say, `LCI` and
+/// `GCRF` consults no ephemeris and needs no SPK coverage. Body and
+/// orbit-relative frames are probed as given, since their orientation chains
+/// are resolved through the frame registry rather than by axes alone.
+///
 /// # Arguments
 /// * `from` - Frame the covariance is expressed in
 /// * `to` - Frame to rotate it into
@@ -33,7 +43,7 @@ use crate::utils::errors::BraheError;
 ///
 /// # Returns
 /// * `Ok(SMatrix6)`: `J` such that `P_to = J P_from Jᵀ`
-/// * `Err(BraheError)`: If the router cannot transform states between the frames at this epoch
+/// * `Err(BraheError)`: If the router cannot evaluate either frame's orientation at this epoch
 ///
 /// # Examples
 ///
@@ -49,6 +59,10 @@ use crate::utils::errors::BraheError;
 /// let r = rotation_gcrf_to_eme2000();
 /// assert!((j.fixed_view::<3, 3>(0, 0) - r).norm() < 1e-12);
 /// assert!(j.fixed_view::<3, 3>(3, 0).norm() < 1e-12);
+///
+/// // Frames that share their axes differ only by a translation.
+/// let j = state_transform_jacobian(CelestialFrame::LCI, CelestialFrame::GCRF, epc).unwrap();
+/// assert_eq!(j, brahe::math::linalg::SMatrix6::identity());
 /// ```
 pub fn state_transform_jacobian(
     from: impl Into<ReferenceFrame>,
@@ -57,13 +71,24 @@ pub fn state_transform_jacobian(
 ) -> Result<SMatrix6, BraheError> {
     let from = from.into();
     let to = to.into();
-    let origin = state_frame_to_frame(from.clone(), to.clone(), epoch, SVector6::zeros())?;
+
+    let target = match (&from, &to) {
+        (ReferenceFrame::Celestial(a), ReferenceFrame::Celestial(b)) => {
+            if a.axes() == b.axes() {
+                return Ok(SMatrix6::identity());
+            }
+            ReferenceFrame::Celestial(CelestialFrame::centered(a.center(), b.axes()))
+        }
+        _ => to.clone(),
+    };
+
+    let origin = state_frame_to_frame(from.clone(), target.clone(), epoch, SVector6::zeros())?;
     let mut j = SMatrix6::zeros();
     for i in 0..6 {
         let scale = if i < 3 { 1.0e7 } else { 1.0e4 };
         let mut probe = SVector6::zeros();
         probe[i] = scale;
-        let image = state_frame_to_frame(from.clone(), to.clone(), epoch, probe)?;
+        let image = state_frame_to_frame(from.clone(), target.clone(), epoch, probe)?;
         j.set_column(i, &((image - origin) / scale));
     }
     Ok(j)
@@ -203,10 +228,12 @@ mod tests {
     use crate::frames::{CelestialFrame, rotation_frame_to_frame, rotation_gcrf_to_eme2000};
     use crate::math::linalg::{SMatrix3, block_diagonal, skew_symmetric};
     use crate::time::TimeSystem;
-    use crate::utils::testing::setup_global_test_eop;
+    use crate::utils::testing::{
+        CacheRedirect, NetworkModeGuard, setup_global_test_eop, without_spice_kernels,
+    };
     use approx::assert_abs_diff_eq;
     use nalgebra::Vector3;
-    use serial_test::parallel;
+    use serial_test::{parallel, serial};
 
     fn test_epoch() -> Epoch {
         Epoch::from_datetime(2024, 3, 15, 6, 30, 0.0, 0.0, TimeSystem::UTC)
@@ -294,6 +321,64 @@ mod tests {
         let omega = Vector3::new(skew[(2, 1)], skew[(0, 2)], skew[(1, 0)]);
         assert_abs_diff_eq!(omega.norm(), OMEGA_EARTH, epsilon = 1e-16);
         assert_abs_diff_eq!(omega[2] / omega.norm(), 1.0, epsilon = 1e-10);
+    }
+
+    /// Runs `f` with no SPICE kernel resident, an empty cache, and the network
+    /// off, so any ephemeris lookup fails instead of silently reloading
+    /// `de440s`. Clearing the registry alone is not enough: the translation
+    /// leg calls `ensure_bodies_loadable`, which reloads the default DE kernel
+    /// from the cache on demand.
+    fn without_any_ephemeris<T>(f: impl FnOnce() -> T) -> T {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("offline"));
+        without_spice_kernels(f)
+    }
+
+    #[test]
+    #[serial] // clears the SPICE registry and redirects the cache
+    fn test_state_transform_jacobian_shared_axes_is_identity_without_ephemeris() {
+        setup_global_test_eop();
+
+        // LCI and GCRF share ICRF axes and differ only by the Earth-Moon
+        // offset. A translation has an identity Jacobian, so the answer comes
+        // back with no ephemeris at all -- which is what routing the probe
+        // through the source's own center buys.
+        without_any_ephemeris(|| {
+            for (from, to) in [
+                (CelestialFrame::LCI, CelestialFrame::GCRF),
+                (CelestialFrame::GCRF, CelestialFrame::LCI),
+                (CelestialFrame::SSBI, CelestialFrame::MCI),
+            ] {
+                // The router itself cannot cross these centers here.
+                assert!(
+                    state_frame_to_frame(from, to, test_epoch(), SVector6::zeros()).is_err(),
+                    "{from} -> {to} unexpectedly resolved an ephemeris"
+                );
+
+                let j = state_transform_jacobian(from, to, test_epoch()).unwrap();
+                assert_eq!(j, SMatrix6::identity(), "{from} -> {to}");
+            }
+        });
+    }
+
+    #[test]
+    #[serial] // clears the SPICE registry and redirects the cache
+    fn test_state_transform_jacobian_is_center_independent() {
+        setup_global_test_eop();
+
+        // The orientation change ICRF -> ITRF is evaluated identically at
+        // every center, so a Moon- or Mars-centered source gives the
+        // Earth-centered Jacobian, and says so with no ephemeris loaded.
+        let epc = test_epoch();
+        let expected =
+            state_transform_jacobian(CelestialFrame::GCRF, CelestialFrame::ITRF, epc).unwrap();
+
+        without_any_ephemeris(|| {
+            for from in [CelestialFrame::LCI, CelestialFrame::MCI] {
+                let j = state_transform_jacobian(from, CelestialFrame::ITRF, epc).unwrap();
+                assert_abs_diff_eq!((j - expected).norm(), 0.0, epsilon = 1e-12);
+            }
+        });
     }
 
     #[test]

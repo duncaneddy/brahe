@@ -1675,15 +1675,20 @@ impl OrbitalTrajectory for SOrbitTrajectory {
     /// * `frame` - Reference frame
     /// * `representation` - State representation (Cartesian or Keplerian)
     /// * `angle_format` - Angle format (None for Cartesian, Radians/Degrees for Keplerian)
-    /// * `covariances` - Optional vector of 6x6 covariance matrices corresponding to states
+    /// * `covariances` - Optional vector of 6x6 covariance matrices, one per state
+    ///
+    /// Covariance is accepted in any frame. It is stored exactly as given and
+    /// rotated on demand by [`SOrbitTrajectory::covariance_in_frame`] and
+    /// [`OrbitalTrajectory::to_frame`], which require a Cartesian
+    /// representation.
     ///
     /// # Returns
     /// * `Ok(SOrbitTrajectory)` - New orbital trajectory with data
     /// * `Err(BraheError)` - If parameters are invalid or data validation fails
     ///
     /// # Errors
-    /// * If covariances are provided but the frame is neither GCRF nor EME2000
-    /// * If covariances length does not match states length
+    /// * If the covariances length does not match the states length
+    /// * If the representation is Keplerian and the frame's axes do not admit orbital elements
     fn from_orbital_data(
         epochs: Vec<Epoch>,
         states: Vec<Vector6<f64>>,

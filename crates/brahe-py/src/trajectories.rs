@@ -411,8 +411,10 @@ impl PyOrbitalTrajectory {
     ///     angle_format (AngleFormat or None): Angle format for Keplerian states,
     ///         must be None for Cartesian representation
     ///     covariances (numpy.ndarray or None): Optional 3D array of 6x6 covariance matrices
-    ///         with shape (N, 6, 6) where N is the number of epochs. Only supported for
-    ///         ECI and GCRF frames.
+    ///         with shape (N, 6, 6) where N is the number of epochs. Accepted in any
+    ///         frame: the matrices are stored as given and rotated on demand by
+    ///         `covariance_in_frame` and `to_frame`, which require a Cartesian
+    ///         representation.
     ///
     /// Returns:
     ///     OrbitTrajectory: New trajectory instance populated with data

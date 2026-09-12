@@ -2678,6 +2678,35 @@ def test_state_transform_jacobian_gcrf_to_itrf_matches_router(eop):
     assert np.linalg.norm(coupling - expected) / np.linalg.norm(expected) < 1e-5
 
 
+def test_state_transform_jacobian_shared_axes_is_identity(eop, no_spice_kernels):
+    """Rust: test_state_transform_jacobian_shared_axes_is_identity_without_ephemeris"""
+    epc = _covariance_test_epoch()
+
+    # Frames that share their axes differ only by a translation, whose
+    # Jacobian is the identity whatever the offset. No ephemeris is consulted,
+    # so the answer comes back with the SPICE registry emptied.
+    for frame_from, frame_to in (
+        (brahe.CelestialFrame.LCI, brahe.CelestialFrame.GCRF),
+        (brahe.CelestialFrame.GCRF, brahe.CelestialFrame.LCI),
+        (brahe.CelestialFrame.SSBI, brahe.CelestialFrame.MCI),
+    ):
+        j = brahe.state_transform_jacobian(frame_from, frame_to, epc)
+        np.testing.assert_array_equal(j, np.eye(6))
+
+
+def test_state_transform_jacobian_is_center_independent(eop, no_spice_kernels):
+    """Rust: test_state_transform_jacobian_is_center_independent"""
+    epc = _covariance_test_epoch()
+    expected = brahe.state_transform_jacobian(
+        brahe.CelestialFrame.GCRF, brahe.CelestialFrame.ITRF, epc
+    )
+
+    # The ICRF -> ITRF orientation is evaluated identically at every center.
+    for frame_from in (brahe.CelestialFrame.LCI, brahe.CelestialFrame.MCI):
+        j = brahe.state_transform_jacobian(frame_from, brahe.CelestialFrame.ITRF, epc)
+        np.testing.assert_allclose(j, expected, atol=1e-12, rtol=0)
+
+
 def test_state_transform_jacobian_round_trip_is_identity(eop):
     """Rust: test_state_transform_jacobian_round_trip_is_identity"""
     epc = _covariance_test_epoch()

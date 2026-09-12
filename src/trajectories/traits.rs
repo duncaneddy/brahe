@@ -719,13 +719,16 @@ pub trait OrbitalTrajectory: InterpolatableTrajectory {
     /// * `frame` - Reference frame the states are declared in
     /// * `representation` - State representation (Cartesian or Keplerian)
     /// * `angle_format` - Angle format (None for Cartesian, Radians/Degrees for Keplerian)
-    /// * `covariances` - Optional vector of 6x6 covariance matrices corresponding to states
+    /// * `covariances` - Optional vector of 6x6 covariance matrices, one per state
+    ///
+    /// Covariance is accepted in any frame. It is stored exactly as given and
+    /// rotated on demand by the frame accessors and [`Self::to_frame`], which
+    /// require a Cartesian representation.
     ///
     /// # Returns
     /// New orbital trajectory with data, or an error if parameters are
     /// invalid (e.g., None angle_format with Keplerian, Keplerian outside an
-    /// inertial frame, covariances provided for a frame other than GCRF or
-    /// EME2000, or a covariances length that does not match the states
+    /// inertial frame, or a covariances length that does not match the states
     /// length).
     fn from_orbital_data(
         epochs: Vec<Epoch>,

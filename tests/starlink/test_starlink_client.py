@@ -158,6 +158,49 @@ def test_get_manifest_changed_rotates_previous(starlink_server, tmp_path):
     )
 
 
+def test_refresh_manifest_ignores_freshness_and_identical_body_keeps_previous(
+    tmp_path, monkeypatch
+):
+    """Rust: test_refresh_manifest_ignores_freshness_and_identical_body_keeps_previous"""
+    monkeypatch.setenv("BRAHE_CACHE", str(tmp_path))
+    monkeypatch.setenv("BRAHE_NETWORK_MODE", "online")
+    hits = []
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            hits.append(self.path)
+            payload = TWO_LINE_MANIFEST.encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "text/plain")
+            self.send_header("Content-Length", str(len(payload)))
+            self.send_header("Connection", "close")
+            self.end_headers()
+            self.wfile.write(payload)
+
+        def log_message(self, *args):
+            pass
+
+    server = HTTPServer(("127.0.0.1", 0), Handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        host, port = server.server_address
+        d = cache_dir(tmp_path)
+        d.mkdir(parents=True)
+        (d / "MANIFEST.previous.txt").write_text(
+            "MEME_100009_STARLINK-1_0010000_Operational_nomnvr_UNCLASSIFIED.txt\n"
+        )
+        client = bh.StarlinkClient(base_url=f"http://{host}:{port}")
+        client.refresh_manifest()
+        client.refresh_manifest()
+        assert hits == ["/MANIFEST.txt", "/MANIFEST.txt"]
+        assert client.previous_manifest().entries()[0].norad_cat_id == 100009
+        meta = json.loads((d / "MANIFEST.meta.json").read_text())
+        assert meta["etag"] is None
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
 def test_get_manifest_offline_strict_serves_fresh_cache_only(tmp_path, monkeypatch):
     """Rust: test_get_manifest_offline_strict_serves_fresh_cache_only"""
     monkeypatch.setenv("BRAHE_CACHE", str(tmp_path))
@@ -231,6 +274,38 @@ def test_fetch_text_retries_then_fails_on_server_error(tmp_path, monkeypatch):
     finally:
         server.shutdown()
         server.server_close()
+
+
+def test_get_manifest_rejects_malformed_manifest_and_keeps_old_cache(
+    starlink_server, tmp_path
+):
+    """Rust: test_get_manifest_rejects_malformed_manifest_and_keeps_old_cache"""
+    base_url, _, files = starlink_server
+    files["/MANIFEST.txt"] = ("garbage line\n", {"ETag": '"garbage"'})
+    d = cache_dir(tmp_path)
+    d.mkdir(parents=True)
+    (d / "MANIFEST.txt").write_text(TWO_LINE_MANIFEST)
+    age_file(d / "MANIFEST.txt", 7200)
+    client = bh.StarlinkClient(base_url=base_url)
+    with pytest.raises(bh.BraheError):
+        client.get_manifest()
+    assert (d / "MANIFEST.txt").read_text() == TWO_LINE_MANIFEST
+
+
+def test_get_manifest_corrupt_sidecar_refreshes_unconditionally(
+    starlink_server, tmp_path
+):
+    """Rust: test_get_manifest_corrupt_sidecar_refreshes_unconditionally"""
+    base_url, hits, _ = starlink_server
+    d = cache_dir(tmp_path)
+    d.mkdir(parents=True)
+    (d / "MANIFEST.txt").write_text(TWO_LINE_MANIFEST)
+    (d / "MANIFEST.meta.json").write_text("{")
+    age_file(d / "MANIFEST.txt", 7200)
+    client = bh.StarlinkClient(base_url=base_url)
+    manifest = client.get_manifest()
+    assert len(manifest) == 2
+    assert hits[-1] == ("/MANIFEST.txt", None)
 
 
 def test_download_ephemeris_caches_and_evicts_superseded(starlink_server, tmp_path):
@@ -395,6 +470,7 @@ class TestStarlinkClientIntegration:
     """Integration tests against the live Starlink mirror."""
 
     def test_manifest_and_one_download(self, tmp_path, monkeypatch):
+        """Rust: test_integration_manifest_and_one_download"""
         monkeypatch.setenv("BRAHE_CACHE", str(tmp_path))
         monkeypatch.delenv("BRAHE_NETWORK_MODE", raising=False)
         client = bh.StarlinkClient(cache_max_age=0.0)

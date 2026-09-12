@@ -194,9 +194,7 @@ impl StarlinkClient {
     /// assert_eq!(client.cache_max_age(), 3600.0);
     /// ```
     pub fn with_rate_limit(config: RateLimitConfig) -> Self {
-        let mut client = Self::new();
-        client.rate_limiter = Mutex::new(RateLimiter::new(config));
-        client
+        Self::new().rate_limit(config)
     }
 
     /// Sets the rate limiter's request caps.

@@ -276,6 +276,9 @@ impl PyStarlinkManifest {
     /// Returns:
     ///     polars.DataFrame: One row per entry.
     ///
+    /// Raises:
+    ///     BraheError: If polars is not installed or the DataFrame cannot be built.
+    ///
     /// Example:
     ///     ```python
     ///     import brahe as bh
@@ -288,6 +291,8 @@ impl PyStarlinkManifest {
         let polars = py.import("polars")?;
         let entries = self.inner.entries();
 
+        let millis = |epoch: &time::Epoch| -> i64 { (epoch.unix_timestamp() * 1000.0).round() as i64 };
+
         let norad_list = PyList::empty(py);
         let name_list = PyList::empty(py);
         let category_list = PyList::empty(py);
@@ -299,12 +304,8 @@ impl PyStarlinkManifest {
             norad_list.append(e.norad_cat_id)?;
             name_list.append(&e.object_name)?;
             category_list.append(e.category.to_string())?;
-            start_list.append(epoch_to_naive_pydatetime(py, e.ephemeris_start)?)?;
-            stop_list.append(
-                e.ephemeris_stop
-                    .map(|epc| epoch_to_naive_pydatetime(py, epc))
-                    .transpose()?,
-            )?;
+            start_list.append(millis(&e.ephemeris_start))?;
+            stop_list.append(e.ephemeris_stop.as_ref().map(millis))?;
             file_list.append(e.file_name_string())?;
         }
 
@@ -334,36 +335,6 @@ impl PyStarlinkManifest {
     fn __repr__(&self) -> String {
         format!("StarlinkManifest(entries={})", self.inner.len())
     }
-}
-
-/// Renders an [`Epoch`](time::Epoch) as a naive (tzinfo-less) UTC
-/// ``datetime.datetime``, for polars columns that carry their own UTC
-/// convention rather than an attached timezone.
-///
-/// # Arguments
-/// * `py` - GIL token
-/// * `epoch` - Instant to render
-///
-/// # Returns
-/// * `Ok(Bound<PyDateTime>)`: The naive UTC datetime
-/// * `Err(PyErr)`: If the Python `datetime` object cannot be constructed
-fn epoch_to_naive_pydatetime(py: Python<'_>, epoch: time::Epoch) -> PyResult<Bound<'_, PyDateTime>> {
-    let (year, month, day, hour, minute, second, nanosecond) =
-        epoch.to_datetime_as_time_system(time::TimeSystem::UTC);
-    let whole_seconds = second.floor() as u8;
-    let fractional_seconds = second - second.floor();
-    let microsecond = ((fractional_seconds * 1e6) + (nanosecond / 1e3)).round() as u32;
-    PyDateTime::new(
-        py,
-        year as i32,
-        month,
-        day,
-        hour,
-        minute,
-        whole_seconds,
-        microsecond,
-        None,
-    )
 }
 
 /// Client for Starlink's public Modified ITC ephemerides.

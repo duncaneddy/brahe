@@ -9,6 +9,7 @@
 
 use nalgebra::{DMatrix, DVector};
 
+use crate::math::linalg::SMatrix6;
 use crate::utils::errors::BraheError;
 
 /// Whether a square matrix is symmetric to within a relative tolerance.
@@ -46,6 +47,76 @@ pub fn is_symmetric<D: nalgebra::Dim, S: nalgebra::Storage<f64, D, D>>(
             (a - b).abs() <= rtol * a.abs().max(b.abs()).max(f64::MIN_POSITIVE)
         })
     })
+}
+
+/// The symmetric part `(m + mᵀ) / 2` of a square matrix.
+///
+/// A congruence `J P Jᵀ` of a symmetric `P` is symmetric in exact arithmetic
+/// but accumulates asymmetry of the order of the rounding error. Averaging the
+/// matrix with its transpose removes that drift without changing the result to
+/// within the same rounding.
+///
+/// # Arguments
+///
+/// * `m` - Square matrix
+///
+/// # Returns
+///
+/// * `DMatrix<f64>`: The symmetric part of `m`
+///
+/// # Examples
+///
+/// ```
+/// use brahe::math::symmetrize;
+/// use nalgebra::DMatrix;
+///
+/// let m = DMatrix::from_row_slice(2, 2, &[1.0, 0.4, 0.6, 2.0]);
+/// let s = symmetrize(&m);
+///
+/// assert_eq!(s[(0, 1)], 0.5);
+/// assert_eq!(s[(1, 0)], 0.5);
+/// ```
+///
+/// # Panics
+///
+/// Panics if `m` is not square.
+pub fn symmetrize(m: &DMatrix<f64>) -> DMatrix<f64> {
+    assert_eq!(
+        m.nrows(),
+        m.ncols(),
+        "symmetrize requires a square matrix, got {}x{}",
+        m.nrows(),
+        m.ncols()
+    );
+    (m + m.transpose()) * 0.5
+}
+
+/// Fixed-size form of [`symmetrize`].
+///
+/// # Arguments
+///
+/// * `m` - 6x6 matrix
+///
+/// # Returns
+///
+/// * `SMatrix6`: The symmetric part of `m`
+///
+/// # Examples
+///
+/// ```
+/// use brahe::math::symmetrize_6;
+/// use brahe::math::linalg::SMatrix6;
+///
+/// let mut m = SMatrix6::identity();
+/// m[(0, 3)] = 0.4;
+/// m[(3, 0)] = 0.6;
+/// let s = symmetrize_6(&m);
+///
+/// assert_eq!(s[(0, 3)], 0.5);
+/// assert_eq!(s[(3, 0)], 0.5);
+/// ```
+pub fn symmetrize_6(m: &SMatrix6) -> SMatrix6 {
+    (m + m.transpose()) * 0.5
 }
 
 /// Create an isotropic covariance matrix: σ² · I.
@@ -267,6 +338,46 @@ mod tests {
 
         let non_square = DMatrix::zeros(3, 4);
         assert!(!is_symmetric(&non_square, 1e-12));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_symmetrize() {
+        let m = DMatrix::from_row_slice(3, 3, &[1.0, 0.4, -2.0, 0.6, 5.0, 3.0, 0.0, 1.0, 9.0]);
+        let s = symmetrize(&m);
+
+        assert!(is_symmetric(&s, 1e-15));
+        assert_abs_diff_eq!(s[(0, 1)], 0.5, epsilon = 1e-15);
+        assert_abs_diff_eq!(s[(0, 2)], -1.0, epsilon = 1e-15);
+        assert_abs_diff_eq!(s[(1, 2)], 2.0, epsilon = 1e-15);
+
+        // Diagonal is untouched and the operation is idempotent.
+        for i in 0..3 {
+            assert_abs_diff_eq!(s[(i, i)], m[(i, i)], epsilon = 1e-15);
+        }
+        assert_abs_diff_eq!((symmetrize(&s) - &s).norm(), 0.0, epsilon = 1e-15);
+    }
+
+    #[test]
+    #[should_panic(expected = "symmetrize requires a square matrix")]
+    #[parallel]
+    fn test_symmetrize_non_square_panics() {
+        let _ = symmetrize(&DMatrix::zeros(3, 4));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_symmetrize_6() {
+        let mut m = SMatrix6::identity();
+        m[(0, 3)] = 0.4;
+        m[(3, 0)] = 0.6;
+        m[(2, 5)] = -1.0;
+        let s = symmetrize_6(&m);
+
+        assert!(is_symmetric(&s, 1e-15));
+        assert_abs_diff_eq!(s[(0, 3)], 0.5, epsilon = 1e-15);
+        assert_abs_diff_eq!(s[(2, 5)], -0.5, epsilon = 1e-15);
+        assert_abs_diff_eq!((symmetrize_6(&s) - s).norm(), 0.0, epsilon = 1e-15);
     }
 
     #[test]

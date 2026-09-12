@@ -724,8 +724,8 @@ impl PyITC {
     ///
     /// A covariance is rotated from the trajectory frame into the header's
     /// covariance frame: EME2000 and ITRF through the state-transform Jacobian
-    /// between the two frames, RTN through ICRF axes and the RTN frame of the
-    /// sample's own state.
+    /// between the two frames, RTN through the geocentric RTN frame of the
+    /// sample's own state expressed in GCRF, whatever center the trajectory uses.
     ///
     /// Args:
     ///     trajectory (OrbitTrajectory): Six-dimensional Cartesian trajectory.

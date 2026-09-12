@@ -28,6 +28,8 @@ Example:
 """
 
 from brahe._brahe import (
+    EphemerisFileCategory,
+    EphemerisFileName,
     FileShareFileRecord,
     FolderRecord,
     # Response types
@@ -92,6 +94,8 @@ class _OperatorsNamespace:
 operators = _OperatorsNamespace()
 
 __all__ = [
+    "EphemerisFileCategory",
+    "EphemerisFileName",
     "FileShareFileRecord",
     "FolderRecord",
     # Response types

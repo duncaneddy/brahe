@@ -453,6 +453,93 @@ def test_download_all_stops_on_first_error(starlink_server, tmp_path):
     assert not (d / FULL_FILE).exists()
 
 
+def test_cache_dir_errors_when_mirror_root_is_a_file(tmp_path, monkeypatch):
+    """Rust: test_cache_dir_errors_when_mirror_root_is_a_file"""
+    monkeypatch.setenv("BRAHE_CACHE", str(tmp_path))
+    root = tmp_path / "starlink"
+    root.mkdir(parents=True)
+    (root / "mirrors").write_text("not a directory")
+    with pytest.raises(bh.BraheError, match="mirror cache directory"):
+        bh.StarlinkClient(base_url="http://127.0.0.1:1").cache_dir()
+
+
+def test_manifest_reads_fail_when_cache_entries_are_directories(tmp_path, monkeypatch):
+    """Rust: test_manifest_reads_fail_when_cache_entries_are_directories"""
+    monkeypatch.setenv("BRAHE_CACHE", str(tmp_path))
+    monkeypatch.setenv("BRAHE_NETWORK_MODE", "offline")
+    client = bh.StarlinkClient(base_url="https://brahe-network-mode-test.invalid")
+    d = cache_dir(client)
+    (d / "MANIFEST.txt").mkdir(parents=True)
+    with pytest.raises(bh.BraheError, match="cached Starlink manifest"):
+        client.get_manifest()
+    (d / "MANIFEST.previous.txt").mkdir(parents=True)
+    with pytest.raises(bh.BraheError, match="previous Starlink manifest"):
+        client.previous_manifest()
+
+
+def test_refresh_manifest_fails_when_sidecar_is_a_directory(starlink_server):
+    """Rust: test_refresh_manifest_fails_when_sidecar_is_a_directory"""
+    base_url, _, _ = starlink_server
+    client = bh.StarlinkClient(base_url=base_url)
+    (cache_dir(client) / "MANIFEST.meta.json").mkdir(parents=True)
+    with pytest.raises(bh.BraheError, match="manifest metadata"):
+        client.refresh_manifest()
+
+
+def test_save_destinations_that_cannot_be_created(starlink_server, tmp_path):
+    """Rust: test_save_destinations_that_cannot_be_created"""
+    base_url, _, _ = starlink_server
+    blocker = tmp_path / "out" / "blocker"
+    blocker.parent.mkdir(parents=True)
+    blocker.write_text("x")
+    client = bh.StarlinkClient(base_url=base_url)
+    with pytest.raises(bh.BraheError, match="Failed to create"):
+        client.save_ephemeris(100002, str(blocker / "as_dir"))
+    with pytest.raises(bh.BraheError, match="Failed to create"):
+        client.save_ephemeris(100002, str(blocker / "nested" / "file.txt"))
+    with pytest.raises(bh.BraheError, match="Failed to create"):
+        client.save_all(str(blocker / "all"), 1)
+    occupied = tmp_path / "out" / "occupied"
+    (occupied / SHORT_FILE).mkdir(parents=True)
+    with pytest.raises(bh.BraheError, match="Failed to copy"):
+        client.save_ephemeris(100002, str(occupied))
+
+
+def test_download_ephemeris_rejects_not_modified_answer(tmp_path, monkeypatch):
+    """Rust: test_download_ephemeris_rejects_not_modified_answer"""
+    monkeypatch.setenv("BRAHE_CACHE", str(tmp_path))
+    monkeypatch.setenv("BRAHE_NETWORK_MODE", "online")
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            if self.path == "/MANIFEST.txt":
+                payload = TWO_LINE_MANIFEST.encode()
+                self.send_response(200)
+                self.send_header("Content-Length", str(len(payload)))
+                self.send_header("Connection", "close")
+                self.end_headers()
+                self.wfile.write(payload)
+            else:
+                self.send_response(304)
+                self.send_header("Connection", "close")
+                self.end_headers()
+
+        def log_message(self, *args):
+            pass
+
+    server = HTTPServer(("127.0.0.1", 0), Handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        host, port = server.server_address
+        client = bh.StarlinkClient(base_url=f"http://{host}:{port}")
+        with pytest.raises(bh.BraheError, match="304"):
+            client.download_ephemeris(100002)
+        assert not (cache_dir(client) / SHORT_FILE).exists()
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
 def test_save_all_copies_into_directory(starlink_server, tmp_path):
     """Rust: test_save_all_copies_into_directory"""
     base_url, _, _ = starlink_server

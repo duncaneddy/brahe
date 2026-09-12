@@ -1,7 +1,7 @@
 //! Look up a Starlink satellite in the public manifest and load its ephemeris.
 //!
 //! Uses the manifest cached under the brahe cache directory (seeded by
-//! `just download-resources`), finds a satellite by name, downloads or reuses
+//! `just seed-starlink-cache`), finds a satellite by name, downloads or reuses
 //! its Modified ITC file, and converts it to a trajectory.
 
 use brahe as bh;

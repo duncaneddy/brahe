@@ -150,7 +150,7 @@ Here's a complete example demonstrating all cache directory functions:
 
 ## Working Offline
 
-Set `BRAHE_NETWORK_MODE=offline` to run entirely from the cache. Every artifact already under `BRAHE_CACHE` is used regardless of its age, and any request for something not cached fails with an error naming the resource instead of opening a connection. `BRAHE_NETWORK_MODE=offline-strict` additionally rejects cached data that has passed its time-to-live. See [Environment Variables](environment_variables.md#brahe_network_mode) for the full behavior table. The Starlink examples run from the manifest and ephemeris fixture files installed by `just download-resources`, so they need no network access either.
+Set `BRAHE_NETWORK_MODE=offline` to run entirely from the cache. Every artifact already under `BRAHE_CACHE` is used regardless of its age, and any request for something not cached fails with an error naming the resource instead of opening a connection. `BRAHE_NETWORK_MODE=offline-strict` additionally rejects cached data that has passed its time-to-live. See [Environment Variables](environment_variables.md#brahe_network_mode) for the full behavior table. The Starlink examples run from the manifest and ephemeris fixture files installed by `just seed-starlink-cache`, so they need no network access either. That recipe refuses to replace a live Starlink manifest unless `--force` is passed, so it never silently swaps real catalog data for the fixture.
 
 ---
 

@@ -100,7 +100,13 @@ download-resources: _setup
     @{{python}} -c "import brahe as bh; bh.datasets.star_catalogs.get_fk5(); bh.datasets.star_catalogs.get_hipparcos()"
     @{{python}} -c "import brahe as bh; bh.datasets.icgem.download_model('moon', 'GRGM660PRIM'); bh.datasets.icgem.download_model('mars', 'ggm2bc80')"
     @PYTHONPATH={{scripts_dir}} {{python}} {{scripts_dir}}/seed_celestrak_cache.py
-    @PYTHONPATH={{scripts_dir}} {{python}} {{scripts_dir}}/seed_starlink_cache.py
+
+# Install the committed Starlink fixture manifest and ephemeris files into the
+# brahe cache so the Starlink examples and docs build run offline. Kept out of
+# download-resources because it replaces a live Starlink manifest with the
+# five-entry fixture; the script refuses to do that without --force.
+seed-starlink-cache *args: _setup
+    @PYTHONPATH={{scripts_dir}} {{python}} {{scripts_dir}}/seed_starlink_cache.py {{args}}
 
 # Refresh the committed Celestrak GP snapshots in test_assets/celestrak from
 # the live API. Run when the snapshots should track current orbital data; the

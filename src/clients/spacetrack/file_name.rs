@@ -421,6 +421,7 @@ impl EphemerisFileName {
             return Err(err(format!("minute {} out of range 0..=59", minute)));
         }
 
+        validate_path_field("category", parts[n - 3]).map_err(|e| err(e.to_string()))?;
         let category =
             EphemerisFileCategory::parse(parts[n - 3]).map_err(|e| err(e.to_string()))?;
         let metadata = parts[n - 2];
@@ -467,6 +468,7 @@ impl fmt::Display for EphemerisFileName {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
     use crate::time::{Epoch, TimeSystem};
@@ -560,6 +562,7 @@ mod tests {
             "MEME_100001_X_2540142_Operational__UNCLASSIFIED.txt/../evil",
             "MEME_100001_X_2540142_Operational__UNCLASS/IFIED.txt",
             "MEME_100001_X_2540142_Operational__UNCLASSIFIED.t\0xt",
+            "MEME_100001_X_2540142_oper/../../../evil_meta_UNCLASSIFIED.txt",
         ] {
             assert!(
                 EphemerisFileName::parse(bad).is_err(),

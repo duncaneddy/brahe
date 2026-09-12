@@ -737,14 +737,13 @@ impl StarlinkClient {
         dir: &Path,
         norad_cat_id: u32,
     ) -> Result<Vec<PathBuf>, BraheError> {
-        let marker = format!("_{}_", norad_cat_id);
         let entries = fs::read_dir(dir)
             .map_err(|e| BraheError::IoError(format!("Failed to read {}: {}", dir.display(), e)))?;
         Ok(entries
             .filter_map(|entry| entry.ok().map(|e| e.path()))
             .filter(|p| {
                 p.file_name().and_then(|n| n.to_str()).is_some_and(|n| {
-                    n.contains(&marker)
+                    n.split('_').nth(1).and_then(|id| id.parse::<u32>().ok()) == Some(norad_cat_id)
                         && EphemerisFileName::parse(n).is_ok_and(|f| f.norad_cat_id == norad_cat_id)
                 }) && p.is_file()
             })
@@ -992,6 +991,10 @@ impl StarlinkClient {
 
     /// Deletes cached ephemeris files the current manifest no longer lists.
     ///
+    /// Names are compared without regard to ASCII case so a listing whose
+    /// spelling changed only in case does not delete the file it refers to
+    /// on a case-insensitive filesystem.
+    ///
     /// # Returns
     /// * `Ok(usize)`: Number of files deleted
     /// * `Err(BraheError)`: If the manifest cannot be obtained or a file cannot be removed
@@ -1010,7 +1013,7 @@ impl StarlinkClient {
             .iter()
             .map(|e| {
                 let name = e.file_name_string();
-                cache_file_name(&name).map(str::to_string)
+                cache_file_name(&name).map(str::to_ascii_lowercase)
             })
             .collect::<Result<_, BraheError>>()?;
         let mut removed = 0;
@@ -1018,8 +1021,9 @@ impl StarlinkClient {
             let name = path
                 .file_name()
                 .and_then(|n| n.to_str())
-                .unwrap_or_default();
-            if !listed.contains(name) {
+                .unwrap_or_default()
+                .to_ascii_lowercase();
+            if !listed.contains(&name) {
                 fs::remove_file(&path).map_err(|e| {
                     BraheError::IoError(format!("Failed to delete {}: {}", path.display(), e))
                 })?;
@@ -1264,6 +1268,9 @@ mod tests {
         let dir = starlink_dir(&cache);
         let old_name = "MEME_100002_STARLINK-37711_2530149_Operational_1472521800_UNCLASSIFIED.txt";
         fs::write(dir.join(old_name), asset(SHORT_FILE)).unwrap();
+        let padded_name =
+            "MEME_0100002_STARLINK-37711_2520149_Operational_1471657800_UNCLASSIFIED.txt";
+        fs::write(dir.join(padded_name), asset(SHORT_FILE)).unwrap();
         let unrelated =
             "MEME_100003_STARLINK-38123_2540140_Operational_1473385260_UNCLASSIFIED.txt";
         fs::write(dir.join(unrelated), asset(SHORT_FILE)).unwrap();
@@ -1272,6 +1279,7 @@ mod tests {
         assert_eq!(path, dir.join(SHORT_FILE));
         assert_eq!(fs::read_to_string(&path).unwrap(), asset(SHORT_FILE));
         assert!(!dir.join(old_name).exists());
+        assert!(!dir.join(padded_name).exists());
         assert!(dir.join(unrelated).exists());
         assert!(dir.join(MANIFEST_FILE).exists());
         let names: Vec<String> = client

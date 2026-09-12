@@ -553,13 +553,13 @@ format-check: _setup
 
 # Run linters (clippy + ruff + test labels)
 lint: _setup
-    cargo clippy --all-targets --all-features -- -D warnings
+    cargo clippy --workspace --all-targets --all-features -- -D warnings
     uv run ruff check
     uv run scripts/check_test_labels.py
 
 # Run linters with auto-fix
 lint-fix: _setup
-    cargo clippy --all-targets --all-features --fix --allow-dirty -- -D warnings
+    cargo clippy --workspace --all-targets --all-features --fix --allow-dirty -- -D warnings
     uv run ruff check --fix
     uv run scripts/check_test_labels.py
 

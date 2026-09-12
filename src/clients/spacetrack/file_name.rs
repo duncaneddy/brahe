@@ -127,8 +127,46 @@ pub struct EphemerisFileName {
     pub extension: String,
 }
 
-/// Validates that a single-token file-name field is non-empty and does not
-/// contain the `_` delimiter or a `/` path separator.
+/// Characters that turn a field into a path rather than part of a file name.
+const FORBIDDEN_FIELD_CHARACTERS: [char; 3] = ['/', '\\', '\0'];
+
+/// Validates that a file-name field names no path of its own, so that a name
+/// assembled from the fields always addresses a file inside a single
+/// directory.
+///
+/// # Arguments
+/// * `field` - Field name, used in the error message
+/// * `value` - Field value, which may be empty or contain `_`
+///
+/// # Returns
+/// * `Ok(())`: The value is safe to place in a file name
+/// * `Err(BraheError)`: If the value contains `/`, `\` or NUL, or is `.` or `..`
+fn validate_path_field(field: &str, value: &str) -> Result<(), BraheError> {
+    if value.contains(FORBIDDEN_FIELD_CHARACTERS) {
+        return Err(BraheError::Error(format!(
+            "invalid ephemeris file name field {}: '{}' must not contain '/', '\\' or NUL",
+            field, value
+        )));
+    }
+    if value == "." || value == ".." {
+        return Err(BraheError::Error(format!(
+            "invalid ephemeris file name field {}: '{}' must not be '.' or '..'",
+            field, value
+        )));
+    }
+    Ok(())
+}
+
+/// Validates that a single-token file-name field is non-empty, does not
+/// contain the `_` delimiter, and names no path of its own.
+///
+/// # Arguments
+/// * `field` - Field name, used in the error message
+/// * `value` - Field value
+///
+/// # Returns
+/// * `Ok(())`: The value is a valid single-token field
+/// * `Err(BraheError)`: If the value is empty, contains `_`, `/`, `\` or NUL, or is `.` or `..`
 fn validate_field(field: &str, value: &str) -> Result<(), BraheError> {
     if value.is_empty() {
         return Err(BraheError::Error(format!(
@@ -136,13 +174,13 @@ fn validate_field(field: &str, value: &str) -> Result<(), BraheError> {
             field
         )));
     }
-    if value.contains('_') || value.contains('/') {
+    if value.contains('_') {
         return Err(BraheError::Error(format!(
-            "invalid ephemeris file name field {}: '{}' must not contain '_' or '/'",
+            "invalid ephemeris file name field {}: '{}' must not contain '_', '/', '\\' or NUL",
             field, value
         )));
     }
-    Ok(())
+    validate_path_field(field, value)
 }
 
 impl EphemerisFileName {
@@ -165,7 +203,7 @@ impl EphemerisFileName {
     ///
     /// # Returns
     /// * `Ok(EphemerisFileName)`: The populated name
-    /// * `Err(BraheError)`: If `object_name` is empty or contains `/`, or `metadata` contains `_` or `/`
+    /// * `Err(BraheError)`: If `object_name` is empty, if `metadata` contains `_`, or if either contains `/`, `\` or NUL or is `.` or `..`
     ///
     /// # Examples
     ///
@@ -190,18 +228,14 @@ impl EphemerisFileName {
                     .to_string(),
             ));
         }
-        if object_name.contains('/') {
+        validate_path_field("object_name", object_name)?;
+        if metadata.contains('_') {
             return Err(BraheError::Error(format!(
-                "invalid ephemeris file name field object_name: '{}' must not contain '/'",
-                object_name
-            )));
-        }
-        if metadata.contains('_') || metadata.contains('/') {
-            return Err(BraheError::Error(format!(
-                "invalid ephemeris file name field metadata: '{}' must not contain '_' or '/'",
+                "invalid ephemeris file name field metadata: '{}' must not contain '_'",
                 metadata
             )));
         }
+        validate_path_field("metadata", metadata)?;
         let (year, month, day, hour, minute, _, _) =
             start_epoch.to_datetime_as_time_system(TimeSystem::UTC);
         let day_of_year = day_of_year_from_calendar(year, month, day) as u16;
@@ -226,7 +260,7 @@ impl EphemerisFileName {
     ///
     /// # Returns
     /// * `Ok(EphemerisFileName)`: The name with the data type replaced
-    /// * `Err(BraheError)`: If `data_type` is empty or contains `_` or `/`
+    /// * `Err(BraheError)`: If `data_type` is empty, contains `_`, `/`, `\` or NUL, or is `.` or `..`
     ///
     /// # Examples
     ///
@@ -251,7 +285,7 @@ impl EphemerisFileName {
     ///
     /// # Returns
     /// * `Ok(EphemerisFileName)`: The name with the classification replaced
-    /// * `Err(BraheError)`: If `classification` is empty or contains `_` or `/`
+    /// * `Err(BraheError)`: If `classification` is empty, contains `_`, `/`, `\` or NUL, or is `.` or `..`
     ///
     /// # Examples
     ///
@@ -276,7 +310,7 @@ impl EphemerisFileName {
     ///
     /// # Returns
     /// * `Ok(EphemerisFileName)`: The name with the extension replaced
-    /// * `Err(BraheError)`: If `extension` is empty or contains `_`, `/` or `.`
+    /// * `Err(BraheError)`: If `extension` is empty or contains `_`, `.`, `/`, `\` or NUL
     ///
     /// # Examples
     ///
@@ -305,14 +339,16 @@ impl EphemerisFileName {
     /// The first two fields and the last four fields are fixed; anything
     /// between them, underscores included, is the object name. The day-time
     /// group must be exactly seven digits (`DDDHHMM`) with a valid day of
-    /// year, hour and minute.
+    /// year, hour and minute. Every text field is held to the same rules as
+    /// the builders: no `/`, `\` or NUL, and no field that is `.` or `..`, so
+    /// a parsed name always addresses a file inside a single directory.
     ///
     /// # Arguments
     /// * `name` - File name with extension, without directory components
     ///
     /// # Returns
     /// * `Ok(EphemerisFileName)`: The parsed fields
-    /// * `Err(BraheError)`: If the name does not follow the convention
+    /// * `Err(BraheError)`: If the name does not follow the convention or a field names a path
     ///
     /// # Examples
     ///
@@ -352,6 +388,7 @@ impl EphemerisFileName {
         if data_type.is_empty() {
             return Err(err("empty data type".to_string()));
         }
+        validate_field("data_type", data_type).map_err(|e| err(e.to_string()))?;
         let norad_cat_id: u32 = parts[1]
             .parse()
             .map_err(|_| err(format!("catalog number '{}' is not an integer", parts[1])))?;
@@ -359,6 +396,7 @@ impl EphemerisFileName {
         if object_name.is_empty() {
             return Err(err("empty object name".to_string()));
         }
+        validate_path_field("object_name", &object_name).map_err(|e| err(e.to_string()))?;
 
         let day_time_group = parts[n - 4];
         if day_time_group.len() != 7 || !day_time_group.chars().all(|c| c.is_ascii_digit()) {
@@ -383,13 +421,17 @@ impl EphemerisFileName {
             return Err(err(format!("minute {} out of range 0..=59", minute)));
         }
 
+        validate_path_field("category", parts[n - 3]).map_err(|e| err(e.to_string()))?;
         let category =
             EphemerisFileCategory::parse(parts[n - 3]).map_err(|e| err(e.to_string()))?;
         let metadata = parts[n - 2];
+        validate_path_field("metadata", metadata).map_err(|e| err(e.to_string()))?;
         let classification = parts[n - 1];
         if classification.is_empty() {
             return Err(err("empty classification".to_string()));
         }
+        validate_field("classification", classification).map_err(|e| err(e.to_string()))?;
+        validate_field("extension", extension).map_err(|e| err(e.to_string()))?;
 
         Ok(Self {
             data_type: data_type.to_string(),
@@ -426,6 +468,7 @@ impl fmt::Display for EphemerisFileName {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
     use crate::time::{Epoch, TimeSystem};
@@ -505,6 +548,60 @@ mod tests {
         assert!(EphemerisFileName::parse("MEME_25544_ISS_1651200_oper__unclassified.").is_err());
         assert!(EphemerisFileName::parse("_25544_ISS_1651200_oper__unclassified.txt").is_err());
         assert!(EphemerisFileName::parse("MEME_25544_ISS_1651200_oper_meta_.txt").is_err());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_ephemeris_file_name_parse_rejects_path_traversal() {
+        for bad in [
+            "MEME_100001_../../../../tmp/evil_2540142_Operational__UNCLASSIFIED.txt",
+            "/tmp/pwn_100001_X_2540142_Operational__UNCLASSIFIED.txt",
+            "MEME_100001_..\\..\\tmp\\evil_2540142_Operational__UNCLASSIFIED.txt",
+            "MEME_100001_.._2540142_Operational__UNCLASSIFIED.txt",
+            "MEME_100001_X_2540142_Operational_../evil_UNCLASSIFIED.txt",
+            "MEME_100001_X_2540142_Operational__UNCLASSIFIED.txt/../evil",
+            "MEME_100001_X_2540142_Operational__UNCLASS/IFIED.txt",
+            "MEME_100001_X_2540142_Operational__UNCLASSIFIED.t\0xt",
+            "MEME_100001_X_2540142_oper/../../../evil_meta_UNCLASSIFIED.txt",
+        ] {
+            assert!(
+                EphemerisFileName::parse(bad).is_err(),
+                "expected '{bad}' to be rejected"
+            );
+        }
+    }
+
+    #[test]
+    #[parallel]
+    fn test_ephemeris_file_name_builders_reject_path_traversal() {
+        let start = Epoch::from_datetime(2026, 9, 11, 1, 42, 42.0, 0.0, TimeSystem::UTC);
+        assert!(
+            EphemerisFileName::new(1, "..", start, EphemerisFileCategory::Operational, "").is_err()
+        );
+        assert!(
+            EphemerisFileName::new(
+                1,
+                "../../tmp/evil",
+                start,
+                EphemerisFileCategory::Operational,
+                ""
+            )
+            .is_err()
+        );
+        assert!(
+            EphemerisFileName::new(1, "A\\B", start, EphemerisFileCategory::Operational, "")
+                .is_err()
+        );
+        assert!(
+            EphemerisFileName::new(1, "A", start, EphemerisFileCategory::Operational, "../evil")
+                .is_err()
+        );
+
+        let name =
+            EphemerisFileName::new(1, "A", start, EphemerisFileCategory::Operational, "").unwrap();
+        assert!(name.clone().with_data_type("..").is_err());
+        assert!(name.clone().with_classification("A\\B").is_err());
+        assert!(name.with_extension("t\0xt").is_err());
     }
 
     #[test]

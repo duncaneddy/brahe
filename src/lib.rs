@@ -104,7 +104,7 @@ pub use attitude::*;
 pub use clients::gcat::{
     GCATPsatcat, GCATPsatcatRecord, GCATSatcat, GCATSatcatRecord, get_psatcat, get_satcat,
 };
-pub use clients::{celestrak, gcat, spacetrack};
+pub use clients::{celestrak, gcat, spacetrack, starlink};
 pub use constants::*;
 pub use coordinates::*;
 pub use datasets::*;

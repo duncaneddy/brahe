@@ -70,6 +70,46 @@ def test_ephemeris_file_name_parse_errors(bad):
         EphemerisFileName.parse(bad)
 
 
+@pytest.mark.parametrize(
+    "bad",
+    [
+        "MEME_100001_../../../../tmp/evil_2540142_Operational__UNCLASSIFIED.txt",
+        "/tmp/pwn_100001_X_2540142_Operational__UNCLASSIFIED.txt",
+        "MEME_100001_..\\..\\tmp\\evil_2540142_Operational__UNCLASSIFIED.txt",
+        "MEME_100001_.._2540142_Operational__UNCLASSIFIED.txt",
+        "MEME_100001_X_2540142_Operational_../evil_UNCLASSIFIED.txt",
+        "MEME_100001_X_2540142_Operational__UNCLASSIFIED.txt/../evil",
+        "MEME_100001_X_2540142_Operational__UNCLASS/IFIED.txt",
+        "MEME_100001_X_2540142_Operational__UNCLASSIFIED.t\0xt",
+        "MEME_100001_X_2540142_oper/../../../evil_meta_UNCLASSIFIED.txt",
+    ],
+)
+def test_ephemeris_file_name_parse_rejects_path_traversal(bad):
+    """Rust: test_ephemeris_file_name_parse_rejects_path_traversal"""
+    with pytest.raises(bh.BraheError):
+        EphemerisFileName.parse(bad)
+
+
+def test_ephemeris_file_name_builders_reject_path_traversal():
+    """Rust: test_ephemeris_file_name_builders_reject_path_traversal"""
+    start = bh.Epoch(2026, 9, 11, 1, 42, 42.0, 0.0)
+    for object_name in ["..", "../../tmp/evil", "A\\B"]:
+        with pytest.raises(bh.BraheError):
+            EphemerisFileName(
+                1, object_name, start, EphemerisFileCategory.OPERATIONAL, ""
+            )
+    with pytest.raises(bh.BraheError):
+        EphemerisFileName(1, "A", start, EphemerisFileCategory.OPERATIONAL, "../evil")
+
+    name = EphemerisFileName(1, "A", start, EphemerisFileCategory.OPERATIONAL, "")
+    with pytest.raises(bh.BraheError):
+        name.with_data_type("..")
+    with pytest.raises(bh.BraheError):
+        name.with_classification("A\\B")
+    with pytest.raises(bh.BraheError):
+        name.with_extension("t\0xt")
+
+
 def test_ephemeris_file_name_new_and_display():
     start = bh.Epoch(2026, 9, 11, 1, 42, 42.0, 0.0)
     name = EphemerisFileName(

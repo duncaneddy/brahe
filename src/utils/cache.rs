@@ -141,6 +141,26 @@ pub fn get_celestrak_cache_dir() -> Result<String, BraheError> {
     get_brahe_cache_dir_with_subdir(Some("celestrak"))
 }
 
+/// Get the Starlink ephemeris cache directory path.
+///
+/// Returns `~/.cache/brahe/starlink` (or `$BRAHE_CACHE/starlink`), creating it if needed.
+///
+/// # Returns
+/// * `Ok(String)`: Absolute path of the directory
+/// * `Err(BraheError)`: If the directory cannot be created
+///
+/// # Examples
+///
+/// ```
+/// use brahe::utils::get_starlink_cache_dir;
+///
+/// let dir = get_starlink_cache_dir().unwrap();
+/// assert!(dir.ends_with("starlink"));
+/// ```
+pub fn get_starlink_cache_dir() -> Result<String, BraheError> {
+    get_brahe_cache_dir_with_subdir(Some("starlink"))
+}
+
 /// Get the NAIF cache directory path.
 ///
 /// Returns `~/.cache/brahe/naif` (or `$BRAHE_CACHE/naif` if environment variable is set).
@@ -395,6 +415,16 @@ mod tests {
                 env::set_var("BRAHE_CACHE", original);
             }
         }
+    }
+
+    #[test]
+    #[serial]
+    fn test_get_starlink_cache_dir() {
+        let redirect = crate::utils::testing::CacheRedirect::new();
+        let dir = get_starlink_cache_dir().unwrap();
+        assert!(dir.ends_with("starlink"));
+        assert!(std::path::Path::new(&dir).is_dir());
+        assert!(std::path::Path::new(&dir).starts_with(redirect.cache_path()));
     }
 
     #[test]

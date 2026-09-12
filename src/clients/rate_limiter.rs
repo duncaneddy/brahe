@@ -131,22 +131,30 @@ impl RateLimiter {
             }
         }
 
-        // Calculate required wait time
+        // Calculate required wait time. With `len` requests recorded (some of
+        // them future reservations made by callers that are still sleeping),
+        // the window has room again once the entry `len - max` slots from the
+        // front has expired, so each new reservation queues behind the ones
+        // already made instead of waking together with them.
         let mut wait = Duration::ZERO;
 
-        if self.minute_window.len() >= self.config.max_per_minute as usize
-            && let Some(&oldest) = self.minute_window.front()
+        let max_per_minute = self.config.max_per_minute as usize;
+        if self.minute_window.len() >= max_per_minute
+            && let Some(&blocking) = self
+                .minute_window
+                .get(self.minute_window.len() - max_per_minute)
         {
-            let minute_wait = (oldest + Duration::from_secs(60)).saturating_duration_since(now);
+            let minute_wait = (blocking + Duration::from_secs(60)).saturating_duration_since(now);
             if minute_wait > wait {
                 wait = minute_wait;
             }
         }
 
-        if self.hour_window.len() >= self.config.max_per_hour as usize
-            && let Some(&oldest) = self.hour_window.front()
+        let max_per_hour = self.config.max_per_hour as usize;
+        if self.hour_window.len() >= max_per_hour
+            && let Some(&blocking) = self.hour_window.get(self.hour_window.len() - max_per_hour)
         {
-            let hour_wait = (oldest + Duration::from_secs(3600)).saturating_duration_since(now);
+            let hour_wait = (blocking + Duration::from_secs(3600)).saturating_duration_since(now);
             if hour_wait > wait {
                 wait = hour_wait;
             }
@@ -166,6 +174,34 @@ impl RateLimiter {
 mod tests {
     use super::*;
     use serial_test::parallel;
+
+    #[test]
+    #[parallel]
+    fn test_rate_limiter_queues_concurrent_reservations() {
+        let mut limiter = RateLimiter::new(RateLimitConfig {
+            max_per_minute: 1,
+            max_per_hour: 1000,
+        });
+        let first = limiter.acquire();
+        let second = limiter.acquire();
+        let third = limiter.acquire();
+        assert_eq!(first, Duration::ZERO);
+        assert!(second > Duration::from_secs(59) && second <= Duration::from_secs(60));
+        assert!(third > Duration::from_secs(119) && third <= Duration::from_secs(120));
+
+        let mut limiter = RateLimiter::new(RateLimitConfig {
+            max_per_minute: 2,
+            max_per_hour: 1000,
+        });
+        assert_eq!(limiter.acquire(), Duration::ZERO);
+        assert_eq!(limiter.acquire(), Duration::ZERO);
+        let third = limiter.acquire();
+        let fourth = limiter.acquire();
+        let fifth = limiter.acquire();
+        assert!(third > Duration::from_secs(59) && third <= Duration::from_secs(60));
+        assert!(fourth > Duration::from_secs(59) && fourth <= Duration::from_secs(60));
+        assert!(fifth > Duration::from_secs(119) && fifth <= Duration::from_secs(120));
+    }
 
     #[test]
     #[parallel]

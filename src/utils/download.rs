@@ -26,7 +26,7 @@ const BACKOFF_MAX_DELAY: Duration = Duration::from_secs(30);
 /// [`ureq::Error::Timeout`], or [`ureq::Error::ConnectionFailed`]; transient
 /// server-side failures surface as 429/5xx status codes. Client errors (4xx) and
 /// malformed URIs are not retried.
-fn is_retryable_error(e: &ureq::Error) -> bool {
+pub(crate) fn is_retryable_error(e: &ureq::Error) -> bool {
     matches!(
         e,
         ureq::Error::StatusCode(429 | 500 | 502 | 503 | 504)
@@ -43,7 +43,7 @@ fn is_retryable_error(e: &ureq::Error) -> bool {
 /// `attempt` is the 1-based index of the attempt that just failed, so the first
 /// retry waits a random duration in `[0, BACKOFF_BASE_DELAY]`, the second in
 /// `[0, 2 * BACKOFF_BASE_DELAY]`, and so on.
-fn backoff_delay(attempt: u32) -> Duration {
+pub(crate) fn backoff_delay(attempt: u32) -> Duration {
     let base_ms = BACKOFF_BASE_DELAY.as_millis() as u64;
     let max_ms = BACKOFF_MAX_DELAY.as_millis() as u64;
 

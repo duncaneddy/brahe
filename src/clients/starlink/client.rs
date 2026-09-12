@@ -3,6 +3,7 @@
  */
 
 use std::collections::HashSet;
+use std::ffi::OsStr;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
@@ -67,6 +68,8 @@ enum FetchOutcome {
 /// re-fetched with a conditional GET once it is older than `cache_max_age`;
 /// when the listing changes, the prior copy is kept as
 /// `MANIFEST.previous.txt` so the caller can ask which satellites moved.
+/// The cache directory is not coordinated across processes or across clients
+/// sharing it; run one bulk download at a time.
 ///
 /// # Examples
 ///
@@ -324,9 +327,10 @@ impl StarlinkClient {
 
     /// Fetches the manifest from the server regardless of cache age.
     ///
-    /// Sends the cached ETag; a 304 answer touches the cached file so it is
-    /// fresh again. A changed listing moves the old copy to
-    /// `MANIFEST.previous.txt` before the new one is written.
+    /// Sends the cached `ETag` and `Last-Modified` as conditional headers; a
+    /// 304 answer touches the cached file so it is fresh again. A changed
+    /// listing moves the old copy to `MANIFEST.previous.txt` before the new
+    /// one is written.
     ///
     /// # Returns
     /// * `Ok(StarlinkManifest)`: The listing now on disk
@@ -345,12 +349,12 @@ impl StarlinkClient {
         let path = dir.join(MANIFEST_FILE);
         let meta = self.read_meta(&dir);
         let url = format!("{}/{}", self.base_url, MANIFEST_FILE);
-        let etag = if path.exists() {
-            meta.etag.as_deref()
+        let (etag, since) = if path.exists() {
+            (meta.etag.as_deref(), meta.last_modified.as_deref())
         } else {
-            None
+            (None, None)
         };
-        match self.fetch_text(&url, etag)? {
+        match self.fetch_text(&url, etag, since)? {
             FetchOutcome::NotModified => {
                 touch(&path)?;
                 self.write_meta(
@@ -560,18 +564,24 @@ impl StarlinkClient {
         Ok(())
     }
 
-    /// GETs `url`, optionally conditional on `etag`, retrying transient
-    /// failures with backoff up to `max_retries` times.
+    /// GETs `url`, optionally conditional on the cached validators, retrying
+    /// transient failures with backoff up to `max_retries` times.
     ///
     /// # Arguments
     /// * `url` - The URL to fetch
     /// * `etag` - Cached `ETag` to send as `If-None-Match`, when known
+    /// * `last_modified` - Cached `Last-Modified` to send as `If-Modified-Since`, when known
     ///
     /// # Returns
     /// * `Ok(FetchOutcome::Fresh)`: A new body and its validators
     /// * `Ok(FetchOutcome::NotModified)`: The server answered 304
     /// * `Err(BraheError)`: If the network mode forbids the request or every attempt fails
-    fn fetch_text(&self, url: &str, etag: Option<&str>) -> Result<FetchOutcome, BraheError> {
+    fn fetch_text(
+        &self,
+        url: &str,
+        etag: Option<&str>,
+        last_modified: Option<&str>,
+    ) -> Result<FetchOutcome, BraheError> {
         let mut last_error = None;
         for attempt in 0..=self.max_retries {
             self.wait_for_rate_limit(url)?;
@@ -581,6 +591,9 @@ impl StarlinkClient {
             let mut request = self.agent.get(url);
             if let Some(tag) = etag {
                 request = request.header("If-None-Match", tag);
+            }
+            if let Some(since) = last_modified {
+                request = request.header("If-Modified-Since", since);
             }
             match request.call() {
                 Ok(mut response) => {
@@ -597,11 +610,18 @@ impl StarlinkClient {
                         .get("last-modified")
                         .and_then(|v| v.to_str().ok())
                         .map(str::to_string);
-                    let body = response.body_mut().read_to_string().map_err(|e| {
-                        BraheError::IoError(format!(
-                            "Failed to read Starlink response for {url}: {e}"
-                        ))
-                    })?;
+                    let body = match response.body_mut().read_to_string() {
+                        Ok(body) => body,
+                        Err(e) => {
+                            if attempt < self.max_retries {
+                                last_error = Some(e);
+                                continue;
+                            }
+                            return Err(BraheError::IoError(format!(
+                                "Failed to read Starlink response for {url}: {e}"
+                            )));
+                        }
+                    };
                     return Ok(FetchOutcome::Fresh {
                         body,
                         etag,
@@ -670,12 +690,12 @@ impl StarlinkClient {
     fn download_entry(&self, entry: &StarlinkManifestEntry) -> Result<PathBuf, BraheError> {
         let dir = self.cache_dir()?;
         let name = entry.file_name_string();
-        let path = dir.join(&name);
+        let path = dir.join(cache_file_name(&name)?);
         if path.exists() {
             return Ok(path);
         }
         let url = format!("{}/{}", self.base_url, name);
-        let body = match self.fetch_text(&url, None)? {
+        let body = match self.fetch_text(&url, None, None)? {
             FetchOutcome::Fresh { body, .. } => body,
             FetchOutcome::NotModified => {
                 return Err(BraheError::IoError(format!(
@@ -853,14 +873,16 @@ impl StarlinkClient {
     ///
     /// The full manifest is about 11,100 files and about 22 GB, so a first
     /// run against the public mirror is a long transfer. Stops at the first
-    /// failure and returns it. Files already cached are not re-fetched and no
-    /// cached files are removed; call [`StarlinkClient::prune_cache`] for that.
+    /// failure and returns it. Files already cached are not re-fetched. No
+    /// files are pruned; superseded files for a satellite whose file is
+    /// downloaded are still evicted. Call [`StarlinkClient::prune_cache`] to
+    /// remove files the manifest no longer lists.
     ///
     /// # Arguments
     /// * `concurrency` - Worker threads, at least 1 (8 is a reasonable default)
     ///
     /// # Returns
-    /// * `Ok(Vec<PathBuf>)`: Cache path of every listed file, in manifest order
+    /// * `Ok(Vec<PathBuf>)`: Cache path of one file per listed NORAD ID, in manifest order
     /// * `Err(BraheError)`: The first failure, or `concurrency == 0`
     ///
     /// # Examples
@@ -880,9 +902,18 @@ impl StarlinkClient {
         let manifest = self.get_manifest()?;
         let dir = self.cache_dir()?;
         let mut seen = HashSet::new();
-        let pending: Vec<&StarlinkManifestEntry> = manifest
+        let unique: Vec<(&StarlinkManifestEntry, PathBuf)> = manifest
             .iter()
-            .filter(|e| seen.insert(e.norad_cat_id) && !dir.join(e.file_name_string()).exists())
+            .filter(|e| seen.insert(e.norad_cat_id))
+            .map(|e| {
+                let name = e.file_name_string();
+                cache_file_name(&name).map(|n| (e, dir.join(n)))
+            })
+            .collect::<Result<_, BraheError>>()?;
+        let pending: Vec<&StarlinkManifestEntry> = unique
+            .iter()
+            .filter(|(_, path)| !path.exists())
+            .map(|(entry, _)| *entry)
             .collect();
         let cursor = AtomicUsize::new(0);
         let stop = AtomicBool::new(false);
@@ -913,10 +944,7 @@ impl StarlinkClient {
         if let Some(e) = failure.into_inner().unwrap_or_else(|p| p.into_inner()) {
             return Err(e);
         }
-        Ok(manifest
-            .iter()
-            .map(|e| dir.join(e.file_name_string()))
-            .collect())
+        Ok(unique.into_iter().map(|(_, path)| path).collect())
     }
 
     /// Runs [`StarlinkClient::download_all`] and copies every file into `destination`.
@@ -978,7 +1006,13 @@ impl StarlinkClient {
     /// ```
     pub fn prune_cache(&self) -> Result<usize, BraheError> {
         let manifest = self.get_manifest()?;
-        let listed: HashSet<String> = manifest.iter().map(|e| e.file_name_string()).collect();
+        let listed: HashSet<String> = manifest
+            .iter()
+            .map(|e| {
+                let name = e.file_name_string();
+                cache_file_name(&name).map(str::to_string)
+            })
+            .collect::<Result<_, BraheError>>()?;
         let mut removed = 0;
         for path in self.cached_files()? {
             let name = path
@@ -1026,6 +1060,26 @@ impl StarlinkClient {
     }
 }
 
+/// Checks that a manifest-supplied name addresses a file directly inside the
+/// cache directory, so joining it to the cache path cannot escape it.
+///
+/// # Arguments
+/// * `name` - File name taken from the manifest
+///
+/// # Returns
+/// * `Ok(&str)`: The name, unchanged
+/// * `Err(BraheError)`: If the name carries directory components
+fn cache_file_name(name: &str) -> Result<&str, BraheError> {
+    if Path::new(name).file_name() == Some(OsStr::new(name)) {
+        Ok(name)
+    } else {
+        Err(BraheError::Error(format!(
+            "Starlink manifest name '{}' is not a plain file name",
+            name
+        )))
+    }
+}
+
 /// Resolves where a downloaded ephemeris file should be copied.
 ///
 /// An existing directory, or a path whose last component has no extension,
@@ -1063,15 +1117,26 @@ fn resolve_destination(destination: &Path, file_name: &str) -> Result<PathBuf, B
 
 /// Copies a cached file to a destination path, overwriting it if present.
 ///
+/// The copy is atomic, so a failure leaves no partial destination, and a
+/// target that resolves to the source itself is left untouched.
+///
 /// # Arguments
 /// * `source` - File to copy
 /// * `target` - Destination path
 ///
 /// # Returns
-/// * `Ok(())`: The file was copied
-/// * `Err(BraheError)`: If the copy fails
+/// * `Ok(())`: The file was copied, or source and target are the same file
+/// * `Err(BraheError)`: If the source cannot be read or the target cannot be written
 fn copy_file(source: &Path, target: &Path) -> Result<(), BraheError> {
-    fs::copy(source, target).map(|_| ()).map_err(|e| {
+    if target.exists()
+        && let (Ok(from), Ok(to)) = (fs::canonicalize(source), fs::canonicalize(target))
+        && from == to
+    {
+        return Ok(());
+    }
+    let bytes = fs::read(source)
+        .map_err(|e| BraheError::IoError(format!("Failed to read {}: {}", source.display(), e)))?;
+    atomic_write(target, &bytes).map_err(|e| {
         BraheError::IoError(format!(
             "Failed to copy {} to {}: {}",
             source.display(),
@@ -1382,6 +1447,136 @@ mod tests {
 
     #[test]
     #[serial]
+    fn test_get_manifest_rejects_path_traversal_line() {
+        let cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("online"));
+        let server = MockServer::start();
+        let escape = "MEME_100001_../../../../evil_2540142_Operational__UNCLASSIFIED.txt";
+        server.mock(|when, then| {
+            when.method(GET).path("/MANIFEST.txt");
+            then.status(200).body(format!("{escape}\n"));
+        });
+        let dir = starlink_dir(&cache);
+        let client = StarlinkClient::with_base_url(&server.base_url());
+        assert!(client.get_manifest().is_err());
+        assert!(client.download_all(1).is_err());
+        assert!(!dir.parent().unwrap().join("evil").exists());
+        assert!(!cache.cache_path().parent().unwrap().join("evil").exists());
+        assert!(client.cached_files().unwrap().is_empty());
+        assert!(cache_file_name("../evil.txt").is_err());
+        assert!(cache_file_name("/tmp/evil.txt").is_err());
+        assert_eq!(cache_file_name(FULL_FILE).unwrap(), FULL_FILE);
+    }
+
+    #[test]
+    #[serial]
+    fn test_download_uses_literal_manifest_line() {
+        let cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("online"));
+        let server = MockServer::start();
+        let short_id = "MEME_1001_STARLINK-1_2540149_Operational_1473385800_UNCLASSIFIED.txt";
+        server.mock(|when, then| {
+            when.method(GET).path("/MANIFEST.txt");
+            then.status(200).body(format!("{short_id}\n"));
+        });
+        let file = server.mock(|when, then| {
+            when.method(GET).path(format!("/{short_id}"));
+            then.status(200).body(asset(SHORT_FILE));
+        });
+        let dir = starlink_dir(&cache);
+        let client = StarlinkClient::with_base_url(&server.base_url());
+        let path = client.download_ephemeris(1001).unwrap();
+        file.assert_calls(1);
+        assert_eq!(path, dir.join(short_id));
+        assert_eq!(client.prune_cache().unwrap(), 0);
+        assert!(dir.join(short_id).exists());
+    }
+
+    #[test]
+    #[serial]
+    fn test_download_all_deduplicates_repeated_norad_ids() {
+        let cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("online"));
+        let server = MockServer::start();
+        let duplicate =
+            "MEME_100002_STARLINK-37711_2540949_Operational_1473414600_UNCLASSIFIED.txt";
+        server.mock(|when, then| {
+            when.method(GET).path("/MANIFEST.txt");
+            then.status(200)
+                .body(format!("{SHORT_FILE}\n{duplicate}\n{FULL_FILE}\n"));
+        });
+        let first = server.mock(|when, then| {
+            when.method(GET).path(format!("/{SHORT_FILE}"));
+            then.status(200).body(asset(SHORT_FILE));
+        });
+        let second = server.mock(|when, then| {
+            when.method(GET).path(format!("/{duplicate}"));
+            then.status(200).body(asset(SHORT_FILE));
+        });
+        server.mock(|when, then| {
+            when.method(GET).path(format!("/{FULL_FILE}"));
+            then.status(200).body(asset(FULL_FILE));
+        });
+        let dir = starlink_dir(&cache);
+        let client = StarlinkClient::with_base_url(&server.base_url());
+        let paths = client.download_all(2).unwrap();
+        assert_eq!(paths, vec![dir.join(SHORT_FILE), dir.join(FULL_FILE)]);
+        first.assert_calls(1);
+        second.assert_calls(0);
+        let out = tempfile::tempdir().unwrap();
+        let saved = client.save_all(out.path(), 2).unwrap();
+        assert_eq!(
+            saved,
+            vec![out.path().join(SHORT_FILE), out.path().join(FULL_FILE)]
+        );
+    }
+
+    #[test]
+    #[serial]
+    fn test_save_ephemeris_onto_cache_file_keeps_it_intact() {
+        let cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("online"));
+        let server = MockServer::start();
+        mock_site(&server, two_line_manifest());
+        let dir = starlink_dir(&cache);
+        let client = StarlinkClient::with_base_url(&server.base_url());
+        let cached = client.download_ephemeris(100002).unwrap();
+        let original = fs::read_to_string(&cached).unwrap();
+        let saved = client.save_ephemeris(100002, &cached).unwrap();
+        assert_eq!(saved, cached);
+        assert_eq!(fs::read_to_string(&cached).unwrap(), original);
+        assert_eq!(fs::read_to_string(dir.join(SHORT_FILE)).unwrap(), original);
+    }
+
+    #[test]
+    #[serial]
+    fn test_get_manifest_sends_if_modified_since_without_etag() {
+        let cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("online"));
+        let server = MockServer::start();
+        let conditional = server.mock(|when, then| {
+            when.method(GET)
+                .path("/MANIFEST.txt")
+                .header("If-Modified-Since", "Fri, 11 Sep 2026 05:15:30 GMT");
+            then.status(304);
+        });
+        let dir = starlink_dir(&cache);
+        fs::write(dir.join(MANIFEST_FILE), fixture_manifest()).unwrap();
+        fs::write(
+            dir.join(MANIFEST_META_FILE),
+            r#"{"etag":null,"last_modified":"Fri, 11 Sep 2026 05:15:30 GMT","retrieved":"2026-09-11T05:20:00Z"}"#,
+        )
+        .unwrap();
+        age_file(&dir.join(MANIFEST_FILE), 7200);
+        let client = StarlinkClient::with_base_url(&server.base_url());
+        let manifest = client.get_manifest().unwrap();
+        assert_eq!(manifest.len(), 5);
+        conditional.assert_calls(1);
+        assert!(!client.is_cache_stale(&dir.join(MANIFEST_FILE)).unwrap());
+    }
+
+    #[test]
+    #[serial]
     fn test_save_all_copies_into_directory() {
         let cache = CacheRedirect::new();
         let _mode = NetworkModeGuard::set(Some("online"));
@@ -1596,11 +1791,6 @@ mod tests {
     fn test_get_manifest_offline_strict_serves_fresh_cache_only() {
         let cache = CacheRedirect::new();
         let _mode = NetworkModeGuard::set(Some("offline-strict"));
-        let server = MockServer::start();
-        let mock = server.mock(|when, then| {
-            when.method(GET).path("/MANIFEST.txt");
-            then.status(200).body(fixture_manifest());
-        });
         let client = StarlinkClient::with_base_url("https://brahe-network-mode-test.invalid");
         let err = client.get_manifest().unwrap_err().to_string();
         assert!(
@@ -1618,7 +1808,6 @@ mod tests {
             err.contains("BRAHE_NETWORK_MODE is offline-strict"),
             "{err}"
         );
-        mock.assert_calls(0);
     }
 
     #[test]
@@ -1626,11 +1815,6 @@ mod tests {
     fn test_get_manifest_offline_serves_stale_cache() {
         let cache = CacheRedirect::new();
         let _mode = NetworkModeGuard::set(Some("offline"));
-        let server = MockServer::start();
-        let mock = server.mock(|when, then| {
-            when.method(GET).path("/MANIFEST.txt");
-            then.status(200).body(fixture_manifest());
-        });
         let dir = starlink_dir(&cache);
         fs::write(dir.join(MANIFEST_FILE), fixture_manifest()).unwrap();
         age_file(&dir.join(MANIFEST_FILE), 7200);
@@ -1639,7 +1823,6 @@ mod tests {
         assert_eq!(client.get_manifest().unwrap().len(), 5);
         let err = client.refresh_manifest().unwrap_err().to_string();
         assert!(err.contains("BRAHE_NETWORK_MODE is offline"), "{err}");
-        mock.assert_calls(0);
     }
 
     #[test]

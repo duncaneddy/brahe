@@ -11,6 +11,30 @@ use crate::utils::BraheError;
 
 const SECONDS_PER_DAY: f64 = 86400.0;
 const GPS_STOP_WINDOW_SECONDS: f64 = 30.0 * SECONDS_PER_DAY;
+/// Largest GPS-second value that is decoded, about the year 5000. Larger
+/// values overflow the integer arithmetic behind [`Epoch`].
+const MAX_GPS_SECONDS: f64 = 1.0e11;
+
+/// Number of days in a calendar month.
+///
+/// # Arguments
+/// * `year` - Calendar year, used for February
+/// * `month` - Month, 1 to 12
+///
+/// # Returns
+/// * `u8`: Days in the month, or 0 when `month` is out of range
+fn days_in_month(year: u32, month: u8) -> u8 {
+    match month {
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        2 => {
+            let leap =
+                (year.is_multiple_of(4) && !year.is_multiple_of(100)) || year.is_multiple_of(400);
+            if leap { 29 } else { 28 }
+        }
+        _ => 0,
+    }
+}
 
 /// Parses an RFC 7231 HTTP date such as `Fri, 11 Sep 2026 05:15:30 GMT`.
 ///
@@ -19,7 +43,7 @@ const GPS_STOP_WINDOW_SECONDS: f64 = 30.0 * SECONDS_PER_DAY;
 ///
 /// # Returns
 /// * `Some(Epoch)`: The instant in UTC
-/// * `None`: If the value is not in the fixed-length IMF-fixdate form
+/// * `None`: If the value is not in the fixed-length IMF-fixdate form, or names a date that does not exist
 pub(crate) fn parse_http_date(value: &str) -> Option<Epoch> {
     let parts: Vec<&str> = value.split_whitespace().collect();
     if parts.len() != 6 || !parts[0].ends_with(',') || parts[5] != "GMT" {
@@ -49,7 +73,7 @@ pub(crate) fn parse_http_date(value: &str) -> Option<Epoch> {
     let hour: u8 = clock[0].parse().ok()?;
     let minute: u8 = clock[1].parse().ok()?;
     let second: u8 = clock[2].parse().ok()?;
-    if !(1..=31).contains(&day) || hour > 23 || minute > 59 || second > 60 {
+    if day < 1 || day > days_in_month(year, month) || hour > 23 || minute > 59 || second > 60 {
         return None;
     }
     Some(Epoch::from_datetime(
@@ -87,8 +111,13 @@ pub(crate) fn parse_http_date(value: &str) -> Option<Epoch> {
 /// ```
 #[derive(Debug, Clone, PartialEq)]
 pub struct StarlinkManifestEntry {
-    /// Parsed file name.
+    /// Parsed view of the listing's file name. Rendering it back to a string
+    /// normalises the catalog number and the category spelling, so requests,
+    /// cache files and prune keys use [`StarlinkManifestEntry::file_name_string`],
+    /// which returns the listing's exact text.
     pub file_name: EphemerisFileName,
+    /// The manifest line, exactly as listed.
+    raw_name: String,
     /// NORAD catalog number.
     pub norad_cat_id: u32,
     /// Common name, for example `STARLINK-38128`.
@@ -102,10 +131,11 @@ pub struct StarlinkManifestEntry {
 }
 
 impl StarlinkManifestEntry {
-    /// The file name as listed in the manifest.
+    /// The file name exactly as listed in the manifest, which is what the
+    /// mirror serves and what the cache stores.
     ///
     /// # Returns
-    /// * `String`: Compliant file name with extension
+    /// * `String`: The listing's file name with extension
     ///
     /// # Examples
     ///
@@ -119,20 +149,26 @@ impl StarlinkManifestEntry {
     /// assert!(manifest.entries()[0].file_name_string().starts_with("MEME_100001_"));
     /// ```
     pub fn file_name_string(&self) -> String {
-        self.file_name.to_string()
+        self.raw_name.clone()
     }
 
-    /// Builds an entry from a parsed file name, decoding the stop epoch from
-    /// the metadata field when possible and placing the start epoch in a year.
+    /// Builds an entry from a manifest line and its parsed file name,
+    /// decoding the stop epoch from the metadata field when possible and
+    /// placing the start epoch in a year.
     ///
     /// # Arguments
+    /// * `raw_name` - The manifest line, trimmed
     /// * `file_name` - Parsed Space-Track file name
     /// * `reference` - Epoch used to validate GPS-second metadata and to place the start in a year
     ///
     /// # Returns
     /// * `Ok(StarlinkManifestEntry)`: The decoded entry
     /// * `Err(BraheError)`: If the day of year cannot be placed in a calendar year
-    fn from_file_name(file_name: EphemerisFileName, reference: Epoch) -> Result<Self, BraheError> {
+    fn from_file_name(
+        raw_name: &str,
+        file_name: EphemerisFileName,
+        reference: Epoch,
+    ) -> Result<Self, BraheError> {
         let ephemeris_stop = decode_gps_stop(&file_name.metadata, reference);
         let anchor = ephemeris_stop.unwrap_or(reference);
         let ephemeris_start = start_epoch(&file_name, anchor)?;
@@ -143,6 +179,7 @@ impl StarlinkManifestEntry {
             ephemeris_start,
             ephemeris_stop,
             file_name,
+            raw_name: raw_name.to_string(),
         })
     }
 }
@@ -156,12 +193,15 @@ impl StarlinkManifestEntry {
 ///
 /// # Returns
 /// * `Some(Epoch)`: The decoded stop epoch
-/// * `None`: If the field is not numeric or does not decode near `reference`
+/// * `None`: If the field is not numeric, is too large to represent, or does not decode near `reference`
 fn decode_gps_stop(metadata: &str, reference: Epoch) -> Option<Epoch> {
     if metadata.is_empty() || !metadata.chars().all(|c| c.is_ascii_digit()) {
         return None;
     }
     let seconds: f64 = metadata.parse().ok()?;
+    if !seconds.is_finite() || seconds >= MAX_GPS_SECONDS {
+        return None;
+    }
     let stop = Epoch::from_gps_seconds(seconds);
     ((stop - reference).abs() <= GPS_STOP_WINDOW_SECONDS).then_some(stop)
 }
@@ -273,7 +313,9 @@ impl StarlinkManifest {
             let name = EphemerisFileName::parse(line).map_err(|e| {
                 BraheError::ParseError(format!("Starlink manifest line {}: {}", index + 1, e))
             })?;
-            entries.push(StarlinkManifestEntry::from_file_name(name, reference)?);
+            entries.push(StarlinkManifestEntry::from_file_name(
+                line, name, reference,
+            )?);
         }
         Ok(Self {
             entries,
@@ -424,7 +466,7 @@ impl StarlinkManifest {
             .filter(|e| {
                 other
                     .find_by_norad_id(e.norad_cat_id)
-                    .map(|o| o.file_name != e.file_name)
+                    .map(|o| o.raw_name != e.raw_name)
                     .unwrap_or(true)
             })
             .collect()
@@ -503,7 +545,7 @@ impl StarlinkManifest {
             "file_name".into(),
             self.entries
                 .iter()
-                .map(|e| e.file_name.to_string())
+                .map(|e| e.raw_name.as_str())
                 .collect::<Vec<_>>(),
         )
         .into();
@@ -522,6 +564,7 @@ impl StarlinkManifest {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use serial_test::parallel;
 
@@ -553,6 +596,51 @@ mod tests {
         assert_eq!(parse_http_date("11 Sep 2026 05:15:30 GMT"), None);
         assert_eq!(parse_http_date("Fri, 11 Xyz 2026 05:15:30 GMT"), None);
         assert_eq!(parse_http_date(""), None);
+        assert_eq!(parse_http_date("Fri, 31 Feb 2026 05:15:30 GMT"), None);
+        assert_eq!(
+            parse_http_date("Thu, 29 Feb 2024 05:15:30 GMT"),
+            Some(utc(2024, 2, 29, 5, 15, 30.0))
+        );
+        assert_eq!(parse_http_date("Sat, 29 Feb 2026 05:15:30 GMT"), None);
+        assert_eq!(parse_http_date("Fri, 31 Apr 2026 05:15:30 GMT"), None);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_manifest_entry_keeps_listing_file_name() {
+        let line = "MEME_1001_STARLINK-1_2540142_Operational_nomnvr_UNCLASSIFIED.txt";
+        let m = StarlinkManifest::parse(&format!("{line}\n"), reference(), None).unwrap();
+        let entry = m.find_by_norad_id(1001).unwrap();
+        assert_eq!(entry.file_name_string(), line);
+        assert_eq!(
+            entry.file_name.to_string(),
+            line.replace("_1001_", "_01001_")
+        );
+        assert_eq!(
+            m.to_dataframe()
+                .unwrap()
+                .column("file_name")
+                .unwrap()
+                .str()
+                .unwrap()
+                .get(0),
+            Some(line)
+        );
+
+        let respelled = "MEME_1001_STARLINK-1_2540142_oper_nomnvr_UNCLASSIFIED.txt";
+        let other = StarlinkManifest::parse(&format!("{respelled}\n"), reference(), None).unwrap();
+        assert_eq!(other.changed_since(&m).len(), 1);
+        assert!(m.changed_since(&m).is_empty());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_manifest_entry_rejects_oversized_gps_metadata() {
+        let text = "MEME_100001_STARLINK-38128_2540142_Operational_10000000000000000000_UNCLASSIFIED.txt\n";
+        let m = StarlinkManifest::parse(text, reference(), None).unwrap();
+        let entry = &m.entries()[0];
+        assert!(entry.ephemeris_stop.is_none());
+        assert_eq!(entry.ephemeris_start, utc(2026, 9, 11, 1, 42, 0.0));
     }
 
     #[test]

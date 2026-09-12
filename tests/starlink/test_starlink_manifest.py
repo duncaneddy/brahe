@@ -149,7 +149,33 @@ def test_manifest_to_dataframe():
     assert df2["ephemeris_stop"].null_count() == 1
 
 
+def test_manifest_entry_keeps_listing_file_name():
+    """Rust: test_manifest_entry_keeps_listing_file_name"""
+    line = "MEME_1001_STARLINK-1_2540142_Operational_nomnvr_UNCLASSIFIED.txt"
+    m = bh.StarlinkManifest.parse(f"{line}\n", reference())
+    entry = m.find_by_norad_id(1001)
+    assert entry.file_name_string() == line
+    assert str(entry.file_name) == line.replace("_1001_", "_01001_")
+    assert m.to_dataframe()["file_name"][0] == line
+    respelled = "MEME_1001_STARLINK-1_2540142_oper_nomnvr_UNCLASSIFIED.txt"
+    other = bh.StarlinkManifest.parse(f"{respelled}\n", reference())
+    assert len(other.changed_since(m)) == 1
+    assert m.changed_since(m) == []
+
+
+def test_manifest_entry_rejects_oversized_gps_metadata():
+    """Rust: test_manifest_entry_rejects_oversized_gps_metadata"""
+    m = bh.StarlinkManifest.parse(
+        "MEME_100001_STARLINK-38128_2540142_Operational_10000000000000000000_UNCLASSIFIED.txt\n",
+        reference(),
+    )
+    entry = m.entries()[0]
+    assert entry.ephemeris_stop is None
+    assert entry.ephemeris_start == utc(2026, 9, 11, 1, 42, 0.0)
+
+
 def test_manifest_module_exports():
     assert bh.starlink.StarlinkManifest is bh.StarlinkManifest
     assert bh.clients.starlink.StarlinkClient is bh.StarlinkClient
     assert "StarlinkManifestEntry" in bh.starlink.__all__
+    assert bh.starlink.RateLimitConfig is bh.RateLimitConfig

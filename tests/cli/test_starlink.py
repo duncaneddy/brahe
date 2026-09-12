@@ -86,6 +86,28 @@ def test_manifest_limit_and_filters(mock_client_cls):
 
 
 @patch("brahe.cli.starlink.bh.starlink.StarlinkClient")
+def test_manifest_unknown_name(mock_client_cls):
+    client = MagicMock()
+    mock_client_cls.return_value = client
+    client.get_manifest.return_value = _manifest([_entry(100001, "STARLINK-38128")])
+    result = runner.invoke(app, ["starlink", "manifest", "--name", "STARLINK-0"])
+    assert result.exit_code == 1
+    assert "not in the manifest" in result.stdout
+
+
+@patch("brahe.cli.starlink.bh.starlink.StarlinkClient")
+def test_download_output_that_cannot_be_created(mock_client_cls, tmp_path):
+    blocker = tmp_path / "blocker"
+    blocker.write_text("x")
+    result = runner.invoke(
+        app, ["starlink", "download", "100001", "--output", str(blocker / "out")]
+    )
+    assert result.exit_code == 1
+    assert "ERROR" in result.stdout
+    mock_client_cls.return_value.save_ephemeris.assert_not_called()
+
+
+@patch("brahe.cli.starlink.bh.starlink.StarlinkClient")
 def test_manifest_error(mock_client_cls):
     client = MagicMock()
     mock_client_cls.return_value = client

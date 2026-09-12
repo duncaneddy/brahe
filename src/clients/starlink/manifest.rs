@@ -452,8 +452,7 @@ impl StarlinkManifest {
     /// assert_eq!(df.height(), 5);
     /// ```
     pub fn to_dataframe(&self) -> Result<DataFrame, BraheError> {
-        let unix_epoch = Epoch::from_datetime(1970, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
-        let millis = |e: &Epoch| -> i64 { ((*e - unix_epoch) * 1000.0).round() as i64 };
+        let millis = |e: &Epoch| -> i64 { (e.unix_timestamp() * 1000.0).round() as i64 };
         let datetime = DataType::Datetime(TimeUnit::Milliseconds, None);
 
         let norad: Column = Series::new(
@@ -731,9 +730,7 @@ mod tests {
             .phys
             .get(0)
             .unwrap();
-        let expected_ms =
-            ((utc(2026, 9, 11, 1, 42, 0.0) - utc(1970, 1, 1, 0, 0, 0.0)) * 1000.0).round() as i64;
-        assert_eq!(start_ms, expected_ms);
+        assert_eq!(start_ms, 1_789_090_920_000_i64);
         assert_eq!(df.column("ephemeris_stop").unwrap().null_count(), 0);
 
         let no_stop = StarlinkManifest::parse(

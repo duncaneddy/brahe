@@ -10,11 +10,11 @@ use std::io::Read;
 use std::sync::Mutex;
 use std::time::Duration;
 
-use crate::spacetrack::query::SpaceTrackQuery;
-use crate::spacetrack::rate_limiter::{RateLimitConfig, RateLimiter};
-use crate::spacetrack::responses::{
+use crate::clients::spacetrack::query::SpaceTrackQuery;
+use crate::clients::spacetrack::responses::{
     FileShareFileRecord, FolderRecord, SATCATRecord, SPEphemerisFileRecord,
 };
+use crate::clients::{RateLimitConfig, RateLimiter};
 use crate::types::GPRecord;
 use crate::utils::BraheError;
 use crate::utils::network::ensure_online;
@@ -757,7 +757,7 @@ fn urlencoded(input: &str) -> String {
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
-    use crate::spacetrack::{OutputFormat, RequestClass, SortOrder};
+    use crate::clients::spacetrack::{OutputFormat, RequestClass, SortOrder};
     use crate::utils::testing::NetworkModeGuard;
     use httpmock::prelude::*;
     use serial_test::{parallel, serial};
@@ -1326,7 +1326,7 @@ mod tests {
     #[cfg_attr(not(feature = "integration"), ignore)]
     #[parallel]
     fn test_integration_query_with_operators() {
-        use crate::spacetrack::operators;
+        use crate::clients::spacetrack::operators;
 
         let user = std::env::var("TEST_SPACETRACK_USER")
             .expect("TEST_SPACETRACK_USER env var must be set");
@@ -1755,7 +1755,7 @@ mod tests {
     #[test]
     #[parallel]
     fn test_client_with_rate_limit() {
-        let config = crate::spacetrack::RateLimitConfig {
+        let config = crate::clients::spacetrack::RateLimitConfig {
             max_per_minute: 10,
             max_per_hour: 100,
         };
@@ -1768,7 +1768,7 @@ mod tests {
     #[test]
     #[parallel]
     fn test_client_with_base_url_and_rate_limit() {
-        let config = crate::spacetrack::RateLimitConfig::disabled();
+        let config = crate::clients::spacetrack::RateLimitConfig::disabled();
         let client = SpaceTrackClient::with_base_url_and_rate_limit(
             "user@example.com",
             "password123",
@@ -1815,7 +1815,7 @@ mod tests {
     #[test]
     #[parallel]
     fn test_client_disabled_rate_limit() {
-        let config = crate::spacetrack::RateLimitConfig::disabled();
+        let config = crate::clients::spacetrack::RateLimitConfig::disabled();
         let server = MockServer::start();
 
         server.mock(|when, then| {

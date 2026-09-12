@@ -8,7 +8,7 @@
  * - Numeric fields may contain whitespace
  */
 
-use crate::datasets::gcat::records::{GCATPsatcatRecord, GCATSatcatRecord};
+use crate::clients::gcat::records::{GCATPsatcatRecord, GCATSatcatRecord};
 use crate::utils::BraheError;
 
 /// Parse a string value from a TSV field.
@@ -54,7 +54,7 @@ fn parse_optional_f64(value: &str) -> Option<f64> {
 ///
 /// # Examples
 /// ```no_run
-/// use brahe::datasets::gcat::parser::parse_satcat_tsv;
+/// use brahe::gcat::parser::parse_satcat_tsv;
 /// let data = std::fs::read_to_string("satcat.tsv").unwrap();
 /// let records = parse_satcat_tsv(&data).unwrap();
 /// ```
@@ -164,7 +164,7 @@ pub fn parse_satcat_tsv(data: &str) -> Result<Vec<GCATSatcatRecord>, BraheError>
 ///
 /// # Examples
 /// ```no_run
-/// use brahe::datasets::gcat::parser::parse_psatcat_tsv;
+/// use brahe::gcat::parser::parse_psatcat_tsv;
 /// let data = std::fs::read_to_string("psatcat.tsv").unwrap();
 /// let records = parse_psatcat_tsv(&data).unwrap();
 /// ```

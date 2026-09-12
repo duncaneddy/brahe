@@ -18,8 +18,8 @@
 
 use std::borrow::Cow;
 
-use crate::celestrak::query::{Filter, OrderBy};
-use crate::celestrak::responses::CelestrakSATCATRecord;
+use crate::clients::celestrak::query::{Filter, OrderBy};
+use crate::clients::celestrak::responses::CelestrakSATCATRecord;
 use crate::types::gp_record::FieldAccessor;
 
 impl FieldAccessor for CelestrakSATCATRecord {

@@ -6,7 +6,6 @@
  * and source-specific implementations (CelesTrak, groundstations, etc.).
  */
 
-pub mod gcat;
 pub mod groundstations;
 pub mod horizons;
 pub mod icgem;
@@ -34,11 +33,6 @@ pub use sbdb::{SBDBClient, SBDBObject};
 
 // Re-export commonly used types from horizons
 pub use horizons::{HorizonsClient, HorizonsSPKRequest, HorizonsSPKResponse};
-
-// Re-export commonly used types and functions from gcat
-pub use gcat::{
-    GCATPsatcat, GCATPsatcatRecord, GCATSatcat, GCATSatcatRecord, get_psatcat, get_satcat,
-};
 
 // Re-export commonly used types and functions from star_catalogs
 pub use star_catalogs::{

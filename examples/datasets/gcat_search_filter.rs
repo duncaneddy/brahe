@@ -7,7 +7,7 @@
 
 #[allow(unused_imports)]
 use brahe as bh;
-use bh::datasets::gcat;
+use bh::gcat;
 
 fn main() {
     // Download the SATCAT catalog

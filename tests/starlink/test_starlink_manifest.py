@@ -75,6 +75,7 @@ def test_manifest_entry_without_gps_metadata_infers_year_from_reference():
         "MEME_25544_ISS_2540142_Operational_42_UNCLASSIFIED.txt\n", reference()
     )
     assert m.entries()[0].ephemeris_stop is None
+    assert m.entries()[0].ephemeris_start == utc(2026, 9, 11, 1, 42, 0.0)
     leap = "MEME_25544_ISS_0600000_Operational_nomnvr_UNCLASSIFIED.txt\n"
     assert bh.StarlinkManifest.parse(leap, utc(2024, 3, 1, 0, 0, 0.0)).entries()[
         0

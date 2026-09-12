@@ -140,6 +140,36 @@ pub fn py_get_celestrak_cache_dir() -> PyResult<String> {
     get_celestrak_cache_dir().map_err(|e| exceptions::PyIOError::new_err(format!("{}", e)))
 }
 
+/// Get the Starlink cache directory path.
+///
+/// Returns the path to the Starlink cache subdirectory used for storing downloaded
+/// ephemeris data. Defaults to `~/.cache/brahe/starlink` (or `$BRAHE_CACHE/starlink`
+/// if environment variable is set).
+///
+/// The directory is created if it doesn't exist.
+///
+/// Returns:
+///     str: Path to the Starlink cache directory.
+///
+/// Raises:
+///     IOError: If the cache directory cannot be created or accessed.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     path = bh.get_starlink_cache_dir()
+///     print(f"Starlink cache: {path}")
+///     ```
+///
+/// Note:
+///     The directory will be created on first access if it doesn't exist.
+#[pyfunction]
+#[pyo3(name = "get_starlink_cache_dir")]
+pub fn py_get_starlink_cache_dir() -> PyResult<String> {
+    get_starlink_cache_dir().map_err(|e| exceptions::PyIOError::new_err(format!("{}", e)))
+}
+
 // ================================
 // Threading Functions
 // ================================

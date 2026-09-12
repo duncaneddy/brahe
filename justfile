@@ -100,6 +100,7 @@ download-resources: _setup
     @{{python}} -c "import brahe as bh; bh.datasets.star_catalogs.get_fk5(); bh.datasets.star_catalogs.get_hipparcos()"
     @{{python}} -c "import brahe as bh; bh.datasets.icgem.download_model('moon', 'GRGM660PRIM'); bh.datasets.icgem.download_model('mars', 'ggm2bc80')"
     @PYTHONPATH={{scripts_dir}} {{python}} {{scripts_dir}}/seed_celestrak_cache.py
+    @PYTHONPATH={{scripts_dir}} {{python}} {{scripts_dir}}/seed_starlink_cache.py
 
 # Refresh the committed Celestrak GP snapshots in test_assets/celestrak from
 # the live API. Run when the snapshots should track current orbital data; the

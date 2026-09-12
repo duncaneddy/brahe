@@ -13,6 +13,7 @@ def test_clients_namespace_importable():
 def test_clients_namespace_aliases_flat_modules():
     assert bh.clients.celestrak is bh.celestrak
     assert bh.clients.spacetrack is bh.spacetrack
+    assert bh.clients.starlink is bh.starlink
     assert bh.clients.gcat is bh.datasets.gcat
     assert bh.clients.RateLimitConfig is bh.spacetrack.RateLimitConfig
 
@@ -23,5 +24,6 @@ def test_clients_namespace_exports():
         "celestrak",
         "gcat",
         "spacetrack",
+        "starlink",
     }
     assert "clients" in bh.__all__

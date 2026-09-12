@@ -11,7 +11,7 @@ returns either the parsed `ITC` message or an `OrbitTrajectory` built from it. S
 
 The following example looks up a satellite by name in the manifest and loads its ephemeris as a
 trajectory. It runs from the manifest and ephemeris files seeded into the cache by
-`just download-resources`, using a week-long `cache_max_age` so the example does not attempt a
+`just seed-starlink-cache`, using a week-long `cache_max_age` so the example does not attempt a
 network refresh.
 
 === "Python"

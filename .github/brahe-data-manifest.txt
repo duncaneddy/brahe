@@ -33,5 +33,5 @@ celestrak:group:cosmos-2251-debris
 # Starlink ephemerides (starlink:fixture). Not warmed into the actions cache:
 # the fixture manifest and two Modified ITC files are committed under
 # test_assets/starlink and seeded into ~/.cache/brahe/starlink by
-# scripts/seed_starlink_cache.py, so examples and doc builds never contact
-# api.starlink.com.
+# scripts/seed_starlink_cache.py (just seed-starlink-cache), so examples and
+# doc builds never contact api.starlink.com.

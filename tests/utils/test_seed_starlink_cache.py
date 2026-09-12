@@ -31,6 +31,43 @@ def test_seed_starlink_cache_copies_fixtures(tmp_path):
     assert time.time() - (target / "MANIFEST.txt").stat().st_mtime < 300
 
 
+def test_seed_starlink_cache_refuses_to_replace_a_live_manifest(tmp_path):
+    target = tmp_path / "starlink"
+    target.mkdir(parents=True)
+    live = "MEME_45000_STARLINK-1_2540142_Operational_1473385380_UNCLASSIFIED.txt\n"
+    (target / "MANIFEST.txt").write_text(live)
+    env = {**os.environ, "BRAHE_CACHE": str(tmp_path)}
+    result = subprocess.run(
+        [sys.executable, str(SCRIPT)],
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 1
+    assert "live Starlink" in result.stderr
+    assert (target / "MANIFEST.txt").read_text() == live
+    result = subprocess.run(
+        [sys.executable, str(SCRIPT), "--force"],
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    assert (target / "MANIFEST.txt").read_text() == (
+        ASSETS / "MANIFEST.txt"
+    ).read_text()
+    result = subprocess.run(
+        [sys.executable, str(SCRIPT)],
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+
+
 def test_seed_starlink_cache_removes_stale_manifest_state(tmp_path):
     target = tmp_path / "starlink"
     target.mkdir(parents=True)

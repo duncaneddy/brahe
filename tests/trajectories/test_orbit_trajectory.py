@@ -4404,3 +4404,38 @@ def test_covariance_in_frame_rejects_keplerian(eop):
     )
     with pytest.raises(Exception, match="Cartesian representation"):
         kep_with_cov.covariance_in_frame(epoch, brahe.CelestialFrame.ITRF)
+
+
+def test_keplerian_to_frame_drops_covariance(eop):
+    """Rust: test_dorbittrajectory_keplerian_to_frame_drops_covariance"""
+    traj, epoch, _ = _covariance_routing_trajectory(brahe.CelestialFrame.GCRF)
+    kep = traj.to_keplerian(brahe.AngleFormat.DEGREES)
+
+    with pytest.raises(Exception, match="covariance tracking was not enabled"):
+        kep.covariance(epoch)
+    with pytest.raises(Exception, match="covariance tracking was not enabled"):
+        kep.to_gcrf().covariance(epoch)
+
+
+def test_covariance_rtn_rejects_keplerian(eop):
+    """Rust: test_dorbittrajectory_covariance_rtn_rejects_keplerian"""
+    traj, epoch, _ = _covariance_routing_trajectory(brahe.CelestialFrame.GCRF)
+    kep = traj.to_keplerian(brahe.AngleFormat.DEGREES)
+
+    kep_with_cov = brahe.OrbitTrajectory.from_orbital_data(
+        [epoch],
+        np.array([kep.state(epoch)]),
+        brahe.CelestialFrame.GCRF,
+        brahe.OrbitRepresentation.KEPLERIAN,
+        angle_format=brahe.AngleFormat.DEGREES,
+        covariances=np.array([np.eye(6)]),
+    )
+
+    with pytest.raises(Exception, match="Cartesian representation"):
+        kep_with_cov.covariance_rtn(epoch)
+    for variant in (
+        brahe.OrbitRelativeFrameVariant.ROTATING,
+        brahe.OrbitRelativeFrameVariant.INERTIAL,
+    ):
+        with pytest.raises(Exception, match="Cartesian representation"):
+            kep_with_cov.covariance_rtn_with_variant(epoch, variant)

@@ -1313,6 +1313,9 @@ impl PyOrbitalTrajectory {
 
     /// Convert to ECI (Earth-Centered Inertial) frame in Cartesian representation.
     ///
+    /// ECI is realized as GCRF. See `to_frame` for the conversion rules,
+    /// including the treatment of covariance.
+    ///
     /// Returns:
     ///     OrbitTrajectory: Trajectory in ECI Cartesian frame
     ///
@@ -1337,6 +1340,9 @@ impl PyOrbitalTrajectory {
     }
 
     /// Convert to ECEF (Earth-Centered Earth-Fixed) frame in Cartesian representation.
+    ///
+    /// ECEF is realized as ITRF. See `to_frame` for the conversion rules,
+    /// including the treatment of covariance.
     ///
     /// Returns:
     ///     OrbitTrajectory: Trajectory in ECEF Cartesian frame
@@ -1363,6 +1369,9 @@ impl PyOrbitalTrajectory {
 
     /// Convert to GCRF (Geocentric Celestial Reference Frame) frame in Cartesian representation.
     ///
+    /// See `to_frame` for the conversion rules, including the treatment
+    /// of covariance.
+    ///
     /// Returns:
     ///     OrbitTrajectory: Trajectory in GCRF Cartesian frame
     ///
@@ -1387,6 +1396,9 @@ impl PyOrbitalTrajectory {
     }
 
     /// Convert to EME2000 (Earth Mean Equator and Equinox of J2000.0) frame in Cartesian representation.
+    ///
+    /// See `to_frame` for the conversion rules, including the treatment
+    /// of covariance.
     ///
     /// Returns:
     ///     OrbitTrajectory: Trajectory in EME2000 Cartesian frame
@@ -1413,6 +1425,9 @@ impl PyOrbitalTrajectory {
 
     /// Convert to ITRF (International Terrestrial Reference Frame) frame in Cartesian representation.
     ///
+    /// See `to_frame` for the conversion rules, including the treatment
+    /// of covariance.
+    ///
     /// Returns:
     ///     OrbitTrajectory: Trajectory in ITRF Cartesian frame
     ///
@@ -1437,8 +1452,14 @@ impl PyOrbitalTrajectory {
     }
 
     /// Convert every sample to Cartesian coordinates in `frame` through the
-    /// reference frame router. Covariances, STMs, sensitivities, and
-    /// accelerations are dropped.
+    /// reference frame router.
+    ///
+    /// Covariance carried by a Cartesian trajectory is rotated for every frame
+    /// pair, each sample by the 6x6 state-transform Jacobian at its own epoch;
+    /// a conversion to the trajectory's own frame keeps it unrotated. A
+    /// Keplerian trajectory has no Cartesian covariance to rotate, so its
+    /// covariances are dropped along with the representation. STMs,
+    /// sensitivities, and accelerations are dropped.
     ///
     /// Args:
     ///     frame (CelestialFrame or ReferenceFrame): Target frame.
@@ -2648,7 +2669,7 @@ impl PyOrbitalTrajectory {
     ///     np.ndarray: Covariance matrix in RTN axes
     ///
     /// Raises:
-    ///     RuntimeError: If the covariance is unavailable or cannot be rotated into GCRF
+    ///     RuntimeError: If the covariance is unavailable, the representation is not Cartesian, or it cannot be rotated into GCRF
     ///
     /// Example:
     ///     ```python

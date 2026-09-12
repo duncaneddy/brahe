@@ -144,6 +144,7 @@ use super::traits::{
     CovarianceInterpolationMethod, InterpolatableTrajectory, InterpolationConfig,
     InterpolationMethod, OrbitRepresentation, STMStorage, SensitivityStorage, Trajectory,
     TrajectoryEvictionPolicy, bci_fixed_frame, is_icrf_axes_frame, keplerian_center,
+    require_cartesian_covariance,
 };
 
 /// Dynamic (runtime-sized) orbital trajectory container.
@@ -2577,12 +2578,7 @@ impl DOrbitTrajectory {
         if self.frame == frame {
             return Ok(cov_native);
         }
-        if self.representation != OrbitRepresentation::Cartesian {
-            return Err(BraheError::Error(
-                "Covariances require a Cartesian representation to be rotated between frames"
-                    .to_string(),
-            ));
-        }
+        require_cartesian_covariance(self.representation)?;
         covariance_frame_to_frame(self.frame.clone(), frame, epoch, &cov_native)
     }
 
@@ -2643,7 +2639,7 @@ impl DOrbitTrajectory {
     ///
     /// # Returns
     /// * `Ok(DMatrix<f64>)` - Covariance in RTN axes
-    /// * `Err(BraheError)` - If the covariance is unavailable or cannot be rotated into GCRF
+    /// * `Err(BraheError)` - If the covariance is unavailable, the representation is not Cartesian, or it cannot be rotated into GCRF
     ///
     /// # Examples
     /// ```rust
@@ -2683,6 +2679,7 @@ impl DOrbitTrajectory {
         epoch: Epoch,
         variant: OrbitRelativeFrameVariant,
     ) -> Result<DMatrix<f64>, BraheError> {
+        require_cartesian_covariance(self.representation)?;
         let cov_eci = self.covariance_in_frame(epoch, CelestialFrame::GCRF)?;
         let state_eci = self.state_eci(epoch)?;
         rotate_covariance(&cov_eci, &jacobian_eci_to_rtn(state_eci, variant))
@@ -6955,6 +6952,28 @@ mod tests {
         let err = kep
             .covariance_in_frame(epoch, CelestialFrame::ITRF)
             .unwrap_err();
+        assert!(err.to_string().contains("Cartesian representation"));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_dorbittrajectory_covariance_rtn_rejects_keplerian() {
+        setup_global_test_eop();
+
+        let (traj, epoch, cov) = covariance_routing_trajectory(CelestialFrame::GCRF, 6);
+        let mut kep = traj.to_keplerian(AngleFormat::Degrees).unwrap();
+        kep.covariances = Some(vec![cov]);
+
+        // The RTN Jacobian is a Cartesian state map, so elements are rejected
+        // even though the trajectory is already in the RTN frame's parent.
+        for variant in [
+            OrbitRelativeFrameVariant::Rotating,
+            OrbitRelativeFrameVariant::Inertial,
+        ] {
+            let err = kep.covariance_rtn_with_variant(epoch, variant).unwrap_err();
+            assert!(err.to_string().contains("Cartesian representation"));
+        }
+        let err = kep.covariance_rtn(epoch).unwrap_err();
         assert!(err.to_string().contains("Cartesian representation"));
     }
 

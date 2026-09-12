@@ -153,6 +153,30 @@ impl fmt::Debug for OrbitRepresentation {
     }
 }
 
+/// Rejects rotating a covariance stored over anything but a Cartesian state.
+///
+/// Every covariance rotation in this crate applies the Jacobian of a Cartesian
+/// state map, which says nothing about a covariance over orbital elements.
+///
+/// # Arguments
+/// * `representation` - Representation the covariance is stored over
+///
+/// # Returns
+/// * `Ok(())`: If `representation` is Cartesian
+/// * `Err(BraheError)`: Otherwise
+pub(crate) fn require_cartesian_covariance(
+    representation: OrbitRepresentation,
+) -> Result<(), BraheError> {
+    if representation == OrbitRepresentation::Cartesian {
+        Ok(())
+    } else {
+        Err(BraheError::Error(
+            "Covariances require a Cartesian representation to be rotated between frames"
+                .to_string(),
+        ))
+    }
+}
+
 /// Core trajectory functionality that all trajectory implementations must provide.
 ///
 /// This trait defines the complete interface for storing, retrieving, and managing
@@ -715,7 +739,13 @@ pub trait OrbitalTrajectory: InterpolatableTrajectory {
         Self: Sized;
 
     /// Converts every sample to Cartesian coordinates in `frame`, routing
-    /// through the reference frame router. Covariances, state transition
+    /// through the reference frame router.
+    ///
+    /// Covariance carried by a Cartesian trajectory is rotated for every frame
+    /// pair, each sample by the 6x6 state-transform Jacobian at its own epoch;
+    /// a conversion to the trajectory's own frame keeps it unrotated. A
+    /// Keplerian trajectory has no Cartesian covariance to rotate, so its
+    /// covariances are dropped along with the representation. State transition
     /// matrices, sensitivities, and accelerations are dropped.
     ///
     /// # Arguments
@@ -723,9 +753,9 @@ pub trait OrbitalTrajectory: InterpolatableTrajectory {
     ///
     /// # Returns
     /// * `Ok(Self)` - New Cartesian trajectory in `frame`
-    /// * `Err(BraheError)` - If a sample cannot be converted (unbound or
-    ///   unregistered frame, missing ephemeris, or Keplerian elements about
-    ///   a barycenter)
+    /// * `Err(BraheError)` - If a sample or its covariance cannot be converted
+    ///   (unbound or unregistered frame, missing ephemeris, or Keplerian
+    ///   elements about a barycenter)
     ///
     /// # Examples
     /// ```rust

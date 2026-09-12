@@ -342,6 +342,40 @@ mod tests {
 
     #[test]
     #[parallel]
+    fn test_rotate_covariance_6() {
+        // A 90-degree rotation about z maps x into y, so the leading variances
+        // swap and the position-velocity cross term follows the same axes.
+        let r = SMatrix3::new(0.0, -1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0);
+        let j = block_diagonal(&r, &r);
+
+        let mut p = SMatrix6::identity();
+        p[(0, 0)] = 4.0;
+        p[(1, 1)] = 9.0;
+        p[(0, 3)] = 2.0;
+        p[(3, 0)] = 2.0;
+
+        let rotated = rotate_covariance_6(&p, &j);
+
+        assert_abs_diff_eq!(rotated[(0, 0)], 9.0, epsilon = 1e-12);
+        assert_abs_diff_eq!(rotated[(1, 1)], 4.0, epsilon = 1e-12);
+        // Row 0 of R is (0, -1, 0) and so is row 3 of blockdiag(R, R) shifted,
+        // so the (0, 3) cross term moves to (1, 4) and keeps its magnitude.
+        assert_abs_diff_eq!(rotated[(1, 4)], 2.0, epsilon = 1e-12);
+        assert_abs_diff_eq!(rotated[(0, 3)], 0.0, epsilon = 1e-12);
+
+        // The result is symmetric and agrees with the dynamic form.
+        assert_abs_diff_eq!((rotated - rotated.transpose()).norm(), 0.0, epsilon = 1e-18);
+        let dynamic =
+            rotate_covariance(&DMatrix::from_iterator(6, 6, p.iter().copied()), &j).unwrap();
+        for i in 0..6 {
+            for k in 0..6 {
+                assert_abs_diff_eq!(rotated[(i, k)], dynamic[(i, k)], epsilon = 1e-15);
+            }
+        }
+    }
+
+    #[test]
+    #[parallel]
     fn test_rotate_covariance_shape_errors() {
         let j = SMatrix6::identity();
 

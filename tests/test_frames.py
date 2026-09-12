@@ -2694,12 +2694,28 @@ def test_covariance_frame_to_frame_preserves_extra_dimensions(eop):
     """Rust: test_rotate_covariance_preserves_extra_dimensions"""
     epc = _covariance_test_epoch()
     p = np.eye(7)
+    p[0, 0] = 4.0
     p[6, 6] = 9.0
+    p[0, 6] = p[6, 0] = 2.0
+    p[1, 6] = p[6, 1] = -1.0
+    p[2, 6] = p[6, 2] = 0.5
+
     rotated = brahe.covariance_frame_to_frame(
         brahe.CelestialFrame.GCRF, brahe.CelestialFrame.ITRF, epc, p
     )
     assert rotated.shape == (7, 7)
+
+    # The extra parameter's own variance is untouched.
     assert rotated[6, 6] == approx(9.0, abs=1e-12)
+
+    # Its cross-covariance with the orbital block picks up the rotation and
+    # nothing else: the position rows mix by R, the velocity rows by the full
+    # Jacobian rows.
+    j = brahe.state_transform_jacobian(
+        brahe.CelestialFrame.GCRF, brahe.CelestialFrame.ITRF, epc
+    )
+    np.testing.assert_allclose(rotated[0:6, 6], j @ p[0:6, 6], atol=1e-12, rtol=0)
+    np.testing.assert_allclose(rotated[6, 0:6], rotated[0:6, 6], atol=1e-18, rtol=0)
 
 
 def test_covariance_frame_to_frame_shape_errors(eop):

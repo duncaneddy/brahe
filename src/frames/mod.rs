@@ -8,10 +8,19 @@
  * - EME2000: Earth Mean Equator and Equinox of J2000.0
  * - EMR/SER/GSE: Earth-Moon Rotating, Sun-Earth Rotating, and Geocentric Solar Ecliptic (synodic frames)
  * - MOD/TOD: Earth mean-of-date and true-of-date (equinox-based) frames
+ *
+ * It also provides [`state_transform_jacobian`] and
+ * [`covariance_frame_to_frame`], which rotate a state covariance between any
+ * two frames the router can transform states between.
  */
 
 pub mod axes;
 pub mod center;
+// Not `pub`: `crate::math::covariance` is already a public module of that
+// name, and `pub mod covariance;` here would make `pub use frames::*;` (in
+// `lib.rs`) collide with `pub use math::*;` on the module name itself. The
+// glob re-export below still surfaces every public item.
+mod covariance;
 pub mod custom;
 pub mod eci_ecef;
 pub mod emb;
@@ -43,6 +52,7 @@ pub(crate) use kinematics::state_inertial_to_rotating;
 
 pub use axes::*;
 pub use center::*;
+pub use covariance::*;
 pub use custom::*;
 pub use eci_ecef::*;
 pub use emb::*;

@@ -19,3 +19,7 @@ Functions for converting between different time systems and formats.
 ::: brahe.jd_to_datetime
 
 ::: brahe.mjd_to_datetime
+
+## Calendar Functions
+
+::: brahe.days_in_month

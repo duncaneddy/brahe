@@ -4,7 +4,8 @@
 
 use std::env;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::time::SystemTime;
 
 use crate::utils::BraheError;
 
@@ -271,6 +272,26 @@ pub fn get_sbdb_cache_dir() -> Result<String, BraheError> {
 /// ```
 pub fn get_horizons_cache_dir() -> Result<String, BraheError> {
     get_brahe_cache_dir_with_subdir(Some("horizons"))
+}
+
+/// Whether a file's modification time is older than `max_age_seconds`.
+///
+/// # Arguments
+/// * `path` - The cached file to check
+/// * `max_age_seconds` - Time-to-live to compare the file's age against
+///
+/// # Returns
+/// * `Ok(bool)`: `true` when the file's age exceeds `max_age_seconds`
+/// * `Err(BraheError)`: If the file's modification time cannot be read
+pub(crate) fn is_older_than(path: &Path, max_age_seconds: f64) -> Result<bool, BraheError> {
+    let modified = fs::metadata(path)
+        .and_then(|m| m.modified())
+        .map_err(|e| BraheError::IoError(format!("Failed to read file modification time: {e}")))?;
+    Ok(SystemTime::now()
+        .duration_since(modified)
+        .unwrap_or_default()
+        .as_secs_f64()
+        > max_age_seconds)
 }
 
 /// Compute a stable 16-hex-character hash of `input` for cache-key filenames.
@@ -654,5 +675,29 @@ mod tests {
         assert_eq!(a.len(), 16);
         assert!(a.chars().all(|c| c.is_ascii_hexdigit()));
         assert_ne!(a, short_hash("different"));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_is_older_than() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("file.txt");
+        std::fs::write(&path, b"data").unwrap();
+
+        assert!(!is_older_than(&path, 3600.0).unwrap());
+
+        let file = std::fs::File::open(&path).unwrap();
+        file.set_modified(SystemTime::now() - std::time::Duration::from_secs(7200))
+            .unwrap();
+        assert!(is_older_than(&path, 3600.0).unwrap());
+        assert!(!is_older_than(&path, 36000.0).unwrap());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_is_older_than_missing_file_errors() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("missing.txt");
+        assert!(is_older_than(&path, 3600.0).is_err());
     }
 }

@@ -8,23 +8,28 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-use std::time::{Duration, SystemTime};
+use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 
 use crate::clients::spacetrack::SpaceTrackEphemerisFileName;
-use crate::clients::starlink::STARLINK_RATE_LIMIT;
-use crate::clients::starlink::manifest::{
-    StarlinkManifest, StarlinkManifestEntry, parse_http_date,
-};
+use crate::clients::starlink::manifest::{StarlinkManifest, StarlinkManifestEntry};
 use crate::clients::{RateLimitConfig, RateLimiter};
 use crate::frames::OrbitRelativeFrameVariant;
 use crate::itc::ITC;
 use crate::time::Epoch;
 use crate::trajectories::DOrbitTrajectory;
+use crate::utils::cache::is_older_than;
 use crate::utils::download::{backoff_delay, is_retryable_error};
-use crate::utils::network::{CacheDecision, cache_policy, ensure_online};
+use crate::utils::fs::{modified_epoch, touch};
+use crate::utils::network::{CacheDecision, cache_policy, ensure_online, parse_http_date};
 use crate::utils::{BraheError, atomic_write, get_starlink_cache_dir};
+
+/// Default request limits for the Starlink mirror: 1000 per minute and 30000 per hour.
+pub const STARLINK_RATE_LIMIT: RateLimitConfig = RateLimitConfig {
+    max_per_minute: 1000,
+    max_per_hour: 30000,
+};
 
 pub(crate) const DEFAULT_BASE_URL: &str = "https://api.starlink.com/public-files/ephemerides";
 pub(crate) const DEFAULT_MAX_CACHE_AGE: f64 = 3600.0;
@@ -483,7 +488,7 @@ impl StarlinkClient {
         let text = fs::read_to_string(&path).map_err(|e| {
             BraheError::IoError(format!("Failed to read previous Starlink manifest: {e}"))
         })?;
-        let retrieved = file_epoch(&path)?;
+        let retrieved = modified_epoch(&path)?;
         StarlinkManifest::parse(&text, retrieved, None).map(Some)
     }
 
@@ -505,7 +510,7 @@ impl StarlinkClient {
         let meta = self.read_meta(dir);
         let retrieved = match meta.retrieved.as_deref().and_then(Epoch::from_string) {
             Some(retrieved) => retrieved,
-            None => file_epoch(&path)?,
+            None => modified_epoch(&path)?,
         };
         let last_modified = meta.last_modified.as_deref().and_then(parse_http_date);
         StarlinkManifest::parse(&text, retrieved, last_modified)
@@ -555,14 +560,7 @@ impl StarlinkClient {
     /// * `Ok(bool)`: `true` when the file's age exceeds `cache_max_age` seconds
     /// * `Err(BraheError)`: If the file's modification time cannot be read
     fn is_cache_stale(&self, path: &Path) -> Result<bool, BraheError> {
-        let modified = fs::metadata(path).and_then(|m| m.modified()).map_err(|e| {
-            BraheError::IoError(format!("Failed to read file modification time: {e}"))
-        })?;
-        Ok(SystemTime::now()
-            .duration_since(modified)
-            .unwrap_or_default()
-            .as_secs_f64()
-            > self.cache_max_age)
+        is_older_than(path, self.cache_max_age)
     }
 
     /// Blocks until the shared rate limiter admits a request to `url`,
@@ -1176,43 +1174,6 @@ fn copy_file(source: &Path, target: &Path) -> Result<(), BraheError> {
 fn now_rounded() -> Epoch {
     let now = Epoch::now();
     Epoch::from_string(&now.to_string()).unwrap_or(now)
-}
-
-/// Sets a file's modification time to now, so a `304 Not Modified` answer
-/// restarts the cache's freshness window without rewriting its content.
-///
-/// # Arguments
-/// * `path` - The file to touch
-///
-/// # Returns
-/// * `Ok(())`: The modification time was updated
-/// * `Err(BraheError)`: If the file cannot be opened or its time set
-fn touch(path: &Path) -> Result<(), BraheError> {
-    fs::OpenOptions::new()
-        .write(true)
-        .open(path)
-        .and_then(|f| f.set_modified(SystemTime::now()))
-        .map_err(|e| BraheError::IoError(format!("Failed to update {}: {e}", path.display())))
-}
-
-/// A file's modification time as an [`Epoch`], for use as a manifest's
-/// `retrieved` timestamp when no sidecar value is available.
-///
-/// # Arguments
-/// * `path` - The file whose modification time is read
-///
-/// # Returns
-/// * `Ok(Epoch)`: The modification time, in UTC
-/// * `Err(BraheError)`: If the file's modification time cannot be read
-fn file_epoch(path: &Path) -> Result<Epoch, BraheError> {
-    let modified = fs::metadata(path)
-        .and_then(|m| m.modified())
-        .map_err(|e| BraheError::IoError(format!("Failed to read file modification time: {e}")))?;
-    let secs = modified
-        .duration_since(SystemTime::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs_f64();
-    Ok(Epoch::from_unix_timestamp(secs))
 }
 
 /// Directory name for a non-default Starlink base URL's mirror cache.

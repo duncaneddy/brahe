@@ -6,6 +6,140 @@
 
 
 // ============================================================================
+// Linear algebra
+// ============================================================================
+
+/// Skew-symmetric cross-product matrix `[v]x` such that `[v]x @ w == v x w`.
+///
+/// Args:
+///     v (np.ndarray): 3-element vector whose cross product is to be written as a matrix
+///
+/// Returns:
+///     np.ndarray: The 3x3 skew-symmetric matrix `[v]x`, shape `(3, 3)`
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     v = np.array([1.0, 2.0, 3.0])
+///     s = bh.skew_symmetric(v)
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(v)")]
+#[pyo3(name = "skew_symmetric")]
+fn py_skew_symmetric<'py>(
+    py: Python<'py>,
+    v: PyReadonlyArray1<'py, f64>,
+) -> PyResult<Bound<'py, PyArray<f64, Ix2>>> {
+    let vec = numpy_to_vector3!(v);
+    let mat = skew_symmetric(&vec);
+    Ok(matrix_to_numpy!(py, mat, 3, 3, f64).to_owned())
+}
+
+/// 6x6 block-diagonal matrix `blockdiag(a, b)`.
+///
+/// The result carries `a` in the leading 3x3 block, `b` in the trailing 3x3
+/// block, and zeros in the two off-diagonal blocks.
+///
+/// Args:
+///     a (np.ndarray): Leading 3x3 block, placed at rows and columns 0-2
+///     b (np.ndarray): Trailing 3x3 block, placed at rows and columns 3-5
+///
+/// Returns:
+///     np.ndarray: The 6x6 block-diagonal matrix, shape `(6, 6)`
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     a = np.eye(3)
+///     b = np.eye(3) * 2.0
+///     m = bh.block_diagonal(a, b)
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(a, b)")]
+#[pyo3(name = "block_diagonal")]
+fn py_block_diagonal<'py>(
+    py: Python<'py>,
+    a: PyReadonlyArray2<'py, f64>,
+    b: PyReadonlyArray2<'py, f64>,
+) -> PyResult<Bound<'py, PyArray<f64, Ix2>>> {
+    let a_mat = numpy_to_smatrix3!(a);
+    let b_mat = numpy_to_smatrix3!(b);
+    let m = block_diagonal(&a_mat, &b_mat);
+    Ok(matrix_to_numpy!(py, m, 6, 6, f64).to_owned())
+}
+
+/// The symmetric part `(m + m.T) / 2` of a square matrix.
+///
+/// A congruence `J @ P @ J.T` of a symmetric `P` is symmetric in exact
+/// arithmetic but accumulates asymmetry of the order of the rounding error.
+/// Averaging the matrix with its transpose removes that drift without
+/// changing the result to within the same rounding.
+///
+/// Args:
+///     m (np.ndarray): Square matrix
+///
+/// Returns:
+///     np.ndarray: The symmetric part of `m`
+///
+/// Raises:
+///     PanicException: If `m` is not square
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     m = np.array([[1.0, 0.4], [0.6, 2.0]])
+///     s = bh.symmetrize(m)
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(m)")]
+#[pyo3(name = "symmetrize")]
+fn py_symmetrize<'py>(py: Python<'py>, m: PyReadonlyArray2<'py, f64>) -> Bound<'py, PyArray<f64, Ix2>> {
+    let array = m.as_array();
+    let (rows, cols) = (array.shape()[0], array.shape()[1]);
+    let mat = DMatrix::<f64>::from_row_iterator(rows, cols, array.iter().copied());
+    let s = symmetrize(&mat);
+    let s_ref = &s;
+    matrix_to_numpy!(py, s_ref, rows, cols, f64).to_owned()
+}
+
+/// Whether a square matrix is symmetric to within a relative tolerance.
+///
+/// Args:
+///     m (np.ndarray): Square matrix
+///     rtol (float): Relative tolerance applied to the larger magnitude of each mirrored pair. Default `1e-9`
+///
+/// Returns:
+///     bool: True when every pair `(i, k)`, `(k, i)` agrees within `rtol`, or when `m` is not square is False
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     m = np.array([[1.0, 0.5], [0.5, 2.0]])
+///     assert bh.is_symmetric(m)
+///
+///     n = np.array([[1.0, 0.5], [0.4, 2.0]])
+///     assert not bh.is_symmetric(n)
+///     ```
+#[pyfunction]
+#[pyo3(signature = (m, rtol=1e-9))]
+#[pyo3(text_signature = "(m, rtol=1e-9)")]
+#[pyo3(name = "is_symmetric")]
+fn py_is_symmetric<'py>(m: PyReadonlyArray2<'py, f64>, rtol: f64) -> bool {
+    let array = m.as_array();
+    let (rows, cols) = (array.shape()[0], array.shape()[1]);
+    let mat = DMatrix::<f64>::from_row_iterator(rows, cols, array.iter().copied());
+    is_symmetric(&mat, rtol)
+}
+
+// ============================================================================
 // Enums
 // ============================================================================
 

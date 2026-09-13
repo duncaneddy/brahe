@@ -5812,6 +5812,56 @@ fn py_state_transform_jacobian<'py>(
     Ok(matrix_to_numpy!(py, j, 6, 6, f64).to_owned())
 }
 
+/// Rotates an `n x n` covariance (`n >= 6`) with a 6x6 state Jacobian,
+/// leaving elements beyond the orbital six unchanged, and symmetrizes the
+/// result.
+///
+/// The full transform is `blockdiag(jacobian, I)`, so a covariance that
+/// carries extra parameters (drag coefficient, clock bias) keeps their
+/// variances and picks up the rotation in the cross-covariances with the
+/// orbital block. When `covariance` is exactly 6x6 this matches the Rust
+/// core's fixed-size `rotate_covariance_6`, which this binding also covers.
+///
+/// Args:
+///     covariance (numpy.ndarray): Square `n x n` covariance, `n >= 6`, whose leading six elements are the Cartesian state
+///     jacobian (numpy.ndarray): 6x6 state-transform Jacobian, e.g. from `state_transform_jacobian`, shape `(6, 6)`
+///
+/// Returns:
+///     numpy.ndarray: The `n x n` rotated covariance, shape `(n, n)`
+///
+/// Raises:
+///     ValueError: If `jacobian` is not 6x6
+///     RuntimeError: If `covariance` is not square, or is smaller than 6x6
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     p = np.eye(7)
+///     j = np.eye(6)
+///     rotated = bh.rotate_covariance(p, j)
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(covariance, jacobian)")]
+#[pyo3(name = "rotate_covariance")]
+fn py_rotate_covariance<'py>(
+    py: Python<'py>,
+    covariance: PyReadonlyArray2<'py, f64>,
+    jacobian: PyReadonlyArray2<'py, f64>,
+) -> PyResult<Bound<'py, PyArray<f64, Ix2>>> {
+    let j = numpy_to_smatrix6!(jacobian);
+
+    let covariance_array = covariance.as_array();
+    let (rows, cols) = (covariance_array.shape()[0], covariance_array.shape()[1]);
+    let p = DMatrix::<f64>::from_row_iterator(rows, cols, covariance_array.iter().copied());
+
+    let rotated = frames::rotate_covariance(&p, &j)?;
+    let rotated_ref = &rotated;
+    let (n, m) = (rotated.nrows(), rotated.ncols());
+    Ok(matrix_to_numpy!(py, rotated_ref, n, m, f64).to_owned())
+}
+
 /// Rotates a state covariance from `from_frame` into `to_frame` at `epc`.
 ///
 /// Composes `state_transform_jacobian` with the congruence `J P J.T`,

@@ -2774,3 +2774,50 @@ def test_covariance_frame_to_frame_round_trip(eop):
         brahe.CelestialFrame.ITRF, brahe.CelestialFrame.GCRF, epc, p_itrf
     )
     assert np.linalg.norm(p_back - p) / np.linalg.norm(p) < 1e-9
+
+
+def test_rotate_covariance_preserves_extra_dimensions():
+    """Rust: test_rotate_covariance_preserves_extra_dimensions"""
+    r = np.array([[0.0, -1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]])
+    j = brahe.block_diagonal(r, r)
+
+    p = np.eye(7)
+    p[0, 0] = 4.0
+    p[6, 6] = 9.0
+    p[0, 6] = p[6, 0] = 2.0
+
+    rotated = brahe.rotate_covariance(p, j)
+
+    assert rotated.shape == (7, 7)
+    assert rotated[6, 6] == approx(9.0, abs=1e-12)
+    assert rotated[0, 6] == approx(0.0, abs=1e-12)
+    assert rotated[1, 6] == approx(2.0, abs=1e-12)
+    assert rotated[1, 1] == approx(4.0, abs=1e-12)
+
+
+def test_rotate_covariance_6():
+    """Rust: test_rotate_covariance_6"""
+    r = np.array([[0.0, -1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]])
+    j = brahe.block_diagonal(r, r)
+
+    p = np.eye(6)
+    p[0, 0] = 4.0
+    p[1, 1] = 9.0
+    p[0, 3] = p[3, 0] = 2.0
+
+    rotated = brahe.rotate_covariance(p, j)
+
+    assert rotated[0, 0] == approx(9.0, abs=1e-12)
+    assert rotated[1, 1] == approx(4.0, abs=1e-12)
+    assert rotated[1, 4] == approx(2.0, abs=1e-12)
+    assert rotated[0, 3] == approx(0.0, abs=1e-12)
+    np.testing.assert_allclose(rotated, rotated.T, atol=1e-18, rtol=0)
+
+
+def test_rotate_covariance_shape_errors():
+    """Rust: test_rotate_covariance_shape_errors"""
+    j = np.eye(6)
+    with pytest.raises(Exception, match="at least 6x6"):
+        brahe.rotate_covariance(np.eye(5), j)
+    with pytest.raises(Exception, match="must be square"):
+        brahe.rotate_covariance(np.zeros((6, 5)), j)

@@ -2595,6 +2595,26 @@ impl PyOrbitalTrajectory {
     ///
     /// Raises:
     ///     RuntimeError: If the covariance is unavailable or cannot be rotated
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     bh.initialize_eop()
+    ///
+    ///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0)
+    ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+    ///     cov = np.eye(6) * 1000.0
+    ///
+    ///     traj = bh.OrbitTrajectory.from_orbital_data(
+    ///         [epoch], [state], bh.CelestialFrame.GCRF, bh.OrbitRepresentation.CARTESIAN,
+    ///         covariances=np.array([cov])
+    ///     )
+    ///
+    ///     result = traj.covariance_itrf(epoch)
+    ///     print(result)  # 6x6 numpy array in ITRF frame
+    ///     ```
     #[pyo3(text_signature = "(epoch)")]
     fn covariance_itrf<'py>(
         &self,
@@ -2620,6 +2640,26 @@ impl PyOrbitalTrajectory {
     ///
     /// Raises:
     ///     RuntimeError: If the covariance is unavailable or cannot be rotated
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     bh.initialize_eop()
+    ///
+    ///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0)
+    ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+    ///     cov = np.eye(6) * 1000.0
+    ///
+    ///     traj = bh.OrbitTrajectory.from_orbital_data(
+    ///         [epoch], [state], bh.CelestialFrame.GCRF, bh.OrbitRepresentation.CARTESIAN,
+    ///         covariances=np.array([cov])
+    ///     )
+    ///
+    ///     result = traj.covariance_ecef(epoch)
+    ///     print(result)  # 6x6 numpy array in ITRF frame
+    ///     ```
     #[pyo3(text_signature = "(epoch)")]
     fn covariance_ecef<'py>(
         &self,
@@ -2644,6 +2684,26 @@ impl PyOrbitalTrajectory {
     ///
     /// Raises:
     ///     RuntimeError: If the covariance is unavailable or cannot be rotated
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     bh.initialize_eop()
+    ///
+    ///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0)
+    ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+    ///     cov = np.eye(6) * 1000.0
+    ///
+    ///     traj = bh.OrbitTrajectory.from_orbital_data(
+    ///         [epoch], [state], bh.CelestialFrame.GCRF, bh.OrbitRepresentation.CARTESIAN,
+    ///         covariances=np.array([cov])
+    ///     )
+    ///
+    ///     result = traj.covariance_eme2000(epoch)
+    ///     print(result)  # 6x6 numpy array in EME2000 frame
+    ///     ```
     #[pyo3(text_signature = "(epoch)")]
     fn covariance_eme2000<'py>(
         &self,

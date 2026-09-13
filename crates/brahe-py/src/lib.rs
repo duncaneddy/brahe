@@ -160,6 +160,23 @@ macro_rules! numpy_to_smatrix3 {
     }};
 }
 
+macro_rules! numpy_to_smatrix6 {
+    ($arr:expr) => {{
+        let shape = $arr.shape();
+        if shape[0] != 6 || shape[1] != 6 {
+            return Err(pyo3::exceptions::PyValueError::new_err(format!(
+                "Expected 6x6 matrix, got {}x{}",
+                shape[0], shape[1]
+            )));
+        }
+        let mat_vec = $arr.to_vec().map_err(|_| {
+            pyo3::exceptions::PyValueError::new_err("Failed to convert numpy array to matrix")
+        })?;
+        // numpy is row-major, nalgebra is column-major
+        nalgebra::SMatrix::<f64, 6, 6>::from_row_slice(&mat_vec)
+    }};
+}
+
 /// Convert a Python object to a 1D f64 array, automatically handling dtype conversion.
 ///
 /// This function accepts any numpy array-like object and converts it to Vec<f64>,
@@ -1017,6 +1034,7 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_position_frame_to_frame, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_frame_to_frame, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_transform_jacobian, module)?)?;
+    module.add_function(wrap_pyfunction!(py_rotate_covariance, module)?)?;
     module.add_function(wrap_pyfunction!(py_covariance_frame_to_frame, module)?)?;
 
     // ReferenceFrame / BodyFrame and the frame/object registries
@@ -1562,6 +1580,12 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
 
     // Formatting
     module.add_function(wrap_pyfunction!(py_format_time_string, module)?)?;
+
+    //* Linear Algebra *//
+    module.add_function(wrap_pyfunction!(py_skew_symmetric, module)?)?;
+    module.add_function(wrap_pyfunction!(py_block_diagonal, module)?)?;
+    module.add_function(wrap_pyfunction!(py_symmetrize, module)?)?;
+    module.add_function(wrap_pyfunction!(py_is_symmetric, module)?)?;
 
     //* Jacobian *//
     module.add_class::<PyDifferenceMethod>()?;

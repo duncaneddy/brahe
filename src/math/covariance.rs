@@ -137,7 +137,7 @@ pub fn symmetrize_6(m: &SMatrix6) -> SMatrix6 {
 /// # Examples
 ///
 /// ```
-/// use brahe::math::covariance::isotropic_covariance;
+/// use brahe::math::isotropic_covariance;
 ///
 /// let r = isotropic_covariance(3, 10.0);
 /// assert_eq!(r.nrows(), 3);
@@ -164,7 +164,7 @@ pub fn isotropic_covariance(dim: usize, sigma: f64) -> DMatrix<f64> {
 /// # Examples
 ///
 /// ```
-/// use brahe::math::covariance::diagonal_covariance;
+/// use brahe::math::diagonal_covariance;
 ///
 /// let r = diagonal_covariance(&[5.0, 10.0, 15.0]);
 /// assert_eq!(r[(0, 0)], 25.0);
@@ -195,7 +195,7 @@ pub fn diagonal_covariance(sigmas: &[f64]) -> DMatrix<f64> {
 /// # Examples
 ///
 /// ```
-/// use brahe::math::covariance::validate_covariance;
+/// use brahe::math::validate_covariance;
 /// use nalgebra::DMatrix;
 ///
 /// let r = DMatrix::from_diagonal_element(3, 3, 100.0);
@@ -275,7 +275,7 @@ pub fn validate_covariance(matrix: DMatrix<f64>) -> Result<DMatrix<f64>, BraheEr
 /// # Examples
 ///
 /// ```
-/// use brahe::math::covariance::covariance_from_upper_triangular;
+/// use brahe::math::covariance_from_upper_triangular;
 ///
 /// // [100, 5, 0, 225, 10, 400] → 3×3 symmetric matrix
 /// let r = covariance_from_upper_triangular(3, &[100.0, 5.0, 0.0, 225.0, 10.0, 400.0]).unwrap();

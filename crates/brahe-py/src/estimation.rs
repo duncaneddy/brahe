@@ -1925,7 +1925,7 @@ fn py_isotropic_covariance<'py>(
     dim: usize,
     sigma: f64,
 ) -> Bound<'py, PyArray<f64, numpy::Ix2>> {
-    let mat = brahe::math::covariance::isotropic_covariance(dim, sigma);
+    let mat = brahe::math::isotropic_covariance(dim, sigma);
     let rows = mat.nrows();
     let cols = mat.ncols();
     let mut flat = Vec::with_capacity(rows * cols);
@@ -1963,7 +1963,7 @@ fn py_diagonal_covariance<'py>(
     let data = sigmas.as_slice().map_err(|e| {
         exceptions::PyValueError::new_err(format!("Failed to read array: {}", e))
     })?;
-    let mat = brahe::math::covariance::diagonal_covariance(data);
+    let mat = brahe::math::diagonal_covariance(data);
     let rows = mat.nrows();
     let cols = mat.ncols();
     let mut flat = Vec::with_capacity(rows * cols);

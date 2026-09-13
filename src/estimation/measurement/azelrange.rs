@@ -26,10 +26,8 @@ use crate::coordinates::{
 };
 use crate::estimation::traits::MeasurementModel;
 use crate::frames::position_eci_to_ecef;
-use crate::math::covariance::{
-    covariance_from_upper_triangular, diagonal_covariance, validate_covariance,
-};
 use crate::math::jacobian::{PerturbationStrategy, compute_perturbation_offsets};
+use crate::math::{covariance_from_upper_triangular, diagonal_covariance, validate_covariance};
 use crate::time::Epoch;
 use crate::utils::errors::BraheError;
 

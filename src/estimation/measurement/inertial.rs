@@ -13,7 +13,7 @@
 use nalgebra::{DMatrix, DVector};
 
 use crate::estimation::traits::MeasurementModel;
-use crate::math::covariance::{
+use crate::math::{
     covariance_from_upper_triangular, diagonal_covariance, isotropic_covariance,
     validate_covariance,
 };

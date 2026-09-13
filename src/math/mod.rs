@@ -9,7 +9,12 @@
  */
 
 pub mod angles;
-pub mod covariance;
+// Not `pub`: `crate::frames::covariance` is the addressable `covariance`
+// module, and a second public module of that name would make
+// `pub use math::*;` (in `lib.rs`) collide with `pub use frames::*;` on the
+// module name itself. The glob re-export below still surfaces every public
+// item as `crate::math::*`.
+mod covariance;
 pub mod interpolation;
 pub mod jacobian;
 pub mod linalg;

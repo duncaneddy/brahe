@@ -16,11 +16,7 @@
 
 pub mod axes;
 pub mod center;
-// Not `pub`: `crate::math::covariance` is already a public module of that
-// name, and `pub mod covariance;` here would make `pub use frames::*;` (in
-// `lib.rs`) collide with `pub use math::*;` on the module name itself. The
-// glob re-export below still surfaces every public item.
-mod covariance;
+pub mod covariance;
 pub mod custom;
 pub mod eci_ecef;
 pub mod emb;

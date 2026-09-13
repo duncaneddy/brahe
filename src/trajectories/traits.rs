@@ -126,35 +126,6 @@ pub(crate) fn is_icrf_axes_frame(frame: &ReferenceFrame) -> bool {
     matches!(frame, ReferenceFrame::Celestial(c) if c.axes() == FrameAxes::ICRF)
 }
 
-/// Whether `frame` is a celestial frame whose axes are the EME2000 (J2000)
-/// mean equator and equinox.
-///
-/// True for `EME2000` and for any frame built as
-/// `CelestialFrame::centered(.., FrameAxes::EME2000)`. Orientation alone
-/// decides: the rotation from EME2000 axes to ICRF axes is the constant frame
-/// bias whatever body the frame is centered on, so a rotation-only quantity
-/// such as a covariance takes the same Jacobian at every center.
-///
-/// # Arguments
-/// * `frame` - Frame to test
-///
-/// # Returns
-/// * `bool`: `true` if `frame` is a celestial frame with EME2000 axes
-pub(crate) fn is_eme2000_axes_frame(frame: &ReferenceFrame) -> bool {
-    matches!(frame, ReferenceFrame::Celestial(c) if c.axes() == FrameAxes::EME2000)
-}
-
-/// Whether covariances may be attached to a trajectory declared in `frame`.
-///
-/// # Arguments
-/// * `frame` - Frame the trajectory is declared in
-///
-/// # Returns
-/// * `bool`: `true` for `GCRF` (equivalently `ECI`) and `EME2000`
-pub(crate) fn covariance_frame_allowed(frame: &ReferenceFrame) -> bool {
-    *frame == CelestialFrame::GCRF || *frame == CelestialFrame::EME2000
-}
-
 /// Enumeration of orbit state representations
 #[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum OrbitRepresentation {
@@ -179,6 +150,30 @@ impl fmt::Debug for OrbitRepresentation {
             OrbitRepresentation::Cartesian => write!(f, "OrbitRepresentation(Cartesian)"),
             OrbitRepresentation::Keplerian => write!(f, "OrbitRepresentation(Keplerian)"),
         }
+    }
+}
+
+/// Rejects rotating a covariance stored over anything but a Cartesian state.
+///
+/// Every covariance rotation in this crate applies the Jacobian of a Cartesian
+/// state map, which says nothing about a covariance over orbital elements.
+///
+/// # Arguments
+/// * `representation` - Representation the covariance is stored over
+///
+/// # Returns
+/// * `Ok(())`: If `representation` is Cartesian
+/// * `Err(BraheError)`: Otherwise
+pub(crate) fn require_cartesian_covariance(
+    representation: OrbitRepresentation,
+) -> Result<(), BraheError> {
+    if representation == OrbitRepresentation::Cartesian {
+        Ok(())
+    } else {
+        Err(BraheError::Error(
+            "Covariances require a Cartesian representation to be rotated between frames"
+                .to_string(),
+        ))
     }
 }
 
@@ -724,13 +719,16 @@ pub trait OrbitalTrajectory: InterpolatableTrajectory {
     /// * `frame` - Reference frame the states are declared in
     /// * `representation` - State representation (Cartesian or Keplerian)
     /// * `angle_format` - Angle format (None for Cartesian, Radians/Degrees for Keplerian)
-    /// * `covariances` - Optional vector of 6x6 covariance matrices corresponding to states
+    /// * `covariances` - Optional vector of 6x6 covariance matrices, one per state
+    ///
+    /// Covariance is accepted in any frame. It is stored exactly as given and
+    /// rotated on demand by the frame accessors and [`Self::to_frame`], which
+    /// require a Cartesian representation.
     ///
     /// # Returns
     /// New orbital trajectory with data, or an error if parameters are
     /// invalid (e.g., None angle_format with Keplerian, Keplerian outside an
-    /// inertial frame, covariances provided for a frame other than GCRF or
-    /// EME2000, or a covariances length that does not match the states
+    /// inertial frame, or a covariances length that does not match the states
     /// length).
     fn from_orbital_data(
         epochs: Vec<Epoch>,
@@ -744,7 +742,13 @@ pub trait OrbitalTrajectory: InterpolatableTrajectory {
         Self: Sized;
 
     /// Converts every sample to Cartesian coordinates in `frame`, routing
-    /// through the reference frame router. Covariances, state transition
+    /// through the reference frame router.
+    ///
+    /// Covariance carried by a Cartesian trajectory is rotated for every frame
+    /// pair, each sample by the 6x6 state-transform Jacobian at its own epoch;
+    /// a conversion to the trajectory's own frame keeps it unrotated. A
+    /// Keplerian trajectory has no Cartesian covariance to rotate, so its
+    /// covariances are dropped along with the representation. State transition
     /// matrices, sensitivities, and accelerations are dropped.
     ///
     /// # Arguments
@@ -752,9 +756,9 @@ pub trait OrbitalTrajectory: InterpolatableTrajectory {
     ///
     /// # Returns
     /// * `Ok(Self)` - New Cartesian trajectory in `frame`
-    /// * `Err(BraheError)` - If a sample cannot be converted (unbound or
-    ///   unregistered frame, missing ephemeris, or Keplerian elements about
-    ///   a barycenter)
+    /// * `Err(BraheError)` - If a sample or its covariance cannot be converted
+    ///   (unbound or unregistered frame, missing ephemeris, or Keplerian
+    ///   elements about a barycenter)
     ///
     /// # Examples
     /// ```rust
@@ -1144,17 +1148,6 @@ mod tests {
         assert!(err.to_string().contains("inertial frame"));
     }
 
-    #[test]
-    #[parallel]
-    fn test_covariance_frame_allowed_only_gcrf_and_eme2000() {
-        assert!(covariance_frame_allowed(&CelestialFrame::GCRF.into()));
-        assert!(covariance_frame_allowed(&CelestialFrame::ECI.into()));
-        assert!(covariance_frame_allowed(&CelestialFrame::EME2000.into()));
-        assert!(!covariance_frame_allowed(&CelestialFrame::ITRF.into()));
-        assert!(!covariance_frame_allowed(&CelestialFrame::LCI.into()));
-        assert!(!covariance_frame_allowed(&ReferenceFrame::RTN("SC")));
-    }
-
     // =========================================================================
     // OrbitRepresentation Display/Debug Tests
     // =========================================================================
@@ -1205,37 +1198,14 @@ mod tests {
             CelestialFrame::BodyCenteredICRF(299),
         ] {
             assert!(is_icrf_axes_frame(&ReferenceFrame::from(frame)));
-            assert!(!is_eme2000_axes_frame(&ReferenceFrame::from(frame)));
         }
 
         assert!(!is_icrf_axes_frame(&ReferenceFrame::from(
             CelestialFrame::ITRF
         )));
+        assert!(!is_icrf_axes_frame(&ReferenceFrame::from(
+            CelestialFrame::EME2000
+        )));
         assert!(!is_icrf_axes_frame(&ReferenceFrame::RTN("SC")));
-    }
-
-    #[test]
-    #[parallel]
-    fn test_is_eme2000_axes_frame() {
-        // The EME2000 axes are the same at any center, so a Mars-centered
-        // EME2000 frame takes the same frame-bias Jacobian as the
-        // Earth-centered shorthand.
-        for frame in [
-            CelestialFrame::EME2000,
-            CelestialFrame::centered(NAIFId::Mars, FrameAxes::EME2000),
-            CelestialFrame::centered(499, FrameAxes::EME2000),
-            CelestialFrame::centered(NAIFId::SolarSystemBarycenter, FrameAxes::EME2000),
-        ] {
-            assert!(is_eme2000_axes_frame(&ReferenceFrame::from(frame)));
-            assert!(!is_icrf_axes_frame(&ReferenceFrame::from(frame)));
-        }
-
-        assert!(!is_eme2000_axes_frame(&ReferenceFrame::from(
-            CelestialFrame::GCRF
-        )));
-        assert!(!is_eme2000_axes_frame(&ReferenceFrame::from(
-            CelestialFrame::MOD
-        )));
-        assert!(!is_eme2000_axes_frame(&ReferenceFrame::RTN("SC")));
     }
 }

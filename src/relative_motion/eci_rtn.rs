@@ -2,7 +2,8 @@
  * Earth-Centered Inertial (ECI) to Radial, Along-Track, Cross-Track (RTN) Frame Transformations
  */
 
-use crate::math::{SMatrix3, SVector6};
+use crate::frames::{OrbitRelativeFrameVariant, rotate_covariance_6};
+use crate::math::{SMatrix3, SMatrix6, SVector6, block_diagonal, skew_symmetric};
 use nalgebra::Vector3;
 
 use crate::utils::BraheError;
@@ -236,6 +237,195 @@ pub fn state_rtn_to_eci(x_chief: SVector6, x_rel_rtn: SVector6) -> SVector6 {
         v_deputy[1],
         v_deputy[2],
     )
+}
+
+/// 6x6 Jacobian taking an RTN state covariance into ECI axes.
+///
+/// The RTN-to-ECI state map is `r_eci = R ρ` and
+/// `ṙ_eci = R (ρ̇ + ω × ρ)`, with `R` the RTN-to-ECI rotation and `ω` the RTN
+/// frame's angular velocity in RTN components. Its Jacobian is therefore
+/// `[[R, 0], [R [ω]×, R]]`. [`OrbitRelativeFrameVariant::Inertial`] freezes
+/// the axes at the evaluation epoch, taking `ω = 0`, and so gives the plain
+/// block-diagonal `blockdiag(R, R)`;
+/// [`OrbitRelativeFrameVariant::Rotating`] carries the coupling term.
+///
+/// # Arguments:
+/// - `x_eci`: 6D state vector of the frame's origin in the ECI frame [x, y, z, vx, vy, vz] (m, m/s)
+/// - `variant`: Whether the RTN axes rotate with the orbit or are frozen at the epoch
+///
+/// # Returns:
+/// - `j`: 6x6 Jacobian such that `P_eci = J P_rtn Jᵀ`
+///
+/// # Examples:
+/// ```
+/// use brahe::SVector6;
+/// use brahe::R_EARTH;
+/// use brahe::frames::OrbitRelativeFrameVariant;
+/// use brahe::orbits::*;
+/// use brahe::relative_motion::*;
+///
+/// let sma = R_EARTH + 700e3;
+/// let x_eci = SVector6::new(sma, 0.0, 0.0, 0.0, perigee_velocity(sma, 0.0), 0.0);
+///
+/// let j = jacobian_rtn_to_eci(x_eci, OrbitRelativeFrameVariant::Rotating);
+/// assert!(j.fixed_view::<3, 3>(3, 0).norm() > 0.0);
+/// ```
+///
+/// # References:
+/// 1. NASA Conjunction Assessment Risk Analysis (CARA), *Conjunction Assessment Handbook*,
+///    NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13),
+///    <https://ntrs.nasa.gov/citations/20205011318>
+/// 2. NASA CARA Analysis Tools, `RIC2ECI.m`, <https://github.com/nasa/CARA_Analysis_Tools>
+/// 3. D. A. Vallado, "Covariance Transformations for Satellite Flight Dynamics
+///    Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003,
+///    <https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf>
+pub fn jacobian_rtn_to_eci(x_eci: SVector6, variant: OrbitRelativeFrameVariant) -> SMatrix6 {
+    let r = rotation_rtn_to_eci(x_eci);
+    let mut j = block_diagonal(&r, &r);
+    if variant == OrbitRelativeFrameVariant::Rotating {
+        let coupling = r * skew_symmetric(&omega_rtn(x_eci));
+        j.fixed_view_mut::<3, 3>(3, 0).copy_from(&coupling);
+    }
+    j
+}
+
+/// 6x6 Jacobian taking an ECI state covariance into RTN axes.
+///
+/// Exact inverse of [`jacobian_rtn_to_eci`]: with `Rᵀ` the ECI-to-RTN
+/// rotation, the Jacobian is `[[Rᵀ, 0], [-[ω]× Rᵀ, Rᵀ]]`, whose product with
+/// the forward Jacobian is the identity in exact arithmetic.
+///
+/// # Arguments:
+/// - `x_eci`: 6D state vector of the frame's origin in the ECI frame [x, y, z, vx, vy, vz] (m, m/s)
+/// - `variant`: Whether the RTN axes rotate with the orbit or are frozen at the epoch
+///
+/// # Returns:
+/// - `j`: 6x6 Jacobian such that `P_rtn = J P_eci Jᵀ`
+///
+/// # Examples:
+/// ```
+/// use brahe::SVector6;
+/// use brahe::R_EARTH;
+/// use brahe::frames::OrbitRelativeFrameVariant;
+/// use brahe::orbits::*;
+/// use brahe::relative_motion::*;
+///
+/// let sma = R_EARTH + 700e3;
+/// let x_eci = SVector6::new(sma, 0.0, 0.0, 0.0, perigee_velocity(sma, 0.0), 0.0);
+///
+/// let forward = jacobian_rtn_to_eci(x_eci, OrbitRelativeFrameVariant::Rotating);
+/// let inverse = jacobian_eci_to_rtn(x_eci, OrbitRelativeFrameVariant::Rotating);
+/// assert!((inverse * forward - brahe::math::linalg::SMatrix6::identity()).norm() < 1e-12);
+/// ```
+///
+/// # References:
+/// 1. NASA Conjunction Assessment Risk Analysis (CARA), *Conjunction Assessment Handbook*,
+///    NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13),
+///    <https://ntrs.nasa.gov/citations/20205011318>
+/// 2. NASA CARA Analysis Tools, `RIC2ECI.m`, <https://github.com/nasa/CARA_Analysis_Tools>
+/// 3. D. A. Vallado, "Covariance Transformations for Satellite Flight Dynamics
+///    Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003,
+///    <https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf>
+pub fn jacobian_eci_to_rtn(x_eci: SVector6, variant: OrbitRelativeFrameVariant) -> SMatrix6 {
+    let r = rotation_eci_to_rtn(x_eci);
+    let mut j = block_diagonal(&r, &r);
+    if variant == OrbitRelativeFrameVariant::Rotating {
+        let coupling = -skew_symmetric(&omega_rtn(x_eci)) * r;
+        j.fixed_view_mut::<3, 3>(3, 0).copy_from(&coupling);
+    }
+    j
+}
+
+/// Transforms a 6x6 state covariance from RTN axes into ECI axes.
+///
+/// Applies the congruence `P_eci = J P_rtn Jᵀ` with `J` from
+/// [`jacobian_rtn_to_eci`], and symmetrizes the result.
+///
+/// # Arguments:
+/// - `x_eci`: 6D state vector of the frame's origin in the ECI frame [x, y, z, vx, vy, vz] (m, m/s)
+/// - `covariance`: 6x6 state covariance in RTN axes (m², m²/s, m²/s²)
+/// - `variant`: Whether the RTN axes rotate with the orbit or are frozen at the epoch
+///
+/// # Returns:
+/// - `p`: 6x6 state covariance in ECI axes
+///
+/// # Examples:
+/// ```
+/// use brahe::SVector6;
+/// use brahe::R_EARTH;
+/// use brahe::frames::OrbitRelativeFrameVariant;
+/// use brahe::math::linalg::SMatrix6;
+/// use brahe::orbits::*;
+/// use brahe::relative_motion::*;
+///
+/// let sma = R_EARTH + 700e3;
+/// let x_eci = SVector6::new(sma, 0.0, 0.0, 0.0, perigee_velocity(sma, 0.0), 0.0);
+/// let p_rtn = SMatrix6::identity() * 100.0;
+///
+/// let p_eci = covariance_rtn_to_eci(x_eci, &p_rtn, OrbitRelativeFrameVariant::Rotating);
+/// assert_eq!(p_eci.nrows(), 6);
+/// ```
+///
+/// # References:
+/// 1. NASA Conjunction Assessment Risk Analysis (CARA), *Conjunction Assessment Handbook*,
+///    NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13),
+///    <https://ntrs.nasa.gov/citations/20205011318>
+/// 2. NASA CARA Analysis Tools, `RIC2ECI.m`, <https://github.com/nasa/CARA_Analysis_Tools>
+/// 3. D. A. Vallado, "Covariance Transformations for Satellite Flight Dynamics
+///    Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003,
+///    <https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf>
+pub fn covariance_rtn_to_eci(
+    x_eci: SVector6,
+    covariance: &SMatrix6,
+    variant: OrbitRelativeFrameVariant,
+) -> SMatrix6 {
+    rotate_covariance_6(covariance, &jacobian_rtn_to_eci(x_eci, variant))
+}
+
+/// Transforms a 6x6 state covariance from ECI axes into RTN axes.
+///
+/// Applies the congruence `P_rtn = J P_eci Jᵀ` with `J` from
+/// [`jacobian_eci_to_rtn`], and symmetrizes the result.
+///
+/// # Arguments:
+/// - `x_eci`: 6D state vector of the frame's origin in the ECI frame [x, y, z, vx, vy, vz] (m, m/s)
+/// - `covariance`: 6x6 state covariance in ECI axes (m², m²/s, m²/s²)
+/// - `variant`: Whether the RTN axes rotate with the orbit or are frozen at the epoch
+///
+/// # Returns:
+/// - `p`: 6x6 state covariance in RTN axes
+///
+/// # Examples:
+/// ```
+/// use brahe::SVector6;
+/// use brahe::R_EARTH;
+/// use brahe::frames::OrbitRelativeFrameVariant;
+/// use brahe::math::linalg::SMatrix6;
+/// use brahe::orbits::*;
+/// use brahe::relative_motion::*;
+///
+/// let sma = R_EARTH + 700e3;
+/// let x_eci = SVector6::new(sma, 0.0, 0.0, 0.0, perigee_velocity(sma, 0.0), 0.0);
+/// let p_eci = SMatrix6::identity() * 100.0;
+///
+/// let p_rtn = covariance_eci_to_rtn(x_eci, &p_eci, OrbitRelativeFrameVariant::Rotating);
+/// assert_eq!(p_rtn.nrows(), 6);
+/// ```
+///
+/// # References:
+/// 1. NASA Conjunction Assessment Risk Analysis (CARA), *Conjunction Assessment Handbook*,
+///    NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13),
+///    <https://ntrs.nasa.gov/citations/20205011318>
+/// 2. NASA CARA Analysis Tools, `RIC2ECI.m`, <https://github.com/nasa/CARA_Analysis_Tools>
+/// 3. D. A. Vallado, "Covariance Transformations for Satellite Flight Dynamics
+///    Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003,
+///    <https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf>
+pub fn covariance_eci_to_rtn(
+    x_eci: SVector6,
+    covariance: &SMatrix6,
+    variant: OrbitRelativeFrameVariant,
+) -> SMatrix6 {
+    rotate_covariance_6(covariance, &jacobian_eci_to_rtn(x_eci, variant))
 }
 
 /// Computes the RTN-to-ECI rotation matrix for each state in `x_eci`.
@@ -542,5 +732,122 @@ mod tests {
         }
         assert!(states_eci_to_rtn(&chiefs[..2], &deputies).is_err());
         assert!(rotations_rtn_to_eci(&[]).is_empty());
+    }
+
+    // =========================================================================
+    // RTN Covariance Tests
+    // =========================================================================
+
+    fn inclined_test_state() -> SVector6 {
+        state_koe_to_eci(
+            vector6_from_array([R_EARTH + 700e3, 0.01, 97.8, 15.0, 30.0, 45.0]),
+            AngleFormat::Degrees,
+        )
+    }
+
+    #[test]
+    #[parallel]
+    fn test_jacobian_rtn_to_eci_inertial_is_block_diagonal() {
+        let x = inclined_test_state();
+        let j = jacobian_rtn_to_eci(x, OrbitRelativeFrameVariant::Inertial);
+        let r = rotation_rtn_to_eci(x);
+
+        assert_abs_diff_eq!((j - block_diagonal(&r, &r)).norm(), 0.0, epsilon = 1e-15);
+        assert_abs_diff_eq!(j.fixed_view::<3, 3>(3, 0).norm(), 0.0, epsilon = 1e-15);
+        assert_abs_diff_eq!(j.fixed_view::<3, 3>(0, 3).norm(), 0.0, epsilon = 1e-15);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_jacobian_rtn_to_eci_rotating_coupling() {
+        let x = inclined_test_state();
+        let j = jacobian_rtn_to_eci(x, OrbitRelativeFrameVariant::Rotating);
+        let r = rotation_rtn_to_eci(x);
+        let expected = r * skew_symmetric(&omega_rtn(x));
+
+        let coupling: SMatrix3 = j.fixed_view::<3, 3>(3, 0).into();
+        assert_abs_diff_eq!((coupling - expected).norm(), 0.0, epsilon = 1e-18);
+        assert!(coupling.norm() > 0.0);
+
+        // Position-velocity block stays zero: velocity never feeds position.
+        assert_abs_diff_eq!(j.fixed_view::<3, 3>(0, 3).norm(), 0.0, epsilon = 1e-15);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_jacobian_eci_to_rtn_rotating_coupling() {
+        let x = inclined_test_state();
+        let j = jacobian_eci_to_rtn(x, OrbitRelativeFrameVariant::Rotating);
+        let r = rotation_eci_to_rtn(x);
+        let expected = -skew_symmetric(&omega_rtn(x)) * r;
+
+        let coupling: SMatrix3 = j.fixed_view::<3, 3>(3, 0).into();
+        assert_abs_diff_eq!((coupling - expected).norm(), 0.0, epsilon = 1e-18);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_jacobian_rtn_eci_inverse_identity() {
+        let x = inclined_test_state();
+        for variant in [
+            OrbitRelativeFrameVariant::Inertial,
+            OrbitRelativeFrameVariant::Rotating,
+        ] {
+            let forward = jacobian_rtn_to_eci(x, variant);
+            let inverse = jacobian_eci_to_rtn(x, variant);
+            assert_abs_diff_eq!(
+                (inverse * forward - SMatrix6::identity()).norm(),
+                0.0,
+                epsilon = 1e-12,
+            );
+            assert_abs_diff_eq!(
+                (forward * inverse - SMatrix6::identity()).norm(),
+                0.0,
+                epsilon = 1e-12,
+            );
+        }
+    }
+
+    #[test]
+    #[parallel]
+    fn test_covariance_rtn_eci_round_trip() {
+        let x = inclined_test_state();
+        let mut p = SMatrix6::zeros();
+        for i in 0..3 {
+            p[(i, i)] = 100.0;
+            p[(3 + i, 3 + i)] = 0.01;
+        }
+        p[(0, 1)] = 25.0;
+        p[(1, 0)] = 25.0;
+        p[(2, 5)] = 0.4;
+        p[(5, 2)] = 0.4;
+
+        for variant in [
+            OrbitRelativeFrameVariant::Inertial,
+            OrbitRelativeFrameVariant::Rotating,
+        ] {
+            let p_eci = covariance_rtn_to_eci(x, &p, variant);
+            let p_back = covariance_eci_to_rtn(x, &p_eci, variant);
+            assert_abs_diff_eq!((p_back - p).norm() / p.norm(), 0.0, epsilon = 1e-12);
+
+            // The congruence preserves the trace of the position block only
+            // for the inertial variant, but symmetry always holds.
+            assert_abs_diff_eq!((p_eci - p_eci.transpose()).norm(), 0.0, epsilon = 1e-18);
+        }
+    }
+
+    #[test]
+    #[parallel]
+    fn test_covariance_eci_to_rtn_inertial_is_pure_rotation() {
+        let x = inclined_test_state();
+        let p = SMatrix6::identity() * 100.0;
+        let p_rtn = covariance_eci_to_rtn(x, &p, OrbitRelativeFrameVariant::Inertial);
+
+        // An isotropic covariance is invariant under a pure axis rotation.
+        assert_abs_diff_eq!((p_rtn - p).norm(), 0.0, epsilon = 1e-12);
+
+        // The rotating variant shears velocity against position, so it is not.
+        let p_rot = covariance_eci_to_rtn(x, &p, OrbitRelativeFrameVariant::Rotating);
+        assert!((p_rot - p).norm() > 1e-6);
     }
 }

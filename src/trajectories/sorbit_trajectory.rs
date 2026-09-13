@@ -49,8 +49,8 @@ use crate::constants::AngleFormat;
 use crate::constants::{DEG2RAD, RAD2DEG};
 use crate::coordinates::{state_inertial_to_koe_gm, state_koe_to_inertial_gm};
 use crate::frames::{
-    CelestialFrame, ReferenceFrame, celestial_root, icrf_aligned_inertial,
-    rotation_eme2000_to_gcrf, state_frame_to_frame,
+    CelestialFrame, OrbitRelativeFrameVariant, ReferenceFrame, celestial_root,
+    icrf_aligned_inertial, rotate_covariance_6, state_frame_to_frame, state_transform_jacobian,
 };
 use crate::math::{
     CovarianceInterpolationConfig, interpolate_covariance_sqrt_smatrix,
@@ -61,15 +61,15 @@ use crate::propagators::CentralBody;
 use crate::propagators::traits::{
     SCovarianceProvider, SOrbitCovarianceProvider, SOrbitStateProvider, SStateProvider,
 };
-use crate::relative_motion::rotation_eci_to_rtn;
+use crate::relative_motion::covariance_eci_to_rtn;
 use crate::time::Epoch;
 use crate::utils::{BraheError, Identifiable};
 
 use super::traits::{
     CovarianceInterpolationMethod, InterpolatableTrajectory, InterpolationConfig,
     InterpolationMethod, OrbitRepresentation, OrbitalTrajectory, Trajectory,
-    TrajectoryEvictionPolicy, bci_fixed_frame, covariance_frame_allowed, is_eme2000_axes_frame,
-    is_icrf_axes_frame, keplerian_center,
+    TrajectoryEvictionPolicy, bci_fixed_frame, is_icrf_axes_frame, keplerian_center,
+    require_cartesian_covariance,
 };
 
 /// Static (compile-time sized) orbital trajectory container.
@@ -1621,17 +1621,21 @@ impl SOrbitTrajectory {
     /// their own frame's center, using that body's gravitational parameter.
     /// The result is then routed to `frame` by the reference frame router,
     /// which resolves any center offset through the loaded SPK kernels.
-    /// Covariances, state transition matrices, sensitivities, and
-    /// accelerations are dropped.
+    ///
+    /// Covariances carried by a Cartesian trajectory are rotated for every
+    /// frame pair, each sample by the 6x6 state-transform Jacobian at its own
+    /// epoch. A Keplerian trajectory has no Cartesian covariance to rotate, so
+    /// its covariances are dropped along with the representation. State
+    /// transition matrices, sensitivities, and accelerations are dropped.
     ///
     /// # Arguments
     /// * `frame` - Target reference frame
     ///
     /// # Returns
     /// * `Ok(SOrbitTrajectory)` - New Cartesian trajectory in `frame`
-    /// * `Err(BraheError)` - If a sample cannot be converted (unbound or
-    ///   unregistered frame, missing ephemeris, or Keplerian elements about
-    ///   a massless barycenter)
+    /// * `Err(BraheError)` - If a sample or its covariance cannot be converted
+    ///   (unbound or unregistered frame, missing ephemeris, or Keplerian
+    ///   elements about a massless barycenter)
     ///
     /// # Examples
     /// ```rust
@@ -1671,15 +1675,20 @@ impl OrbitalTrajectory for SOrbitTrajectory {
     /// * `frame` - Reference frame
     /// * `representation` - State representation (Cartesian or Keplerian)
     /// * `angle_format` - Angle format (None for Cartesian, Radians/Degrees for Keplerian)
-    /// * `covariances` - Optional vector of 6x6 covariance matrices corresponding to states
+    /// * `covariances` - Optional vector of 6x6 covariance matrices, one per state
+    ///
+    /// Covariance is accepted in any frame. It is stored exactly as given and
+    /// rotated on demand by [`SOrbitTrajectory::covariance_in_frame`] and
+    /// [`OrbitalTrajectory::to_frame`], which require a Cartesian
+    /// representation.
     ///
     /// # Returns
     /// * `Ok(SOrbitTrajectory)` - New orbital trajectory with data
     /// * `Err(BraheError)` - If parameters are invalid or data validation fails
     ///
     /// # Errors
-    /// * If covariances are provided but the frame is neither GCRF nor EME2000
-    /// * If covariances length does not match states length
+    /// * If the covariances length does not match the states length
+    /// * If the representation is Keplerian and the frame's axes do not admit orbital elements
     fn from_orbital_data(
         epochs: Vec<Epoch>,
         states: Vec<Vector6<f64>>,
@@ -1703,14 +1712,6 @@ impl OrbitalTrajectory for SOrbitTrajectory {
                     "Covariances length ({}) must match states length ({})",
                     covs.len(),
                     states.len()
-                )));
-            }
-
-            // Check that frame is ECI, GCRF, or EME2000
-            if !covariance_frame_allowed(&frame) {
-                return Err(BraheError::Error(format!(
-                    "Covariances are only supported for ECI, GCRF, and EME2000 frames. Got: {}",
-                    frame
                 )));
             }
         }
@@ -1753,10 +1754,25 @@ impl OrbitalTrajectory for SOrbitTrajectory {
             states_converted.push(converted);
         }
 
+        // Keplerian samples have no Cartesian covariance to rotate, so their
+        // covariances are dropped along with the representation.
+        let covariances_converted = match (&self.covariances, self.representation) {
+            (Some(covs), OrbitRepresentation::Cartesian) if self.frame != frame => {
+                let mut rotated = Vec::with_capacity(covs.len());
+                for (epoch, cov) in self.epochs.iter().zip(covs.iter()) {
+                    let j = state_transform_jacobian(self.frame.clone(), frame.clone(), *epoch)?;
+                    rotated.push(rotate_covariance_6(cov, &j));
+                }
+                Some(rotated)
+            }
+            (Some(covs), OrbitRepresentation::Cartesian) => Some(covs.clone()),
+            _ => None,
+        };
+
         Ok(Self {
             epochs: self.epochs.clone(),
             states: states_converted,
-            covariances: None,   // Covariances are dropped during frame conversions
+            covariances: covariances_converted,
             stms: None,          // STMs are dropped during frame conversions
             sensitivities: None, // Sensitivities are dropped during frame conversions
             sensitivity_param_dim: None,
@@ -2120,93 +2136,181 @@ impl SCovarianceProvider for SOrbitTrajectory {
     }
 }
 
+// Covariance frame conversions
+impl SOrbitTrajectory {
+    /// Returns the covariance at `epoch` expressed in `frame`.
+    ///
+    /// The native covariance is interpolated at `epoch` and then rotated by
+    /// the 6x6 state-transform Jacobian between the trajectory's frame and
+    /// `frame`.
+    ///
+    /// # Arguments
+    /// * `epoch` - Epoch at which to evaluate the covariance
+    /// * `frame` - Reference frame to express the covariance in
+    ///
+    /// # Returns
+    /// * `Ok(SMatrix<f64, 6, 6>)` - Covariance in `frame`
+    /// * `Err(BraheError)` - If covariance tracking is not enabled, `epoch` lies outside the trajectory, the representation is not Cartesian, or the router cannot transform states between the frames
+    ///
+    /// # Examples
+    /// ```rust
+    /// use brahe::trajectories::SOrbitTrajectory;
+    /// use brahe::traits::{Trajectory, OrbitRepresentation};
+    /// use brahe::frames::CelestialFrame;
+    /// use brahe::time::{Epoch, TimeSystem};
+    /// use nalgebra::{Matrix6, Vector6};
+    ///
+    /// brahe::eop::set_global_eop_provider(
+    ///     brahe::eop::StaticEOPProvider::from_values((0.0, 0.0, 0.0, 0.0, 0.0, 0.0))
+    /// );
+    ///
+    /// let mut traj = SOrbitTrajectory::new(
+    ///     CelestialFrame::GCRF,
+    ///     OrbitRepresentation::Cartesian,
+    ///     None,
+    /// ).unwrap();
+    /// traj.covariances = Some(Vec::new());
+    ///
+    /// let epoch = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+    /// traj.add_state_and_covariance(
+    ///     epoch,
+    ///     Vector6::new(6.678e6, 0.0, 0.0, 0.0, 7.726e3, 0.0),
+    ///     Matrix6::identity() * 100.0,
+    /// ).unwrap();
+    ///
+    /// let cov_itrf = traj.covariance_in_frame(CelestialFrame::ITRF, epoch).unwrap();
+    /// assert_eq!(cov_itrf.nrows(), 6);
+    /// ```
+    pub fn covariance_in_frame(
+        &self,
+        frame: impl Into<ReferenceFrame>,
+        epoch: Epoch,
+    ) -> Result<SMatrix<f64, 6, 6>, BraheError> {
+        let frame = frame.into();
+        let cov_native = self.covariance(epoch)?;
+        if self.frame == frame {
+            return Ok(cov_native);
+        }
+        require_cartesian_covariance(self.representation)?;
+        let j = state_transform_jacobian(self.frame.clone(), frame, epoch)?;
+        Ok(rotate_covariance_6(&cov_native, &j))
+    }
+
+    /// Returns the covariance at `epoch` in the ITRF frame.
+    ///
+    /// See [`Self::covariance_in_frame`] for the transformation rules.
+    ///
+    /// # Arguments
+    /// * `epoch` - Epoch at which to evaluate the covariance
+    ///
+    /// # Returns
+    /// * `Ok(SMatrix<f64, 6, 6>)` - Covariance in ITRF
+    /// * `Err(BraheError)` - If the covariance is unavailable or cannot be rotated
+    pub fn covariance_itrf(&self, epoch: Epoch) -> Result<SMatrix<f64, 6, 6>, BraheError> {
+        self.covariance_in_frame(CelestialFrame::ITRF, epoch)
+    }
+
+    /// Returns the covariance at `epoch` in the ECEF frame.
+    ///
+    /// ECEF is realized as ITRF. See [`Self::covariance_in_frame`] for the
+    /// transformation rules.
+    ///
+    /// # Arguments
+    /// * `epoch` - Epoch at which to evaluate the covariance
+    ///
+    /// # Returns
+    /// * `Ok(SMatrix<f64, 6, 6>)` - Covariance in ITRF
+    /// * `Err(BraheError)` - If the covariance is unavailable or cannot be rotated
+    pub fn covariance_ecef(&self, epoch: Epoch) -> Result<SMatrix<f64, 6, 6>, BraheError> {
+        self.covariance_in_frame(CelestialFrame::ITRF, epoch)
+    }
+
+    /// Returns the covariance at `epoch` in the EME2000 frame.
+    ///
+    /// See [`Self::covariance_in_frame`] for the transformation rules.
+    ///
+    /// # Arguments
+    /// * `epoch` - Epoch at which to evaluate the covariance
+    ///
+    /// # Returns
+    /// * `Ok(SMatrix<f64, 6, 6>)` - Covariance in EME2000
+    /// * `Err(BraheError)` - If the covariance is unavailable or cannot be rotated
+    pub fn covariance_eme2000(&self, epoch: Epoch) -> Result<SMatrix<f64, 6, 6>, BraheError> {
+        self.covariance_in_frame(CelestialFrame::EME2000, epoch)
+    }
+
+    /// Returns the covariance at `epoch` in RTN axes about the trajectory's
+    /// own state, for the given orbit-relative frame variant.
+    ///
+    /// [`OrbitRelativeFrameVariant::Rotating`] carries the angular-velocity
+    /// coupling of the true local orbital frame;
+    /// [`OrbitRelativeFrameVariant::Inertial`] freezes the axes at `epoch` and
+    /// applies a pure rotation.
+    ///
+    /// # Arguments
+    /// * `epoch` - Epoch at which to evaluate the covariance
+    /// * `variant` - Whether the RTN axes rotate with the orbit or are frozen at `epoch`
+    ///
+    /// # Returns
+    /// * `Ok(SMatrix<f64, 6, 6>)` - Covariance in RTN axes
+    /// * `Err(BraheError)` - If the covariance is unavailable, the representation is not Cartesian, or it cannot be rotated into GCRF
+    ///
+    /// # Examples
+    /// ```rust
+    /// use brahe::trajectories::SOrbitTrajectory;
+    /// use brahe::traits::{Trajectory, OrbitRepresentation};
+    /// use brahe::frames::{CelestialFrame, OrbitRelativeFrameVariant};
+    /// use brahe::time::{Epoch, TimeSystem};
+    /// use nalgebra::{Matrix6, Vector6};
+    ///
+    /// brahe::eop::set_global_eop_provider(
+    ///     brahe::eop::StaticEOPProvider::from_values((0.0, 0.0, 0.0, 0.0, 0.0, 0.0))
+    /// );
+    ///
+    /// let mut traj = SOrbitTrajectory::new(
+    ///     CelestialFrame::GCRF,
+    ///     OrbitRepresentation::Cartesian,
+    ///     None,
+    /// ).unwrap();
+    /// traj.covariances = Some(Vec::new());
+    ///
+    /// let epoch = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+    /// traj.add_state_and_covariance(
+    ///     epoch,
+    ///     Vector6::new(6.678e6, 0.0, 0.0, 0.0, 7.726e3, 0.0),
+    ///     Matrix6::identity() * 100.0,
+    /// ).unwrap();
+    ///
+    /// let cov = traj.covariance_rtn_with_variant(
+    ///     epoch,
+    ///     OrbitRelativeFrameVariant::Inertial,
+    /// ).unwrap();
+    /// assert_eq!(cov.nrows(), 6);
+    /// ```
+    pub fn covariance_rtn_with_variant(
+        &self,
+        epoch: Epoch,
+        variant: OrbitRelativeFrameVariant,
+    ) -> Result<SMatrix<f64, 6, 6>, BraheError> {
+        require_cartesian_covariance(self.representation)?;
+        let cov_eci = self.covariance_in_frame(CelestialFrame::GCRF, epoch)?;
+        let state_eci = self.state_eci(epoch)?;
+        Ok(covariance_eci_to_rtn(state_eci, &cov_eci, variant))
+    }
+}
+
 // Implementation of SOrbitCovarianceProvider trait (frame-specific methods)
 impl SOrbitCovarianceProvider for SOrbitTrajectory {
     fn covariance_eci(&self, epoch: Epoch) -> Result<SMatrix<f64, 6, 6>, BraheError> {
-        // Get covariance in native frame
-        let cov_native = self.covariance(epoch)?;
-
-        if is_eme2000_axes_frame(&self.frame) {
-            // We just construct a block diagonal rotation matrix using the
-            // EME2000 to GCRF rotation matrix
-            let rot_eme2000_to_gcrf = rotation_eme2000_to_gcrf();
-
-            let mut rot = nalgebra::Matrix6::zeros();
-            // Position part (3x3 upper-left block)
-            for i in 0..3 {
-                for j in 0..3 {
-                    rot[(i, j)] = rot_eme2000_to_gcrf[(i, j)];
-                    rot[(3 + i, 3 + j)] = rot_eme2000_to_gcrf[(i, j)];
-                }
-            }
-            // Transform covariance: C_ECI = R * C_EME2000 * R^T
-            Ok(rot * cov_native * rot.transpose())
-        } else if is_icrf_axes_frame(&self.frame) {
-            // ICRF-aligned axes leave the covariance unchanged under the
-            // identity rotation (a center offset is a translation, which does
-            // not affect covariance).
-            Ok(cov_native)
-        } else {
-            Err(BraheError::Error(format!(
-                "Covariance transformation from {} to ECI not implemented",
-                self.frame
-            )))
-        }
+        self.covariance_in_frame(CelestialFrame::GCRF, epoch)
     }
 
     fn covariance_gcrf(&self, epoch: Epoch) -> Result<SMatrix<f64, 6, 6>, BraheError> {
-        // GCRF is essentially the same as ECI for our purposes
-        self.covariance_eci(epoch)
+        self.covariance_in_frame(CelestialFrame::GCRF, epoch)
     }
 
     fn covariance_rtn(&self, epoch: Epoch) -> Result<SMatrix<f64, 6, 6>, BraheError> {
-        // Get covariance in ECI/GCRF frame first
-        // Note: because we go through covariance_eci, this will also handle EME2000 frame conversion
-        // as well as erroring out for ECEF/ITRF frames
-        let cov_eci = self.covariance_eci(epoch)?;
-
-        // Get state in ECI/GCRF frame
-        let state_eci = self.state_eci(epoch)?;
-
-        // Get rotation matrix from ECI to RTN
-        let rot_eci_to_rtn = rotation_eci_to_rtn(state_eci);
-
-        // Extract position and velocity
-        let r = state_eci.fixed_rows::<3>(0);
-        let v = state_eci.fixed_rows::<3>(3);
-
-        // Get angular velocity of RTN frame with respect to ECI frame (Alfriend equation 2.16)
-        let f_dot = (r.cross(&v)).norm() / (r.norm().powi(2));
-        let omega = nalgebra::Vector3::new(0.0, 0.0, f_dot);
-
-        // Build skew-symmetric matrix of omega
-        let omega_skew = SMatrix::<f64, 3, 3>::new(
-            0.0, -omega[2], omega[1], omega[2], 0.0, -omega[0], -omega[1], omega[0], 0.0,
-        );
-
-        let j21 = -omega_skew * rot_eci_to_rtn;
-
-        // Build full 6x6 Jacobian for ECI to RTN transformation
-        let mut jacobian = nalgebra::Matrix6::zeros();
-
-        // Block diagonal rotation parts
-        for i in 0..3 {
-            for j in 0..3 {
-                jacobian[(i, j)] = rot_eci_to_rtn[(i, j)];
-                jacobian[(3 + i, 3 + j)] = rot_eci_to_rtn[(i, j)];
-            }
-        }
-
-        // Off-diagonal parts due to angular velocity
-        for i in 3..6 {
-            for j in 0..3 {
-                jacobian[(i, j)] = j21[(i - 3, j)];
-            }
-        }
-
-        // Transform covariance: C_RTN = J * C_ECI * J^T
-        let cov_rtn = jacobian * cov_eci * jacobian.transpose();
-        Ok(cov_rtn)
+        self.covariance_rtn_with_variant(epoch, OrbitRelativeFrameVariant::Rotating)
     }
 }
 
@@ -2277,10 +2381,11 @@ mod tests {
     use crate::constants::{DEGREES, GM_MOON, R_EARTH, R_MOON, RADIANS};
     use crate::coordinates::{state_eci_to_koe, state_koe_to_eci};
     use crate::frames::{
-        state_ecef_to_eci, state_eci_to_ecef, state_eme2000_to_gcrf, state_gcrf_to_eme2000,
-        state_gcrf_to_itrf, state_gcrf_to_mod, state_gcrf_to_teme, state_gcrf_to_tod,
-        state_itrf_to_gcrf,
+        rotation_frame_to_frame, state_ecef_to_eci, state_eci_to_ecef, state_eme2000_to_gcrf,
+        state_gcrf_to_eme2000, state_gcrf_to_itrf, state_gcrf_to_mod, state_gcrf_to_teme,
+        state_gcrf_to_tod, state_itrf_to_gcrf,
     };
+    use crate::math::is_symmetric;
     use crate::time::{Epoch, TimeSystem};
     use crate::utils::testing::setup_global_test_eop;
     use approx::assert_abs_diff_eq;
@@ -5329,38 +5434,25 @@ mod tests {
 
     #[test]
     #[parallel]
-    fn test_from_orbital_data_covariances_invalid_frame_itrf() {
+    fn test_from_orbital_data_covariances_accept_earth_fixed_frames() {
+        // Covariance is accepted in any frame; the router rotates it on demand.
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = Vector6::new(R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0);
         let cov = SMatrix::<f64, 6, 6>::identity();
 
-        let result = SOrbitTrajectory::from_orbital_data(
-            vec![epoch],
-            vec![state],
-            CelestialFrame::ITRF,
-            OrbitRepresentation::Cartesian,
-            None,
-            Some(vec![cov]),
-        );
-        assert!(result.is_err());
-    }
-
-    #[test]
-    #[parallel]
-    fn test_from_orbital_data_covariances_invalid_frame_ecef() {
-        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
-        let state = Vector6::new(R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0);
-        let cov = SMatrix::<f64, 6, 6>::identity();
-
-        let result = SOrbitTrajectory::from_orbital_data(
-            vec![epoch],
-            vec![state],
-            CelestialFrame::ECEF,
-            OrbitRepresentation::Cartesian,
-            None,
-            Some(vec![cov]),
-        );
-        assert!(result.is_err());
+        for frame in [CelestialFrame::ITRF, CelestialFrame::ECEF] {
+            let traj = SOrbitTrajectory::from_orbital_data(
+                vec![epoch],
+                vec![state],
+                frame,
+                OrbitRepresentation::Cartesian,
+                None,
+                Some(vec![cov]),
+            )
+            .unwrap();
+            assert_eq!(traj.frame, frame);
+            assert_eq!(traj.covariance(epoch).unwrap().nrows(), 6);
+        }
     }
 
     #[test]
@@ -5438,6 +5530,174 @@ mod tests {
         assert!(result_cov[(0, 0)].abs() > 1e-6);
         assert!(result_cov[(1, 1)].abs() > 1e-6);
         assert!(result_cov[(2, 2)].abs() > 1e-6);
+    }
+
+    // ========== Covariance Frame Routing Tests ==========
+
+    fn covariance_routing_trajectory(
+        frame: CelestialFrame,
+    ) -> (SOrbitTrajectory, Epoch, SMatrix<f64, 6, 6>) {
+        let epoch = Epoch::from_datetime(2024, 3, 15, 6, 30, 0.0, 0.0, TimeSystem::UTC);
+        let state = Vector6::new(6878.0e3, 1200.0e3, -900.0e3, -1.1e3, 6.2e3, 3.4e3);
+
+        let mut cov = SMatrix::<f64, 6, 6>::zeros();
+        for i in 0..3 {
+            cov[(i, i)] = 100.0 * (i as f64 + 1.0);
+            cov[(3 + i, 3 + i)] = 0.01 * (i as f64 + 1.0);
+        }
+        cov[(0, 1)] = 25.0;
+        cov[(1, 0)] = 25.0;
+
+        let traj = SOrbitTrajectory::from_orbital_data(
+            vec![epoch],
+            vec![state],
+            frame,
+            OrbitRepresentation::Cartesian,
+            None,
+            Some(vec![cov]),
+        )
+        .unwrap();
+        (traj, epoch, cov)
+    }
+
+    #[test]
+    #[parallel]
+    fn test_sorbittrajectory_to_itrf_rotates_covariance() {
+        setup_global_test_eop();
+
+        let (traj, epoch, cov) = covariance_routing_trajectory(CelestialFrame::GCRF);
+        let itrf = traj.to_itrf().unwrap();
+
+        let retrieved = itrf.covariance(epoch).unwrap();
+        let r = rotation_frame_to_frame(CelestialFrame::GCRF, CelestialFrame::ITRF, epoch).unwrap();
+        let p_rr: SMatrix<f64, 3, 3> = cov.fixed_view::<3, 3>(0, 0).into();
+        let expected = r * p_rr * r.transpose();
+        assert_abs_diff_eq!(
+            (retrieved.fixed_view::<3, 3>(0, 0) - expected).norm(),
+            0.0,
+            epsilon = 1e-9
+        );
+    }
+
+    #[test]
+    #[parallel]
+    fn test_sorbittrajectory_to_itrf_to_gcrf_covariance_round_trip() {
+        setup_global_test_eop();
+
+        let (traj, epoch, cov) = covariance_routing_trajectory(CelestialFrame::GCRF);
+        let back = traj.to_itrf().unwrap().to_gcrf().unwrap();
+
+        let retrieved = back.covariance(epoch).unwrap();
+        assert_abs_diff_eq!((retrieved - cov).norm() / cov.norm(), 0.0, epsilon = 1e-9);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_sorbittrajectory_covariance_in_frame_matches_to_frame() {
+        setup_global_test_eop();
+
+        let (traj, epoch, _) = covariance_routing_trajectory(CelestialFrame::GCRF);
+        let via_accessor = traj
+            .covariance_in_frame(CelestialFrame::ITRF, epoch)
+            .unwrap();
+        let via_conversion = traj.to_itrf().unwrap().covariance(epoch).unwrap();
+
+        assert_abs_diff_eq!((via_accessor - via_conversion).norm(), 0.0, epsilon = 1e-12);
+        assert_abs_diff_eq!(
+            (via_accessor - traj.covariance_itrf(epoch).unwrap()).norm(),
+            0.0,
+            epsilon = 1e-15
+        );
+        assert_abs_diff_eq!(
+            (via_accessor - traj.covariance_ecef(epoch).unwrap()).norm(),
+            0.0,
+            epsilon = 1e-15
+        );
+    }
+
+    #[test]
+    #[parallel]
+    fn test_sorbittrajectory_covariance_eme2000_matches_in_frame() {
+        setup_global_test_eop();
+
+        let (traj, epoch, _) = covariance_routing_trajectory(CelestialFrame::GCRF);
+        let direct = traj.covariance_eme2000(epoch).unwrap();
+        let via_frame = traj
+            .covariance_in_frame(CelestialFrame::EME2000, epoch)
+            .unwrap();
+        assert_abs_diff_eq!((direct - via_frame).norm(), 0.0, epsilon = 1e-15);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_sorbittrajectory_covariance_rtn_is_symmetric_and_rotating() {
+        setup_global_test_eop();
+
+        let (traj, epoch, _) = covariance_routing_trajectory(CelestialFrame::GCRF);
+        let rtn = traj.covariance_rtn(epoch).unwrap();
+
+        let rotating = traj
+            .covariance_rtn_with_variant(epoch, OrbitRelativeFrameVariant::Rotating)
+            .unwrap();
+        assert_abs_diff_eq!((rtn - rotating).norm(), 0.0, epsilon = 1e-15);
+
+        assert!(is_symmetric(&rtn, 1e-15));
+
+        let inertial = traj
+            .covariance_rtn_with_variant(epoch, OrbitRelativeFrameVariant::Inertial)
+            .unwrap();
+        assert!((rtn - inertial).norm() > 1e-6);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_sorbittrajectory_covariance_in_frame_rejects_keplerian() {
+        setup_global_test_eop();
+
+        let (traj, epoch, cov) = covariance_routing_trajectory(CelestialFrame::GCRF);
+        let mut kep = traj.to_keplerian(AngleFormat::Degrees).unwrap();
+        kep.covariances = Some(vec![cov]);
+
+        // Elements in the native frame are returned as stored.
+        assert!(kep.covariance_in_frame(CelestialFrame::GCRF, epoch).is_ok());
+
+        let err = kep
+            .covariance_in_frame(CelestialFrame::ITRF, epoch)
+            .unwrap_err();
+        assert!(err.to_string().contains("Cartesian representation"));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_sorbittrajectory_covariance_rtn_rejects_keplerian() {
+        setup_global_test_eop();
+
+        let (traj, epoch, cov) = covariance_routing_trajectory(CelestialFrame::GCRF);
+        let mut kep = traj.to_keplerian(AngleFormat::Degrees).unwrap();
+        kep.covariances = Some(vec![cov]);
+
+        // The RTN Jacobian is a Cartesian state map, so elements are rejected
+        // even though the trajectory is already in the RTN frame's parent.
+        for variant in [
+            OrbitRelativeFrameVariant::Rotating,
+            OrbitRelativeFrameVariant::Inertial,
+        ] {
+            let err = kep.covariance_rtn_with_variant(epoch, variant).unwrap_err();
+            assert!(err.to_string().contains("Cartesian representation"));
+        }
+        let err = kep.covariance_rtn(epoch).unwrap_err();
+        assert!(err.to_string().contains("Cartesian representation"));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_sorbittrajectory_keplerian_to_frame_drops_covariance() {
+        setup_global_test_eop();
+
+        let (traj, _, _) = covariance_routing_trajectory(CelestialFrame::GCRF);
+        let kep = traj.to_keplerian(AngleFormat::Degrees).unwrap();
+        assert!(kep.covariances.is_none());
+        assert!(kep.to_gcrf().unwrap().covariances.is_none());
     }
 
     #[test]
@@ -5546,7 +5806,7 @@ mod tests {
 
     #[test]
     #[parallel]
-    fn test_covariance_eci_error_ecef() {
+    fn test_covariance_eci_from_ecef() {
         setup_global_test_eop();
 
         let mut traj =
@@ -5556,12 +5816,22 @@ mod tests {
 
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = Vector6::new(R_EARTH + 500e3, 0.0, 0.0, 0.0, 0.0, 7500.0);
-        let cov = SMatrix::<f64, 6, 6>::identity();
+        // Anisotropic, so the axis rotation genuinely changes the matrix.
+        let cov = SMatrix::<f64, 6, 6>::from_diagonal(&Vector6::new(
+            100.0, 400.0, 900.0, 0.01, 0.04, 0.09,
+        ));
         traj.add_state_and_covariance(epoch, state, cov).unwrap();
 
-        // ECEF covariances cannot be transformed to ECI
-        let result = traj.covariance_eci(epoch);
-        assert!(result.is_err());
+        // An Earth-fixed covariance is routed to GCRF rather than rejected.
+        let retrieved = traj.covariance_eci(epoch).unwrap();
+        let j =
+            state_transform_jacobian(CelestialFrame::ITRF, CelestialFrame::GCRF, epoch).unwrap();
+        assert_abs_diff_eq!(
+            (retrieved - rotate_covariance_6(&cov, &j)).norm(),
+            0.0,
+            epsilon = 1e-12
+        );
+        assert!((retrieved - cov).norm() > 1.0);
     }
 
     #[test]

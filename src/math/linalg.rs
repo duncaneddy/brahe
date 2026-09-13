@@ -123,6 +123,67 @@ pub fn kronecker_delta(i: usize, j: usize) -> u8 {
     if i == j { 1 } else { 0 }
 }
 
+/// Skew-symmetric cross-product matrix `[v]×` such that `[v]× w = v × w`.
+///
+/// # Arguments
+///
+/// - `v`: Vector whose cross product is to be written as a matrix
+///
+/// # Returns
+///
+/// - `SMatrix3`: The 3x3 skew-symmetric matrix `[v]×`
+///
+/// # Examples
+///
+/// ```
+/// use brahe::math::linalg::skew_symmetric;
+/// use nalgebra::Vector3;
+///
+/// let v = Vector3::new(1.0, 2.0, 3.0);
+/// let w = Vector3::new(-4.0, 5.0, 6.0);
+///
+/// assert!((skew_symmetric(&v) * w - v.cross(&w)).norm() < 1e-12);
+/// assert!((skew_symmetric(&v) + skew_symmetric(&v).transpose()).norm() < 1e-12);
+/// ```
+pub fn skew_symmetric(v: &na::Vector3<f64>) -> SMatrix3 {
+    SMatrix3::new(0.0, -v[2], v[1], v[2], 0.0, -v[0], -v[1], v[0], 0.0)
+}
+
+/// 6x6 block-diagonal matrix `blockdiag(a, b)`.
+///
+/// The result carries `a` in the leading 3x3 block, `b` in the trailing 3x3
+/// block, and zeros in the two off-diagonal blocks.
+///
+/// # Arguments
+///
+/// - `a`: Leading 3x3 block, placed at rows and columns 0-2
+/// - `b`: Trailing 3x3 block, placed at rows and columns 3-5
+///
+/// # Returns
+///
+/// - `SMatrix6`: The 6x6 block-diagonal matrix
+///
+/// # Examples
+///
+/// ```
+/// use brahe::math::linalg::{block_diagonal, SMatrix3};
+///
+/// let a = SMatrix3::identity();
+/// let b = SMatrix3::identity() * 2.0;
+/// let m = block_diagonal(&a, &b);
+///
+/// assert_eq!(m[(0, 0)], 1.0);
+/// assert_eq!(m[(3, 3)], 2.0);
+/// assert_eq!(m[(0, 3)], 0.0);
+/// assert_eq!(m[(3, 0)], 0.0);
+/// ```
+pub fn block_diagonal(a: &SMatrix3, b: &SMatrix3) -> SMatrix6 {
+    let mut m = SMatrix6::zeros();
+    m.fixed_view_mut::<3, 3>(0, 0).copy_from(a);
+    m.fixed_view_mut::<3, 3>(3, 3).copy_from(b);
+    m
+}
+
 /// Compute the matrix square root of a symmetric positive-definite matrix.
 ///
 /// This function computes the square root of a symmetric positive-definite matrix
@@ -573,6 +634,43 @@ mod tests {
         assert_eq!(kronecker_delta(0, 1), 0);
         assert_eq!(kronecker_delta(1, 0), 0);
         assert_eq!(kronecker_delta(1, 1), 1);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_skew_symmetric() {
+        let v = na::Vector3::new(0.31, -1.7, 4.2);
+        let w = na::Vector3::new(-2.4, 0.9, 3.3);
+
+        // [v]x w == v x w
+        assert!((skew_symmetric(&v) * w - v.cross(&w)).norm() < 1e-12);
+
+        // The matrix is skew-symmetric and annihilates its own generator.
+        let s = skew_symmetric(&v);
+        assert!((s + s.transpose()).norm() < 1e-12);
+        assert!((s * v).norm() < 1e-12);
+
+        // Element layout
+        assert_eq!(s[(0, 1)], -v[2]);
+        assert_eq!(s[(0, 2)], v[1]);
+        assert_eq!(s[(1, 2)], -v[0]);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_block_diagonal() {
+        let a = matrix3_from_array(&[[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 9.0]]);
+        let b = matrix3_from_array(&[[-1.0, -2.0, -3.0], [-4.0, -5.0, -6.0], [-7.0, -8.0, -9.0]]);
+        let m = block_diagonal(&a, &b);
+
+        for i in 0..3 {
+            for j in 0..3 {
+                assert_eq!(m[(i, j)], a[(i, j)]);
+                assert_eq!(m[(3 + i, 3 + j)], b[(i, j)]);
+                assert_eq!(m[(i, 3 + j)], 0.0);
+                assert_eq!(m[(3 + i, j)], 0.0);
+            }
+        }
     }
 
     #[test]

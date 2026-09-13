@@ -2840,48 +2840,23 @@ def test_from_orbital_data_covariances_length_mismatch(eop):
     assert "must match" in str(exc_info.value).lower()
 
 
-def test_from_orbital_data_covariances_invalid_frame_ecef(eop):
-    """Test that covariances with ECEF frame raise error."""
+def test_from_orbital_data_covariances_accept_earth_fixed_frames(eop):
+    """Rust: test_dorbittrajectory_from_orbital_data_cov_accepts_earth_fixed_frame"""
     epoch1 = brahe.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, brahe.UTC)
     state1 = np.array([brahe.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
     cov1 = np.eye(6) * 1000.0
 
-    # Rust panics raise PanicException in PyO3
-    with pytest.raises((Exception, brahe.PanicException)) as exc_info:
-        brahe.OrbitTrajectory.from_orbital_data(
+    # Covariance is accepted in any frame; the router rotates it on demand.
+    for frame in (brahe.CelestialFrame.ECEF, brahe.CelestialFrame.ITRF):
+        traj = brahe.OrbitTrajectory.from_orbital_data(
             [epoch1],
             np.array([state1]),
-            brahe.CelestialFrame.ECEF,  # Invalid frame for covariances!
+            frame,
             brahe.OrbitRepresentation.CARTESIAN,
             covariances=np.array([cov1]),
         )
-
-    # Check error message mentions supported frames
-    assert (
-        "eci" in str(exc_info.value).lower() and "gcrf" in str(exc_info.value).lower()
-    )
-
-
-def test_from_orbital_data_covariances_invalid_frame_itrf(eop):
-    """Test that covariances with ITRF frame raise error."""
-    epoch1 = brahe.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, brahe.UTC)
-    state1 = np.array([brahe.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
-    cov1 = np.eye(6) * 1000.0
-
-    # Rust panics raise PanicException in PyO3
-    with pytest.raises((Exception, brahe.PanicException)) as exc_info:
-        brahe.OrbitTrajectory.from_orbital_data(
-            [epoch1],
-            np.array([state1]),
-            brahe.CelestialFrame.ITRF,  # Invalid frame for covariances!
-            brahe.OrbitRepresentation.CARTESIAN,
-            covariances=np.array([cov1]),
-        )
-
-    # Check error message mentions supported frames
-    assert (
-        "eci" in str(exc_info.value).lower() and "gcrf" in str(exc_info.value).lower()
-    )
+        assert traj.frame == frame
+        assert traj.covariance(epoch1).shape == (6, 6)
 
 
 def test_add_state_and_covariance(eop):
@@ -4306,3 +4281,161 @@ def test_orbittrajectory_state_koe_osc_fast_path_for_icrf_axes_frames(eop):
 
         koe = traj.state_koe_osc(epoch, AngleFormat.RADIANS)
         np.testing.assert_array_equal(koe, state, err_msg=str(frame))
+
+
+# ============================================================================
+# Covariance frame routing
+# ============================================================================
+
+
+def _covariance_routing_trajectory(frame):
+    epoch = brahe.Epoch.from_datetime(2024, 3, 15, 6, 30, 0.0, 0.0, brahe.UTC)
+    state = np.array([6878.0e3, 1200.0e3, -900.0e3, -1.1e3, 6.2e3, 3.4e3])
+
+    cov = np.diag([100.0, 200.0, 300.0, 0.01, 0.02, 0.03])
+    cov[0, 1] = cov[1, 0] = 25.0
+
+    traj = brahe.OrbitTrajectory.from_orbital_data(
+        [epoch],
+        np.array([state]),
+        frame,
+        brahe.OrbitRepresentation.CARTESIAN,
+        covariances=np.array([cov]),
+    )
+    return traj, epoch, cov
+
+
+def test_to_itrf_rotates_covariance(eop):
+    """Rust: test_dorbittrajectory_to_itrf_rotates_covariance"""
+    traj, epoch, cov = _covariance_routing_trajectory(brahe.CelestialFrame.GCRF)
+    itrf = traj.to_itrf()
+
+    retrieved = itrf.covariance(epoch)
+    r = brahe.rotation_frame_to_frame(
+        brahe.CelestialFrame.GCRF, brahe.CelestialFrame.ITRF, epoch
+    )
+    expected = r @ cov[0:3, 0:3] @ r.T
+    np.testing.assert_allclose(retrieved[0:3, 0:3], expected, atol=1e-9, rtol=0)
+
+
+def test_to_itrf_to_gcrf_covariance_round_trip(eop):
+    """Rust: test_dorbittrajectory_to_itrf_to_gcrf_covariance_round_trip"""
+    traj, epoch, cov = _covariance_routing_trajectory(brahe.CelestialFrame.GCRF)
+    back = traj.to_itrf().to_gcrf()
+
+    retrieved = back.covariance(epoch)
+    assert np.linalg.norm(retrieved - cov) / np.linalg.norm(cov) < 1e-9
+
+
+def test_covariance_in_frame_matches_to_frame(eop):
+    """Rust: test_dorbittrajectory_covariance_in_frame_matches_to_frame"""
+    traj, epoch, _ = _covariance_routing_trajectory(brahe.CelestialFrame.GCRF)
+    via_accessor = traj.covariance_in_frame(brahe.CelestialFrame.ITRF, epoch)
+    via_conversion = traj.to_itrf().covariance(epoch)
+
+    np.testing.assert_allclose(via_accessor, via_conversion, atol=1e-12, rtol=0)
+    np.testing.assert_allclose(
+        via_accessor, traj.covariance_itrf(epoch), atol=1e-15, rtol=0
+    )
+    np.testing.assert_allclose(
+        via_accessor, traj.covariance_ecef(epoch), atol=1e-15, rtol=0
+    )
+
+
+def test_covariance_eme2000_matches_in_frame(eop):
+    """Rust: test_dorbittrajectory_covariance_eme2000_matches_in_frame"""
+    traj, epoch, _ = _covariance_routing_trajectory(brahe.CelestialFrame.GCRF)
+    np.testing.assert_allclose(
+        traj.covariance_eme2000(epoch),
+        traj.covariance_in_frame(brahe.CelestialFrame.EME2000, epoch),
+        atol=1e-15,
+        rtol=0,
+    )
+
+
+def test_covariance_rtn_is_symmetric_and_rotating(eop):
+    """Rust: test_dorbittrajectory_covariance_rtn_is_symmetric_and_rotating"""
+    traj, epoch, _ = _covariance_routing_trajectory(brahe.CelestialFrame.GCRF)
+    rtn = traj.covariance_rtn(epoch)
+
+    rotating = traj.covariance_rtn_with_variant(
+        epoch, brahe.OrbitRelativeFrameVariant.ROTATING
+    )
+    np.testing.assert_allclose(rtn, rotating, atol=1e-15, rtol=0)
+    np.testing.assert_allclose(rtn, rtn.T, atol=1e-15, rtol=0)
+
+    inertial = traj.covariance_rtn_with_variant(
+        epoch, brahe.OrbitRelativeFrameVariant.INERTIAL
+    )
+    assert np.linalg.norm(rtn - inertial) > 1e-6
+
+
+def test_covariance_eci_from_ecef(eop):
+    """Rust: test_dorbittrajectory_covariance_eci_from_ecef"""
+    traj, epoch, cov = _covariance_routing_trajectory(brahe.CelestialFrame.ECEF)
+
+    retrieved = traj.covariance_eci(epoch)
+    expected = brahe.covariance_frame_to_frame(
+        brahe.CelestialFrame.ITRF, brahe.CelestialFrame.GCRF, epoch, cov
+    )
+    np.testing.assert_allclose(retrieved, expected, atol=1e-12, rtol=0)
+    assert np.linalg.norm(retrieved - cov) > 1.0
+
+
+def test_covariance_in_frame_rejects_keplerian(eop):
+    """Rust: test_dorbittrajectory_covariance_in_frame_rejects_keplerian"""
+    traj, epoch, _ = _covariance_routing_trajectory(brahe.CelestialFrame.GCRF)
+    kep = traj.to_keplerian(brahe.AngleFormat.DEGREES)
+
+    # to_keplerian drops the covariance, so rebuild the elements trajectory
+    # with the covariance attached to exercise the representation check.
+    kep_with_cov = brahe.OrbitTrajectory.from_orbital_data(
+        [epoch],
+        np.array([kep.state(epoch)]),
+        brahe.CelestialFrame.GCRF,
+        brahe.OrbitRepresentation.KEPLERIAN,
+        angle_format=brahe.AngleFormat.DEGREES,
+        covariances=np.array([np.eye(6)]),
+    )
+
+    assert kep_with_cov.covariance_in_frame(brahe.CelestialFrame.GCRF, epoch).shape == (
+        6,
+        6,
+    )
+    with pytest.raises(Exception, match="Cartesian representation"):
+        kep_with_cov.covariance_in_frame(brahe.CelestialFrame.ITRF, epoch)
+
+
+def test_keplerian_to_frame_drops_covariance(eop):
+    """Rust: test_dorbittrajectory_keplerian_to_frame_drops_covariance"""
+    traj, epoch, _ = _covariance_routing_trajectory(brahe.CelestialFrame.GCRF)
+    kep = traj.to_keplerian(brahe.AngleFormat.DEGREES)
+
+    with pytest.raises(Exception, match="covariance tracking was not enabled"):
+        kep.covariance(epoch)
+    with pytest.raises(Exception, match="covariance tracking was not enabled"):
+        kep.to_gcrf().covariance(epoch)
+
+
+def test_covariance_rtn_rejects_keplerian(eop):
+    """Rust: test_dorbittrajectory_covariance_rtn_rejects_keplerian"""
+    traj, epoch, _ = _covariance_routing_trajectory(brahe.CelestialFrame.GCRF)
+    kep = traj.to_keplerian(brahe.AngleFormat.DEGREES)
+
+    kep_with_cov = brahe.OrbitTrajectory.from_orbital_data(
+        [epoch],
+        np.array([kep.state(epoch)]),
+        brahe.CelestialFrame.GCRF,
+        brahe.OrbitRepresentation.KEPLERIAN,
+        angle_format=brahe.AngleFormat.DEGREES,
+        covariances=np.array([np.eye(6)]),
+    )
+
+    with pytest.raises(Exception, match="Cartesian representation"):
+        kep_with_cov.covariance_rtn(epoch)
+    for variant in (
+        brahe.OrbitRelativeFrameVariant.ROTATING,
+        brahe.OrbitRelativeFrameVariant.INERTIAL,
+    ):
+        with pytest.raises(Exception, match="Cartesian representation"):
+            kep_with_cov.covariance_rtn_with_variant(epoch, variant)

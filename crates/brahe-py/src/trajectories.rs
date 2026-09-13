@@ -411,8 +411,10 @@ impl PyOrbitalTrajectory {
     ///     angle_format (AngleFormat or None): Angle format for Keplerian states,
     ///         must be None for Cartesian representation
     ///     covariances (numpy.ndarray or None): Optional 3D array of 6x6 covariance matrices
-    ///         with shape (N, 6, 6) where N is the number of epochs. Only supported for
-    ///         ECI and GCRF frames.
+    ///         with shape (N, 6, 6) where N is the number of epochs. Accepted in any
+    ///         frame: the matrices are stored as given and rotated on demand by
+    ///         `covariance_in_frame` and `to_frame`, which require a Cartesian
+    ///         representation.
     ///
     /// Returns:
     ///     OrbitTrajectory: New trajectory instance populated with data
@@ -1313,6 +1315,9 @@ impl PyOrbitalTrajectory {
 
     /// Convert to ECI (Earth-Centered Inertial) frame in Cartesian representation.
     ///
+    /// ECI is realized as GCRF. See `to_frame` for the conversion rules,
+    /// including the treatment of covariance.
+    ///
     /// Returns:
     ///     OrbitTrajectory: Trajectory in ECI Cartesian frame
     ///
@@ -1337,6 +1342,9 @@ impl PyOrbitalTrajectory {
     }
 
     /// Convert to ECEF (Earth-Centered Earth-Fixed) frame in Cartesian representation.
+    ///
+    /// ECEF is realized as ITRF. See `to_frame` for the conversion rules,
+    /// including the treatment of covariance.
     ///
     /// Returns:
     ///     OrbitTrajectory: Trajectory in ECEF Cartesian frame
@@ -1363,6 +1371,9 @@ impl PyOrbitalTrajectory {
 
     /// Convert to GCRF (Geocentric Celestial Reference Frame) frame in Cartesian representation.
     ///
+    /// See `to_frame` for the conversion rules, including the treatment
+    /// of covariance.
+    ///
     /// Returns:
     ///     OrbitTrajectory: Trajectory in GCRF Cartesian frame
     ///
@@ -1387,6 +1398,9 @@ impl PyOrbitalTrajectory {
     }
 
     /// Convert to EME2000 (Earth Mean Equator and Equinox of J2000.0) frame in Cartesian representation.
+    ///
+    /// See `to_frame` for the conversion rules, including the treatment
+    /// of covariance.
     ///
     /// Returns:
     ///     OrbitTrajectory: Trajectory in EME2000 Cartesian frame
@@ -1413,6 +1427,9 @@ impl PyOrbitalTrajectory {
 
     /// Convert to ITRF (International Terrestrial Reference Frame) frame in Cartesian representation.
     ///
+    /// See `to_frame` for the conversion rules, including the treatment
+    /// of covariance.
+    ///
     /// Returns:
     ///     OrbitTrajectory: Trajectory in ITRF Cartesian frame
     ///
@@ -1437,8 +1454,14 @@ impl PyOrbitalTrajectory {
     }
 
     /// Convert every sample to Cartesian coordinates in `frame` through the
-    /// reference frame router. Covariances, STMs, sensitivities, and
-    /// accelerations are dropped.
+    /// reference frame router.
+    ///
+    /// Covariance carried by a Cartesian trajectory is rotated for every frame
+    /// pair, each sample by the 6x6 state-transform Jacobian at its own epoch;
+    /// a conversion to the trajectory's own frame keeps it unrotated. A
+    /// Keplerian trajectory has no Cartesian covariance to rotate, so its
+    /// covariances are dropped along with the representation. STMs,
+    /// sensitivities, and accelerations are dropped.
     ///
     /// Args:
     ///     frame (CelestialFrame or ReferenceFrame): Target frame.
@@ -2508,6 +2531,241 @@ impl PyOrbitalTrajectory {
             .reshape([nrows, ncols])
             .unwrap()
             .to_owned())
+    }
+
+    /// Get the covariance matrix at a specific epoch expressed in an arbitrary
+    /// reference frame.
+    ///
+    /// The native covariance is interpolated at `epoch` and then rotated by
+    /// the 6x6 state-transform Jacobian between the trajectory's frame and
+    /// `frame`. Covariance elements beyond the orbital six pass through
+    /// unchanged.
+    ///
+    /// Args:
+    ///     frame (CelestialFrame | ReferenceFrame): Reference frame to express the covariance in
+    ///     epoch (Epoch): Time at which to retrieve the covariance
+    ///
+    /// Returns:
+    ///     np.ndarray: Covariance matrix in `frame`
+    ///
+    /// Raises:
+    ///     RuntimeError: If covariance tracking is not enabled, `epoch` lies outside the trajectory, the representation is not Cartesian, or the router cannot transform states between the frames
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     bh.initialize_eop()
+    ///
+    ///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0)
+    ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+    ///     cov = np.eye(6) * 1000.0
+    ///
+    ///     traj = bh.OrbitTrajectory.from_orbital_data(
+    ///         [epoch], [state], bh.CelestialFrame.GCRF, bh.OrbitRepresentation.CARTESIAN,
+    ///         covariances=np.array([cov])
+    ///     )
+    ///
+    ///     result = traj.covariance_in_frame(bh.CelestialFrame.ITRF, epoch)
+    ///     ```
+    #[pyo3(text_signature = "(frame, epoch)")]
+    fn covariance_in_frame<'py>(
+        &self,
+        py: Python<'py>,
+        frame: &Bound<'py, PyAny>,
+        epoch: PyRef<PyEpoch>,
+    ) -> PyResult<Bound<'py, PyArray<f64, Ix2>>> {
+        let frame = extract_frame(frame)?;
+        let cov_mat = self.trajectory.covariance_in_frame(frame, epoch.obj)?;
+        let cov_ref = &cov_mat;
+        let (nrows, ncols) = (cov_mat.nrows(), cov_mat.ncols());
+        Ok(matrix_to_numpy!(py, cov_ref, nrows, ncols, f64).to_owned())
+    }
+
+    /// Get the covariance matrix at a specific epoch in the ITRF frame.
+    ///
+    /// See `covariance_in_frame` for the transformation rules.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Time at which to retrieve the covariance
+    ///
+    /// Returns:
+    ///     np.ndarray: Covariance matrix in ITRF
+    ///
+    /// Raises:
+    ///     RuntimeError: If the covariance is unavailable or cannot be rotated
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     bh.initialize_eop()
+    ///
+    ///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0)
+    ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+    ///     cov = np.eye(6) * 1000.0
+    ///
+    ///     traj = bh.OrbitTrajectory.from_orbital_data(
+    ///         [epoch], [state], bh.CelestialFrame.GCRF, bh.OrbitRepresentation.CARTESIAN,
+    ///         covariances=np.array([cov])
+    ///     )
+    ///
+    ///     result = traj.covariance_itrf(epoch)
+    ///     print(result)  # 6x6 numpy array in ITRF frame
+    ///     ```
+    #[pyo3(text_signature = "(epoch)")]
+    fn covariance_itrf<'py>(
+        &self,
+        py: Python<'py>,
+        epoch: PyRef<PyEpoch>,
+    ) -> PyResult<Bound<'py, PyArray<f64, Ix2>>> {
+        let cov_mat = self.trajectory.covariance_itrf(epoch.obj)?;
+        let cov_ref = &cov_mat;
+        let (nrows, ncols) = (cov_mat.nrows(), cov_mat.ncols());
+        Ok(matrix_to_numpy!(py, cov_ref, nrows, ncols, f64).to_owned())
+    }
+
+    /// Get the covariance matrix at a specific epoch in the ECEF frame.
+    ///
+    /// ECEF is realized as ITRF. See `covariance_in_frame` for the
+    /// transformation rules.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Time at which to retrieve the covariance
+    ///
+    /// Returns:
+    ///     np.ndarray: Covariance matrix in ITRF
+    ///
+    /// Raises:
+    ///     RuntimeError: If the covariance is unavailable or cannot be rotated
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     bh.initialize_eop()
+    ///
+    ///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0)
+    ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+    ///     cov = np.eye(6) * 1000.0
+    ///
+    ///     traj = bh.OrbitTrajectory.from_orbital_data(
+    ///         [epoch], [state], bh.CelestialFrame.GCRF, bh.OrbitRepresentation.CARTESIAN,
+    ///         covariances=np.array([cov])
+    ///     )
+    ///
+    ///     result = traj.covariance_ecef(epoch)
+    ///     print(result)  # 6x6 numpy array in ITRF frame
+    ///     ```
+    #[pyo3(text_signature = "(epoch)")]
+    fn covariance_ecef<'py>(
+        &self,
+        py: Python<'py>,
+        epoch: PyRef<PyEpoch>,
+    ) -> PyResult<Bound<'py, PyArray<f64, Ix2>>> {
+        let cov_mat = self.trajectory.covariance_ecef(epoch.obj)?;
+        let cov_ref = &cov_mat;
+        let (nrows, ncols) = (cov_mat.nrows(), cov_mat.ncols());
+        Ok(matrix_to_numpy!(py, cov_ref, nrows, ncols, f64).to_owned())
+    }
+
+    /// Get the covariance matrix at a specific epoch in the EME2000 frame.
+    ///
+    /// See `covariance_in_frame` for the transformation rules.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Time at which to retrieve the covariance
+    ///
+    /// Returns:
+    ///     np.ndarray: Covariance matrix in EME2000
+    ///
+    /// Raises:
+    ///     RuntimeError: If the covariance is unavailable or cannot be rotated
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     bh.initialize_eop()
+    ///
+    ///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0)
+    ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+    ///     cov = np.eye(6) * 1000.0
+    ///
+    ///     traj = bh.OrbitTrajectory.from_orbital_data(
+    ///         [epoch], [state], bh.CelestialFrame.GCRF, bh.OrbitRepresentation.CARTESIAN,
+    ///         covariances=np.array([cov])
+    ///     )
+    ///
+    ///     result = traj.covariance_eme2000(epoch)
+    ///     print(result)  # 6x6 numpy array in EME2000 frame
+    ///     ```
+    #[pyo3(text_signature = "(epoch)")]
+    fn covariance_eme2000<'py>(
+        &self,
+        py: Python<'py>,
+        epoch: PyRef<PyEpoch>,
+    ) -> PyResult<Bound<'py, PyArray<f64, Ix2>>> {
+        let cov_mat = self.trajectory.covariance_eme2000(epoch.obj)?;
+        let cov_ref = &cov_mat;
+        let (nrows, ncols) = (cov_mat.nrows(), cov_mat.ncols());
+        Ok(matrix_to_numpy!(py, cov_ref, nrows, ncols, f64).to_owned())
+    }
+
+    /// Get the covariance matrix at a specific epoch in RTN axes, for the
+    /// given orbit-relative frame variant.
+    ///
+    /// `ROTATING` carries the angular-velocity coupling of the true local
+    /// orbital frame and matches `covariance_rtn`; `INERTIAL` freezes the axes
+    /// at `epoch` and applies a pure rotation.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Time at which to retrieve the covariance
+    ///     variant (OrbitRelativeFrameVariant): Whether the RTN axes rotate with the orbit or are frozen at `epoch`
+    ///
+    /// Returns:
+    ///     np.ndarray: Covariance matrix in RTN axes
+    ///
+    /// Raises:
+    ///     RuntimeError: If the covariance is unavailable, the representation is not Cartesian, or it cannot be rotated into GCRF
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     bh.initialize_eop()
+    ///
+    ///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0)
+    ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+    ///     cov = np.eye(6) * 1000.0
+    ///
+    ///     traj = bh.OrbitTrajectory.from_orbital_data(
+    ///         [epoch], [state], bh.CelestialFrame.GCRF, bh.OrbitRepresentation.CARTESIAN,
+    ///         covariances=np.array([cov])
+    ///     )
+    ///
+    ///     result = traj.covariance_rtn_with_variant(
+    ///         epoch, bh.OrbitRelativeFrameVariant.INERTIAL
+    ///     )
+    ///     ```
+    #[pyo3(text_signature = "(epoch, variant)")]
+    fn covariance_rtn_with_variant<'py>(
+        &self,
+        py: Python<'py>,
+        epoch: PyRef<PyEpoch>,
+        variant: &PyOrbitRelativeFrameVariant,
+    ) -> PyResult<Bound<'py, PyArray<f64, Ix2>>> {
+        let cov_mat = self
+            .trajectory
+            .covariance_rtn_with_variant(epoch.obj, variant.variant)?;
+        let cov_ref = &cov_mat;
+        let (nrows, ncols) = (cov_mat.nrows(), cov_mat.ncols());
+        Ok(matrix_to_numpy!(py, cov_ref, nrows, ncols, f64).to_owned())
     }
 
     // ========================

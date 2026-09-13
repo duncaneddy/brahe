@@ -610,22 +610,24 @@ impl PyStarlinkClient {
         .map_err(|e| BraheError::new_err(e.to_string()))
     }
 
-    /// Downloads (if needed) a satellite's ephemeris and copies it to ``destination``.
+    /// Downloads (if needed) a satellite's ephemeris and moves it to ``destination``.
     ///
     /// An existing directory, or a path whose last component has no
     /// extension, is treated as a directory (created if missing) and the
-    /// original file name is kept; a path with an extension is the file name.
-    /// Saved copies are outside the cache and never evicted.
+    /// original file name is kept; a path with an extension is the file
+    /// name. The destination becomes the only copy; the cache no longer
+    /// holds the file, so a later ``download_ephemeris`` call for the same
+    /// satellite downloads it again.
     ///
     /// Args:
     ///     norad_cat_id (int): NORAD catalog number.
-    ///     destination (str): Directory or file path.
+    ///     destination (str): Directory or file path, outside the cache directory.
     ///
     /// Returns:
     ///     str: Path written.
     ///
     /// Raises:
-    ///     BraheError: On download or filesystem failure.
+    ///     BraheError: On download or filesystem failure, or if ``destination`` resolves inside the cache directory.
     fn save_ephemeris(
         &self,
         py: Python<'_>,
@@ -667,17 +669,22 @@ impl PyStarlinkClient {
             .map_err(|e| BraheError::new_err(e.to_string()))
     }
 
-    /// Runs ``download_all`` and copies every file into ``destination``.
+    /// Runs ``download_all`` and moves every file into ``destination``.
+    ///
+    /// Each cached file is moved rather than duplicated, so the destination
+    /// becomes the only copy and the cache no longer holds any of the
+    /// ephemeris files; a later ``download_ephemeris`` or ``download_all``
+    /// call downloads them again.
     ///
     /// Args:
-    ///     destination (str): Directory, created if missing.
+    ///     destination (str): Directory, created if missing, outside the cache directory.
     ///     concurrency (int, optional): Worker threads, at least 1. Default: 8.
     ///
     /// Returns:
     ///     list[str]: Paths written, in manifest order.
     ///
     /// Raises:
-    ///     BraheError: On download failure or if ``destination`` is an existing file.
+    ///     BraheError: On download failure, if ``destination`` is an existing file, or if it resolves to the cache directory.
     #[pyo3(signature = (destination, concurrency=8))]
     fn save_all(
         &self,

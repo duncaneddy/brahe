@@ -408,18 +408,36 @@ def test_save_ephemeris_directory_and_file_destinations(starlink_server, tmp_pat
     base_url, _, _ = starlink_server
     out = tmp_path / "out"
     client = bh.StarlinkClient(base_url=base_url)
+    d = cache_dir(client)
     existing = out / "existing"
     existing.mkdir(parents=True)
     assert Path(client.save_ephemeris(100002, str(existing))) == existing / SHORT_FILE
+    assert not (d / SHORT_FILE).exists()
     new_dir = out / "nested" / "new_dir"
     assert Path(client.save_ephemeris(100002, str(new_dir))) == new_dir / SHORT_FILE
     assert new_dir.is_dir()
+    assert not (d / SHORT_FILE).exists()
     renamed = out / "renamed" / "sat.txt"
     assert Path(client.save_ephemeris(100002, str(renamed))) == renamed
     assert renamed.read_text() == (ASSETS / SHORT_FILE).read_text()
     assert Path(client.save_ephemeris(100002, str(renamed))) == renamed
+    assert not (d / SHORT_FILE).exists()
     assert client.prune_cache() == 0
+    assert (existing / SHORT_FILE).exists()
+    assert (new_dir / SHORT_FILE).exists()
     assert renamed.exists()
+
+
+def test_save_ephemeris_re_downloads_after_move(starlink_server, tmp_path):
+    """Rust: test_save_ephemeris_re_downloads_after_move"""
+    base_url, hits, _ = starlink_server
+    client = bh.StarlinkClient(base_url=base_url)
+    first = tmp_path / "first"
+    client.save_ephemeris(100002, str(first))
+    assert [h[0] for h in hits].count(f"/{SHORT_FILE}") == 1
+    second = tmp_path / "second"
+    client.save_ephemeris(100002, str(second))
+    assert [h[0] for h in hits].count(f"/{SHORT_FILE}") == 2
 
 
 def test_download_all_downloads_missing_and_keeps_cached(starlink_server, tmp_path):
@@ -501,7 +519,7 @@ def test_save_destinations_that_cannot_be_created(starlink_server, tmp_path):
         client.save_all(str(blocker / "all"), 1)
     occupied = tmp_path / "out" / "occupied"
     (occupied / SHORT_FILE).mkdir(parents=True)
-    with pytest.raises(bh.BraheError, match="Failed to copy"):
+    with pytest.raises(bh.BraheError, match="Failed to move"):
         client.save_ephemeris(100002, str(occupied))
 
 
@@ -540,19 +558,24 @@ def test_download_ephemeris_rejects_not_modified_answer(tmp_path, monkeypatch):
         server.server_close()
 
 
-def test_save_all_copies_into_directory(starlink_server, tmp_path):
-    """Rust: test_save_all_copies_into_directory"""
+def test_save_all_moves_into_directory(starlink_server, tmp_path):
+    """Rust: test_save_all_moves_into_directory"""
     base_url, _, _ = starlink_server
     dest = tmp_path / "out" / "ephemerides"
     client = bh.StarlinkClient(base_url=base_url)
+    d = cache_dir(client)
     saved = [Path(p) for p in client.save_all(str(dest), concurrency=2)]
     assert saved == [dest / FULL_FILE, dest / SHORT_FILE]
     assert (dest / FULL_FILE).read_text() == (ASSETS / FULL_FILE).read_text()
+    assert not (d / FULL_FILE).exists()
+    assert not (d / SHORT_FILE).exists()
+    assert client.cached_files() == []
     file_dest = tmp_path / "a_file.txt"
     file_dest.write_text("x")
     with pytest.raises(bh.BraheError):
         client.save_all(str(file_dest))
-    assert (cache_dir(client) / FULL_FILE).exists()
+    with pytest.raises(bh.BraheError, match="cache directory"):
+        client.save_all(str(d))
 
 
 def test_get_manifest_rejects_path_traversal_line(starlink_server, tmp_path):
@@ -607,16 +630,20 @@ def test_download_all_deduplicates_repeated_norad_ids(starlink_server, tmp_path)
     assert saved == [out / SHORT_FILE, out / FULL_FILE]
 
 
-def test_save_ephemeris_onto_cache_file_keeps_it_intact(starlink_server, tmp_path):
-    """Rust: test_save_ephemeris_onto_cache_file_keeps_it_intact"""
+def test_save_ephemeris_into_cache_directory_errors(starlink_server, tmp_path):
+    """Rust: test_save_ephemeris_into_cache_directory_errors"""
     base_url, _, _ = starlink_server
     client = bh.StarlinkClient(base_url=base_url)
     d = cache_dir(client)
     cached = Path(client.download_ephemeris(100002))
     original = cached.read_text()
-    saved = Path(client.save_ephemeris(100002, str(cached)))
-    assert saved == cached
+
+    with pytest.raises(bh.BraheError, match="cache directory"):
+        client.save_ephemeris(100002, str(cached))
     assert cached.read_text() == original
+
+    with pytest.raises(bh.BraheError, match="cache directory"):
+        client.save_ephemeris(100002, str(d))
     assert (d / SHORT_FILE).read_text() == original
 
 

@@ -4374,8 +4374,10 @@ def test_covariance_rtn_uses_its_own_central_body(eop, naif_cache_setup):
     """Rust: test_dorbittrajectory_covariance_rtn_uses_its_own_central_body"""
     epoch = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
     state = np.array([2.0e6, 1.0e5, -3.0e5, 10.0, 1.6e3, -5.0])
-    cov = np.diag([100.0, 100.0, 100.0, 0.01, 0.01, 0.01])
-    cov[0, 1] = cov[1, 0] = 25.0
+    # An anisotropic position block, so the discrimination below rests on the
+    # axes themselves rather than on a single cross term.
+    cov = np.diag([100.0, 25.0, 4.0, 0.01, 0.01, 0.01])
+    cov[0, 1] = cov[1, 0] = 5.0
 
     traj = brahe.OrbitTrajectory.from_orbital_data(
         [epoch],

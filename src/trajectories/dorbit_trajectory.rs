@@ -6307,13 +6307,15 @@ mod tests {
         traj.covariances = Some(Vec::new());
         let epoch = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![2.0e6, 1.0e5, -3.0e5, 10.0, 1.6e3, -5.0]);
+        // An anisotropic position block, so the discrimination below rests on
+        // the axes themselves rather than on a single cross term.
         let mut cov = DMatrix::<f64>::zeros(6, 6);
-        for i in 0..3 {
-            cov[(i, i)] = 100.0;
+        for (i, var) in [100.0, 25.0, 4.0].into_iter().enumerate() {
+            cov[(i, i)] = var;
             cov[(3 + i, 3 + i)] = 0.01;
         }
-        cov[(0, 1)] = 25.0;
-        cov[(1, 0)] = 25.0;
+        cov[(0, 1)] = 5.0;
+        cov[(1, 0)] = 5.0;
         traj.add_state_and_covariance(epoch, state, cov.clone())
             .unwrap();
 

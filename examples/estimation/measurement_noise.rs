@@ -38,11 +38,11 @@ fn main() {
     println!("  (0,0)={:.1} (0,1)={:.1} (2,2)={:.1}", r[(0,0)], r[(0,1)], r[(2,2)]);
 
     // --- Standalone covariance helpers ---
-    let r = bh::math::covariance::isotropic_covariance(3, 10.0);
+    let r = bh::math::isotropic_covariance(3, 10.0);
     println!("\nisotropic_covariance(3, 10.0) diag: [{:.0}, {:.0}, {:.0}]",
         r[(0,0)], r[(1,1)], r[(2,2)]);
 
-    let r = bh::math::covariance::diagonal_covariance(&[5.0, 10.0, 15.0]);
+    let r = bh::math::diagonal_covariance(&[5.0, 10.0, 15.0]);
     println!("diagonal_covariance([5, 10, 15]) diag: [{:.0}, {:.0}, {:.0}]",
         r[(0,0)], r[(1,1)], r[(2,2)]);
 }

@@ -208,9 +208,17 @@ fn matrices_to_numpy<'py, const N: usize>(
 
 /// A square-matrix argument parsed from Python: a single `n x n` matrix or a
 /// batch of them stacked along a leading axis.
+///
+/// A batch keeps the trailing `(rows, cols)` of the source array separately
+/// from its elements, so an empty batch still knows the element shape it
+/// declared and can be validated and shaped on output like a populated one.
 enum MatrixArg {
     Single(DMatrix<f64>),
-    Batch(Vec<DMatrix<f64>>),
+    Batch {
+        mats: Vec<DMatrix<f64>>,
+        rows: usize,
+        cols: usize,
+    },
 }
 
 impl MatrixArg {
@@ -218,7 +226,15 @@ impl MatrixArg {
     fn as_slice(&self) -> &[DMatrix<f64>] {
         match self {
             MatrixArg::Single(m) => std::slice::from_ref(m),
-            MatrixArg::Batch(ms) => ms,
+            MatrixArg::Batch { mats, .. } => mats,
+        }
+    }
+
+    /// Shape of one element, `(rows, cols)`, even for an empty batch.
+    fn element_shape(&self) -> (usize, usize) {
+        match self {
+            MatrixArg::Single(m) => (m.nrows(), m.ncols()),
+            MatrixArg::Batch { rows, cols, .. } => (*rows, *cols),
         }
     }
 }
@@ -250,14 +266,16 @@ fn parse_matrix_arg(obj: &Bound<'_, PyAny>) -> PyResult<MatrixArg> {
         ))),
         3 => {
             let (m, rows, cols) = (view.shape()[0], view.shape()[1], view.shape()[2]);
-            Ok(MatrixArg::Batch(
-                (0..m)
+            Ok(MatrixArg::Batch {
+                mats: (0..m)
                     .map(|k| {
                         let sub = view.index_axis(ndarray::Axis(0), k);
                         DMatrix::from_row_iterator(rows, cols, sub.iter().copied())
                     })
                     .collect(),
-            ))
+                rows,
+                cols,
+            })
         }
         ndim => Err(exceptions::PyValueError::new_err(format!(
             "Expected a 2-D matrix or a 3-D batch of matrices, got a {}-D array",
@@ -266,31 +284,63 @@ fn parse_matrix_arg(obj: &Bound<'_, PyAny>) -> PyResult<MatrixArg> {
     }
 }
 
+/// A 6x6 Jacobian argument parsed from Python: a single matrix or a batch.
+///
+/// The single matrix is boxed so the two variants stay comparable in size.
+enum JacobianArg {
+    Single(Box<SMatrix6>),
+    Batch(Vec<SMatrix6>),
+}
+
+impl JacobianArg {
+    /// The argument as a slice, so a scalar and a batch share one code path.
+    fn as_slice(&self) -> &[SMatrix6] {
+        match self {
+            JacobianArg::Single(j) => std::slice::from_ref(j),
+            JacobianArg::Batch(js) => js,
+        }
+    }
+}
+
 /// Parse a Python object into a single 6x6 Jacobian or an `(m, 6, 6)` batch.
-fn parse_jacobian_arg(obj: &Bound<'_, PyAny>) -> PyResult<Vec<SMatrix6>> {
-    parse_matrix_arg(obj)?
-        .as_slice()
-        .iter()
-        .map(|j| {
-            if j.nrows() != 6 || j.ncols() != 6 {
-                return Err(exceptions::PyValueError::new_err(format!(
-                    "Expected 6x6 matrix, got {}x{}",
-                    j.nrows(),
-                    j.ncols()
-                )));
-            }
-            Ok(SMatrix6::from_iterator(j.iter().copied()))
-        })
-        .collect()
+///
+/// The declared element shape is checked before any element is read, so a
+/// `(0, 5, 5)` batch is rejected rather than passing as an empty batch.
+fn parse_jacobian_arg(obj: &Bound<'_, PyAny>) -> PyResult<JacobianArg> {
+    let arg = parse_matrix_arg(obj)?;
+    let (rows, cols) = arg.element_shape();
+    if rows != 6 || cols != 6 {
+        return Err(exceptions::PyValueError::new_err(format!(
+            "Expected 6x6 matrix, got {}x{}",
+            rows, cols
+        )));
+    }
+    Ok(match arg {
+        MatrixArg::Single(j) => {
+            JacobianArg::Single(Box::new(SMatrix6::from_iterator(j.iter().copied())))
+        }
+        MatrixArg::Batch { mats, .. } => JacobianArg::Batch(
+            mats.iter()
+                .map(|j| SMatrix6::from_iterator(j.iter().copied()))
+                .collect(),
+        ),
+    })
 }
 
 /// Convert a batch of square matrices to an `(m, n, n)` numpy array.
+///
+/// `element_shape` supplies the trailing dimensions, so an empty batch keeps
+/// the `(n, n)` its input declared instead of collapsing to `(0, 0, 0)`.
 fn dmatrices_to_numpy<'py>(
     py: Python<'py>,
     mats: Vec<DMatrix<f64>>,
+    element_shape: (usize, usize),
 ) -> PyResult<Bound<'py, PyAny>> {
     let m = mats.len();
-    let (rows, cols) = mats.first().map(|p| (p.nrows(), p.ncols())).unwrap_or((0, 0));
+    let (rows, cols) = mats
+        .first()
+        .map(|p| (p.nrows(), p.ncols()))
+        .unwrap_or(element_shape);
     let flat: Vec<f64> = mats
         .iter()
         .flat_map(|p| (0..rows).flat_map(move |i| (0..cols).map(move |j| p[(i, j)])))
@@ -302,8 +352,22 @@ fn dmatrices_to_numpy<'py>(
         .into_any())
 }
 
+/// Validate the declared element shape of a covariance argument whose batch
+/// is empty, so `(0, 6, 5)` fails exactly as `(1, 6, 5)` would.
+///
+/// A populated batch is validated element by element inside the core
+/// transform; an empty one has no element to inspect, so the shape numpy
+/// declared is run through the same check against a zero matrix.
+fn check_empty_covariance_shape(covariances: &MatrixArg) -> PyResult<()> {
+    if covariances.as_slice().is_empty() {
+        let (rows, cols) = covariances.element_shape();
+        brahe::frames::rotate_covariance(&DMatrix::zeros(rows, cols), &SMatrix6::identity())?;
+    }
+    Ok(())
+}
+
 /// Dispatch a fallible epoch-dependent 6x6 Jacobian on a single epoch or a
-/// sequence. Errors from the core are raised as `RuntimeError`.
+/// sequence. Errors from the core are raised as `BraheError`.
 fn try_dispatch_epoch_jacobian<'py>(
     py: Python<'py>,
     epc: &Bound<'py, PyAny>,
@@ -312,13 +376,11 @@ fn try_dispatch_epoch_jacobian<'py>(
 ) -> PyResult<Bound<'py, PyAny>> {
     match parse_epoch_arg(epc)? {
         EpochArg::Single(e) => {
-            let mat = scalar(e).map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+            let mat = scalar(e)?;
             Ok(matrix_to_numpy!(py, mat, 6, 6, f64).into_any())
         }
         EpochArg::Many(epochs) => {
-            let out = py
-                .detach(|| batch(&epochs))
-                .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+            let out = py.detach(|| batch(&epochs))?;
             Ok(matrices_to_numpy(py, out))
         }
     }

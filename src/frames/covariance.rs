@@ -50,11 +50,12 @@ use crate::utils::errors::BraheError;
 /// carry the same large center offset, and differencing them discards the
 /// leading digits the two share. The relative error of a column is then
 /// about `eps * |offset| / s`. Position probes of `1e7` m and velocity
-/// probes of `1e4` m/s hold that below roughly `1e-12` even against a
+/// probes of `1e4` m/s hold that to a few parts in `1e12` even against a
 /// heliocentric offset of `1.5e11` m (`2.2e-16 * 1.5e11 / 1e7 = 3e-12` on
 /// position, and a matching bound on velocity against the `~3e4` m/s of
-/// Earth's orbital motion), while staying far enough below the `1e16`-scale
-/// range of `f64` that the probe itself is exact.
+/// Earth's orbital motion). Nearer offsets do proportionally better: an
+/// Earth-orbit offset of `1e7` m leaves the columns at full double
+/// precision.
 ///
 /// The celestial pairs handled below never see that cancellation at all:
 /// the probe is taken about a single common center, so the translation is
@@ -676,6 +677,10 @@ mod tests {
 
     /// Re-implements the probe loop of [`state_transform_jacobian`] with
     /// caller-chosen probe scales, so a test can vary only the scale.
+    ///
+    /// It deliberately skips the same-axes and common-center routing
+    /// shortcuts and probes `from` -> `to` as given, so what a comparison
+    /// measures is the raw difference quotient at that scale.
     fn jacobian_with_probe_scales(
         from: ReferenceFrame,
         to: ReferenceFrame,

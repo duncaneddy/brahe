@@ -5794,7 +5794,7 @@ fn py_state_frame_to_frame<'py>(
 ///         single epoch or `(n, 6, 6)` for a sequence of `n` epochs.
 ///
 /// Raises:
-///     RuntimeError: If the router cannot transform states between the frames at `epc`
+///     BraheError: If the router cannot transform states between the frames at `epc`
 ///
 /// Example:
 ///     ```python
@@ -5855,7 +5855,7 @@ fn py_state_transform_jacobian<'py>(
 ///
 /// Raises:
 ///     ValueError: If `jacobian` is not 6x6, or either argument is neither 2-D nor 3-D
-///     RuntimeError: If `covariance` is not square, is smaller than 6x6, or the batch lengths do not broadcast
+///     BraheError: If `covariance` is not square, is smaller than 6x6, or the batch lengths do not broadcast
 ///
 /// Example:
 ///     ```python
@@ -5878,15 +5878,18 @@ fn py_rotate_covariance<'py>(
     let covariances = parse_matrix_arg(covariance)?;
     let jacobians = parse_jacobian_arg(jacobian)?;
 
-    if let (MatrixArg::Single(p), [j]) = (&covariances, jacobians.as_slice()) {
+    if let (MatrixArg::Single(p), JacobianArg::Single(j)) = (&covariances, &jacobians) {
         let rotated = frames::rotate_covariance(p, j)?;
         let rotated_ref = &rotated;
         let (n, m) = (rotated.nrows(), rotated.ncols());
         return Ok(matrix_to_numpy!(py, rotated_ref, n, m, f64).into_any());
     }
 
-    let rotated = py.detach(|| frames::rotate_covariances(covariances.as_slice(), &jacobians))?;
-    dmatrices_to_numpy(py, rotated)
+    check_empty_covariance_shape(&covariances)?;
+    let element_shape = covariances.element_shape();
+    let rotated =
+        py.detach(|| frames::rotate_covariances(covariances.as_slice(), jacobians.as_slice()))?;
+    dmatrices_to_numpy(py, rotated, element_shape)
 }
 
 /// Rotates a state covariance from `from_frame` into `to_frame` at `epc`.
@@ -5914,7 +5917,7 @@ fn py_rotate_covariance<'py>(
 ///
 /// Raises:
 ///     ValueError: If `covariance` is neither 2-D nor 3-D
-///     RuntimeError: If the router cannot transform states between the frames at `epc`, the covariance is not square or is smaller than 6x6, or the batch lengths do not broadcast
+///     BraheError: If the router cannot transform states between the frames at `epc`, the covariance is not square or is smaller than 6x6, or the batch lengths do not broadcast
 ///
 /// Example:
 ///     ```python
@@ -5954,6 +5957,8 @@ fn py_covariance_frame_to_frame<'py>(
         return Ok(matrix_to_numpy!(py, rotated_ref, n, m, f64).into_any());
     }
 
+    check_empty_covariance_shape(&covariances)?;
+    let element_shape = covariances.element_shape();
     let epochs = match epochs {
         EpochArg::Single(e) => vec![e],
         EpochArg::Many(es) => es,
@@ -5961,7 +5966,7 @@ fn py_covariance_frame_to_frame<'py>(
     let rotated = py.detach(|| {
         frames::covariances_frame_to_frame(from, to, &epochs, covariances.as_slice())
     })?;
-    dmatrices_to_numpy(py, rotated)
+    dmatrices_to_numpy(py, rotated, element_shape)
 }
 
 // ============================================================================

@@ -2940,9 +2940,9 @@ def test_rotate_covariance_batch_matches_loop_and_broadcasts():
         )
 
     # Mismatched lengths and unusable shapes both raise.
-    with pytest.raises(Exception, match="common length"):
+    with pytest.raises(brahe.BraheError, match="common length"):
         brahe.rotate_covariance(np.stack([np.eye(6)] * 3), jacobians)
-    with pytest.raises(Exception, match="at least 6x6"):
+    with pytest.raises(brahe.BraheError, match="at least 6x6"):
         brahe.rotate_covariance(np.stack([np.eye(5)]), jacobians[0])
 
 
@@ -3006,10 +3006,78 @@ def test_covariance_frame_to_frame_batch_matches_per_epoch_loop(eop):
         )
 
     # Lengths that do not broadcast are rejected.
-    with pytest.raises(Exception, match="common length"):
+    with pytest.raises(brahe.BraheError, match="common length"):
         brahe.covariance_frame_to_frame(
             brahe.CelestialFrame.GCRF,
             brahe.CelestialFrame.ITRF,
             epochs[:2],
             covariances,
         )
+
+
+def test_covariance_batch_of_one_stays_a_batch(eop):
+    """A length-1 batch on either argument keeps the batch layout, so a caller
+    that always stacks its input always gets a stacked result."""
+    epc = _covariance_test_epoch()
+    p = np.eye(7)
+    j = np.eye(6)
+
+    assert brahe.rotate_covariance(p, j).shape == (7, 7)
+    assert brahe.rotate_covariance(p, np.stack([j])).shape == (1, 7, 7)
+    assert brahe.rotate_covariance(np.stack([p]), j).shape == (1, 7, 7)
+    assert brahe.rotate_covariance(np.stack([p]), np.stack([j])).shape == (1, 7, 7)
+
+    gcrf, itrf = brahe.CelestialFrame.GCRF, brahe.CelestialFrame.ITRF
+    assert brahe.covariance_frame_to_frame(gcrf, itrf, epc, p).shape == (7, 7)
+    assert brahe.covariance_frame_to_frame(gcrf, itrf, [epc], p).shape == (1, 7, 7)
+    assert brahe.covariance_frame_to_frame(gcrf, itrf, epc, np.stack([p])).shape == (
+        1,
+        7,
+        7,
+    )
+    assert brahe.state_transform_jacobian(gcrf, itrf, [epc]).shape == (1, 6, 6)
+
+    # The values are the scalar ones, just stacked.
+    np.testing.assert_array_equal(
+        brahe.rotate_covariance(p, np.stack([j]))[0], brahe.rotate_covariance(p, j)
+    )
+    np.testing.assert_array_equal(
+        brahe.covariance_frame_to_frame(gcrf, itrf, [epc], p)[0],
+        brahe.covariance_frame_to_frame(gcrf, itrf, epc, p),
+    )
+
+
+def test_covariance_empty_batch_keeps_its_element_shape(eop):
+    """An empty batch returns an empty result of the declared element shape,
+    not a collapsed (0, 0, 0)."""
+    epc = _covariance_test_epoch()
+    gcrf, itrf = brahe.CelestialFrame.GCRF, brahe.CelestialFrame.ITRF
+
+    assert brahe.rotate_covariance(np.zeros((0, 7, 7)), np.eye(6)).shape == (0, 7, 7)
+    assert brahe.rotate_covariance(np.zeros((0, 7, 7)), np.zeros((0, 6, 6))).shape == (
+        0,
+        7,
+        7,
+    )
+    assert brahe.rotate_covariance(np.eye(6), np.zeros((0, 6, 6))).shape == (0, 6, 6)
+    assert brahe.covariance_frame_to_frame(
+        gcrf, itrf, epc, np.zeros((0, 7, 7))
+    ).shape == (0, 7, 7)
+    assert brahe.state_transform_jacobian(gcrf, itrf, []).shape == (0, 6, 6)
+
+
+def test_covariance_empty_batch_still_checks_trailing_shape(eop):
+    """A malformed trailing shape is rejected even when the batch is empty."""
+    epc = _covariance_test_epoch()
+    gcrf, itrf = brahe.CelestialFrame.GCRF, brahe.CelestialFrame.ITRF
+
+    with pytest.raises(ValueError, match="Expected 6x6 matrix, got 5x5"):
+        brahe.rotate_covariance(np.zeros((0, 6, 6)), np.zeros((0, 5, 5)))
+    with pytest.raises(brahe.BraheError, match="must be square"):
+        brahe.rotate_covariance(np.zeros((0, 6, 5)), np.eye(6))
+    with pytest.raises(brahe.BraheError, match="at least 6x6"):
+        brahe.rotate_covariance(np.zeros((0, 5, 5)), np.eye(6))
+    with pytest.raises(brahe.BraheError, match="must be square"):
+        brahe.covariance_frame_to_frame(gcrf, itrf, epc, np.zeros((0, 6, 5)))
+    with pytest.raises(brahe.BraheError, match="at least 6x6"):
+        brahe.covariance_frame_to_frame(gcrf, itrf, epc, np.zeros((0, 5, 5)))

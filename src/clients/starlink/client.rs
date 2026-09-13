@@ -882,7 +882,10 @@ impl StarlinkClient {
             .unwrap_or_default()
             .to_string();
         let target = resolve_destination(destination.as_ref(), &name)?;
-        let target_dir = target.parent().unwrap_or_else(|| Path::new("."));
+        let target_dir = match target.parent() {
+            Some(parent) if !parent.as_os_str().is_empty() => parent,
+            _ => Path::new("."),
+        };
         if same_path(target_dir, &self.cache_dir()?) {
             return Err(BraheError::Error(
                 "save_ephemeris destination is the cache directory".to_string(),
@@ -1814,6 +1817,24 @@ mod tests {
         let err = client.download_ephemeris(100002).unwrap_err();
         assert!(err.to_string().contains("304"), "{err}");
         assert!(!starlink_dir(&client).join(SHORT_FILE).exists());
+    }
+
+    #[test]
+    #[serial]
+    fn test_save_ephemeris_rejects_bare_name_when_cwd_is_the_cache() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("online"));
+        let server = MockServer::start();
+        mock_site(&server, two_line_manifest());
+        let client = StarlinkClient::with_base_url(&server.base_url());
+        let dir = starlink_dir(&client);
+        let previous = std::env::current_dir().unwrap();
+        std::env::set_current_dir(&dir).unwrap();
+        let result = client.save_ephemeris(100002, SHORT_FILE);
+        std::env::set_current_dir(previous).unwrap();
+        let err = result.unwrap_err();
+        assert!(err.to_string().contains("cache directory"), "{err}");
+        assert!(dir.join(SHORT_FILE).exists());
     }
 
     #[test]

@@ -35,10 +35,10 @@ impl PyStarlinkManifestEntry {
     /// ``file_name_string()``, which returns the listing's exact text.
     ///
     /// Returns:
-    ///     EphemerisFileName: The manifest line's file name, field by field.
+    ///     SpaceTrackEphemerisFileName: The manifest line's file name, field by field.
     #[getter]
-    fn file_name(&self) -> PyEphemerisFileName {
-        PyEphemerisFileName {
+    fn file_name(&self) -> PySpaceTrackEphemerisFileName {
+        PySpaceTrackEphemerisFileName {
             inner: self.inner.file_name.clone(),
         }
     }
@@ -64,10 +64,10 @@ impl PyStarlinkManifestEntry {
     /// Operational or Special.
     ///
     /// Returns:
-    ///     EphemerisFileCategory: The category.
+    ///     SpaceTrackEphemerisFileCategory: The category.
     #[getter]
-    fn category(&self) -> PyEphemerisFileCategory {
-        PyEphemerisFileCategory {
+    fn category(&self) -> PySpaceTrackEphemerisFileCategory {
+        PySpaceTrackEphemerisFileCategory {
             inner: self.inner.category,
         }
     }

@@ -4,7 +4,7 @@
 
 use polars::prelude::*;
 
-use crate::clients::spacetrack::{EphemerisFileCategory, EphemerisFileName};
+use crate::clients::spacetrack::{SpaceTrackEphemerisFileCategory, SpaceTrackEphemerisFileName};
 use crate::time::conversions::calendar_from_day_of_year;
 use crate::time::{Epoch, TimeSystem};
 use crate::utils::BraheError;
@@ -115,7 +115,7 @@ pub struct StarlinkManifestEntry {
     /// normalises the catalog number and the category spelling, so requests,
     /// cache files and prune keys use [`StarlinkManifestEntry::file_name_string`],
     /// which returns the listing's exact text.
-    pub file_name: EphemerisFileName,
+    pub file_name: SpaceTrackEphemerisFileName,
     /// The manifest line, exactly as listed.
     raw_name: String,
     /// NORAD catalog number.
@@ -123,7 +123,7 @@ pub struct StarlinkManifestEntry {
     /// Common name, for example `STARLINK-38128`.
     pub object_name: String,
     /// Operational or Special.
-    pub category: EphemerisFileCategory,
+    pub category: SpaceTrackEphemerisFileCategory,
     /// Ephemeris start, UTC, minute resolution.
     pub ephemeris_start: Epoch,
     /// Ephemeris stop decoded from the metadata field, when present.
@@ -166,7 +166,7 @@ impl StarlinkManifestEntry {
     /// * `Err(BraheError)`: If the day of year cannot be placed in a calendar year
     fn from_file_name(
         raw_name: &str,
-        file_name: EphemerisFileName,
+        file_name: SpaceTrackEphemerisFileName,
         reference: Epoch,
     ) -> Result<Self, BraheError> {
         let ephemeris_stop = decode_gps_stop(&file_name.metadata, reference);
@@ -220,7 +220,7 @@ fn decode_gps_stop(metadata: &str, reference: Epoch) -> Option<Epoch> {
 /// # Returns
 /// * `Ok(Epoch)`: The start epoch in UTC
 /// * `Err(BraheError)`: If the day of year is invalid in both candidate years
-fn start_epoch(name: &EphemerisFileName, anchor: Epoch) -> Result<Epoch, BraheError> {
+fn start_epoch(name: &SpaceTrackEphemerisFileName, anchor: Epoch) -> Result<Epoch, BraheError> {
     let (anchor_year, _, _, _, _, _, _) = anchor.to_datetime_as_time_system(TimeSystem::UTC);
     let candidate = |year: u32| -> Result<Epoch, BraheError> {
         let (month, day) = calendar_from_day_of_year(year, name.day_of_year as u32)?;
@@ -310,7 +310,7 @@ impl StarlinkManifest {
             if line.is_empty() {
                 continue;
             }
-            let name = EphemerisFileName::parse(line).map_err(|e| {
+            let name = SpaceTrackEphemerisFileName::parse(line).map_err(|e| {
                 BraheError::ParseError(format!("Starlink manifest line {}: {}", index + 1, e))
             })?;
             entries.push(StarlinkManifestEntry::from_file_name(
@@ -657,7 +657,7 @@ mod tests {
         let first = &manifest.entries()[0];
         assert_eq!(first.norad_cat_id, 100001);
         assert_eq!(first.object_name, "STARLINK-38128");
-        assert_eq!(first.category, EphemerisFileCategory::Operational);
+        assert_eq!(first.category, SpaceTrackEphemerisFileCategory::Operational);
         assert_eq!(first.ephemeris_start, utc(2026, 9, 11, 1, 42, 0.0));
         assert_eq!(first.ephemeris_stop, Some(utc(2026, 9, 14, 1, 42, 42.0)));
         assert_eq!(

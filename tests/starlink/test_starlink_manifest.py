@@ -31,7 +31,7 @@ def test_manifest_parse_fixture():
     first = manifest.entries()[0]
     assert first.norad_cat_id == 100001
     assert first.object_name == "STARLINK-38128"
-    assert first.category == bh.EphemerisFileCategory.OPERATIONAL
+    assert first.category == bh.SpaceTrackEphemerisFileCategory.OPERATIONAL
     assert first.ephemeris_start == utc(2026, 9, 11, 1, 42, 0.0)
     assert first.ephemeris_stop == utc(2026, 9, 14, 1, 42, 42.0)
     assert (

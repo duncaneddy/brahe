@@ -336,6 +336,24 @@ impl PyITCStateVector {
         self.inner.velocity.to_vec().into_pyarray(py)
     }
 
+    /// The record's position and velocity as a single Cartesian state.
+    ///
+    /// Returns:
+    ///     numpy.ndarray: ``[x, y, z, vx, vy, vz]`` in the header's state frame, meters and meters per second, shape (6,).
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     epoch = bh.Epoch(2026, 9, 11, 1, 42, 42.0, 0.0, time_system=bh.TimeSystem.UTC)
+    ///     state = bh.ITCStateVector(epoch, np.array([7.0e6, 0.0, 0.0]), np.array([0.0, 7.5e3, 0.0]))
+    ///     assert state.to_vector()[4] == 7.5e3
+    ///     ```
+    fn to_vector<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray<f64, Ix1>> {
+        self.inner.to_vector().as_slice().to_vec().into_pyarray(py)
+    }
+
     fn __repr__(&self) -> String {
         format!("ITCStateVector(epoch={}, position={:?}, velocity={:?})", self.inner.epoch, self.inner.position, self.inner.velocity)
     }
@@ -360,6 +378,10 @@ impl PyITCStateVector {
 ///     assert itc.has_covariance
 ///     assert itc.source_name.object_name == "STARLINK-37711"
 ///     text = itc.to_string()
+///
+///     traj = itc.to_trajectory()
+///     station = bh.PointLocation(-122.4194, 37.7749, 0.0)
+///     windows = bh.location_accesses([station], [traj], itc.start_epoch, itc.end_epoch, bh.ElevationConstraint(min_elevation_deg=10.0))
 ///     ```
 #[pyclass(module = "brahe._brahe", from_py_object)]
 #[pyo3(name = "ITC")]
@@ -582,5 +604,158 @@ impl PyITC {
     fn __repr__(&self) -> String {
         let covariance = if self.inner.has_covariance() { "True" } else { "False" };
         format!("ITC(records={}, covariance={}, state_frame={})", self.inner.len(), covariance, self.inner.header.state_frame)
+    }
+
+    /// Convert the message to an ``OrbitTrajectory`` in the header's state frame.
+    ///
+    /// Covariance is attached in the state frame whatever frame the header
+    /// names for it: RTN with each record's own state, block-diagonally by
+    /// default, EME2000 and ITRF with the state-transform Jacobian between the
+    /// covariance frame and the state frame.
+    ///
+    /// Args:
+    ///     covariance_variant (OrbitRelativeFrameVariant, optional): ``INERTIAL`` (default, block-diagonal ``[[R, 0], [0, R]]``) or ``ROTATING`` (adds the frame-rate coupling block).
+    ///
+    /// Returns:
+    ///     OrbitTrajectory: Six-dimensional Cartesian trajectory, named after the source file's object when known.
+    ///
+    /// Raises:
+    ///     BraheError: If the message is empty, or the frame router cannot relate the covariance frame and the state frame at a record's epoch.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     itc = bh.ITC.from_file("test_assets/starlink/MEME_100002_STARLINK-37711_2540149_Operational_1473385800_UNCLASSIFIED.txt")
+    ///     traj = itc.to_trajectory()
+    ///     cov = traj.covariance(itc.start_epoch)
+    ///     ```
+    ///
+    /// References:
+    ///     1. *Spaceflight Safety Handbook for Satellite Operators*, Version 1.7, 18th Space Defense Squadron, Space-Track.org, https://www.space-track.org/documents/SFS_Handbook_For_Operators_V1.7.pdf
+    ///     2. NASA Conjunction Assessment Risk Analysis (CARA), *Conjunction Assessment Handbook*, NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13), https://ntrs.nasa.gov/citations/20205011318
+    ///     3. NASA CARA Analysis Tools, ``RIC2ECI.m``, https://github.com/nasa/CARA_Analysis_Tools
+    ///     4. D. A. Vallado, "Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003, https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf
+    #[pyo3(signature = (covariance_variant=None))]
+    fn to_trajectory(&self, covariance_variant: Option<PyOrbitRelativeFrameVariant>) -> PyResult<PyOrbitalTrajectory> {
+        let variant = covariance_variant.map(|v| v.variant).unwrap_or(frames::OrbitRelativeFrameVariant::Inertial);
+        self.inner
+            .to_trajectory_with_covariance_variant(variant)
+            .map(|trajectory| PyOrbitalTrajectory { trajectory })
+            .map_err(|e| BraheError::new_err(e.to_string()))
+    }
+
+    /// Convert the message to an ``OrbitTrajectory`` with an explicit RTN covariance convention.
+    ///
+    /// The covariance is attached in the state frame whatever frame the header names for it.
+    /// An ``RTN`` covariance is rotated with the record's own state expressed in GCRF (the geocentric RTN basis, whatever center the
+    /// source used); ``INERTIAL`` uses the block-diagonal rotation and ``ROTATING`` adds
+    /// the frame-rate coupling. An ``EME2000`` or ``ITRF`` covariance is rotated by the
+    /// state-transform Jacobian from that frame to the state frame at the record epoch, which is
+    /// the identity when the two agree.
+    ///
+    /// Args:
+    ///     variant (OrbitRelativeFrameVariant): ``INERTIAL`` or ``ROTATING``.
+    ///
+    /// Returns:
+    ///     OrbitTrajectory: The trajectory.
+    ///
+    /// Raises:
+    ///     BraheError: If the message is empty, or the frame router cannot relate the covariance frame and the state frame at a record's epoch.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     itc = bh.ITC.from_file("test_assets/starlink/MEME_100002_STARLINK-37711_2540149_Operational_1473385800_UNCLASSIFIED.txt")
+    ///     traj = itc.to_trajectory_with_covariance_variant(bh.OrbitRelativeFrameVariant.ROTATING)
+    ///     cov = traj.covariance(itc.start_epoch)
+    ///     ```
+    ///
+    /// References:
+    ///     1. *Spaceflight Safety Handbook for Satellite Operators*, Version 1.7, 18th Space Defense Squadron, Space-Track.org, https://www.space-track.org/documents/SFS_Handbook_For_Operators_V1.7.pdf
+    ///     2. NASA Conjunction Assessment Risk Analysis (CARA), *Conjunction Assessment Handbook*, NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13), https://ntrs.nasa.gov/citations/20205011318
+    ///     3. NASA CARA Analysis Tools, ``RIC2ECI.m``, https://github.com/nasa/CARA_Analysis_Tools
+    ///     4. D. A. Vallado, "Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003, https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf
+    fn to_trajectory_with_covariance_variant(&self, variant: PyOrbitRelativeFrameVariant) -> PyResult<PyOrbitalTrajectory> {
+        self.inner
+            .to_trajectory_with_covariance_variant(variant.variant)
+            .map(|trajectory| PyOrbitalTrajectory { trajectory })
+            .map_err(|e| BraheError::new_err(e.to_string()))
+    }
+
+    /// Build a message from a trajectory's stored samples.
+    ///
+    /// Args:
+    ///     trajectory (OrbitTrajectory): Six-dimensional Cartesian trajectory.
+    ///     header (ITCHeader): Header template; start, stop and step are filled from the samples.
+    ///     covariance_variant (OrbitRelativeFrameVariant, optional): RTN convention for the covariance; ``INERTIAL`` by default.
+    ///
+    /// Returns:
+    ///     ITC: The message.
+    ///
+    /// Raises:
+    ///     BraheError: If the trajectory is empty, not six-dimensional Cartesian, a covariance is smaller than 6x6, or the frame router cannot reach the header's frames.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     itc = bh.ITC.from_file("test_assets/starlink/MEME_100002_STARLINK-37711_2540149_Operational_1473385800_UNCLASSIFIED.txt")
+    ///     traj = itc.to_trajectory()
+    ///     back = bh.ITC.from_trajectory(traj, bh.ITCHeader(ephemeris_source="brahe"))
+    ///     ```
+    ///
+    /// References:
+    ///     1. *Spaceflight Safety Handbook for Satellite Operators*, Version 1.7, 18th Space Defense Squadron, Space-Track.org, https://www.space-track.org/documents/SFS_Handbook_For_Operators_V1.7.pdf
+    ///     2. NASA Conjunction Assessment Risk Analysis (CARA), *Conjunction Assessment Handbook*, NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13), https://ntrs.nasa.gov/citations/20205011318
+    ///     3. NASA CARA Analysis Tools, ``RIC2ECI.m``, https://github.com/nasa/CARA_Analysis_Tools
+    ///     4. D. A. Vallado, "Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003, https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf
+    #[staticmethod]
+    #[pyo3(signature = (trajectory, header, covariance_variant=None))]
+    fn from_trajectory(trajectory: PyRef<PyOrbitalTrajectory>, header: PyITCHeader, covariance_variant: Option<PyOrbitRelativeFrameVariant>) -> PyResult<Self> {
+        let variant = covariance_variant.map(|v| v.variant).unwrap_or(frames::OrbitRelativeFrameVariant::Inertial);
+        itc::ITC::from_trajectory_with_covariance_variant(&trajectory.trajectory, header.inner, variant)
+            .map(|inner| Self { inner })
+            .map_err(|e| BraheError::new_err(e.to_string()))
+    }
+
+    /// Build a message from a trajectory with an explicit RTN covariance convention.
+    ///
+    /// A covariance is rotated from the trajectory frame into the header's
+    /// covariance frame: EME2000 and ITRF through the state-transform Jacobian
+    /// between the two frames, RTN through the geocentric RTN frame of the
+    /// sample's own state expressed in GCRF, whatever center the trajectory uses.
+    ///
+    /// Args:
+    ///     trajectory (OrbitTrajectory): Six-dimensional Cartesian trajectory.
+    ///     header (ITCHeader): Header template.
+    ///     variant (OrbitRelativeFrameVariant): ``INERTIAL`` or ``ROTATING``.
+    ///
+    /// Returns:
+    ///     ITC: The message.
+    ///
+    /// Raises:
+    ///     BraheError: If the trajectory is empty, not six-dimensional Cartesian, a covariance is smaller than 6x6, or the frame router cannot reach the header's frames.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     itc = bh.ITC.from_file("test_assets/starlink/MEME_100002_STARLINK-37711_2540149_Operational_1473385800_UNCLASSIFIED.txt")
+    ///     traj = itc.to_trajectory_with_covariance_variant(bh.OrbitRelativeFrameVariant.ROTATING)
+    ///     back = bh.ITC.from_trajectory_with_covariance_variant(traj, bh.ITCHeader(), bh.OrbitRelativeFrameVariant.ROTATING)
+    ///     ```
+    ///
+    /// References:
+    ///     1. *Spaceflight Safety Handbook for Satellite Operators*, Version 1.7, 18th Space Defense Squadron, Space-Track.org, https://www.space-track.org/documents/SFS_Handbook_For_Operators_V1.7.pdf
+    ///     2. NASA Conjunction Assessment Risk Analysis (CARA), *Conjunction Assessment Handbook*, NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13), https://ntrs.nasa.gov/citations/20205011318
+    ///     3. NASA CARA Analysis Tools, ``RIC2ECI.m``, https://github.com/nasa/CARA_Analysis_Tools
+    ///     4. D. A. Vallado, "Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003, https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf
+    #[staticmethod]
+    fn from_trajectory_with_covariance_variant(trajectory: PyRef<PyOrbitalTrajectory>, header: PyITCHeader, variant: PyOrbitRelativeFrameVariant) -> PyResult<Self> {
+        itc::ITC::from_trajectory_with_covariance_variant(&trajectory.trajectory, header.inner, variant.variant)
+            .map(|inner| Self { inner })
+            .map_err(|e| BraheError::new_err(e.to_string()))
     }
 }

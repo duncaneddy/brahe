@@ -164,7 +164,7 @@ mod tests {
         let filepath = dir.path().join("test.txt");
         fs::write(&filepath, b"data").unwrap();
 
-        let file = fs::File::open(&filepath).unwrap();
+        let file = fs::OpenOptions::new().write(true).open(&filepath).unwrap();
         file.set_modified(SystemTime::now() - std::time::Duration::from_secs(3600))
             .unwrap();
 
@@ -195,7 +195,7 @@ mod tests {
         fs::write(&filepath, b"data").unwrap();
 
         let target = SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(1_700_000_000);
-        let file = fs::File::open(&filepath).unwrap();
+        let file = fs::OpenOptions::new().write(true).open(&filepath).unwrap();
         file.set_modified(target).unwrap();
 
         let epoch = modified_epoch(&filepath).unwrap();

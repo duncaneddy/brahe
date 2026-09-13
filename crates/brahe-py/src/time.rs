@@ -296,6 +296,29 @@ fn py_mjd_to_datetime(mjd: f64) -> PyResult<(u32, u8, u8, u8, u8, f64, f64)> {
     Ok(time::mjd_to_datetime(mjd))
 }
 
+/// Number of days in a calendar month, accounting for leap years.
+///
+/// Args:
+///     year (int): Calendar year, used for February
+///     month (int): Month, 1 to 12
+///
+/// Returns:
+///     int: Days in the month
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     assert bh.days_in_month(2024, 2) == 29
+///     assert bh.days_in_month(2025, 2) == 28
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(year, month)")]
+#[pyo3(name = "days_in_month")]
+fn py_days_in_month(year: u32, month: u8) -> PyResult<u8> {
+    time::days_in_month(year, month).map_err(|e| BraheError::new_err(e.to_string()))
+}
+
 /// Calculate the offset between two time systems for a given Modified Julian Date.
 ///
 /// Args:

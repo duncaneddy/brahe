@@ -29,8 +29,9 @@ from brahe._brahe import (
     TimeSystem,
     datetime_to_jd,
     datetime_to_mjd,
-    jd_to_datetime,
     # Conversion functions
+    days_in_month,
+    jd_to_datetime,
     mjd_to_datetime,
     time_system_offset_for_datetime,
     time_system_offset_for_jd,
@@ -55,8 +56,9 @@ __all__ = [
     "TimeSystem",
     "datetime_to_jd",
     "datetime_to_mjd",
-    "jd_to_datetime",
     # Conversion functions
+    "days_in_month",
+    "jd_to_datetime",
     "mjd_to_datetime",
     "time_system_offset_for_datetime",
     "time_system_offset_for_jd",

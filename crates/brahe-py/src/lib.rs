@@ -621,6 +621,7 @@ include!("utils.rs");
 include!("earth_models.rs");
 include!("spacetrack.rs");
 include!("celestrak.rs");
+include!("starlink.rs");
 include!("ccsds.rs");
 include!("itc.rs");
 include!("estimation.rs");
@@ -820,6 +821,7 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_datetime_to_mjd, module)?)?;
     module.add_function(wrap_pyfunction!(py_jd_to_datetime, module)?)?;
     module.add_function(wrap_pyfunction!(py_datetime_to_jd, module)?)?;
+    module.add_function(wrap_pyfunction!(py_days_in_month, module)?)?;
     module.add_function(wrap_pyfunction!(py_time_system_offset_for_mjd, module)?)?;
     module.add_function(wrap_pyfunction!(py_time_system_offset_for_jd, module)?)?;
     module.add_function(wrap_pyfunction!(
@@ -1639,6 +1641,11 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyCelestrakQuery>()?;
     module.add_class::<PyCelestrakClient>()?;
     module.add_class::<PyCelestrakSATCATRecord>()?;
+
+    //* StarlinkClient *//
+    module.add_class::<PyStarlinkManifestEntry>()?;
+    module.add_class::<PyStarlinkManifest>()?;
+    module.add_class::<PyStarlinkClient>()?;
 
     //* CCSDS *//
     module.add_class::<PyOEM>()?;

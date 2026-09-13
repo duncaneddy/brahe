@@ -5,6 +5,7 @@
 use std::collections::HashSet;
 use std::ffi::OsStr;
 use std::fs;
+use std::io;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
@@ -841,20 +842,23 @@ impl StarlinkClient {
             .to_trajectory_with_covariance_variant(variant)
     }
 
-    /// Downloads (if needed) a satellite's ephemeris and copies it to `destination`.
+    /// Downloads (if needed) a satellite's ephemeris and moves it to `destination`.
     ///
     /// An existing directory, or a path whose last component has no
     /// extension, is treated as a directory (created if missing) and the
     /// original file name is kept; a path with an extension is the file name.
-    /// Saved copies are outside the cache and never evicted.
+    /// The cached copy is moved rather than duplicated, so after this call
+    /// `destination` is the only copy and the cache no longer holds the
+    /// file; a later [`StarlinkClient::download_ephemeris`] call for the
+    /// same satellite downloads it again.
     ///
     /// # Arguments
     /// * `norad_cat_id` - NORAD catalog number
-    /// * `destination` - Directory or file path
+    /// * `destination` - Directory or file path, outside the cache directory
     ///
     /// # Returns
     /// * `Ok(PathBuf)`: Path written
-    /// * `Err(BraheError)`: On download or filesystem failure
+    /// * `Err(BraheError)`: On download or filesystem failure, or if `destination` resolves inside the cache directory
     ///
     /// # Examples
     ///
@@ -878,7 +882,13 @@ impl StarlinkClient {
             .unwrap_or_default()
             .to_string();
         let target = resolve_destination(destination.as_ref(), &name)?;
-        copy_file(&source, &target)?;
+        let target_dir = target.parent().unwrap_or_else(|| Path::new("."));
+        if same_path(target_dir, &self.cache_dir()?) {
+            return Err(BraheError::Error(
+                "save_ephemeris destination is the cache directory".to_string(),
+            ));
+        }
+        move_file(&source, &target)?;
         Ok(target)
     }
 
@@ -961,15 +971,20 @@ impl StarlinkClient {
         Ok(unique.into_iter().map(|(_, path)| path).collect())
     }
 
-    /// Runs [`StarlinkClient::download_all`] and copies every file into `destination`.
+    /// Runs [`StarlinkClient::download_all`] and moves every file into `destination`.
+    ///
+    /// Each cached file is moved rather than duplicated, so after this call
+    /// `destination` holds every ephemeris and the cache holds none; a later
+    /// [`StarlinkClient::download_ephemeris`] or [`StarlinkClient::download_all`]
+    /// call downloads them again.
     ///
     /// # Arguments
-    /// * `destination` - Directory, created if missing
+    /// * `destination` - Directory, created if missing, outside the cache directory
     /// * `concurrency` - Worker threads, at least 1
     ///
     /// # Returns
     /// * `Ok(Vec<PathBuf>)`: Paths written, in manifest order
-    /// * `Err(BraheError)`: On download failure or if `destination` is an existing file
+    /// * `Err(BraheError)`: On download failure, if `destination` is an existing file, or if it resolves to the cache directory
     ///
     /// # Examples
     ///
@@ -991,6 +1006,11 @@ impl StarlinkClient {
                 destination.display()
             )));
         }
+        if same_path(destination, &self.cache_dir()?) {
+            return Err(BraheError::Error(
+                "save_all destination is the cache directory".to_string(),
+            ));
+        }
         let sources = self.download_all(concurrency)?;
         fs::create_dir_all(destination).map_err(|e| {
             BraheError::IoError(format!("Failed to create {}: {}", destination.display(), e))
@@ -998,7 +1018,7 @@ impl StarlinkClient {
         let mut written = Vec::new();
         for source in sources {
             let target = destination.join(source.file_name().unwrap_or_default());
-            copy_file(&source, &target)?;
+            move_file(&source, &target)?;
             written.push(target);
         }
         Ok(written)
@@ -1134,35 +1154,68 @@ fn resolve_destination(destination: &Path, file_name: &str) -> Result<PathBuf, B
     Ok(target)
 }
 
-/// Copies a cached file to a destination path, overwriting it if present.
+/// Whether two paths refer to the same location on disk.
 ///
-/// The copy is atomic, so a failure leaves no partial destination, and a
-/// target that resolves to the source itself is left untouched.
+/// Compares canonical paths when both exist, and falls back to a literal
+/// comparison otherwise (for example, before a destination directory has
+/// been created).
 ///
 /// # Arguments
-/// * `source` - File to copy
+/// * `a` - First path
+/// * `b` - Second path
+///
+/// # Returns
+/// * `bool`: `true` if the paths resolve to the same location
+fn same_path(a: &Path, b: &Path) -> bool {
+    match (fs::canonicalize(a), fs::canonicalize(b)) {
+        (Ok(a), Ok(b)) => a == b,
+        _ => a == b,
+    }
+}
+
+/// Moves a cached file to a destination path, so the cache no longer holds
+/// it afterwards.
+///
+/// Tries [`fs::rename`] first, which is atomic on a single filesystem. When
+/// `source` and `target` are on different filesystems, `fs::rename` fails
+/// with [`io::ErrorKind::CrossesDevices`]; in that case the file is copied
+/// to `target` and the source is then removed.
+///
+/// # Arguments
+/// * `source` - Cached file to move; removed on success
 /// * `target` - Destination path
 ///
 /// # Returns
-/// * `Ok(())`: The file was copied, or source and target are the same file
-/// * `Err(BraheError)`: If the source cannot be read or the target cannot be written
-fn copy_file(source: &Path, target: &Path) -> Result<(), BraheError> {
-    if target.exists()
-        && let (Ok(from), Ok(to)) = (fs::canonicalize(source), fs::canonicalize(target))
-        && from == to
-    {
-        return Ok(());
-    }
-    let bytes = fs::read(source)
-        .map_err(|e| BraheError::IoError(format!("Failed to read {}: {}", source.display(), e)))?;
-    atomic_write(target, &bytes).map_err(|e| {
-        BraheError::IoError(format!(
-            "Failed to copy {} to {}: {}",
+/// * `Ok(())`: The file was moved
+/// * `Err(BraheError)`: If the rename fails for a reason other than a cross-device move, or the copy-then-remove fallback fails
+fn move_file(source: &Path, target: &Path) -> Result<(), BraheError> {
+    match fs::rename(source, target) {
+        Ok(()) => Ok(()),
+        Err(e) if e.kind() == io::ErrorKind::CrossesDevices => {
+            fs::copy(source, target).map_err(|e| {
+                BraheError::IoError(format!(
+                    "Failed to copy {} to {}: {}",
+                    source.display(),
+                    target.display(),
+                    e
+                ))
+            })?;
+            fs::remove_file(source).map_err(|e| {
+                BraheError::IoError(format!(
+                    "Failed to remove {} after moving it to {}: {}",
+                    source.display(),
+                    target.display(),
+                    e
+                ))
+            })
+        }
+        Err(e) => Err(BraheError::IoError(format!(
+            "Failed to move {} to {}: {}",
             source.display(),
             target.display(),
             e
-        ))
-    })
+        ))),
+    }
 }
 
 /// The current instant, rounded to whatever precision the manifest sidecar's
@@ -1399,16 +1452,26 @@ mod tests {
         mock_site(&server, two_line_manifest());
         let out = tempfile::tempdir().unwrap();
         let client = StarlinkClient::with_base_url(&server.base_url());
+        let dir = starlink_dir(&client);
 
         let existing_dir = out.path().join("existing");
         fs::create_dir_all(&existing_dir).unwrap();
         let saved = client.save_ephemeris(100002, &existing_dir).unwrap();
         assert_eq!(saved, existing_dir.join(SHORT_FILE));
+        assert!(!dir.join(SHORT_FILE).exists());
+        assert!(
+            client
+                .cached_files()
+                .unwrap()
+                .iter()
+                .all(|p| p.file_name() != Some(OsStr::new(SHORT_FILE)))
+        );
 
         let new_dir = out.path().join("nested").join("new_dir");
         let saved = client.save_ephemeris(100002, &new_dir).unwrap();
         assert_eq!(saved, new_dir.join(SHORT_FILE));
         assert!(new_dir.is_dir());
+        assert!(!dir.join(SHORT_FILE).exists());
 
         let renamed = out.path().join("renamed").join("sat.txt");
         let saved = client.save_ephemeris(100002, &renamed).unwrap();
@@ -1417,9 +1480,10 @@ mod tests {
         let saved_again = client.save_ephemeris(100002, &renamed).unwrap();
         assert_eq!(saved_again, renamed);
 
-        let dir = starlink_dir(&client);
-        assert!(dir.join(SHORT_FILE).exists());
+        assert!(!dir.join(SHORT_FILE).exists());
         assert!(client.prune_cache().unwrap() == 0);
+        assert!(existing_dir.join(SHORT_FILE).exists());
+        assert!(new_dir.join(SHORT_FILE).exists());
         assert!(renamed.exists());
     }
 
@@ -1571,7 +1635,7 @@ mod tests {
 
     #[test]
     #[serial]
-    fn test_save_ephemeris_onto_cache_file_keeps_it_intact() {
+    fn test_save_ephemeris_into_cache_directory_errors() {
         let _cache = CacheRedirect::new();
         let _mode = NetworkModeGuard::set(Some("online"));
         let server = MockServer::start();
@@ -1580,10 +1644,40 @@ mod tests {
         let dir = starlink_dir(&client);
         let cached = client.download_ephemeris(100002).unwrap();
         let original = fs::read_to_string(&cached).unwrap();
-        let saved = client.save_ephemeris(100002, &cached).unwrap();
-        assert_eq!(saved, cached);
+
+        let err = client.save_ephemeris(100002, &cached).unwrap_err();
+        assert!(err.to_string().contains("cache directory"), "{err}");
         assert_eq!(fs::read_to_string(&cached).unwrap(), original);
+
+        let err = client.save_ephemeris(100002, &dir).unwrap_err();
+        assert!(err.to_string().contains("cache directory"), "{err}");
         assert_eq!(fs::read_to_string(dir.join(SHORT_FILE)).unwrap(), original);
+    }
+
+    #[test]
+    #[serial]
+    fn test_save_ephemeris_re_downloads_after_move() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("online"));
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET).path("/MANIFEST.txt");
+            then.status(200).body(two_line_manifest());
+        });
+        let file_mock = server.mock(|when, then| {
+            when.method(GET).path(format!("/{SHORT_FILE}"));
+            then.status(200).body(asset(SHORT_FILE));
+        });
+        let client = StarlinkClient::with_base_url(&server.base_url());
+        let out = tempfile::tempdir().unwrap();
+
+        let first = out.path().join("first");
+        client.save_ephemeris(100002, &first).unwrap();
+        file_mock.assert_calls(1);
+
+        let second = out.path().join("second");
+        client.save_ephemeris(100002, &second).unwrap();
+        file_mock.assert_calls(2);
     }
 
     #[test]
@@ -1690,7 +1784,7 @@ mod tests {
         let occupied = out.path().join("occupied");
         fs::create_dir_all(occupied.join(SHORT_FILE)).unwrap();
         let err = client.save_ephemeris(100002, &occupied).unwrap_err();
-        assert!(err.to_string().contains("Failed to copy"), "{err}");
+        assert!(err.to_string().contains("Failed to move"), "{err}");
     }
 
     #[test]
@@ -1715,7 +1809,7 @@ mod tests {
 
     #[test]
     #[serial]
-    fn test_save_all_copies_into_directory() {
+    fn test_save_all_moves_into_directory() {
         let _cache = CacheRedirect::new();
         let _mode = NetworkModeGuard::set(Some("online"));
         let server = MockServer::start();
@@ -1731,11 +1825,16 @@ mod tests {
             fs::read_to_string(dest.join(FULL_FILE)).unwrap(),
             asset(FULL_FILE)
         );
+        let dir = starlink_dir(&client);
+        assert!(!dir.join(FULL_FILE).exists());
+        assert!(!dir.join(SHORT_FILE).exists());
+        assert!(client.cached_files().unwrap().is_empty());
+
         let file_dest = out.path().join("a_file.txt");
         fs::write(&file_dest, "x").unwrap();
         assert!(client.save_all(&file_dest, 2).is_err());
-        let dir = starlink_dir(&client);
-        assert!(dir.join(FULL_FILE).exists());
+
+        assert!(client.save_all(&dir, 2).is_err());
     }
 
     #[test]

@@ -29,7 +29,7 @@ print(f"Records: {len(itc)}, covariance: {itc.has_covariance}")
 print(f"Span: {itc.start_epoch} to {itc.end_epoch}")
 
 name = itc.file_name(
-    100002, "STARLINK-37711", bh.EphemerisFileCategory.OPERATIONAL, "nomnvr"
+    100002, "STARLINK-37711", bh.SpaceTrackEphemerisFileCategory.OPERATIONAL, "nomnvr"
 )
 print(f"File name: {name}")
 

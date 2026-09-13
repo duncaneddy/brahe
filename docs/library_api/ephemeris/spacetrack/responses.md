@@ -30,16 +30,16 @@ For `GPRecord` (shared with CelesTrak), see [Shared Types](../shared_types.md).
       show_root_heading: true
       show_root_full_path: false
 
-## EphemerisFileName
+## SpaceTrackEphemerisFileName
 
-::: brahe.EphemerisFileName
+::: brahe.SpaceTrackEphemerisFileName
     options:
       show_root_heading: true
       show_root_full_path: false
 
-## EphemerisFileCategory
+## SpaceTrackEphemerisFileCategory
 
-::: brahe.EphemerisFileCategory
+::: brahe.SpaceTrackEphemerisFileCategory
     options:
       show_root_heading: true
       show_root_full_path: false

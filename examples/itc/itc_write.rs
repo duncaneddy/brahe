@@ -6,7 +6,7 @@
 
 use brahe as bh;
 use brahe::itc::{ITC, ITCHeader};
-use brahe::spacetrack::EphemerisFileCategory;
+use brahe::spacetrack::SpaceTrackEphemerisFileCategory;
 use brahe::time::{Epoch, TimeSystem};
 
 const PATH: &str = "test_assets/starlink/MEME_100002_STARLINK-37711_2540149_Operational_1473385800_UNCLASSIFIED.txt";
@@ -23,7 +23,7 @@ fn main() {
     println!("Records: {}, covariance: {}", itc.len(), itc.has_covariance());
     println!("Span: {} to {}", itc.start_epoch().unwrap(), itc.end_epoch().unwrap());
 
-    let name = itc.file_name(100002, "STARLINK-37711", EphemerisFileCategory::Operational, "nomnvr").unwrap();
+    let name = itc.file_name(100002, "STARLINK-37711", SpaceTrackEphemerisFileCategory::Operational, "nomnvr").unwrap();
     println!("File name: {}", name);
 
     let directory = std::env::temp_dir();

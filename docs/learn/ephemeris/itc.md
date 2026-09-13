@@ -1,7 +1,8 @@
 # Modified ITC Ephemeris Format
 
-The Modified ITC format is the Space-Track ephemeris exchange format defined in the Spaceflight
-Safety Handbook for Satellite Operators (version 1.7). A file holds a short header followed by one
+The Modified ITC format is the Space-Track ephemeris exchange format defined in the
+[Spaceflight Safety Handbook for Satellite Operators](https://www.space-track.org/documents/SFS_Handbook_For_Operators_V1.7.pdf)
+(version 1.7). A file holds a short header followed by one
 record per epoch: a line giving the `YYYYDDDHHMMSS.sss` UTC epoch, position (km) and velocity
 (km/s), optionally followed by the lower triangle of a 6x6 position and velocity covariance (21
 values, km-based units) in the frame the header names. Brahe reads and writes the format through
@@ -53,18 +54,23 @@ $$
 \hat{T} = \hat{N} \times \hat{R}.
 $$
 
-When a message is converted to a trajectory, each record's covariance is rotated from RTN into the
-state frame with the block-diagonal Jacobian $\mathrm{blockdiag}(R, R)$ by default, following the
-NASA Conjunction Assessment Risk Analysis handbook (Appendix N, eq. N-13) and the CARA `RIC2ECI`
-implementation. The rotating-frame form
+When a message's covariance frame is `UVW` (RTN), converting it to a trajectory rotates each
+record's covariance from RTN into the state frame with the block-diagonal Jacobian
+$\mathrm{blockdiag}(R, R)$ by default, following the
+[NASA Conjunction Assessment Risk Analysis handbook](https://ntrs.nasa.gov/citations/20205011318)
+(Appendix N, eq. N-13) and the CARA
+[`RIC2ECI`](https://github.com/nasa/CARA_Analysis_Tools) implementation. The rotating-frame form
 
 $$
 \begin{bmatrix} R & 0 \\ R[\boldsymbol{\omega}\times] & R \end{bmatrix}
 $$
 
-(Vallado, AAS 03-526) is available by passing `OrbitRelativeFrameVariant.ROTATING` to
-`to_trajectory_with_covariance_variant`. `from_trajectory` and
-`from_trajectory_with_covariance_variant` invert the same rotation to build a message from a
+([Vallado, AAS 03-526](https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf)) is available by
+passing `OrbitRelativeFrameVariant.ROTATING` to `to_trajectory_with_covariance_variant`. A covariance
+frame of `EME2000` or `ITRF` skips RTN entirely: it is rotated directly between that frame and the
+state frame with the state-transform Jacobian, so a message can carry covariance in either frame
+regardless of which one is the state frame. `from_trajectory` and
+`from_trajectory_with_covariance_variant` invert the same rotations to build a message from a
 trajectory; both reject a trajectory that is not six-dimensional Cartesian, so a Keplerian-element
 trajectory must be converted first.
 
@@ -92,7 +98,9 @@ trajectory must be converted first.
         ```
 
 The resulting `OrbitTrajectory` interpolates position, velocity and covariance at any epoch within
-its span, and `to_eci` carries the covariance through the constant frame bias between EME2000 and GCRF; converting to a frame that cannot hold covariance, such as ITRF with `to_itrf`, drops it and keeps only the converted states. Because it is an ordinary `OrbitTrajectory`, it can be used directly with
+its span, and `to_frame` -- including the frame-specific shortcuts such as `to_eci` and `to_itrf` --
+carries a Cartesian covariance along with the states by rotating it with the state-transform Jacobian,
+so a conversion to any frame keeps it. Because it is an ordinary `OrbitTrajectory`, it can be used directly with
 `location_accesses` to compute ground-station access windows, as in the example above, without a
 separate conversion step.
 
@@ -125,8 +133,8 @@ frame, `created` and `ephemeris_source` fields. `ITC.file_name` then builds a Sp
 name from the message: `<DataType>_<NORAD>_<Name>_<DDDHHMM>_<Category>_<Metadata>_<Classification>.<ext>`,
 where the DataType comes from the state frame, the day-time group from the ephemeris start, and the
 catalog number, name, category and metadata from the arguments passed to `file_name`, and the
-classification and extension from the defaults of `EphemerisFileName`. That type is the one behind
-the convention: `parse` reads a compliant name, constructing an `EphemerisFileName` gives the `MEME`
+classification and extension from the defaults of `SpaceTrackEphemerisFileName`. That type is the one behind
+the convention: `parse` reads a compliant name, constructing a `SpaceTrackEphemerisFileName` gives the `MEME`
 data type, `UNCLASSIFIED` classification and `txt` extension, and the `with_*` methods replace
 individual fields. Every field is rejected if it contains a path separator (`/` or `\`) or is `.` or `..`, so a
 name built from untrusted input can never address a file outside its directory; the data type,
@@ -142,4 +150,4 @@ them.
 - [Starlink Public Ephemerides](starlink.md) -- The public mirror that publishes files in this format
 - [File Operations](spacetrack/file_operations.md) -- Space-Track's own SP Ephemeris downloads, in the same format
 - [Modified ITC API Reference](../../library_api/ephemeris/itc.md) -- Class and function documentation
-- [Space-Track Response Types](../../library_api/ephemeris/spacetrack/responses.md) -- `EphemerisFileName` and `EphemerisFileCategory`
+- [Space-Track Response Types](../../library_api/ephemeris/spacetrack/responses.md) -- `SpaceTrackEphemerisFileName` and `SpaceTrackEphemerisFileCategory`

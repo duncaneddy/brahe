@@ -44,5 +44,7 @@ print(f"DataFrame shape: {df.shape}")
 print(f"Columns: {df.columns}")
 
 threshold = "2026-09-11T01:42:30"
-later = df.filter(pl.col("ephemeris_start") > pl.datetime(2026, 9, 11, 1, 42, 30))
+later = df.filter(
+    pl.col("ephemeris_start") > pl.lit(threshold).str.to_datetime(time_unit="ms")
+)
 print(f"Entries starting after {threshold}: {later['object_name'].to_list()}")

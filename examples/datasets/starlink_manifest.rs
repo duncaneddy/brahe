@@ -28,7 +28,10 @@ fn main() {
             entry.norad_cat_id,
             entry.object_name,
             entry.ephemeris_start,
-            entry.ephemeris_stop.map(|e| e.to_string()).unwrap_or_default()
+            entry
+                .ephemeris_stop
+                .map(|e| e.to_string())
+                .unwrap_or_else(|| "None".to_string())
         );
     }
 
@@ -48,11 +51,12 @@ fn main() {
     // isn't itself a nameable crate for this example, so filter the manifest
     // entries directly instead of the Python example's Polars-level
     // `.filter()` expression.
+    let threshold_text = "2026-09-11T01:42:30";
     let threshold = Epoch::from_datetime(2026, 9, 11, 1, 42, 30.0, 0.0, TimeSystem::UTC);
     let later: Vec<&str> = manifest
         .iter()
         .filter(|e| e.ephemeris_start > threshold)
         .map(|e| e.object_name.as_str())
         .collect();
-    println!("Entries starting after {}: {:?}", threshold, later);
+    println!("Entries starting after {}: {:?}", threshold_text, later);
 }

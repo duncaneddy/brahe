@@ -63,7 +63,7 @@ brahe starlink download NORAD_ID... [OPTIONS]
 - `NORAD_ID...` - One or more NORAD catalog numbers
 
 **Options:**
-- `--output`, `-o <dir>` - Directory to copy the files into; the cache is used when omitted
+- `--output`, `-o <dir>` - Directory to move the files into; they stay in the cache when omitted
 
 **Examples:**
 
@@ -76,7 +76,7 @@ Output:
 Downloaded 100002 to /Users/duncan/.cache/brahe/starlink/MEME_100002_STARLINK-37711_2540149_Operational_1473385800_UNCLASSIFIED.txt
 ```
 
-Download and copy into a directory:
+Download and move into a directory:
 ```bash
 brahe starlink download 100002 --output ./ephemerides
 ```

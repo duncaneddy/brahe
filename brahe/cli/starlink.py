@@ -99,7 +99,7 @@ def download(
         typer.Option(
             "--output",
             "-o",
-            help="Directory to copy the files into; the cache is used when omitted.",
+            help="Directory to move the files into; they stay in the cache when omitted.",
         ),
     ] = None,
 ) -> None:

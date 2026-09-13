@@ -686,7 +686,7 @@ mod tests {
 
         assert!(!is_older_than(&path, 3600.0).unwrap());
 
-        let file = std::fs::File::open(&path).unwrap();
+        let file = std::fs::OpenOptions::new().write(true).open(&path).unwrap();
         file.set_modified(SystemTime::now() - std::time::Duration::from_secs(7200))
             .unwrap();
         assert!(is_older_than(&path, 3600.0).unwrap());

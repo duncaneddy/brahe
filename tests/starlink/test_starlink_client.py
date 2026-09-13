@@ -558,6 +558,20 @@ def test_download_ephemeris_rejects_not_modified_answer(tmp_path, monkeypatch):
         server.server_close()
 
 
+def test_save_ephemeris_rejects_bare_name_when_cwd_is_the_cache(
+    starlink_server, monkeypatch
+):
+    """Rust: test_save_ephemeris_rejects_bare_name_when_cwd_is_the_cache"""
+    base_url, _, _ = starlink_server
+    client = bh.StarlinkClient(base_url=base_url)
+    d = cache_dir(client)
+    d.mkdir(parents=True, exist_ok=True)
+    monkeypatch.chdir(d)
+    with pytest.raises(bh.BraheError, match="cache directory"):
+        client.save_ephemeris(100002, SHORT_FILE)
+    assert (d / SHORT_FILE).exists()
+
+
 def test_save_all_moves_into_directory(starlink_server, tmp_path):
     """Rust: test_save_all_moves_into_directory"""
     base_url, _, _ = starlink_server

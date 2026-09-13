@@ -12,7 +12,7 @@ use std::time::{Duration, SystemTime};
 
 use serde::{Deserialize, Serialize};
 
-use crate::clients::spacetrack::EphemerisFileName;
+use crate::clients::spacetrack::SpaceTrackEphemerisFileName;
 use crate::clients::starlink::STARLINK_RATE_LIMIT;
 use crate::clients::starlink::manifest::{
     StarlinkManifest, StarlinkManifestEntry, parse_http_date,
@@ -760,7 +760,8 @@ impl StarlinkClient {
             .filter(|p| {
                 p.file_name().and_then(|n| n.to_str()).is_some_and(|n| {
                     n.split('_').nth(1).and_then(|id| id.parse::<u32>().ok()) == Some(norad_cat_id)
-                        && EphemerisFileName::parse(n).is_ok_and(|f| f.norad_cat_id == norad_cat_id)
+                        && SpaceTrackEphemerisFileName::parse(n)
+                            .is_ok_and(|f| f.norad_cat_id == norad_cat_id)
                 }) && p.is_file()
             })
             .collect())
@@ -1072,7 +1073,7 @@ impl StarlinkClient {
                 p.is_file()
                     && p.file_name()
                         .and_then(|n| n.to_str())
-                        .is_some_and(|n| EphemerisFileName::parse(n).is_ok())
+                        .is_some_and(|n| SpaceTrackEphemerisFileName::parse(n).is_ok())
             })
             .collect();
         files.sort();

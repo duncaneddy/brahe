@@ -4,7 +4,7 @@
  * Space-Track requires operator ephemeris submissions to be named
  * `<DataType>_<Catalog#>_<CommonName>_<DayTimeGroup>_<Operational/Special>_<MetaData>_<Classification>.<Extension>`
  * (Spaceflight Safety Handbook for Operators, "How to Name Ephemeris Files").
- * [`EphemerisFileName`] parses and generates names in that convention.
+ * [`SpaceTrackEphemerisFileName`] parses and generates names in that convention.
  */
 
 use std::fmt;
@@ -24,20 +24,20 @@ use crate::utils::BraheError;
 /// # Examples
 ///
 /// ```
-/// use brahe::spacetrack::EphemerisFileCategory;
+/// use brahe::spacetrack::SpaceTrackEphemerisFileCategory;
 ///
-/// assert_eq!(EphemerisFileCategory::parse("oper").unwrap(), EphemerisFileCategory::Operational);
-/// assert_eq!(EphemerisFileCategory::Special.to_string(), "Special");
+/// assert_eq!(SpaceTrackEphemerisFileCategory::parse("oper").unwrap(), SpaceTrackEphemerisFileCategory::Operational);
+/// assert_eq!(SpaceTrackEphemerisFileCategory::Special.to_string(), "Special");
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum EphemerisFileCategory {
+pub enum SpaceTrackEphemerisFileCategory {
     /// The trajectory the satellite is planned to fly, including routine maneuvers.
     Operational,
     /// A planning-only trajectory that assumes a special maneuver.
     Special,
 }
 
-impl EphemerisFileCategory {
+impl SpaceTrackEphemerisFileCategory {
     /// Parses the category field of a file name.
     ///
     /// Matching is case-insensitive on the prefix: any token starting with
@@ -49,16 +49,16 @@ impl EphemerisFileCategory {
     /// * `token` - The category field of a file name
     ///
     /// # Returns
-    /// * `Ok(EphemerisFileCategory)`: The parsed category
+    /// * `Ok(SpaceTrackEphemerisFileCategory)`: The parsed category
     /// * `Err(BraheError)`: If the token is not a recognized category
     ///
     /// # Examples
     ///
     /// ```
-    /// use brahe::spacetrack::EphemerisFileCategory;
+    /// use brahe::spacetrack::SpaceTrackEphemerisFileCategory;
     ///
-    /// assert_eq!(EphemerisFileCategory::parse("Operational").unwrap(), EphemerisFileCategory::Operational);
-    /// assert!(EphemerisFileCategory::parse("planned").is_err());
+    /// assert_eq!(SpaceTrackEphemerisFileCategory::parse("Operational").unwrap(), SpaceTrackEphemerisFileCategory::Operational);
+    /// assert!(SpaceTrackEphemerisFileCategory::parse("planned").is_err());
     /// ```
     pub fn parse(token: &str) -> Result<Self, BraheError> {
         let lower = token.to_ascii_lowercase();
@@ -75,7 +75,7 @@ impl EphemerisFileCategory {
     }
 }
 
-impl fmt::Display for EphemerisFileCategory {
+impl fmt::Display for SpaceTrackEphemerisFileCategory {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Operational => write!(f, "Operational"),
@@ -93,18 +93,18 @@ impl fmt::Display for EphemerisFileCategory {
 /// # Examples
 ///
 /// ```
-/// use brahe::spacetrack::{EphemerisFileCategory, EphemerisFileName};
+/// use brahe::spacetrack::{SpaceTrackEphemerisFileCategory, SpaceTrackEphemerisFileName};
 /// use brahe::time::{Epoch, TimeSystem};
 ///
 /// let start = Epoch::from_datetime(2026, 9, 11, 1, 42, 42.0, 0.0, TimeSystem::UTC);
-/// let name = EphemerisFileName::new(100001, "STARLINK-38128", start, EphemerisFileCategory::Operational, "").unwrap();
+/// let name = SpaceTrackEphemerisFileName::new(100001, "STARLINK-38128", start, SpaceTrackEphemerisFileCategory::Operational, "").unwrap();
 /// assert_eq!(name.to_string(), "MEME_100001_STARLINK-38128_2540142_Operational__UNCLASSIFIED.txt");
 ///
-/// let parsed = EphemerisFileName::parse(&name.to_string()).unwrap();
+/// let parsed = SpaceTrackEphemerisFileName::parse(&name.to_string()).unwrap();
 /// assert_eq!(parsed.norad_cat_id, 100001);
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct EphemerisFileName {
+pub struct SpaceTrackEphemerisFileName {
     /// Data type field; normatively `MEME`.
     pub data_type: String,
     /// NORAD catalog number, or the nine-digit analyst number for uncataloged objects.
@@ -118,7 +118,7 @@ pub struct EphemerisFileName {
     /// Minute of the ephemeris start, UTC.
     pub minute: u8,
     /// Operational or Special.
-    pub category: EphemerisFileCategory,
+    pub category: SpaceTrackEphemerisFileCategory,
     /// Operator-defined metadata; may be empty.
     pub metadata: String,
     /// Classification field, kept as written.
@@ -183,7 +183,7 @@ fn validate_field(field: &str, value: &str) -> Result<(), BraheError> {
     validate_path_field(field, value)
 }
 
-impl EphemerisFileName {
+impl SpaceTrackEphemerisFileName {
     /// Default data type, the mean equator and mean equinox of J2000.0.
     pub const DEFAULT_DATA_TYPE: &'static str = "MEME";
     /// Default classification.
@@ -202,24 +202,24 @@ impl EphemerisFileName {
     /// * `metadata` - Operator-defined metadata, may be empty
     ///
     /// # Returns
-    /// * `Ok(EphemerisFileName)`: The populated name
+    /// * `Ok(SpaceTrackEphemerisFileName)`: The populated name
     /// * `Err(BraheError)`: If `object_name` is empty, if `metadata` contains `_`, or if either contains `/`, `\` or NUL or is `.` or `..`
     ///
     /// # Examples
     ///
     /// ```
-    /// use brahe::spacetrack::{EphemerisFileCategory, EphemerisFileName};
+    /// use brahe::spacetrack::{SpaceTrackEphemerisFileCategory, SpaceTrackEphemerisFileName};
     /// use brahe::time::{Epoch, TimeSystem};
     ///
     /// let start = Epoch::from_datetime(2020, 10, 26, 12, 24, 0.0, 0.0, TimeSystem::UTC);
-    /// let name = EphemerisFileName::new(25544, "ISS", start, EphemerisFileCategory::Operational, "nomnvr").unwrap();
+    /// let name = SpaceTrackEphemerisFileName::new(25544, "ISS", start, SpaceTrackEphemerisFileCategory::Operational, "nomnvr").unwrap();
     /// assert_eq!(name.to_string(), "MEME_25544_ISS_3001224_Operational_nomnvr_UNCLASSIFIED.txt");
     /// ```
     pub fn new(
         norad_cat_id: u32,
         object_name: &str,
         start_epoch: Epoch,
-        category: EphemerisFileCategory,
+        category: SpaceTrackEphemerisFileCategory,
         metadata: &str,
     ) -> Result<Self, BraheError> {
         if object_name.is_empty() {
@@ -259,17 +259,17 @@ impl EphemerisFileName {
     /// * `data_type` - Data type token, for example `MEME` or `TEME`
     ///
     /// # Returns
-    /// * `Ok(EphemerisFileName)`: The name with the data type replaced
+    /// * `Ok(SpaceTrackEphemerisFileName)`: The name with the data type replaced
     /// * `Err(BraheError)`: If `data_type` is empty, contains `_`, `/`, `\` or NUL, or is `.` or `..`
     ///
     /// # Examples
     ///
     /// ```
-    /// use brahe::spacetrack::{EphemerisFileCategory, EphemerisFileName};
+    /// use brahe::spacetrack::{SpaceTrackEphemerisFileCategory, SpaceTrackEphemerisFileName};
     /// use brahe::time::{Epoch, TimeSystem};
     ///
     /// let start = Epoch::from_datetime(2026, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
-    /// let name = EphemerisFileName::new(1, "A", start, EphemerisFileCategory::Special, "").unwrap().with_data_type("TEME").unwrap();
+    /// let name = SpaceTrackEphemerisFileName::new(1, "A", start, SpaceTrackEphemerisFileCategory::Special, "").unwrap().with_data_type("TEME").unwrap();
     /// assert!(name.to_string().starts_with("TEME_"));
     /// ```
     pub fn with_data_type(mut self, data_type: &str) -> Result<Self, BraheError> {
@@ -284,17 +284,17 @@ impl EphemerisFileName {
     /// * `classification` - Classification token
     ///
     /// # Returns
-    /// * `Ok(EphemerisFileName)`: The name with the classification replaced
+    /// * `Ok(SpaceTrackEphemerisFileName)`: The name with the classification replaced
     /// * `Err(BraheError)`: If `classification` is empty, contains `_`, `/`, `\` or NUL, or is `.` or `..`
     ///
     /// # Examples
     ///
     /// ```
-    /// use brahe::spacetrack::{EphemerisFileCategory, EphemerisFileName};
+    /// use brahe::spacetrack::{SpaceTrackEphemerisFileCategory, SpaceTrackEphemerisFileName};
     /// use brahe::time::{Epoch, TimeSystem};
     ///
     /// let start = Epoch::from_datetime(2026, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
-    /// let name = EphemerisFileName::new(1, "A", start, EphemerisFileCategory::Special, "").unwrap().with_classification("unclassified").unwrap();
+    /// let name = SpaceTrackEphemerisFileName::new(1, "A", start, SpaceTrackEphemerisFileCategory::Special, "").unwrap().with_classification("unclassified").unwrap();
     /// assert!(name.to_string().ends_with("_unclassified.txt"));
     /// ```
     pub fn with_classification(mut self, classification: &str) -> Result<Self, BraheError> {
@@ -309,17 +309,17 @@ impl EphemerisFileName {
     /// * `extension` - Extension without a leading dot
     ///
     /// # Returns
-    /// * `Ok(EphemerisFileName)`: The name with the extension replaced
+    /// * `Ok(SpaceTrackEphemerisFileName)`: The name with the extension replaced
     /// * `Err(BraheError)`: If `extension` is empty or contains `_`, `.`, `/`, `\` or NUL
     ///
     /// # Examples
     ///
     /// ```
-    /// use brahe::spacetrack::{EphemerisFileCategory, EphemerisFileName};
+    /// use brahe::spacetrack::{SpaceTrackEphemerisFileCategory, SpaceTrackEphemerisFileName};
     /// use brahe::time::{Epoch, TimeSystem};
     ///
     /// let start = Epoch::from_datetime(2026, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
-    /// let name = EphemerisFileName::new(1, "A", start, EphemerisFileCategory::Special, "").unwrap().with_extension("dat").unwrap();
+    /// let name = SpaceTrackEphemerisFileName::new(1, "A", start, SpaceTrackEphemerisFileCategory::Special, "").unwrap().with_extension("dat").unwrap();
     /// assert!(name.to_string().ends_with(".dat"));
     /// ```
     pub fn with_extension(mut self, extension: &str) -> Result<Self, BraheError> {
@@ -347,18 +347,18 @@ impl EphemerisFileName {
     /// * `name` - File name with extension, without directory components
     ///
     /// # Returns
-    /// * `Ok(EphemerisFileName)`: The parsed fields
+    /// * `Ok(SpaceTrackEphemerisFileName)`: The parsed fields
     /// * `Err(BraheError)`: If the name does not follow the convention or a field names a path
     ///
     /// # Examples
     ///
     /// ```
-    /// use brahe::spacetrack::{EphemerisFileCategory, EphemerisFileName};
+    /// use brahe::spacetrack::{SpaceTrackEphemerisFileCategory, SpaceTrackEphemerisFileName};
     ///
-    /// let name = EphemerisFileName::parse("MEME_25544_ISS(ZARYA)_1651200_operational_nomnvr_UNCLASSIFIED.txt").unwrap();
+    /// let name = SpaceTrackEphemerisFileName::parse("MEME_25544_ISS(ZARYA)_1651200_operational_nomnvr_UNCLASSIFIED.txt").unwrap();
     /// assert_eq!(name.object_name, "ISS(ZARYA)");
     /// assert_eq!((name.day_of_year, name.hour, name.minute), (165, 12, 0));
-    /// assert_eq!(name.category, EphemerisFileCategory::Operational);
+    /// assert_eq!(name.category, SpaceTrackEphemerisFileCategory::Operational);
     /// ```
     pub fn parse(name: &str) -> Result<Self, BraheError> {
         let err = |detail: String| {
@@ -423,7 +423,7 @@ impl EphemerisFileName {
 
         validate_path_field("category", parts[n - 3]).map_err(|e| err(e.to_string()))?;
         let category =
-            EphemerisFileCategory::parse(parts[n - 3]).map_err(|e| err(e.to_string()))?;
+            SpaceTrackEphemerisFileCategory::parse(parts[n - 3]).map_err(|e| err(e.to_string()))?;
         let metadata = parts[n - 2];
         validate_path_field("metadata", metadata).map_err(|e| err(e.to_string()))?;
         let classification = parts[n - 1];
@@ -448,7 +448,7 @@ impl EphemerisFileName {
     }
 }
 
-impl fmt::Display for EphemerisFileName {
+impl fmt::Display for SpaceTrackEphemerisFileName {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -477,7 +477,7 @@ mod tests {
     #[test]
     #[parallel]
     fn test_ephemeris_file_name_parse_starlink() {
-        let name = EphemerisFileName::parse(
+        let name = SpaceTrackEphemerisFileName::parse(
             "MEME_100001_STARLINK-38128_2540142_Operational_1473385380_UNCLASSIFIED.txt",
         )
         .unwrap();
@@ -487,7 +487,7 @@ mod tests {
         assert_eq!(name.day_of_year, 254);
         assert_eq!(name.hour, 1);
         assert_eq!(name.minute, 42);
-        assert_eq!(name.category, EphemerisFileCategory::Operational);
+        assert_eq!(name.category, SpaceTrackEphemerisFileCategory::Operational);
         assert_eq!(name.metadata, "1473385380");
         assert_eq!(name.classification, "UNCLASSIFIED");
         assert_eq!(name.extension, "txt");
@@ -496,36 +496,38 @@ mod tests {
     #[test]
     #[parallel]
     fn test_ephemeris_file_name_parse_handbook_examples() {
-        let a = EphemerisFileName::parse("MEME_25544_ISS_1651200_oper__unclassified.txt").unwrap();
+        let a = SpaceTrackEphemerisFileName::parse("MEME_25544_ISS_1651200_oper__unclassified.txt")
+            .unwrap();
         assert_eq!(a.norad_cat_id, 25544);
         assert_eq!(a.object_name, "ISS");
         assert_eq!((a.day_of_year, a.hour, a.minute), (165, 12, 0));
-        assert_eq!(a.category, EphemerisFileCategory::Operational);
+        assert_eq!(a.category, SpaceTrackEphemerisFileCategory::Operational);
         assert_eq!(a.metadata, "");
         assert_eq!(a.classification, "unclassified");
 
-        let b = EphemerisFileName::parse(
+        let b = SpaceTrackEphemerisFileName::parse(
             "MEME_25544_ISS(ZARYA)_1651200_operational_nomnvr_UNCLASSIFIED.txt",
         )
         .unwrap();
         assert_eq!(b.object_name, "ISS(ZARYA)");
         assert_eq!(b.metadata, "nomnvr");
 
-        let c = EphemerisFileName::parse(
+        let c = SpaceTrackEphemerisFileName::parse(
             "MEME_799500234_Sat1_1651200_special_separation_unclassified.txt",
         )
         .unwrap();
         assert_eq!(c.norad_cat_id, 799500234);
-        assert_eq!(c.category, EphemerisFileCategory::Special);
+        assert_eq!(c.category, SpaceTrackEphemerisFileCategory::Special);
         assert_eq!(c.metadata, "separation");
     }
 
     #[test]
     #[parallel]
     fn test_ephemeris_file_name_parse_object_name_with_underscores() {
-        let name =
-            EphemerisFileName::parse("MEME_12345_MY_SAT_A_0010530_Special_burn02_UNCLASSIFIED.txt")
-                .unwrap();
+        let name = SpaceTrackEphemerisFileName::parse(
+            "MEME_12345_MY_SAT_A_0010530_Special_burn02_UNCLASSIFIED.txt",
+        )
+        .unwrap();
         assert_eq!(name.object_name, "MY_SAT_A");
         assert_eq!((name.day_of_year, name.hour, name.minute), (1, 5, 30));
         assert_eq!(name.metadata, "burn02");
@@ -534,20 +536,50 @@ mod tests {
     #[test]
     #[parallel]
     fn test_ephemeris_file_name_parse_errors() {
-        assert!(EphemerisFileName::parse("MEME_25544_ISS_1651200_oper__unclassified").is_err());
-        assert!(EphemerisFileName::parse("MEME_25544_ISS_1651200_oper.txt").is_err());
-        assert!(EphemerisFileName::parse("MEME_abc_ISS_1651200_oper__unclassified.txt").is_err());
-        assert!(EphemerisFileName::parse("MEME_25544_ISS_165120_oper__unclassified.txt").is_err());
-        assert!(EphemerisFileName::parse("MEME_25544_ISS_1652500_oper__unclassified.txt").is_err());
-        assert!(EphemerisFileName::parse("MEME_25544_ISS_1651260_oper__unclassified.txt").is_err());
-        assert!(EphemerisFileName::parse("MEME_25544_ISS_3671200_oper__unclassified.txt").is_err());
         assert!(
-            EphemerisFileName::parse("MEME_25544_ISS_1651200_planned__unclassified.txt").is_err()
+            SpaceTrackEphemerisFileName::parse("MEME_25544_ISS_1651200_oper__unclassified")
+                .is_err()
         );
-        assert!(EphemerisFileName::parse("MEME_25544__1651200_oper__unclassified.txt").is_err());
-        assert!(EphemerisFileName::parse("MEME_25544_ISS_1651200_oper__unclassified.").is_err());
-        assert!(EphemerisFileName::parse("_25544_ISS_1651200_oper__unclassified.txt").is_err());
-        assert!(EphemerisFileName::parse("MEME_25544_ISS_1651200_oper_meta_.txt").is_err());
+        assert!(SpaceTrackEphemerisFileName::parse("MEME_25544_ISS_1651200_oper.txt").is_err());
+        assert!(
+            SpaceTrackEphemerisFileName::parse("MEME_abc_ISS_1651200_oper__unclassified.txt")
+                .is_err()
+        );
+        assert!(
+            SpaceTrackEphemerisFileName::parse("MEME_25544_ISS_165120_oper__unclassified.txt")
+                .is_err()
+        );
+        assert!(
+            SpaceTrackEphemerisFileName::parse("MEME_25544_ISS_1652500_oper__unclassified.txt")
+                .is_err()
+        );
+        assert!(
+            SpaceTrackEphemerisFileName::parse("MEME_25544_ISS_1651260_oper__unclassified.txt")
+                .is_err()
+        );
+        assert!(
+            SpaceTrackEphemerisFileName::parse("MEME_25544_ISS_3671200_oper__unclassified.txt")
+                .is_err()
+        );
+        assert!(
+            SpaceTrackEphemerisFileName::parse("MEME_25544_ISS_1651200_planned__unclassified.txt")
+                .is_err()
+        );
+        assert!(
+            SpaceTrackEphemerisFileName::parse("MEME_25544__1651200_oper__unclassified.txt")
+                .is_err()
+        );
+        assert!(
+            SpaceTrackEphemerisFileName::parse("MEME_25544_ISS_1651200_oper__unclassified.")
+                .is_err()
+        );
+        assert!(
+            SpaceTrackEphemerisFileName::parse("_25544_ISS_1651200_oper__unclassified.txt")
+                .is_err()
+        );
+        assert!(
+            SpaceTrackEphemerisFileName::parse("MEME_25544_ISS_1651200_oper_meta_.txt").is_err()
+        );
     }
 
     #[test]
@@ -565,7 +597,7 @@ mod tests {
             "MEME_100001_X_2540142_oper/../../../evil_meta_UNCLASSIFIED.txt",
         ] {
             assert!(
-                EphemerisFileName::parse(bad).is_err(),
+                SpaceTrackEphemerisFileName::parse(bad).is_err(),
                 "expected '{bad}' to be rejected"
             );
         }
@@ -576,29 +608,54 @@ mod tests {
     fn test_ephemeris_file_name_builders_reject_path_traversal() {
         let start = Epoch::from_datetime(2026, 9, 11, 1, 42, 42.0, 0.0, TimeSystem::UTC);
         assert!(
-            EphemerisFileName::new(1, "..", start, EphemerisFileCategory::Operational, "").is_err()
-        );
-        assert!(
-            EphemerisFileName::new(
+            SpaceTrackEphemerisFileName::new(
                 1,
-                "../../tmp/evil",
+                "..",
                 start,
-                EphemerisFileCategory::Operational,
+                SpaceTrackEphemerisFileCategory::Operational,
                 ""
             )
             .is_err()
         );
         assert!(
-            EphemerisFileName::new(1, "A\\B", start, EphemerisFileCategory::Operational, "")
-                .is_err()
+            SpaceTrackEphemerisFileName::new(
+                1,
+                "../../tmp/evil",
+                start,
+                SpaceTrackEphemerisFileCategory::Operational,
+                ""
+            )
+            .is_err()
         );
         assert!(
-            EphemerisFileName::new(1, "A", start, EphemerisFileCategory::Operational, "../evil")
-                .is_err()
+            SpaceTrackEphemerisFileName::new(
+                1,
+                "A\\B",
+                start,
+                SpaceTrackEphemerisFileCategory::Operational,
+                ""
+            )
+            .is_err()
+        );
+        assert!(
+            SpaceTrackEphemerisFileName::new(
+                1,
+                "A",
+                start,
+                SpaceTrackEphemerisFileCategory::Operational,
+                "../evil"
+            )
+            .is_err()
         );
 
-        let name =
-            EphemerisFileName::new(1, "A", start, EphemerisFileCategory::Operational, "").unwrap();
+        let name = SpaceTrackEphemerisFileName::new(
+            1,
+            "A",
+            start,
+            SpaceTrackEphemerisFileCategory::Operational,
+            "",
+        )
+        .unwrap();
         assert!(name.clone().with_data_type("..").is_err());
         assert!(name.clone().with_classification("A\\B").is_err());
         assert!(name.with_extension("t\0xt").is_err());
@@ -608,11 +665,11 @@ mod tests {
     #[parallel]
     fn test_ephemeris_file_name_new_and_display() {
         let start = Epoch::from_datetime(2026, 9, 11, 1, 42, 42.0, 0.0, TimeSystem::UTC);
-        let name = EphemerisFileName::new(
+        let name = SpaceTrackEphemerisFileName::new(
             100001,
             "STARLINK-38128",
             start,
-            EphemerisFileCategory::Operational,
+            SpaceTrackEphemerisFileCategory::Operational,
             "1473385380",
         )
         .unwrap();
@@ -621,11 +678,11 @@ mod tests {
             "MEME_100001_STARLINK-38128_2540142_Operational_1473385380_UNCLASSIFIED.txt"
         );
 
-        let padded = EphemerisFileName::new(
+        let padded = SpaceTrackEphemerisFileName::new(
             900,
             "CALSPHERE 1",
             start,
-            EphemerisFileCategory::Special,
+            SpaceTrackEphemerisFileCategory::Special,
             "",
         )
         .unwrap();
@@ -634,11 +691,11 @@ mod tests {
             "MEME_00900_CALSPHERE 1_2540142_Special__UNCLASSIFIED.txt"
         );
 
-        let custom = EphemerisFileName::new(
+        let custom = SpaceTrackEphemerisFileName::new(
             25544,
             "ISS",
             start,
-            EphemerisFileCategory::Operational,
+            SpaceTrackEphemerisFileCategory::Operational,
             "nomnvr",
         )
         .unwrap()
@@ -663,7 +720,9 @@ mod tests {
             "MEME_799501571_STARLINK-36331_2540207_Operational_1473386880_UNCLASSIFIED.txt",
         ] {
             assert_eq!(
-                EphemerisFileName::parse(original).unwrap().to_string(),
+                SpaceTrackEphemerisFileName::parse(original)
+                    .unwrap()
+                    .to_string(),
                 original
             );
         }
@@ -674,10 +733,22 @@ mod tests {
     fn test_ephemeris_file_name_uses_utc_for_day_time_group() {
         let start = Epoch::from_datetime(2026, 9, 11, 1, 42, 42.0, 0.0, TimeSystem::UTC);
         let in_tai = Epoch::from_datetime(2026, 9, 11, 1, 43, 19.0, 0.0, TimeSystem::TAI);
-        let a =
-            EphemerisFileName::new(1, "A", start, EphemerisFileCategory::Operational, "").unwrap();
-        let b =
-            EphemerisFileName::new(1, "A", in_tai, EphemerisFileCategory::Operational, "").unwrap();
+        let a = SpaceTrackEphemerisFileName::new(
+            1,
+            "A",
+            start,
+            SpaceTrackEphemerisFileCategory::Operational,
+            "",
+        )
+        .unwrap();
+        let b = SpaceTrackEphemerisFileName::new(
+            1,
+            "A",
+            in_tai,
+            SpaceTrackEphemerisFileCategory::Operational,
+            "",
+        )
+        .unwrap();
         assert_eq!(a.to_string(), b.to_string());
     }
 
@@ -685,8 +756,14 @@ mod tests {
     #[parallel]
     fn test_ephemeris_file_name_new_leap_second_day_of_year() {
         let leap: Epoch = Epoch::from_datetime(2017, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC) - 1.0;
-        let name =
-            EphemerisFileName::new(1, "A", leap, EphemerisFileCategory::Operational, "").unwrap();
+        let name = SpaceTrackEphemerisFileName::new(
+            1,
+            "A",
+            leap,
+            SpaceTrackEphemerisFileCategory::Operational,
+            "",
+        )
+        .unwrap();
         assert_eq!((name.day_of_year, name.hour, name.minute), (366, 23, 59));
         assert_eq!(
             name.to_string(),
@@ -698,23 +775,26 @@ mod tests {
     #[parallel]
     fn test_ephemeris_file_category_parse_and_display() {
         assert_eq!(
-            EphemerisFileCategory::parse("oper").unwrap(),
-            EphemerisFileCategory::Operational
+            SpaceTrackEphemerisFileCategory::parse("oper").unwrap(),
+            SpaceTrackEphemerisFileCategory::Operational
         );
         assert_eq!(
-            EphemerisFileCategory::parse("OPERATIONAL").unwrap(),
-            EphemerisFileCategory::Operational
+            SpaceTrackEphemerisFileCategory::parse("OPERATIONAL").unwrap(),
+            SpaceTrackEphemerisFileCategory::Operational
         );
         assert_eq!(
-            EphemerisFileCategory::parse("Special").unwrap(),
-            EphemerisFileCategory::Special
+            SpaceTrackEphemerisFileCategory::parse("Special").unwrap(),
+            SpaceTrackEphemerisFileCategory::Special
         );
-        assert!(EphemerisFileCategory::parse("planned").is_err());
+        assert!(SpaceTrackEphemerisFileCategory::parse("planned").is_err());
         assert_eq!(
-            EphemerisFileCategory::Operational.to_string(),
+            SpaceTrackEphemerisFileCategory::Operational.to_string(),
             "Operational"
         );
-        assert_eq!(EphemerisFileCategory::Special.to_string(), "Special");
+        assert_eq!(
+            SpaceTrackEphemerisFileCategory::Special.to_string(),
+            "Special"
+        );
     }
 
     #[test]
@@ -722,15 +802,34 @@ mod tests {
     fn test_ephemeris_file_name_rejects_delimiter_in_fields() {
         let start = Epoch::from_datetime(2026, 9, 11, 1, 42, 42.0, 0.0, TimeSystem::UTC);
         assert!(
-            EphemerisFileName::new(1, "A", start, EphemerisFileCategory::Operational, "burn_02")
-                .is_err()
+            SpaceTrackEphemerisFileName::new(
+                1,
+                "A",
+                start,
+                SpaceTrackEphemerisFileCategory::Operational,
+                "burn_02"
+            )
+            .is_err()
         );
         assert!(
-            EphemerisFileName::new(1, "", start, EphemerisFileCategory::Operational, "").is_err()
+            SpaceTrackEphemerisFileName::new(
+                1,
+                "",
+                start,
+                SpaceTrackEphemerisFileCategory::Operational,
+                ""
+            )
+            .is_err()
         );
 
-        let name =
-            EphemerisFileName::new(1, "A", start, EphemerisFileCategory::Operational, "").unwrap();
+        let name = SpaceTrackEphemerisFileName::new(
+            1,
+            "A",
+            start,
+            SpaceTrackEphemerisFileCategory::Operational,
+            "",
+        )
+        .unwrap();
         assert!(name.clone().with_extension("txt.bak").is_err());
         assert!(name.clone().with_classification("UN_CLASS").is_err());
         assert!(name.with_data_type("MEME/EXTRA").is_err());

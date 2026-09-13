@@ -3,25 +3,30 @@
 import pytest
 
 import brahe as bh
-from brahe.spacetrack import EphemerisFileCategory, EphemerisFileName
+from brahe.spacetrack import (
+    SpaceTrackEphemerisFileCategory,
+    SpaceTrackEphemerisFileName,
+)
 
 
 def test_ephemeris_file_name_parse_starlink():
-    name = EphemerisFileName.parse(
+    name = SpaceTrackEphemerisFileName.parse(
         "MEME_100001_STARLINK-38128_2540142_Operational_1473385380_UNCLASSIFIED.txt"
     )
     assert name.data_type == "MEME"
     assert name.norad_cat_id == 100001
     assert name.object_name == "STARLINK-38128"
     assert (name.day_of_year, name.hour, name.minute) == (254, 1, 42)
-    assert name.category == EphemerisFileCategory.OPERATIONAL
+    assert name.category == SpaceTrackEphemerisFileCategory.OPERATIONAL
     assert name.metadata == "1473385380"
     assert name.classification == "UNCLASSIFIED"
     assert name.extension == "txt"
 
 
 def test_ephemeris_file_name_parse_handbook_examples():
-    a = EphemerisFileName.parse("MEME_25544_ISS_1651200_oper__unclassified.txt")
+    a = SpaceTrackEphemerisFileName.parse(
+        "MEME_25544_ISS_1651200_oper__unclassified.txt"
+    )
     assert (a.norad_cat_id, a.object_name, a.metadata, a.classification) == (
         25544,
         "ISS",
@@ -29,22 +34,22 @@ def test_ephemeris_file_name_parse_handbook_examples():
         "unclassified",
     )
     assert (a.day_of_year, a.hour, a.minute) == (165, 12, 0)
-    b = EphemerisFileName.parse(
+    b = SpaceTrackEphemerisFileName.parse(
         "MEME_25544_ISS(ZARYA)_1651200_operational_nomnvr_UNCLASSIFIED.txt"
     )
     assert (b.object_name, b.metadata) == ("ISS(ZARYA)", "nomnvr")
-    c = EphemerisFileName.parse(
+    c = SpaceTrackEphemerisFileName.parse(
         "MEME_799500234_Sat1_1651200_special_separation_unclassified.txt"
     )
     assert (c.norad_cat_id, c.category, c.metadata) == (
         799500234,
-        EphemerisFileCategory.SPECIAL,
+        SpaceTrackEphemerisFileCategory.SPECIAL,
         "separation",
     )
 
 
 def test_ephemeris_file_name_parse_object_name_with_underscores():
-    name = EphemerisFileName.parse(
+    name = SpaceTrackEphemerisFileName.parse(
         "MEME_12345_MY_SAT_A_0010530_Special_burn02_UNCLASSIFIED.txt"
     )
     assert name.object_name == "MY_SAT_A"
@@ -67,7 +72,7 @@ def test_ephemeris_file_name_parse_object_name_with_underscores():
 )
 def test_ephemeris_file_name_parse_errors(bad):
     with pytest.raises(bh.BraheError):
-        EphemerisFileName.parse(bad)
+        SpaceTrackEphemerisFileName.parse(bad)
 
 
 @pytest.mark.parametrize(
@@ -87,7 +92,7 @@ def test_ephemeris_file_name_parse_errors(bad):
 def test_ephemeris_file_name_parse_rejects_path_traversal(bad):
     """Rust: test_ephemeris_file_name_parse_rejects_path_traversal"""
     with pytest.raises(bh.BraheError):
-        EphemerisFileName.parse(bad)
+        SpaceTrackEphemerisFileName.parse(bad)
 
 
 def test_ephemeris_file_name_builders_reject_path_traversal():
@@ -95,13 +100,17 @@ def test_ephemeris_file_name_builders_reject_path_traversal():
     start = bh.Epoch(2026, 9, 11, 1, 42, 42.0, 0.0)
     for object_name in ["..", "../../tmp/evil", "A\\B"]:
         with pytest.raises(bh.BraheError):
-            EphemerisFileName(
-                1, object_name, start, EphemerisFileCategory.OPERATIONAL, ""
+            SpaceTrackEphemerisFileName(
+                1, object_name, start, SpaceTrackEphemerisFileCategory.OPERATIONAL, ""
             )
     with pytest.raises(bh.BraheError):
-        EphemerisFileName(1, "A", start, EphemerisFileCategory.OPERATIONAL, "../evil")
+        SpaceTrackEphemerisFileName(
+            1, "A", start, SpaceTrackEphemerisFileCategory.OPERATIONAL, "../evil"
+        )
 
-    name = EphemerisFileName(1, "A", start, EphemerisFileCategory.OPERATIONAL, "")
+    name = SpaceTrackEphemerisFileName(
+        1, "A", start, SpaceTrackEphemerisFileCategory.OPERATIONAL, ""
+    )
     with pytest.raises(bh.BraheError):
         name.with_data_type("..")
     with pytest.raises(bh.BraheError):
@@ -112,20 +121,24 @@ def test_ephemeris_file_name_builders_reject_path_traversal():
 
 def test_ephemeris_file_name_new_and_display():
     start = bh.Epoch(2026, 9, 11, 1, 42, 42.0, 0.0)
-    name = EphemerisFileName(
-        100001, "STARLINK-38128", start, EphemerisFileCategory.OPERATIONAL, "1473385380"
+    name = SpaceTrackEphemerisFileName(
+        100001,
+        "STARLINK-38128",
+        start,
+        SpaceTrackEphemerisFileCategory.OPERATIONAL,
+        "1473385380",
     )
     assert (
         str(name)
         == "MEME_100001_STARLINK-38128_2540142_Operational_1473385380_UNCLASSIFIED.txt"
     )
-    padded = EphemerisFileName(
-        900, "CALSPHERE 1", start, EphemerisFileCategory.SPECIAL, ""
+    padded = SpaceTrackEphemerisFileName(
+        900, "CALSPHERE 1", start, SpaceTrackEphemerisFileCategory.SPECIAL, ""
     )
     assert str(padded) == "MEME_00900_CALSPHERE 1_2540142_Special__UNCLASSIFIED.txt"
     custom = (
-        EphemerisFileName(
-            25544, "ISS", start, EphemerisFileCategory.OPERATIONAL, "nomnvr"
+        SpaceTrackEphemerisFileName(
+            25544, "ISS", start, SpaceTrackEphemerisFileCategory.OPERATIONAL, "nomnvr"
         )
         .with_data_type("TEME")
         .with_classification("unclassified")
@@ -143,25 +156,35 @@ def test_ephemeris_file_name_new_and_display():
     ],
 )
 def test_ephemeris_file_name_round_trip(original):
-    assert str(EphemerisFileName.parse(original)) == original
+    assert str(SpaceTrackEphemerisFileName.parse(original)) == original
 
 
 def test_ephemeris_file_name_uses_utc_for_day_time_group():
     start = bh.Epoch(2026, 9, 11, 1, 42, 42.0, 0.0)
     in_tai = bh.Epoch(2026, 9, 11, 1, 43, 19.0, 0.0, time_system=bh.TimeSystem.TAI)
-    a = EphemerisFileName(1, "A", start, EphemerisFileCategory.OPERATIONAL, "")
-    b = EphemerisFileName(1, "A", in_tai, EphemerisFileCategory.OPERATIONAL, "")
+    a = SpaceTrackEphemerisFileName(
+        1, "A", start, SpaceTrackEphemerisFileCategory.OPERATIONAL, ""
+    )
+    b = SpaceTrackEphemerisFileName(
+        1, "A", in_tai, SpaceTrackEphemerisFileCategory.OPERATIONAL, ""
+    )
     assert str(a) == str(b)
 
 
 def test_ephemeris_file_name_rejects_delimiter_in_fields():
     start = bh.Epoch(2026, 9, 11, 1, 42, 42.0, 0.0)
     with pytest.raises(bh.BraheError):
-        EphemerisFileName(1, "A", start, EphemerisFileCategory.OPERATIONAL, "burn_02")
+        SpaceTrackEphemerisFileName(
+            1, "A", start, SpaceTrackEphemerisFileCategory.OPERATIONAL, "burn_02"
+        )
     with pytest.raises(bh.BraheError):
-        EphemerisFileName(1, "", start, EphemerisFileCategory.OPERATIONAL, "")
+        SpaceTrackEphemerisFileName(
+            1, "", start, SpaceTrackEphemerisFileCategory.OPERATIONAL, ""
+        )
 
-    name = EphemerisFileName(1, "A", start, EphemerisFileCategory.OPERATIONAL, "")
+    name = SpaceTrackEphemerisFileName(
+        1, "A", start, SpaceTrackEphemerisFileCategory.OPERATIONAL, ""
+    )
     with pytest.raises(bh.BraheError):
         name.with_extension("txt.bak")
     with pytest.raises(bh.BraheError):
@@ -171,12 +194,19 @@ def test_ephemeris_file_name_rejects_delimiter_in_fields():
 
 
 def test_ephemeris_file_category_parse_and_display():
-    assert EphemerisFileCategory.parse("oper") == EphemerisFileCategory.OPERATIONAL
     assert (
-        EphemerisFileCategory.parse("OPERATIONAL") == EphemerisFileCategory.OPERATIONAL
+        SpaceTrackEphemerisFileCategory.parse("oper")
+        == SpaceTrackEphemerisFileCategory.OPERATIONAL
     )
-    assert EphemerisFileCategory.parse("Special") == EphemerisFileCategory.SPECIAL
+    assert (
+        SpaceTrackEphemerisFileCategory.parse("OPERATIONAL")
+        == SpaceTrackEphemerisFileCategory.OPERATIONAL
+    )
+    assert (
+        SpaceTrackEphemerisFileCategory.parse("Special")
+        == SpaceTrackEphemerisFileCategory.SPECIAL
+    )
     with pytest.raises(bh.BraheError):
-        EphemerisFileCategory.parse("planned")
-    assert str(EphemerisFileCategory.OPERATIONAL) == "Operational"
-    assert str(EphemerisFileCategory.SPECIAL) == "Special"
+        SpaceTrackEphemerisFileCategory.parse("planned")
+    assert str(SpaceTrackEphemerisFileCategory.OPERATIONAL) == "Operational"
+    assert str(SpaceTrackEphemerisFileCategory.SPECIAL) == "Special"

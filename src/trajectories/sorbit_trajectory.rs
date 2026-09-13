@@ -1669,6 +1669,11 @@ impl SOrbitTrajectory {
 impl OrbitalTrajectory for SOrbitTrajectory {
     /// Create orbital trajectory from data with specified orbital properties.
     ///
+    /// Covariance is accepted in any frame. It is stored exactly as given and
+    /// rotated on demand by [`SOrbitTrajectory::covariance_in_frame`] and
+    /// [`OrbitalTrajectory::to_frame`], which require a Cartesian
+    /// representation.
+    ///
     /// # Arguments
     /// * `epochs` - Vector of epochs
     /// * `states` - Vector of state vectors
@@ -1676,11 +1681,6 @@ impl OrbitalTrajectory for SOrbitTrajectory {
     /// * `representation` - State representation (Cartesian or Keplerian)
     /// * `angle_format` - Angle format (None for Cartesian, Radians/Degrees for Keplerian)
     /// * `covariances` - Optional vector of 6x6 covariance matrices, one per state
-    ///
-    /// Covariance is accepted in any frame. It is stored exactly as given and
-    /// rotated on demand by [`SOrbitTrajectory::covariance_in_frame`] and
-    /// [`OrbitalTrajectory::to_frame`], which require a Cartesian
-    /// representation.
     ///
     /// # Returns
     /// * `Ok(SOrbitTrajectory)` - New orbital trajectory with data

@@ -1875,6 +1875,12 @@ impl CovarianceInterpolationConfig for DOrbitTrajectory {
 impl DOrbitTrajectory {
     /// Create orbital trajectory from data with specified orbital properties.
     ///
+    /// Covariance is accepted in any frame. It is stored exactly as given and
+    /// rotated on demand by [`Self::covariance_in_frame`] and
+    /// [`Self::to_frame`], which require a Cartesian representation and a
+    /// square matrix of at least 6x6 whose leading six elements are the
+    /// Cartesian state.
+    ///
     /// # Arguments
     /// * `epochs` - Vector of epochs
     /// * `states` - Vector of state vectors
@@ -1882,12 +1888,6 @@ impl DOrbitTrajectory {
     /// * `representation` - State representation (Cartesian or Keplerian)
     /// * `angle_format` - Angle format (None for Cartesian, Radians/Degrees for Keplerian)
     /// * `covariances` - Optional vector of covariance matrices, one per state
-    ///
-    /// Covariance is accepted in any frame. It is stored exactly as given and
-    /// rotated on demand by [`Self::covariance_in_frame`] and
-    /// [`Self::to_frame`], which require a Cartesian representation and a
-    /// square matrix of at least 6x6 whose leading six elements are the
-    /// Cartesian state.
     ///
     /// # Returns
     /// * `Ok(DOrbitTrajectory)` - New orbital trajectory with data

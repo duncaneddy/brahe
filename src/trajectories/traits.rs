@@ -713,6 +713,10 @@ pub trait InterpolatableTrajectory: Trajectory + InterpolationConfig {
 pub trait OrbitalTrajectory: InterpolatableTrajectory {
     /// Create orbital trajectory from data with specified orbital properties.
     ///
+    /// Covariance is accepted in any frame. It is stored exactly as given and
+    /// rotated on demand by the frame accessors and [`Self::to_frame`], which
+    /// require a Cartesian representation.
+    ///
     /// # Arguments
     /// * `epochs` - Vector of epochs
     /// * `states` - Vector of state vectors
@@ -720,10 +724,6 @@ pub trait OrbitalTrajectory: InterpolatableTrajectory {
     /// * `representation` - State representation (Cartesian or Keplerian)
     /// * `angle_format` - Angle format (None for Cartesian, Radians/Degrees for Keplerian)
     /// * `covariances` - Optional vector of 6x6 covariance matrices, one per state
-    ///
-    /// Covariance is accepted in any frame. It is stored exactly as given and
-    /// rotated on demand by the frame accessors and [`Self::to_frame`], which
-    /// require a Cartesian representation.
     ///
     /// # Returns
     /// New orbital trajectory with data, or an error if parameters are

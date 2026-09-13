@@ -85,5 +85,5 @@ def test_symmetrize():
 
 def test_symmetrize_non_square_panics():
     """Rust: test_symmetrize_non_square_panics"""
-    with pytest.raises(bh.PanicException, match="square"):
+    with pytest.raises(ValueError, match="square"):
         bh.symmetrize(np.zeros((3, 4)))

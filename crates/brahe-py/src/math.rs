@@ -86,7 +86,7 @@ fn py_block_diagonal<'py>(
 ///     np.ndarray: The symmetric part of `m`
 ///
 /// Raises:
-///     PanicException: If `m` is not square
+///     ValueError: If `m` is not square
 ///
 /// Example:
 ///     ```python
@@ -99,13 +99,19 @@ fn py_block_diagonal<'py>(
 #[pyfunction]
 #[pyo3(text_signature = "(m)")]
 #[pyo3(name = "symmetrize")]
-fn py_symmetrize<'py>(py: Python<'py>, m: PyReadonlyArray2<'py, f64>) -> Bound<'py, PyArray<f64, Ix2>> {
+fn py_symmetrize<'py>(py: Python<'py>, m: PyReadonlyArray2<'py, f64>) -> PyResult<Bound<'py, PyArray<f64, Ix2>>> {
     let array = m.as_array();
     let (rows, cols) = (array.shape()[0], array.shape()[1]);
+    if rows != cols {
+        return Err(pyo3::exceptions::PyValueError::new_err(format!(
+            "symmetrize requires a square matrix, got {}x{}",
+            rows, cols
+        )));
+    }
     let mat = DMatrix::<f64>::from_row_iterator(rows, cols, array.iter().copied());
     let s = symmetrize(&mat);
     let s_ref = &s;
-    matrix_to_numpy!(py, s_ref, rows, cols, f64).to_owned()
+    Ok(matrix_to_numpy!(py, s_ref, rows, cols, f64).to_owned())
 }
 
 /// Whether a square matrix is symmetric to within a relative tolerance.

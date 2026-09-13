@@ -1,6 +1,0 @@
-Stars brighter than Vmag 2.0: 49
-Bright stars within 5 deg of Sirius: 1
-  HD 48915: Vmag=-1.44
-
-Sirius at J2030.0:   RA=101.282404 deg, Dec=-16.726308 deg
-Sirius at J1991.25:  RA=101.288541 deg, Dec=-16.713143 deg

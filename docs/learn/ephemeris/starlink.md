@@ -1,18 +1,19 @@
 # Starlink Public Ephemerides
 
 Starlink publishes the Modified ITC ephemerides it submits to Space-Track at
-`https://api.starlink.com/public-files/ephemerides/`, one file per satellite, refreshed about every
-eight hours, listed in a plain-text `MANIFEST.txt`. Brahe's `StarlinkClient` retrieves them with the
-same caching, rate limiting and `BRAHE_NETWORK_MODE` behavior as the other ephemeris clients, and
-returns either the parsed `ITC` message or an `OrbitTrajectory` built from it. See
-[Modified ITC Ephemeris Format](itc.md) for the file format itself.
+[`https://api.starlink.com/public-files/ephemerides/`](https://api.starlink.com/public-files/ephemerides/),
+one file per satellite, refreshed about every eight hours, listed in a plain-text
+[`MANIFEST.txt`](https://api.starlink.com/public-files/ephemerides/MANIFEST.txt). Brahe's
+`StarlinkClient` retrieves them with the same caching, rate limiting and `BRAHE_NETWORK_MODE`
+behavior as the other ephemeris clients, and returns either the parsed `ITC` message or an
+`OrbitTrajectory` built from it. See [Modified ITC Ephemeris Format](itc.md) for the file format
+itself.
 
 ## Getting Started
 
 The following example looks up a satellite by name in the manifest and loads its ephemeris as a
-trajectory. It runs from the manifest and ephemeris files seeded into the cache by
-`just seed-starlink-cache`, using a week-long `cache_max_age` so the example does not attempt a
-network refresh.
+trajectory. It reads a cached manifest and ephemeris file, using a week-long `cache_max_age` so the
+example does not attempt a network refresh.
 
 === "Python"
     ``` python
@@ -38,11 +39,11 @@ network refresh.
 ## The Manifest
 
 `get_manifest` serves the cached `MANIFEST.txt` while it is younger than `cache_max_age` (3600
-seconds by default) and otherwise sends a conditional GET with `If-None-Match` and
-`If-Modified-Since`; a `304` response renews the cached copy without downloading it again.
-`refresh_manifest` forces that conditional GET regardless of the cache's age. `cached_manifest`
-returns whatever is on disk without touching the network, and `previous_manifest` returns the
-listing that was current before the last change, kept so a caller can see what moved.
+seconds by default) and refreshes it with a conditional GET otherwise, renewing the cached copy
+without downloading it again when the server answers `304`. `refresh_manifest` forces that
+conditional GET regardless of the cache's age, while `cached_manifest` and `previous_manifest` never
+touch the network: the former returns whatever is on disk, and the latter returns the listing that
+was current before the last change, kept so a caller can see what moved.
 
 Each entry carries the NORAD catalog ID, the object name, the operational or special category, the
 ephemeris start epoch at minute resolution decoded from the file name's day-time group, the
@@ -54,28 +55,75 @@ returns the listing as a table with columns `norad_cat_id` (`UInt32`), `object_n
 (strings), `ephemeris_start` and `ephemeris_stop` (millisecond-resolution naive UTC datetimes, the
 stop column null where the file name carries no stop), and `file_name`.
 
+=== "Python"
+    ``` python
+    --8<-- "./examples/datasets/starlink_manifest.py:14"
+    ```
+
+=== "Rust"
+    ``` rust
+    --8<-- "./examples/datasets/starlink_manifest.rs:9"
+    ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/datasets/starlink_manifest.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/datasets/starlink_manifest.rs.txt"
+        ```
+
 ## Downloading Ephemerides
 
 `download_ephemeris` fetches a satellite's file only when the manifest names one that is not
-already cached; the downloaded body is validated as a Modified ITC message before it is written,
-and every other cached file for that NORAD ID is then deleted. `get_ephemeris` downloads (if
-needed) and returns the parsed `ITC` message. `get_trajectory` does the same and converts it to an
-`OrbitTrajectory` in the file's state frame (EME2000), with the RTN covariance rotated into that
-frame using the block-diagonal convention; `get_trajectory` accepts an optional
-`covariance_variant`, and `get_trajectory_with_covariance_variant` takes it as a required
-`variant`, including `OrbitRelativeFrameVariant.ROTATING` for the alternative
-rotation. `save_ephemeris` copies the downloaded file to a destination outside the cache: an
-existing directory, or a path whose last component has no extension, is treated as a directory and
-the original file name is kept; a path with an extension is used as the file name directly. Saved
-copies are never evicted.
+already cached, validating the downloaded body as a Modified ITC message before writing it.
+`get_ephemeris` downloads (if needed) and returns the parsed `ITC` message. `get_trajectory` does
+the same and converts it to an `OrbitTrajectory` in the file's state frame (EME2000), with the RTN
+covariance rotated into that frame using the block-diagonal convention; `get_trajectory` accepts an
+optional `covariance_variant`, and `get_trajectory_with_covariance_variant` takes it as a required
+`variant`, including `OrbitRelativeFrameVariant.ROTATING` for the alternative rotation.
+
+!!! note
+    Downloading a satellite's new ephemeris deletes the other cached files for that NORAD ID; saved copies are unaffected.
+
+=== "Python"
+    ``` python
+    --8<-- "./examples/datasets/starlink_trajectory_access.py:12"
+    ```
+
+=== "Rust"
+    ``` rust
+    --8<-- "./examples/datasets/starlink_trajectory_access.rs:8"
+    ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/datasets/starlink_trajectory_access.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/datasets/starlink_trajectory_access.rs.txt"
+        ```
+
+`save_ephemeris` moves the downloaded file to a destination outside the cache instead of copying it:
+an existing directory, or a path whose last component has no extension, is treated as a directory
+and the original file name is kept, while a path with an extension is used as the file name
+directly. After the move the destination is the only copy and the cache no longer holds the file, so
+a later `download_ephemeris` or `get_ephemeris` call for the same satellite downloads it again.
 
 ## Bulk Downloads
 
 `download_all(concurrency)` downloads every file the manifest lists that is not already cached, one
-file per NORAD ID, using up to `concurrency` worker threads that share the client's rate limiter.
-The full listing is about 11,100 files and about 22 GB, so a first run against the public mirror is
-a long transfer; the call stops at the first failure and returns it, and it never prunes files no
-longer listed. `save_all` runs `download_all` and copies every result into a destination directory.
+file per NORAD ID, using up to `concurrency` worker threads that share the client's rate limiter. As
+of writing the full listing is about 11,000 files and approximately 22 GB, so a first run against the
+public mirror is a long transfer; the call stops at the first failure and returns it, and it never
+prunes files no longer listed. `save_all` runs `download_all` and moves every downloaded file into a
+destination directory, so the destination holds every ephemeris and the cache holds none afterward.
 `prune_cache` removes cached ephemeris files the current manifest no longer lists, without touching
 `MANIFEST.txt` or `MANIFEST.previous.txt`. `cached_files` lists the ephemeris files currently in the
 cache. The cache directory itself is not coordinated across processes or across clients sharing it,

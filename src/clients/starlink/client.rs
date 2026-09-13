@@ -1187,19 +1187,28 @@ fn same_path(a: &Path, b: &Path) -> bool {
 ///
 /// # Returns
 /// * `Ok(())`: The file was moved
-/// * `Err(BraheError)`: If the rename fails for a reason other than a cross-device move, or the copy-then-remove fallback fails
+/// * `Err(BraheError)`: If the rename fails for a reason other than a cross-device move, or the fallback (copy to a sibling staging file, rename into place, remove the source) fails
 fn move_file(source: &Path, target: &Path) -> Result<(), BraheError> {
     match fs::rename(source, target) {
         Ok(()) => Ok(()),
         Err(e) if e.kind() == io::ErrorKind::CrossesDevices => {
-            fs::copy(source, target).map_err(|e| {
-                BraheError::IoError(format!(
+            let staging = target.with_file_name(format!(
+                ".{}.{}.tmp",
+                target
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or("ephemeris"),
+                std::process::id()
+            ));
+            if let Err(e) = fs::copy(source, &staging).and_then(|_| fs::rename(&staging, target)) {
+                let _ = fs::remove_file(&staging);
+                return Err(BraheError::IoError(format!(
                     "Failed to copy {} to {}: {}",
                     source.display(),
                     target.display(),
                     e
-                ))
-            })?;
+                )));
+            }
             fs::remove_file(source).map_err(|e| {
                 BraheError::IoError(format!(
                     "Failed to remove {} after moving it to {}: {}",

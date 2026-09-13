@@ -2632,8 +2632,14 @@ impl DOrbitTrajectory {
         self.covariance_in_frame(CelestialFrame::EME2000, epoch)
     }
 
-    /// Returns the covariance at `epoch` in RTN axes about the trajectory's
-    /// own state, for the given orbit-relative frame variant.
+    /// Returns the covariance at `epoch` in the RTN frame of the trajectory's
+    /// central body, about the trajectory's own state, for the given
+    /// orbit-relative frame variant.
+    ///
+    /// The RTN axes are built from the state in the ICRF-aligned inertial
+    /// frame of the trajectory's own central body, so a lunar or
+    /// Mars-centered trajectory reports RTN about that body rather than about
+    /// Earth. For an Earth-centered trajectory that inertial frame is GCRF.
     ///
     /// [`OrbitRelativeFrameVariant::Rotating`] carries the angular-velocity
     /// coupling of the true local orbital frame;
@@ -2646,7 +2652,7 @@ impl DOrbitTrajectory {
     ///
     /// # Returns
     /// * `Ok(DMatrix<f64>)` - Covariance in RTN axes
-    /// * `Err(BraheError)` - If the covariance is unavailable, the representation is not Cartesian, or it cannot be rotated into GCRF
+    /// * `Err(BraheError)` - If the covariance is unavailable, the representation is not Cartesian, or it cannot be rotated into the central body's inertial frame
     ///
     /// # Examples
     /// ```rust
@@ -2687,9 +2693,10 @@ impl DOrbitTrajectory {
         variant: OrbitRelativeFrameVariant,
     ) -> Result<DMatrix<f64>, BraheError> {
         require_cartesian_covariance(self.representation)?;
-        let cov_eci = self.covariance_in_frame(CelestialFrame::GCRF, epoch)?;
-        let state_eci = self.state_eci(epoch)?;
-        rotate_covariance(&cov_eci, &jacobian_eci_to_rtn(state_eci, variant))
+        let inertial = icrf_aligned_inertial(celestial_root(&self.frame)?);
+        let cov_bci = self.covariance_in_frame(inertial, epoch)?;
+        let x_bci = self.state_bci(epoch)?;
+        rotate_covariance(&cov_bci, &jacobian_eci_to_rtn(x_bci, variant))
     }
 }
 
@@ -6283,6 +6290,54 @@ mod tests {
                 .to_string()
                 .contains("barycenter")
         );
+    }
+
+    #[test]
+    #[serial]
+    fn test_dorbittrajectory_covariance_rtn_uses_its_own_central_body() {
+        // A Moon-centered trajectory reports RTN about the Moon: the axes come
+        // from the LCI state and the covariance from the LCI frame, not from
+        // the Earth-centered pair.
+        setup_global_test_eop();
+        crate::utils::testing::setup_global_test_spice();
+
+        let mut traj =
+            DOrbitTrajectory::new(6, CelestialFrame::LCI, OrbitRepresentation::Cartesian, None)
+                .unwrap();
+        traj.covariances = Some(Vec::new());
+        let epoch = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![2.0e6, 1.0e5, -3.0e5, 10.0, 1.6e3, -5.0]);
+        let mut cov = DMatrix::<f64>::zeros(6, 6);
+        for i in 0..3 {
+            cov[(i, i)] = 100.0;
+            cov[(3 + i, 3 + i)] = 0.01;
+        }
+        cov[(0, 1)] = 25.0;
+        cov[(1, 0)] = 25.0;
+        traj.add_state_and_covariance(epoch, state, cov.clone())
+            .unwrap();
+
+        let variant = OrbitRelativeFrameVariant::Rotating;
+        let expected = rotate_covariance(
+            &cov,
+            &jacobian_eci_to_rtn(traj.state_bci(epoch).unwrap(), variant),
+        )
+        .unwrap();
+        let rtn = traj.covariance_rtn(epoch).unwrap();
+        assert_abs_diff_eq!((&rtn - &expected).norm(), 0.0, epsilon = 1e-12);
+        assert!(is_symmetric(&rtn, 1e-12));
+
+        // Building the same rotation from the GCRF state and covariance gives
+        // a materially different matrix: the Moon's Earth-relative offset
+        // dominates the lunar orbit radius, so the RTN axes point elsewhere.
+        let from_gcrf = rotate_covariance(
+            &traj
+                .covariance_in_frame(CelestialFrame::GCRF, epoch)
+                .unwrap(),
+            &jacobian_eci_to_rtn(traj.state_eci(epoch).unwrap(), variant),
+        )
+        .unwrap();
+        assert!((&rtn - &from_gcrf).norm() > 1.0);
     }
 
     #[test]

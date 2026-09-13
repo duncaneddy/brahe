@@ -2492,9 +2492,13 @@ impl PyOrbitalTrajectory {
     /// Get the covariance matrix at a specific epoch in the RTN (Radial, Along-Track, Normal) frame.
     ///
     /// The RTN frame is defined as:
-    /// - R (Radial): Along the position vector (away from Earth center)
+    /// - R (Radial): Along the position vector (away from the central body's center)
     /// - T (Along-track): Completes right-handed system (N × R)
     /// - N (Normal): Perpendicular to the orbital plane (along angular momentum)
+    ///
+    /// The axes are built from the state in the ICRF-aligned inertial frame of
+    /// the trajectory's own central body, so a lunar or Mars-centered
+    /// trajectory reports RTN about that body rather than about Earth.
     ///
     /// Args:
     ///     epoch (Epoch): Time at which to retrieve the covariance
@@ -2716,8 +2720,13 @@ impl PyOrbitalTrajectory {
         Ok(matrix_to_numpy!(py, cov_ref, nrows, ncols, f64).to_owned())
     }
 
-    /// Get the covariance matrix at a specific epoch in RTN axes, for the
-    /// given orbit-relative frame variant.
+    /// Get the covariance matrix at a specific epoch in the RTN frame of the
+    /// trajectory's central body, for the given orbit-relative frame variant.
+    ///
+    /// The axes are built from the state in the ICRF-aligned inertial frame of
+    /// the trajectory's own central body, so a lunar or Mars-centered
+    /// trajectory reports RTN about that body rather than about Earth. For an
+    /// Earth-centered trajectory that inertial frame is GCRF.
     ///
     /// `ROTATING` carries the angular-velocity coupling of the true local
     /// orbital frame and matches `covariance_rtn`; `INERTIAL` freezes the axes
@@ -2731,7 +2740,7 @@ impl PyOrbitalTrajectory {
     ///     np.ndarray: Covariance matrix in RTN axes
     ///
     /// Raises:
-    ///     RuntimeError: If the covariance is unavailable, the representation is not Cartesian, or it cannot be rotated into GCRF
+    ///     RuntimeError: If the covariance is unavailable, the representation is not Cartesian, or it cannot be rotated into the central body's inertial frame
     ///
     /// Example:
     ///     ```python

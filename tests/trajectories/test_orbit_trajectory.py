@@ -4370,6 +4370,43 @@ def test_covariance_rtn_is_symmetric_and_rotating(eop):
     assert np.linalg.norm(rtn - inertial) > 1e-6
 
 
+def test_covariance_rtn_uses_its_own_central_body(eop, naif_cache_setup):
+    """Rust: test_dorbittrajectory_covariance_rtn_uses_its_own_central_body"""
+    epoch = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    state = np.array([2.0e6, 1.0e5, -3.0e5, 10.0, 1.6e3, -5.0])
+    cov = np.diag([100.0, 100.0, 100.0, 0.01, 0.01, 0.01])
+    cov[0, 1] = cov[1, 0] = 25.0
+
+    traj = brahe.OrbitTrajectory.from_orbital_data(
+        [epoch],
+        np.array([state]),
+        brahe.CelestialFrame.LCI,
+        brahe.OrbitRepresentation.CARTESIAN,
+        covariances=np.array([cov]),
+    )
+
+    # The RTN axes come from the LCI state and the LCI covariance.
+    expected = brahe.rotate_covariance(
+        cov,
+        brahe.jacobian_eci_to_rtn(
+            traj.state_bci(epoch), brahe.OrbitRelativeFrameVariant.ROTATING
+        ),
+    )
+    rtn = traj.covariance_rtn(epoch)
+    np.testing.assert_allclose(rtn, expected, atol=1e-12, rtol=0)
+    np.testing.assert_allclose(rtn, rtn.T, atol=1e-12, rtol=0)
+
+    # The Earth-centered pair gives a materially different matrix: the Moon's
+    # Earth-relative offset dominates the lunar orbit radius.
+    from_gcrf = brahe.rotate_covariance(
+        traj.covariance_in_frame(brahe.CelestialFrame.GCRF, epoch),
+        brahe.jacobian_eci_to_rtn(
+            traj.state_eci(epoch), brahe.OrbitRelativeFrameVariant.ROTATING
+        ),
+    )
+    assert np.linalg.norm(rtn - from_gcrf) > 1.0
+
+
 def test_covariance_eci_from_ecef(eop):
     """Rust: test_dorbittrajectory_covariance_eci_from_ecef"""
     traj, epoch, cov = _covariance_routing_trajectory(brahe.CelestialFrame.ECEF)

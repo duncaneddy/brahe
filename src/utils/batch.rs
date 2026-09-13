@@ -328,6 +328,42 @@ pub(crate) fn try_batch_map<T: Sync, U: Send, E: Send>(
     try_map_indices(|i| f(&inputs[i]), inputs.len())
 }
 
+/// Apply a fallible `f` pairwise across two slice arguments under the
+/// broadcast rule.
+///
+/// Fallible form of [`batch_zip`]: the kernel may fail, and the first error
+/// is returned.
+///
+/// # Arguments
+///
+/// * `f` - Fallible pairwise kernel
+/// * `a` - First slice argument, length `1` or `N`
+/// * `b` - Second slice argument, length `1` or `N`
+///
+/// # Returns
+///
+/// Vector of `N` results in index order, or an error if the lengths do not
+/// satisfy the broadcast rule or any evaluation fails.
+///
+/// # Examples
+///
+/// ```ignore
+/// use crate::utils::BraheError;
+/// use crate::utils::batch::try_batch_zip;
+///
+/// // A single left operand broadcasts across the right batch
+/// let sums = try_batch_zip(|a, b| Ok::<f64, BraheError>(a + b), &[10.0], &[1.0, 2.0]).unwrap();
+/// assert_eq!(sums, vec![11.0, 12.0]);
+/// ```
+pub(crate) fn try_batch_zip<A: Sync, B: Sync, U: Send>(
+    f: impl Fn(&A, &B) -> Result<U, BraheError> + Sync,
+    a: &[A],
+    b: &[B],
+) -> Result<Vec<U>, BraheError> {
+    let n = broadcast_len(&[a.len(), b.len()])?;
+    try_map_indices(|i| f(pick(a, i), pick(b, i)), n)
+}
+
 /// Apply a fallible epoch-dependent kernel across a batch, hoisting the epoch
 /// context when the batch shares a single epoch.
 ///
@@ -512,6 +548,40 @@ mod tests {
         let out = batch_zip(|x, y| x + y, &a, &b).unwrap();
         let expected: Vec<f64> = a.iter().map(|x| x + 0.5).collect();
         assert_eq!(out, expected);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_try_batch_zip_broadcast_mismatch_and_error() {
+        let one = [100.0];
+        let many = [1.0, 2.0, 3.0];
+        assert_eq!(
+            try_batch_zip(|x, y| Ok::<f64, BraheError>(x + y), &one, &many).unwrap(),
+            vec![101.0, 102.0, 103.0]
+        );
+        assert_eq!(
+            try_batch_zip(|x, y| Ok::<f64, BraheError>(x - y), &many, &one).unwrap(),
+            vec![-99.0, -98.0, -97.0]
+        );
+
+        // Length mismatch is rejected before any evaluation.
+        let two = [1.0, 2.0];
+        assert!(try_batch_zip(|x, y| Ok::<f64, BraheError>(x + y), &two, &many).is_err());
+
+        // The first kernel error is propagated.
+        let err = try_batch_zip(
+            |x: &f64, _: &f64| {
+                if *x > 1.5 {
+                    Err(BraheError::Error("too large".to_string()))
+                } else {
+                    Ok(*x)
+                }
+            },
+            &many,
+            &one,
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("too large"));
     }
 
     fn epochs(n: usize) -> Vec<Epoch> {

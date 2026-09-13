@@ -160,23 +160,6 @@ macro_rules! numpy_to_smatrix3 {
     }};
 }
 
-macro_rules! numpy_to_smatrix6 {
-    ($arr:expr) => {{
-        let shape = $arr.shape();
-        if shape[0] != 6 || shape[1] != 6 {
-            return Err(pyo3::exceptions::PyValueError::new_err(format!(
-                "Expected 6x6 matrix, got {}x{}",
-                shape[0], shape[1]
-            )));
-        }
-        let mat_vec = $arr.to_vec().map_err(|_| {
-            pyo3::exceptions::PyValueError::new_err("Failed to convert numpy array to matrix")
-        })?;
-        // numpy is row-major, nalgebra is column-major
-        nalgebra::SMatrix::<f64, 6, 6>::from_row_slice(&mat_vec)
-    }};
-}
-
 /// Convert a Python object to a 1D f64 array, automatically handling dtype conversion.
 ///
 /// This function accepts any numpy array-like object and converts it to Vec<f64>,

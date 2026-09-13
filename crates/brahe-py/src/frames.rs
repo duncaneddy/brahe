@@ -5775,15 +5775,23 @@ fn py_state_frame_to_frame<'py>(
 /// centers -- so a covariance transforms with this constant 6x6 Jacobian at
 /// the epoch, `P' = J P J.T`.
 ///
+/// The Jacobian is computed numerically, by probing the frame router's own
+/// state transform: the transform of the zero state gives the constant term,
+/// and the transform of each of six scaled basis states, differenced against
+/// it, gives one column. Since the map is affine that difference is the exact
+/// Jacobian, not a finite-difference estimate of it.
+///
 /// `from_frame`/`to_frame` accept a `CelestialFrame` or a `ReferenceFrame`.
 ///
 /// Args:
 ///     from_frame (CelestialFrame | ReferenceFrame): Frame the covariance is expressed in
 ///     to_frame (CelestialFrame | ReferenceFrame): Frame to rotate it into
-///     epc (Epoch): Epoch of the transform
+///     epc (Epoch or Sequence[Epoch]): Epoch of the transform. A sequence evaluates
+///         one Jacobian per epoch.
 ///
 /// Returns:
-///     numpy.ndarray: 6x6 Jacobian `J` such that `P_to = J @ P_from @ J.T`, shape `(6, 6)`
+///     numpy.ndarray: 6x6 Jacobian `J` such that `P_to = J @ P_from @ J.T`, shape `(6, 6)` for a
+///         single epoch or `(n, 6, 6)` for a sequence of `n` epochs.
 ///
 /// Raises:
 ///     RuntimeError: If the router cannot transform states between the frames at `epc`
@@ -5796,6 +5804,9 @@ fn py_state_frame_to_frame<'py>(
 ///
 ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.UTC)
 ///     j = bh.state_transform_jacobian(bh.CelestialFrame.GCRF, bh.CelestialFrame.ITRF, epc)
+///     j_batch = bh.state_transform_jacobian(
+///         bh.CelestialFrame.GCRF, bh.CelestialFrame.ITRF, [epc, epc + 60.0]
+///     )
 ///     ```
 #[pyfunction]
 #[pyo3(text_signature = "(from_frame, to_frame, epc)")]
@@ -5804,12 +5815,17 @@ fn py_state_transform_jacobian<'py>(
     py: Python<'py>,
     from_frame: &Bound<'py, PyAny>,
     to_frame: &Bound<'py, PyAny>,
-    epc: PyRef<PyEpoch>,
-) -> PyResult<Bound<'py, PyArray<f64, Ix2>>> {
+    epc: &Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyAny>> {
     let from = extract_frame(from_frame)?;
     let to = extract_frame(to_frame)?;
-    let j = frames::state_transform_jacobian(from, to, epc.obj)?;
-    Ok(matrix_to_numpy!(py, j, 6, 6, f64).to_owned())
+    let (from2, to2) = (from.clone(), to.clone());
+    try_dispatch_epoch_jacobian(
+        py,
+        epc,
+        move |e| frames::state_transform_jacobian(from.clone(), to.clone(), e),
+        move |es| frames::state_transform_jacobians(from2.clone(), to2.clone(), es),
+    )
 }
 
 /// Rotates an `n x n` covariance (`n >= 6`) with a 6x6 state Jacobian,
@@ -5822,16 +5838,24 @@ fn py_state_transform_jacobian<'py>(
 /// orbital block. When `covariance` is exactly 6x6 this matches the Rust
 /// core's fixed-size `rotate_covariance_6`, which this binding also covers.
 ///
+/// Either argument may be batched: `covariance` as `(m, n, n)` and `jacobian`
+/// as `(m, 6, 6)`. Batched arguments follow the broadcast rule, so each has
+/// length 1 or the common batch length, and a single Jacobian rotates a whole
+/// batch of covariances.
+///
 /// Args:
-///     covariance (numpy.ndarray): Square `n x n` covariance, `n >= 6`, whose leading six elements are the Cartesian state
-///     jacobian (numpy.ndarray): 6x6 state-transform Jacobian, e.g. from `state_transform_jacobian`, shape `(6, 6)`
+///     covariance (numpy.ndarray): Square `n x n` covariance, `n >= 6`, whose leading six elements
+///         are the Cartesian state, or a batch of them with shape `(m, n, n)`
+///     jacobian (numpy.ndarray): 6x6 state-transform Jacobian, e.g. from `state_transform_jacobian`,
+///         shape `(6, 6)`, or a batch of them with shape `(m, 6, 6)`
 ///
 /// Returns:
-///     numpy.ndarray: The `n x n` rotated covariance, shape `(n, n)`
+///     numpy.ndarray: The rotated covariance, shape `(n, n)` when both arguments are single
+///         matrices, otherwise the batch layout `(m, n, n)`.
 ///
 /// Raises:
-///     ValueError: If `jacobian` is not 6x6
-///     RuntimeError: If `covariance` is not square, or is smaller than 6x6
+///     ValueError: If `jacobian` is not 6x6, or either argument is neither 2-D nor 3-D
+///     RuntimeError: If `covariance` is not square, is smaller than 6x6, or the batch lengths do not broadcast
 ///
 /// Example:
 ///     ```python
@@ -5841,25 +5865,28 @@ fn py_state_transform_jacobian<'py>(
 ///     p = np.eye(7)
 ///     j = np.eye(6)
 ///     rotated = bh.rotate_covariance(p, j)
+///     batch = bh.rotate_covariance(np.stack([p, p]), j)
 ///     ```
 #[pyfunction]
 #[pyo3(text_signature = "(covariance, jacobian)")]
 #[pyo3(name = "rotate_covariance")]
 fn py_rotate_covariance<'py>(
     py: Python<'py>,
-    covariance: PyReadonlyArray2<'py, f64>,
-    jacobian: PyReadonlyArray2<'py, f64>,
-) -> PyResult<Bound<'py, PyArray<f64, Ix2>>> {
-    let j = numpy_to_smatrix6!(jacobian);
+    covariance: &Bound<'py, PyAny>,
+    jacobian: &Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyAny>> {
+    let covariances = parse_matrix_arg(covariance)?;
+    let jacobians = parse_jacobian_arg(jacobian)?;
 
-    let covariance_array = covariance.as_array();
-    let (rows, cols) = (covariance_array.shape()[0], covariance_array.shape()[1]);
-    let p = DMatrix::<f64>::from_row_iterator(rows, cols, covariance_array.iter().copied());
+    if let (MatrixArg::Single(p), [j]) = (&covariances, jacobians.as_slice()) {
+        let rotated = frames::rotate_covariance(p, j)?;
+        let rotated_ref = &rotated;
+        let (n, m) = (rotated.nrows(), rotated.ncols());
+        return Ok(matrix_to_numpy!(py, rotated_ref, n, m, f64).into_any());
+    }
 
-    let rotated = frames::rotate_covariance(&p, &j)?;
-    let rotated_ref = &rotated;
-    let (n, m) = (rotated.nrows(), rotated.ncols());
-    Ok(matrix_to_numpy!(py, rotated_ref, n, m, f64).to_owned())
+    let rotated = py.detach(|| frames::rotate_covariances(covariances.as_slice(), &jacobians))?;
+    dmatrices_to_numpy(py, rotated)
 }
 
 /// Rotates a state covariance from `from_frame` into `to_frame` at `epc`.
@@ -5869,17 +5896,25 @@ fn py_rotate_covariance<'py>(
 /// symmetrizing the result. The covariance may be expressed in, and rotated
 /// into, any frame the router knows.
 ///
+/// `epc` and `covariance` may each be batched — a sequence of epochs and a
+/// `(m, n, n)` stack of covariances — following the broadcast rule, so each
+/// has length 1 or the common batch length. A single epoch computes the
+/// Jacobian once and applies it to every covariance.
+///
 /// Args:
 ///     from_frame (CelestialFrame | ReferenceFrame): Frame the covariance is expressed in
 ///     to_frame (CelestialFrame | ReferenceFrame): Frame to rotate it into
-///     epc (Epoch): Epoch of the transform
-///     covariance (numpy.ndarray): Square `n x n` covariance with `n >= 6`, whose leading six elements are the Cartesian state
+///     epc (Epoch or Sequence[Epoch]): Epoch of the transform, a single epoch or one per covariance
+///     covariance (numpy.ndarray): Square `n x n` covariance with `n >= 6`, whose leading six
+///         elements are the Cartesian state, or a batch of them with shape `(m, n, n)`
 ///
 /// Returns:
-///     numpy.ndarray: The covariance in `to_frame`, shape `(n, n)`
+///     numpy.ndarray: The covariance in `to_frame`, shape `(n, n)` for a single epoch and a
+///         single covariance, otherwise the batch layout `(m, n, n)`.
 ///
 /// Raises:
-///     RuntimeError: If the router cannot transform states between the frames at `epc`, or the covariance is not square or is smaller than 6x6
+///     ValueError: If `covariance` is neither 2-D nor 3-D
+///     RuntimeError: If the router cannot transform states between the frames at `epc`, the covariance is not square or is smaller than 6x6, or the batch lengths do not broadcast
 ///
 /// Example:
 ///     ```python
@@ -5893,6 +5928,9 @@ fn py_rotate_covariance<'py>(
 ///     p_itrf = bh.covariance_frame_to_frame(
 ///         bh.CelestialFrame.GCRF, bh.CelestialFrame.ITRF, epc, p_gcrf
 ///     )
+///     p_itrf_batch = bh.covariance_frame_to_frame(
+///         bh.CelestialFrame.GCRF, bh.CelestialFrame.ITRF, [epc, epc + 60.0], p_gcrf
+///     )
 ///     ```
 #[pyfunction]
 #[pyo3(text_signature = "(from_frame, to_frame, epc, covariance)")]
@@ -5901,18 +5939,29 @@ fn py_covariance_frame_to_frame<'py>(
     py: Python<'py>,
     from_frame: &Bound<'py, PyAny>,
     to_frame: &Bound<'py, PyAny>,
-    epc: PyRef<PyEpoch>,
-    covariance: PyReadonlyArray2<'py, f64>,
-) -> PyResult<Bound<'py, PyArray<f64, Ix2>>> {
+    epc: &Bound<'py, PyAny>,
+    covariance: &Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyAny>> {
     let from = extract_frame(from_frame)?;
     let to = extract_frame(to_frame)?;
-    let array = covariance.as_array();
-    let (rows, cols) = (array.shape()[0], array.shape()[1]);
-    let p = DMatrix::<f64>::from_row_iterator(rows, cols, array.iter().copied());
-    let rotated = frames::covariance_frame_to_frame(from, to, epc.obj, &p)?;
-    let rotated_ref = &rotated;
-    let (n, m) = (rotated.nrows(), rotated.ncols());
-    Ok(matrix_to_numpy!(py, rotated_ref, n, m, f64).to_owned())
+    let covariances = parse_matrix_arg(covariance)?;
+    let epochs = parse_epoch_arg(epc)?;
+
+    if let (EpochArg::Single(e), MatrixArg::Single(p)) = (&epochs, &covariances) {
+        let rotated = frames::covariance_frame_to_frame(from, to, *e, p)?;
+        let rotated_ref = &rotated;
+        let (n, m) = (rotated.nrows(), rotated.ncols());
+        return Ok(matrix_to_numpy!(py, rotated_ref, n, m, f64).into_any());
+    }
+
+    let epochs = match epochs {
+        EpochArg::Single(e) => vec![e],
+        EpochArg::Many(es) => es,
+    };
+    let rotated = py.detach(|| {
+        frames::covariances_frame_to_frame(from, to, &epochs, covariances.as_slice())
+    })?;
+    dmatrices_to_numpy(py, rotated)
 }
 
 // ============================================================================

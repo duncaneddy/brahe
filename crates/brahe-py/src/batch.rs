@@ -193,14 +193,135 @@ fn vecs_to_numpy<'py, const N: usize>(
     Ok(restored.to_pyarray(py).into_any())
 }
 
-/// Convert a batch of 3x3 matrices to an `(n, 3, 3)` numpy array.
-fn matrices_to_numpy<'py>(py: Python<'py>, mats: Vec<SMatrix3>) -> Bound<'py, PyAny> {
+/// Convert a batch of `N x N` matrices to an `(n, N, N)` numpy array.
+fn matrices_to_numpy<'py, const N: usize>(
+    py: Python<'py>,
+    mats: Vec<na::SMatrix<f64, N, N>>,
+) -> Bound<'py, PyAny> {
     let n = mats.len();
     let flat: Vec<f64> = mats
         .iter()
-        .flat_map(|m| (0..3).flat_map(move |i| (0..3).map(move |j| m[(i, j)])))
+        .flat_map(|m| (0..N).flat_map(move |i| (0..N).map(move |j| m[(i, j)])))
         .collect();
-    flat.into_pyarray(py).reshape([n, 3, 3]).unwrap().into_any()
+    flat.into_pyarray(py).reshape([n, N, N]).unwrap().into_any()
+}
+
+/// A square-matrix argument parsed from Python: a single `n x n` matrix or a
+/// batch of them stacked along a leading axis.
+enum MatrixArg {
+    Single(DMatrix<f64>),
+    Batch(Vec<DMatrix<f64>>),
+}
+
+impl MatrixArg {
+    /// The argument as a slice, so a scalar and a batch share one code path.
+    fn as_slice(&self) -> &[DMatrix<f64>] {
+        match self {
+            MatrixArg::Single(m) => std::slice::from_ref(m),
+            MatrixArg::Batch(ms) => ms,
+        }
+    }
+}
+
+/// Parse a Python object into a single `(n, n)` matrix or an `(m, n, n)`
+/// batch of them.
+fn parse_matrix_arg(obj: &Bound<'_, PyAny>) -> PyResult<MatrixArg> {
+    let py = obj.py();
+    let np = py
+        .import("numpy")
+        .map_err(|_| exceptions::PyImportError::new_err("Failed to import numpy"))?;
+    let float64 = np.getattr("float64")?;
+    let arr = np
+        .call_method1("asarray", (obj, float64))
+        .map_err(|_| {
+            exceptions::PyTypeError::new_err("Expected a numpy array or Python list of floats")
+        })?;
+    let arr = arr
+        .cast::<PyArrayDyn<f64>>()
+        .map_err(|_| exceptions::PyTypeError::new_err("Expected a numpy array or Python list"))?;
+    let readonly = arr.readonly();
+    let view = readonly.as_array();
+
+    match view.ndim() {
+        2 => Ok(MatrixArg::Single(DMatrix::from_row_iterator(
+            view.shape()[0],
+            view.shape()[1],
+            view.iter().copied(),
+        ))),
+        3 => {
+            let (m, rows, cols) = (view.shape()[0], view.shape()[1], view.shape()[2]);
+            Ok(MatrixArg::Batch(
+                (0..m)
+                    .map(|k| {
+                        let sub = view.index_axis(ndarray::Axis(0), k);
+                        DMatrix::from_row_iterator(rows, cols, sub.iter().copied())
+                    })
+                    .collect(),
+            ))
+        }
+        ndim => Err(exceptions::PyValueError::new_err(format!(
+            "Expected a 2-D matrix or a 3-D batch of matrices, got a {}-D array",
+            ndim
+        ))),
+    }
+}
+
+/// Parse a Python object into a single 6x6 Jacobian or an `(m, 6, 6)` batch.
+fn parse_jacobian_arg(obj: &Bound<'_, PyAny>) -> PyResult<Vec<SMatrix6>> {
+    parse_matrix_arg(obj)?
+        .as_slice()
+        .iter()
+        .map(|j| {
+            if j.nrows() != 6 || j.ncols() != 6 {
+                return Err(exceptions::PyValueError::new_err(format!(
+                    "Expected 6x6 matrix, got {}x{}",
+                    j.nrows(),
+                    j.ncols()
+                )));
+            }
+            Ok(SMatrix6::from_iterator(j.iter().copied()))
+        })
+        .collect()
+}
+
+/// Convert a batch of square matrices to an `(m, n, n)` numpy array.
+fn dmatrices_to_numpy<'py>(
+    py: Python<'py>,
+    mats: Vec<DMatrix<f64>>,
+) -> PyResult<Bound<'py, PyAny>> {
+    let m = mats.len();
+    let (rows, cols) = mats.first().map(|p| (p.nrows(), p.ncols())).unwrap_or((0, 0));
+    let flat: Vec<f64> = mats
+        .iter()
+        .flat_map(|p| (0..rows).flat_map(move |i| (0..cols).map(move |j| p[(i, j)])))
+        .collect();
+    Ok(flat
+        .into_pyarray(py)
+        .reshape([m, rows, cols])
+        .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))?
+        .into_any())
+}
+
+/// Dispatch a fallible epoch-dependent 6x6 Jacobian on a single epoch or a
+/// sequence. Errors from the core are raised as `RuntimeError`.
+fn try_dispatch_epoch_jacobian<'py>(
+    py: Python<'py>,
+    epc: &Bound<'py, PyAny>,
+    scalar: impl Fn(time::Epoch) -> Result<SMatrix6, RustBraheError>,
+    batch: impl Fn(&[time::Epoch]) -> Result<Vec<SMatrix6>, RustBraheError> + Sync,
+) -> PyResult<Bound<'py, PyAny>> {
+    match parse_epoch_arg(epc)? {
+        EpochArg::Single(e) => {
+            let mat = scalar(e).map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+            Ok(matrix_to_numpy!(py, mat, 6, 6, f64).into_any())
+        }
+        EpochArg::Many(epochs) => {
+            let out = py
+                .detach(|| batch(&epochs))
+                .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+            Ok(matrices_to_numpy(py, out))
+        }
+    }
 }
 
 /// Inputs of a batched epoch-dependent transform: epochs, vectors, and the

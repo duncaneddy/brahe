@@ -15,13 +15,5 @@
 pub mod client;
 pub mod manifest;
 
-pub use client::StarlinkClient;
+pub use client::{STARLINK_RATE_LIMIT, StarlinkClient};
 pub use manifest::{StarlinkManifest, StarlinkManifestEntry};
-
-use crate::clients::RateLimitConfig;
-
-/// Default request limits for the Starlink mirror: 1000 per minute and 30000 per hour.
-pub const STARLINK_RATE_LIMIT: RateLimitConfig = RateLimitConfig {
-    max_per_minute: 1000,
-    max_per_hour: 30000,
-};

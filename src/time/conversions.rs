@@ -706,6 +706,38 @@ pub fn time_system_offset_for_datetime(
     time_system_offset(jd, fd, time_system_src, time_system_dst)
 }
 
+/// Number of days in a calendar month, accounting for leap years.
+///
+/// # Arguments
+/// * `year` - Calendar year, used for February
+/// * `month` - Month, 1 to 12
+///
+/// # Returns
+/// * `Ok(u8)`: Days in the month
+/// * `Err(BraheError)`: If `month` is outside 1..=12
+///
+/// # Examples
+///
+/// ```
+/// use brahe::time::conversions::days_in_month;
+///
+/// assert_eq!(days_in_month(2024, 2).unwrap(), 29);
+/// assert_eq!(days_in_month(2025, 2).unwrap(), 28);
+/// assert!(days_in_month(2025, 13).is_err());
+/// ```
+pub fn days_in_month(year: u32, month: u8) -> Result<u8, BraheError> {
+    let leap = (year.is_multiple_of(4) && !year.is_multiple_of(100)) || year.is_multiple_of(400);
+    match month {
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => Ok(31),
+        4 | 6 | 9 | 11 => Ok(30),
+        2 => Ok(if leap { 29 } else { 28 }),
+        _ => Err(BraheError::Error(format!(
+            "month {} out of range 1..=12",
+            month
+        ))),
+    }
+}
+
 /// Day of year (1 to 366) for a calendar date.
 ///
 /// # Arguments
@@ -716,22 +748,10 @@ pub fn time_system_offset_for_datetime(
 /// # Returns
 /// * `u32`: Ordinal day, 1 for 1 January
 pub(crate) fn day_of_year_from_calendar(year: u32, month: u8, day: u8) -> u32 {
-    let leap = (year.is_multiple_of(4) && !year.is_multiple_of(100)) || year.is_multiple_of(400);
-    let days_in_month: [u32; 12] = [
-        31,
-        if leap { 29 } else { 28 },
-        31,
-        30,
-        31,
-        30,
-        31,
-        31,
-        30,
-        31,
-        30,
-        31,
-    ];
-    days_in_month[..(month as usize - 1)].iter().sum::<u32>() + day as u32
+    (1..month)
+        .map(|m| days_in_month(year, m).expect("month out of range") as u32)
+        .sum::<u32>()
+        + day as u32
 }
 
 /// Calendar month and day for an ordinal day of year.
@@ -793,6 +813,19 @@ mod tests {
     use crate::utils::testing::setup_global_test_eop;
 
     use super::*;
+
+    #[test]
+    #[parallel]
+    fn test_days_in_month() {
+        assert_eq!(days_in_month(2025, 1).unwrap(), 31);
+        assert_eq!(days_in_month(2025, 4).unwrap(), 30);
+        assert_eq!(days_in_month(2024, 2).unwrap(), 29);
+        assert_eq!(days_in_month(2025, 2).unwrap(), 28);
+        assert_eq!(days_in_month(1900, 2).unwrap(), 28);
+        assert_eq!(days_in_month(2000, 2).unwrap(), 29);
+        assert!(days_in_month(2025, 0).is_err());
+        assert!(days_in_month(2025, 13).is_err());
+    }
 
     #[test]
     #[parallel]

@@ -821,6 +821,7 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_datetime_to_mjd, module)?)?;
     module.add_function(wrap_pyfunction!(py_jd_to_datetime, module)?)?;
     module.add_function(wrap_pyfunction!(py_datetime_to_jd, module)?)?;
+    module.add_function(wrap_pyfunction!(py_days_in_month, module)?)?;
     module.add_function(wrap_pyfunction!(py_time_system_offset_for_mjd, module)?)?;
     module.add_function(wrap_pyfunction!(py_time_system_offset_for_jd, module)?)?;
     module.add_function(wrap_pyfunction!(

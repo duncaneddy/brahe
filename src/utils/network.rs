@@ -13,6 +13,8 @@ use std::env;
 use std::fmt;
 use std::str::FromStr;
 
+use crate::time::conversions::days_in_month;
+use crate::time::{Epoch, TimeSystem};
 use crate::utils::BraheError;
 
 /// Name of the environment variable that selects the [`NetworkMode`].
@@ -257,6 +259,59 @@ pub(crate) fn cache_policy(resource: &str, stale: bool) -> Result<CacheDecision,
     }
 }
 
+/// Parses an RFC 7231 HTTP date such as `Fri, 11 Sep 2026 05:15:30 GMT`.
+///
+/// # Arguments
+/// * `value` - Header value
+///
+/// # Returns
+/// * `Some(Epoch)`: The instant in UTC
+/// * `None`: If the value is not in the fixed-length IMF-fixdate form, or names a date that does not exist
+pub(crate) fn parse_http_date(value: &str) -> Option<Epoch> {
+    let parts: Vec<&str> = value.split_whitespace().collect();
+    if parts.len() != 6 || !parts[0].ends_with(',') || parts[5] != "GMT" {
+        return None;
+    }
+    let day: u8 = parts[1].parse().ok()?;
+    let month = match parts[2] {
+        "Jan" => 1,
+        "Feb" => 2,
+        "Mar" => 3,
+        "Apr" => 4,
+        "May" => 5,
+        "Jun" => 6,
+        "Jul" => 7,
+        "Aug" => 8,
+        "Sep" => 9,
+        "Oct" => 10,
+        "Nov" => 11,
+        "Dec" => 12,
+        _ => return None,
+    };
+    let year: u32 = parts[3].parse().ok()?;
+    let clock: Vec<&str> = parts[4].split(':').collect();
+    if clock.len() != 3 {
+        return None;
+    }
+    let hour: u8 = clock[0].parse().ok()?;
+    let minute: u8 = clock[1].parse().ok()?;
+    let second: u8 = clock[2].parse().ok()?;
+    if day < 1 || day > days_in_month(year, month).ok()? || hour > 23 || minute > 59 || second > 60
+    {
+        return None;
+    }
+    Some(Epoch::from_datetime(
+        year,
+        month,
+        day,
+        hour,
+        minute,
+        second as f64,
+        0.0,
+        TimeSystem::UTC,
+    ))
+}
+
 #[cfg(test)]
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
@@ -264,6 +319,35 @@ mod tests {
 
     use super::*;
     use crate::utils::testing::NetworkModeGuard;
+
+    fn utc(y: u32, mo: u8, d: u8, h: u8, mi: u8, s: f64) -> Epoch {
+        Epoch::from_datetime(y, mo, d, h, mi, s, 0.0, TimeSystem::UTC)
+    }
+
+    #[test]
+    #[parallel]
+    fn test_parse_http_date() {
+        assert_eq!(
+            parse_http_date("Fri, 11 Sep 2026 05:15:30 GMT"),
+            Some(utc(2026, 9, 11, 5, 15, 30.0))
+        );
+        assert_eq!(
+            parse_http_date("Mon, 01 Jan 2024 00:00:00 GMT"),
+            Some(utc(2024, 1, 1, 0, 0, 0.0))
+        );
+        assert_eq!(parse_http_date("Fri, 11 Sep 2026 05:15:30"), None);
+        assert_eq!(parse_http_date("Fri, 11 Sep 2026 05:15 GMT"), None);
+        assert_eq!(parse_http_date("11 Sep 2026 05:15:30 GMT"), None);
+        assert_eq!(parse_http_date("Fri, 11 Xyz 2026 05:15:30 GMT"), None);
+        assert_eq!(parse_http_date(""), None);
+        assert_eq!(parse_http_date("Fri, 31 Feb 2026 05:15:30 GMT"), None);
+        assert_eq!(
+            parse_http_date("Thu, 29 Feb 2024 05:15:30 GMT"),
+            Some(utc(2024, 2, 29, 5, 15, 30.0))
+        );
+        assert_eq!(parse_http_date("Sat, 29 Feb 2026 05:15:30 GMT"), None);
+        assert_eq!(parse_http_date("Fri, 31 Apr 2026 05:15:30 GMT"), None);
+    }
 
     #[test]
     #[serial]

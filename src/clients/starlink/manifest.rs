@@ -5,88 +5,15 @@
 use polars::prelude::*;
 
 use crate::clients::spacetrack::{SpaceTrackEphemerisFileCategory, SpaceTrackEphemerisFileName};
+use crate::constants::SECONDS_PER_DAY;
 use crate::time::conversions::calendar_from_day_of_year;
 use crate::time::{Epoch, TimeSystem};
 use crate::utils::BraheError;
 
-const SECONDS_PER_DAY: f64 = 86400.0;
 const GPS_STOP_WINDOW_SECONDS: f64 = 30.0 * SECONDS_PER_DAY;
 /// Largest GPS-second value that is decoded, about the year 5000. Larger
 /// values overflow the integer arithmetic behind [`Epoch`].
 const MAX_GPS_SECONDS: f64 = 1.0e11;
-
-/// Number of days in a calendar month.
-///
-/// # Arguments
-/// * `year` - Calendar year, used for February
-/// * `month` - Month, 1 to 12
-///
-/// # Returns
-/// * `u8`: Days in the month, or 0 when `month` is out of range
-fn days_in_month(year: u32, month: u8) -> u8 {
-    match month {
-        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
-        4 | 6 | 9 | 11 => 30,
-        2 => {
-            let leap =
-                (year.is_multiple_of(4) && !year.is_multiple_of(100)) || year.is_multiple_of(400);
-            if leap { 29 } else { 28 }
-        }
-        _ => 0,
-    }
-}
-
-/// Parses an RFC 7231 HTTP date such as `Fri, 11 Sep 2026 05:15:30 GMT`.
-///
-/// # Arguments
-/// * `value` - Header value
-///
-/// # Returns
-/// * `Some(Epoch)`: The instant in UTC
-/// * `None`: If the value is not in the fixed-length IMF-fixdate form, or names a date that does not exist
-pub(crate) fn parse_http_date(value: &str) -> Option<Epoch> {
-    let parts: Vec<&str> = value.split_whitespace().collect();
-    if parts.len() != 6 || !parts[0].ends_with(',') || parts[5] != "GMT" {
-        return None;
-    }
-    let day: u8 = parts[1].parse().ok()?;
-    let month = match parts[2] {
-        "Jan" => 1,
-        "Feb" => 2,
-        "Mar" => 3,
-        "Apr" => 4,
-        "May" => 5,
-        "Jun" => 6,
-        "Jul" => 7,
-        "Aug" => 8,
-        "Sep" => 9,
-        "Oct" => 10,
-        "Nov" => 11,
-        "Dec" => 12,
-        _ => return None,
-    };
-    let year: u32 = parts[3].parse().ok()?;
-    let clock: Vec<&str> = parts[4].split(':').collect();
-    if clock.len() != 3 {
-        return None;
-    }
-    let hour: u8 = clock[0].parse().ok()?;
-    let minute: u8 = clock[1].parse().ok()?;
-    let second: u8 = clock[2].parse().ok()?;
-    if day < 1 || day > days_in_month(year, month) || hour > 23 || minute > 59 || second > 60 {
-        return None;
-    }
-    Some(Epoch::from_datetime(
-        year,
-        month,
-        day,
-        hour,
-        minute,
-        second as f64,
-        0.0,
-        TimeSystem::UTC,
-    ))
-}
 
 /// One line of the Starlink manifest with the epochs decoded from the name.
 ///
@@ -579,31 +506,6 @@ mod tests {
 
     fn reference() -> Epoch {
         utc(2026, 9, 11, 6, 30, 0.0)
-    }
-
-    #[test]
-    #[parallel]
-    fn test_parse_http_date() {
-        assert_eq!(
-            parse_http_date("Fri, 11 Sep 2026 05:15:30 GMT"),
-            Some(utc(2026, 9, 11, 5, 15, 30.0))
-        );
-        assert_eq!(
-            parse_http_date("Mon, 01 Jan 2024 00:00:00 GMT"),
-            Some(utc(2024, 1, 1, 0, 0, 0.0))
-        );
-        assert_eq!(parse_http_date("Fri, 11 Sep 2026 05:15:30"), None);
-        assert_eq!(parse_http_date("Fri, 11 Sep 2026 05:15 GMT"), None);
-        assert_eq!(parse_http_date("11 Sep 2026 05:15:30 GMT"), None);
-        assert_eq!(parse_http_date("Fri, 11 Xyz 2026 05:15:30 GMT"), None);
-        assert_eq!(parse_http_date(""), None);
-        assert_eq!(parse_http_date("Fri, 31 Feb 2026 05:15:30 GMT"), None);
-        assert_eq!(
-            parse_http_date("Thu, 29 Feb 2024 05:15:30 GMT"),
-            Some(utc(2024, 2, 29, 5, 15, 30.0))
-        );
-        assert_eq!(parse_http_date("Sat, 29 Feb 2026 05:15:30 GMT"), None);
-        assert_eq!(parse_http_date("Fri, 31 Apr 2026 05:15:30 GMT"), None);
     }
 
     #[test]

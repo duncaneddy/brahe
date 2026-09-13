@@ -19,6 +19,19 @@ def test_mjd_to_datetime():
     assert brahe.mjd_to_datetime(51544.5) == (2000, 1, 1, 12, 0, 0.0, 0.0)
 
 
+def test_days_in_month():
+    assert brahe.days_in_month(2025, 1) == 31
+    assert brahe.days_in_month(2025, 4) == 30
+    assert brahe.days_in_month(2024, 2) == 29
+    assert brahe.days_in_month(2025, 2) == 28
+    assert brahe.days_in_month(1900, 2) == 28
+    assert brahe.days_in_month(2000, 2) == 29
+    with pytest.raises(brahe.BraheError):
+        brahe.days_in_month(2025, 0)
+    with pytest.raises(brahe.BraheError):
+        brahe.days_in_month(2025, 13)
+
+
 def test_time_system_offset_tai_utc_before_1972(eop):
     """Mirror of test_time_system_offset_tai_utc_before_1972 in Rust."""
     # Before 1972 UTC ran at a rate offset from TAI rather than a whole number

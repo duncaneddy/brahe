@@ -99,9 +99,16 @@ def download(
         typer.Option(
             "--output",
             "-o",
-            help="Directory to move the files into; they stay in the cache when omitted.",
+            help="Directory to place the files in; they stay in the cache when omitted.",
         ),
     ] = None,
+    keep_cached: Annotated[
+        bool,
+        typer.Option(
+            "--keep-cached",
+            help="Copy the files instead of moving them, leaving the cached copies in place.",
+        ),
+    ] = False,
 ) -> None:
     """Download ephemeris files for one or more satellites."""
     if output is not None:
@@ -122,7 +129,7 @@ def download(
                 if output is None:
                     path = client.download_ephemeris(norad_id)
                 else:
-                    path = client.save_ephemeris(norad_id, str(output))
+                    path = client.save_ephemeris(norad_id, str(output), keep_cached)
         except Exception as e:
             console.print(f"[red]ERROR: {e}[/red]")
             raise typer.Exit(code=1) from e

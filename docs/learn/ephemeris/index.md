@@ -83,12 +83,21 @@ complete historical catalog, supplemental data products (SP ephemeris, file shar
 SATCAT metadata. It is the appropriate choice when you need comprehensive catalog access
 or precise control over query results.
 
+**Starlink** publishes its own operational ephemerides -- the same [Modified ITC](itc.md)
+files it submits to Space-Track's SP Ephemeris system -- at a public, unauthenticated
+mirror. `StarlinkClient` reads them directly, without a GP or TLE intermediate, and returns
+`ITC` messages or `OrbitTrajectory` objects with covariance attached. Use it when a
+satellite is a Starlink and higher-fidelity state and covariance data matters more than the
+uniform GPRecord interface; see [Starlink Public Ephemerides](starlink.md).
+
 ---
 
 ## See Also
 
 - [CelesTrak](celestrak.md) -- Using the CelesTrak client
 - [Space-Track](spacetrack/index.md) -- Using the Space-Track client
+- [Starlink Public Ephemerides](starlink.md) -- Using the Starlink client
+- [Modified ITC Ephemeris Format](itc.md) -- The format Starlink and Space-Track SP Ephemeris share
 - [Ephemeris API Reference](../../library_api/ephemeris/index.md) -- Complete function and type documentation
 - [Two-Line Elements](../orbits/two_line_elements.md) -- TLE and 3LE format details
 - [SGP Propagation](../orbit_propagation/sgp_propagation.md) -- SGP4/SDP4 propagation theory and usage

@@ -24,6 +24,10 @@ print(f"EOP cache directory: {eop_cache}")
 celestrak_cache = bh.get_celestrak_cache_dir()
 print(f"CelesTrak cache directory: {celestrak_cache}")
 
+# Get cache subdirectory for Starlink data
+starlink_dir = bh.get_starlink_cache_dir()
+print(f"Starlink cache directory: {starlink_dir}")
+
 # Get a custom subdirectory within the cache
 custom_cache = bh.get_brahe_cache_dir_with_subdir("custom_data")
 print(f"Custom cache subdirectory: {custom_cache}")

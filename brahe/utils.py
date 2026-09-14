@@ -13,6 +13,7 @@ from brahe._brahe import (
     get_celestrak_cache_dir,
     get_eop_cache_dir,
     get_max_threads,
+    get_starlink_cache_dir,
     # Threading
     get_vectorization_length_threshold,
     # Network
@@ -32,6 +33,7 @@ __all__ = [
     "get_celestrak_cache_dir",
     "get_eop_cache_dir",
     "get_max_threads",
+    "get_starlink_cache_dir",
     # Threading
     "get_vectorization_length_threshold",
     # Network

@@ -77,9 +77,11 @@ Satellite TLE data downloaded from CelesTrak is stored in its own subdirectory:
     --8<-- "./examples/utilities/caching.rs:20:22"
     ```
 
-### Custom Subdirectories
+### Starlink Cache Directory
 
-You can create custom subdirectories within the cache for your own data:
+Starlink's manifest and ephemeris files are stored in their own subdirectory. A client
+constructed with a non-default `base_url` caches under a `mirrors/` subdirectory instead, so a
+client pointed at a different mirror never shares files with the public endpoint's cache.
 
 === "Python"
 
@@ -91,6 +93,22 @@ You can create custom subdirectories within the cache for your own data:
 
     ``` rust
     --8<-- "./examples/utilities/caching.rs:24:26"
+    ```
+
+### Custom Subdirectories
+
+You can create custom subdirectories within the cache for your own data:
+
+=== "Python"
+
+    ``` python
+    --8<-- "./examples/utilities/caching.py:31:33"
+    ```
+
+=== "Rust"
+
+    ``` rust
+    --8<-- "./examples/utilities/caching.rs:28:30"
     ```
 
 ## Complete Example

@@ -120,6 +120,10 @@ jobs:
         if: inputs.network_mode != 'online'
         run: PYTHONPATH=scripts uv run --frozen python scripts/seed_celestrak_cache.py
 
+      - name: Seed Starlink files from test assets
+        if: inputs.network_mode != 'online'
+        run: PYTHONPATH=scripts uv run --frozen python scripts/seed_starlink_cache.py
+
       - name: Build Rust package
         run: cargo build
 

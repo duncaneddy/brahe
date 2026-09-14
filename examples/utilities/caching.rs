@@ -21,6 +21,10 @@ fn main() {
     let celestrak_cache = bh::utils::get_celestrak_cache_dir().unwrap();
     println!("CelesTrak cache directory: {}", celestrak_cache);
 
+    // Get cache subdirectory for Starlink data
+    let starlink_dir = bh::utils::get_starlink_cache_dir().unwrap();
+    println!("Starlink cache directory: {}", starlink_dir);
+
     // Get a custom subdirectory within the cache
     let custom_cache = bh::utils::get_brahe_cache_dir_with_subdir(Some("custom_data")).unwrap();
     println!("Custom cache subdirectory: {}", custom_cache);

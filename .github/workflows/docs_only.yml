@@ -127,6 +127,9 @@ jobs:
       - name: Seed Celestrak groups from test assets
         run: PYTHONPATH=scripts uv run --frozen python scripts/seed_celestrak_cache.py
 
+      - name: Seed Starlink files from test assets
+        run: PYTHONPATH=scripts uv run --frozen python scripts/seed_starlink_cache.py
+
       - name: Restore Natural Earth land basemap cache
         id: natural-earth-cache
         uses: actions/cache/restore@v6.1.0

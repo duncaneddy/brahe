@@ -291,6 +291,8 @@ nav:
               - File Operations: learn/ephemeris/spacetrack/file_operations.md
               - Rate Limiting: learn/ephemeris/spacetrack/rate_limiting.md
           - CelesTrak: learn/ephemeris/celestrak.md
+          - Starlink: learn/ephemeris/starlink.md
+          - Modified ITC Format: learn/ephemeris/itc.md
       - Space Weather:
           - learn/space_weather/index.md
           - learn/space_weather/managing_space_weather_data.md
@@ -329,6 +331,7 @@ nav:
           - Transform: learn/cli/transform.md
           - Datasets: learn/cli/datasets.md
           - Access: learn/cli/access.md
+          - Starlink: learn/cli/starlink.md
       - Numerical Integration:
           - learn/integrators/index.md
           - Fixed-Step Integrators: learn/integrators/fixed_step.md
@@ -483,6 +486,8 @@ nav:
           - library_api/ephemeris/index.md
           - Shared Types: library_api/ephemeris/shared_types.md
           - CelesTrak: library_api/ephemeris/celestrak.md
+          - Starlink: library_api/ephemeris/starlink.md
+          - Modified ITC: library_api/ephemeris/itc.md
           - Space-Track:
               - library_api/ephemeris/spacetrack/index.md
               - Client: library_api/ephemeris/spacetrack/client.md

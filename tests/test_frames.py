@@ -2612,3 +2612,493 @@ def test_trajectory_in_of_epoch_frame_round_trips(eop):
     assert back.frame == frame
     kep = traj.to_keplerian(brahe.AngleFormat.DEGREES)
     assert kep.frame == frame
+
+
+# ============================================================================
+# Covariance routing
+# ============================================================================
+
+
+def _covariance_test_epoch():
+    return brahe.Epoch.from_datetime(2024, 3, 15, 6, 30, 0.0, 0.0, brahe.UTC)
+
+
+def test_state_transform_jacobian_gcrf_to_eme2000_is_frame_bias(eop):
+    """Rust: test_state_transform_jacobian_gcrf_to_eme2000_is_frame_bias"""
+    epc = _covariance_test_epoch()
+    j = brahe.state_transform_jacobian(
+        brahe.CelestialFrame.GCRF, brahe.CelestialFrame.EME2000, epc
+    )
+    r = brahe.rotation_gcrf_to_eme2000()
+
+    assert j.shape == (6, 6)
+    np.testing.assert_allclose(j[0:3, 0:3], r, atol=1e-12, rtol=0)
+    np.testing.assert_allclose(j[3:6, 3:6], r, atol=1e-12, rtol=0)
+    np.testing.assert_allclose(j[0:3, 3:6], np.zeros((3, 3)), atol=1e-12, rtol=0)
+    np.testing.assert_allclose(j[3:6, 0:3], np.zeros((3, 3)), atol=1e-12, rtol=0)
+
+
+def test_state_transform_jacobian_gcrf_to_itrf_matches_router(eop):
+    """Rust: test_state_transform_jacobian_gcrf_to_itrf_matches_router"""
+    epc = _covariance_test_epoch()
+    j = brahe.state_transform_jacobian(
+        brahe.CelestialFrame.GCRF, brahe.CelestialFrame.ITRF, epc
+    )
+
+    x = np.array([6878.0e3, 1200.0e3, -900.0e3, -1.1e3, 6.2e3, 3.4e3])
+    origin = brahe.state_frame_to_frame(
+        brahe.CelestialFrame.GCRF, brahe.CelestialFrame.ITRF, epc, np.zeros(6)
+    )
+    image = brahe.state_frame_to_frame(
+        brahe.CelestialFrame.GCRF, brahe.CelestialFrame.ITRF, epc, x
+    )
+    increment = image - origin
+    predicted = j @ x
+    np.testing.assert_allclose(predicted[0:3], increment[0:3], atol=1e-6, rtol=0)
+    np.testing.assert_allclose(predicted[3:6], increment[3:6], atol=1e-9, rtol=0)
+
+    r = brahe.rotation_frame_to_frame(
+        brahe.CelestialFrame.GCRF, brahe.CelestialFrame.ITRF, epc
+    )
+    np.testing.assert_allclose(j[0:3, 0:3], r, atol=1e-12, rtol=0)
+    np.testing.assert_allclose(j[3:6, 3:6], r, atol=1e-12, rtol=0)
+
+    # Velocity-position coupling is -[omega]x R; polar motion tilts omega off
+    # the ITRF z axis by a few tenths of an arcsecond.
+    omega = np.array([0.0, 0.0, brahe.OMEGA_EARTH])
+    skew = np.array(
+        [
+            [0.0, -omega[2], omega[1]],
+            [omega[2], 0.0, -omega[0]],
+            [-omega[1], omega[0], 0.0],
+        ]
+    )
+    expected = -skew @ r
+    coupling = j[3:6, 0:3]
+    assert np.linalg.norm(coupling - expected) / np.linalg.norm(expected) < 1e-5
+
+
+def test_state_transform_jacobian_shared_axes_is_identity(eop, no_spice_kernels):
+    """Rust: test_state_transform_jacobian_shared_axes_is_identity_without_ephemeris"""
+    epc = _covariance_test_epoch()
+
+    # Frames that share their axes differ only by a translation, whose
+    # Jacobian is the identity whatever the offset. No ephemeris is consulted,
+    # so the answer comes back with the SPICE registry emptied.
+    for frame_from, frame_to in (
+        (brahe.CelestialFrame.LCI, brahe.CelestialFrame.GCRF),
+        (brahe.CelestialFrame.GCRF, brahe.CelestialFrame.LCI),
+        (brahe.CelestialFrame.SSBI, brahe.CelestialFrame.MCI),
+    ):
+        j = brahe.state_transform_jacobian(frame_from, frame_to, epc)
+        np.testing.assert_array_equal(j, np.eye(6))
+
+
+def test_state_transform_jacobian_is_center_independent(eop, no_spice_kernels):
+    """Rust: test_state_transform_jacobian_is_center_independent"""
+    epc = _covariance_test_epoch()
+    expected = brahe.state_transform_jacobian(
+        brahe.CelestialFrame.GCRF, brahe.CelestialFrame.ITRF, epc
+    )
+
+    # The ICRF -> ITRF orientation is evaluated identically at every center.
+    for frame_from in (brahe.CelestialFrame.LCI, brahe.CelestialFrame.MCI):
+        j = brahe.state_transform_jacobian(frame_from, brahe.CelestialFrame.ITRF, epc)
+        np.testing.assert_allclose(j, expected, atol=1e-12, rtol=0)
+
+
+def test_state_transform_jacobian_round_trip_is_identity(eop):
+    """Rust: test_state_transform_jacobian_round_trip_is_identity"""
+    epc = _covariance_test_epoch()
+    forward = brahe.state_transform_jacobian(
+        brahe.CelestialFrame.GCRF, brahe.CelestialFrame.ITRF, epc
+    )
+    backward = brahe.state_transform_jacobian(
+        brahe.CelestialFrame.ITRF, brahe.CelestialFrame.GCRF, epc
+    )
+    np.testing.assert_allclose(backward @ forward, np.eye(6), atol=1e-12, rtol=0)
+
+
+def test_covariance_frame_to_frame_preserves_extra_dimensions(eop):
+    """Rust: test_rotate_covariance_preserves_extra_dimensions"""
+    epc = _covariance_test_epoch()
+    p = np.eye(7)
+    p[0, 0] = 4.0
+    p[6, 6] = 9.0
+    p[0, 6] = p[6, 0] = 2.0
+    p[1, 6] = p[6, 1] = -1.0
+    p[2, 6] = p[6, 2] = 0.5
+
+    rotated = brahe.covariance_frame_to_frame(
+        brahe.CelestialFrame.GCRF, brahe.CelestialFrame.ITRF, epc, p
+    )
+    assert rotated.shape == (7, 7)
+
+    # The extra parameter's own variance is untouched.
+    assert rotated[6, 6] == approx(9.0, abs=1e-12)
+
+    # Its cross-covariance with the orbital block picks up the rotation and
+    # nothing else: the position rows mix by R, the velocity rows by the full
+    # Jacobian rows.
+    j = brahe.state_transform_jacobian(
+        brahe.CelestialFrame.GCRF, brahe.CelestialFrame.ITRF, epc
+    )
+    np.testing.assert_allclose(rotated[0:6, 6], j @ p[0:6, 6], atol=1e-12, rtol=0)
+    np.testing.assert_allclose(rotated[6, 0:6], rotated[0:6, 6], atol=1e-18, rtol=0)
+
+
+def test_covariance_frame_to_frame_shape_errors(eop):
+    """Rust: test_rotate_covariance_shape_errors"""
+    epc = _covariance_test_epoch()
+    with pytest.raises(brahe.BraheError, match="at least 6x6"):
+        brahe.covariance_frame_to_frame(
+            brahe.CelestialFrame.GCRF, brahe.CelestialFrame.ITRF, epc, np.eye(5)
+        )
+    with pytest.raises(brahe.BraheError, match="must be square"):
+        brahe.covariance_frame_to_frame(
+            brahe.CelestialFrame.GCRF, brahe.CelestialFrame.ITRF, epc, np.zeros((6, 5))
+        )
+
+
+def test_covariance_frame_to_frame_round_trip(eop):
+    """Rust: test_covariance_frame_to_frame_round_trip"""
+    epc = _covariance_test_epoch()
+    p = np.diag([100.0, 100.0, 100.0, 0.01, 0.01, 0.01])
+    p[0, 1] = p[1, 0] = 25.0
+    p[0, 3] = p[3, 0] = 0.5
+
+    p_itrf = brahe.covariance_frame_to_frame(
+        brahe.CelestialFrame.GCRF, brahe.CelestialFrame.ITRF, epc, p
+    )
+    p_back = brahe.covariance_frame_to_frame(
+        brahe.CelestialFrame.ITRF, brahe.CelestialFrame.GCRF, epc, p_itrf
+    )
+    assert np.linalg.norm(p_back - p) / np.linalg.norm(p) < 1e-9
+
+
+def test_rotate_covariance_preserves_extra_dimensions():
+    """Rust: test_rotate_covariance_preserves_extra_dimensions"""
+    r = np.array([[0.0, -1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]])
+    j = brahe.block_diagonal(r, r)
+
+    p = np.eye(7)
+    p[0, 0] = 4.0
+    p[6, 6] = 9.0
+    p[0, 6] = p[6, 0] = 2.0
+
+    rotated = brahe.rotate_covariance(p, j)
+
+    assert rotated.shape == (7, 7)
+    assert rotated[6, 6] == approx(9.0, abs=1e-12)
+    assert rotated[0, 6] == approx(0.0, abs=1e-12)
+    assert rotated[1, 6] == approx(2.0, abs=1e-12)
+    assert rotated[1, 1] == approx(4.0, abs=1e-12)
+
+
+def test_rotate_covariance_6():
+    """Rust: test_rotate_covariance_6"""
+    r = np.array([[0.0, -1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]])
+    j = brahe.block_diagonal(r, r)
+
+    p = np.eye(6)
+    p[0, 0] = 4.0
+    p[1, 1] = 9.0
+    p[0, 3] = p[3, 0] = 2.0
+
+    rotated = brahe.rotate_covariance(p, j)
+
+    assert rotated[0, 0] == approx(9.0, abs=1e-12)
+    assert rotated[1, 1] == approx(4.0, abs=1e-12)
+    assert rotated[1, 4] == approx(2.0, abs=1e-12)
+    assert rotated[0, 3] == approx(0.0, abs=1e-12)
+    np.testing.assert_allclose(rotated, rotated.T, atol=1e-18, rtol=0)
+
+
+def test_rotate_covariance_shape_errors():
+    """Rust: test_rotate_covariance_shape_errors"""
+    j = np.eye(6)
+    with pytest.raises(brahe.BraheError, match="at least 6x6"):
+        brahe.rotate_covariance(np.eye(5), j)
+    with pytest.raises(brahe.BraheError, match="must be square"):
+        brahe.rotate_covariance(np.zeros((6, 5)), j)
+
+
+def _jacobian_with_probe_scales(
+    frame_from, frame_to, epc, position_scale, velocity_scale
+):
+    """Probe loop of state_transform_jacobian with caller-chosen probe scales."""
+    origin = brahe.state_frame_to_frame(frame_from, frame_to, epc, np.zeros(6))
+    j = np.zeros((6, 6))
+    for i in range(6):
+        scale = position_scale if i < 3 else velocity_scale
+        probe = np.zeros(6)
+        probe[i] = scale
+        image = brahe.state_frame_to_frame(frame_from, frame_to, epc, probe)
+        j[:, i] = (image - origin) / scale
+    return j
+
+
+def test_state_transform_jacobian_is_probe_scale_independent(eop):
+    """Rust: test_state_transform_jacobian_is_probe_scale_independent"""
+    epc = _covariance_test_epoch()
+    production = brahe.state_transform_jacobian(
+        brahe.CelestialFrame.GCRF, brahe.CelestialFrame.ITRF, epc
+    )
+
+    # GCRF -> ITRF crosses no translation, so every probe scale returns the
+    # same matrix: over a 1e9 range of scales the Jacobian moves by ~1e-16.
+    unit = _jacobian_with_probe_scales(
+        brahe.CelestialFrame.GCRF, brahe.CelestialFrame.ITRF, epc, 1.0, 1.0
+    )
+    np.testing.assert_allclose(production, unit, atol=1e-12, rtol=0)
+
+    large = _jacobian_with_probe_scales(
+        brahe.CelestialFrame.GCRF, brahe.CelestialFrame.ITRF, epc, 1.0e9, 1.0e6
+    )
+    np.testing.assert_allclose(production, large, atol=1e-12, rtol=0)
+
+
+def test_state_transform_jacobian_probe_scale_across_a_translation(
+    eop, clear_frame_registries
+):
+    """Rust: test_state_transform_jacobian_probe_scale_across_a_translation"""
+    epc = _covariance_test_epoch()
+
+    # A body frame held at a constant 30-degree yaw about a spacecraft in LEO:
+    # a translation followed by a fixed rotation, so the exact Jacobian is
+    # blockdiag(R, R) and any departure is floating-point cancellation.
+    angle = np.radians(30.0)
+    s, c = np.sin(angle), np.cos(angle)
+    r = np.array([[c, s, 0.0], [-s, c, 0.0], [0.0, 0.0, 1.0]])
+    brahe.register_frame(
+        brahe.ReferenceFrame.SC_BODY("SC"),
+        brahe.CelestialFrame.GCRF,
+        brahe.RotationMatrix(*r.flatten()),
+    )
+    x_sc = np.array([6878.0e3, 1200.0e3, -900.0e3, -1.1e3, 6.2e3, 3.4e3])
+    brahe.register_object("SC", lambda _epc: x_sc, brahe.CelestialFrame.GCRF)
+
+    body = brahe.ReferenceFrame.SC_BODY("SC")
+    expected = brahe.block_diagonal(r, r)
+    production = brahe.state_transform_jacobian(brahe.CelestialFrame.GCRF, body, epc)
+    unit = _jacobian_with_probe_scales(brahe.CelestialFrame.GCRF, body, epc, 1.0, 1.0)
+
+    # The production scales keep the full accuracy of the exact answer
+    # (measured 2.7e-16); unit probes lose about eps * |offset| / scale, a
+    # measured 3.4e-10 for this ~7.0e6 m offset.
+    assert np.linalg.norm(production - expected) < 1e-14
+    assert np.linalg.norm(unit - expected) < 1e-8
+    assert np.linalg.norm(production - expected) < np.linalg.norm(unit - expected)
+
+
+def test_state_transform_jacobian_batch_matches_per_epoch_loop(eop):
+    """Rust: test_state_transform_jacobians_matches_per_epoch_loop"""
+    epc = _covariance_test_epoch()
+    epochs = [epc + i * 600.0 for i in range(5)]
+    batch = brahe.state_transform_jacobian(
+        brahe.CelestialFrame.GCRF, brahe.CelestialFrame.ITRF, epochs
+    )
+
+    assert batch.shape == (5, 6, 6)
+    for i, e in enumerate(epochs):
+        np.testing.assert_array_equal(
+            batch[i],
+            brahe.state_transform_jacobian(
+                brahe.CelestialFrame.GCRF, brahe.CelestialFrame.ITRF, e
+            ),
+        )
+
+
+def test_rotate_covariance_batch_matches_loop_and_broadcasts():
+    """Rust: test_rotate_covariances_matches_loop_and_broadcasts"""
+    r = np.array([[0.0, -1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]])
+    jacobians = np.stack([np.eye(6), brahe.block_diagonal(r, r)])
+    covariances = np.stack([np.eye(7), np.eye(7) * 2.0])
+
+    batch = brahe.rotate_covariance(covariances, jacobians)
+    assert batch.shape == (2, 7, 7)
+    for i in range(2):
+        np.testing.assert_array_equal(
+            batch[i], brahe.rotate_covariance(covariances[i], jacobians[i])
+        )
+
+    # A single Jacobian broadcasts across the covariance batch, and a single
+    # covariance across the Jacobian batch.
+    broadcast_jacobian = brahe.rotate_covariance(covariances, jacobians[1])
+    assert broadcast_jacobian.shape == (2, 7, 7)
+    for i in range(2):
+        np.testing.assert_array_equal(
+            broadcast_jacobian[i],
+            brahe.rotate_covariance(covariances[i], jacobians[1]),
+        )
+    broadcast_covariance = brahe.rotate_covariance(covariances[0], jacobians)
+    assert broadcast_covariance.shape == (2, 7, 7)
+    for i in range(2):
+        np.testing.assert_array_equal(
+            broadcast_covariance[i],
+            brahe.rotate_covariance(covariances[0], jacobians[i]),
+        )
+
+    # Mismatched lengths and unusable shapes both raise.
+    with pytest.raises(brahe.BraheError, match="common length"):
+        brahe.rotate_covariance(np.stack([np.eye(6)] * 3), jacobians)
+    with pytest.raises(brahe.BraheError, match="at least 6x6"):
+        brahe.rotate_covariance(np.stack([np.eye(5)]), jacobians[0])
+
+
+def test_covariance_frame_to_frame_batch_matches_per_epoch_loop(eop):
+    """Rust: test_covariances_frame_to_frame_matches_per_epoch_loop"""
+    epc = _covariance_test_epoch()
+    epochs = [epc + i * 900.0 for i in range(4)]
+    covariances = np.stack([np.eye(6) * (100.0 + i) for i in range(4)])
+
+    batch = brahe.covariance_frame_to_frame(
+        brahe.CelestialFrame.GCRF, brahe.CelestialFrame.ITRF, epochs, covariances
+    )
+    assert batch.shape == (4, 6, 6)
+    for i, e in enumerate(epochs):
+        np.testing.assert_allclose(
+            batch[i],
+            brahe.covariance_frame_to_frame(
+                brahe.CelestialFrame.GCRF,
+                brahe.CelestialFrame.ITRF,
+                e,
+                covariances[i],
+            ),
+            atol=1e-18,
+            rtol=0,
+        )
+
+    # A single epoch hoists one Jacobian across the batch, and a single
+    # covariance broadcasts across the epochs.
+    one_epoch = brahe.covariance_frame_to_frame(
+        brahe.CelestialFrame.GCRF, brahe.CelestialFrame.ITRF, epochs[0], covariances
+    )
+    assert one_epoch.shape == (4, 6, 6)
+    for i in range(4):
+        np.testing.assert_allclose(
+            one_epoch[i],
+            brahe.covariance_frame_to_frame(
+                brahe.CelestialFrame.GCRF,
+                brahe.CelestialFrame.ITRF,
+                epochs[0],
+                covariances[i],
+            ),
+            atol=1e-18,
+            rtol=0,
+        )
+
+    one_covariance = brahe.covariance_frame_to_frame(
+        brahe.CelestialFrame.GCRF, brahe.CelestialFrame.ITRF, epochs, covariances[0]
+    )
+    assert one_covariance.shape == (4, 6, 6)
+    for i, e in enumerate(epochs):
+        np.testing.assert_allclose(
+            one_covariance[i],
+            brahe.covariance_frame_to_frame(
+                brahe.CelestialFrame.GCRF,
+                brahe.CelestialFrame.ITRF,
+                e,
+                covariances[0],
+            ),
+            atol=1e-18,
+            rtol=0,
+        )
+
+    # Lengths that do not broadcast are rejected.
+    with pytest.raises(brahe.BraheError, match="common length"):
+        brahe.covariance_frame_to_frame(
+            brahe.CelestialFrame.GCRF,
+            brahe.CelestialFrame.ITRF,
+            epochs[:2],
+            covariances,
+        )
+
+
+def test_covariance_batch_of_one_stays_a_batch(eop):
+    """A length-1 batch on either argument keeps the batch layout, so a caller
+    that always stacks its input always gets a stacked result."""
+    epc = _covariance_test_epoch()
+    p = np.eye(7)
+    j = np.eye(6)
+
+    assert brahe.rotate_covariance(p, j).shape == (7, 7)
+    assert brahe.rotate_covariance(p, np.stack([j])).shape == (1, 7, 7)
+    assert brahe.rotate_covariance(np.stack([p]), j).shape == (1, 7, 7)
+    assert brahe.rotate_covariance(np.stack([p]), np.stack([j])).shape == (1, 7, 7)
+
+    gcrf, itrf = brahe.CelestialFrame.GCRF, brahe.CelestialFrame.ITRF
+    assert brahe.covariance_frame_to_frame(gcrf, itrf, epc, p).shape == (7, 7)
+    assert brahe.covariance_frame_to_frame(gcrf, itrf, [epc], p).shape == (1, 7, 7)
+    assert brahe.covariance_frame_to_frame(gcrf, itrf, epc, np.stack([p])).shape == (
+        1,
+        7,
+        7,
+    )
+    assert brahe.state_transform_jacobian(gcrf, itrf, [epc]).shape == (1, 6, 6)
+
+    # The values are the scalar ones, just stacked.
+    np.testing.assert_array_equal(
+        brahe.rotate_covariance(p, np.stack([j]))[0], brahe.rotate_covariance(p, j)
+    )
+    np.testing.assert_array_equal(
+        brahe.covariance_frame_to_frame(gcrf, itrf, [epc], p)[0],
+        brahe.covariance_frame_to_frame(gcrf, itrf, epc, p),
+    )
+
+
+def test_covariance_empty_batch_keeps_its_element_shape(eop):
+    """An empty batch returns an empty result of the declared element shape,
+    not a collapsed (0, 0, 0)."""
+    epc = _covariance_test_epoch()
+    gcrf, itrf = brahe.CelestialFrame.GCRF, brahe.CelestialFrame.ITRF
+
+    assert brahe.rotate_covariance(np.zeros((0, 7, 7)), np.eye(6)).shape == (0, 7, 7)
+    assert brahe.rotate_covariance(np.zeros((0, 7, 7)), np.zeros((0, 6, 6))).shape == (
+        0,
+        7,
+        7,
+    )
+    assert brahe.rotate_covariance(np.eye(6), np.zeros((0, 6, 6))).shape == (0, 6, 6)
+    assert brahe.covariance_frame_to_frame(
+        gcrf, itrf, epc, np.zeros((0, 7, 7))
+    ).shape == (0, 7, 7)
+    assert brahe.state_transform_jacobian(gcrf, itrf, []).shape == (0, 6, 6)
+
+
+def test_covariance_empty_batch_still_checks_trailing_shape(eop):
+    """A malformed trailing shape is rejected even when the batch is empty."""
+    epc = _covariance_test_epoch()
+    gcrf, itrf = brahe.CelestialFrame.GCRF, brahe.CelestialFrame.ITRF
+
+    with pytest.raises(ValueError, match="Expected 6x6 matrix, got 5x5"):
+        brahe.rotate_covariance(np.zeros((0, 6, 6)), np.zeros((0, 5, 5)))
+    with pytest.raises(brahe.BraheError, match="must be square"):
+        brahe.rotate_covariance(np.zeros((0, 6, 5)), np.eye(6))
+    with pytest.raises(brahe.BraheError, match="at least 6x6"):
+        brahe.rotate_covariance(np.zeros((0, 5, 5)), np.eye(6))
+    with pytest.raises(brahe.BraheError, match="must be square"):
+        brahe.covariance_frame_to_frame(gcrf, itrf, epc, np.zeros((0, 6, 5)))
+    with pytest.raises(brahe.BraheError, match="at least 6x6"):
+        brahe.covariance_frame_to_frame(gcrf, itrf, epc, np.zeros((0, 5, 5)))
+
+
+def test_covariance_shape_checked_when_the_other_argument_is_empty(eop):
+    """A malformed covariance is rejected even when the empty batch is on the
+    other argument, which would otherwise leave the core with no element to
+    validate and yield an empty result instead of an error."""
+    epc = _covariance_test_epoch()
+    gcrf, itrf = brahe.CelestialFrame.GCRF, brahe.CelestialFrame.ITRF
+
+    with pytest.raises(brahe.BraheError, match="at least 6x6"):
+        brahe.rotate_covariance(np.eye(5), np.zeros((0, 6, 6)))
+    with pytest.raises(brahe.BraheError, match="must be square"):
+        brahe.rotate_covariance(np.zeros((6, 5)), np.zeros((0, 6, 6)))
+    with pytest.raises(brahe.BraheError, match="at least 6x6"):
+        brahe.covariance_frame_to_frame(gcrf, gcrf, [], np.eye(5))
+    with pytest.raises(brahe.BraheError, match="must be square"):
+        brahe.covariance_frame_to_frame(gcrf, itrf, [epc], np.zeros((6, 5)))
+
+    # A well-formed covariance with an empty counterpart still returns empty.
+    assert brahe.rotate_covariance(np.eye(6), np.zeros((0, 6, 6))).shape == (0, 6, 6)
+    assert brahe.covariance_frame_to_frame(gcrf, itrf, [], np.eye(6)).shape == (0, 6, 6)

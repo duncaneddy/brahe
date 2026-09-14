@@ -16,6 +16,11 @@ Jacobian computation is essential for:
 - Numerical integration with variational equations
 - State transition matrix propagation
 - Sensitivity analysis and uncertainty quantification
+
+**Linear Algebra:**
+- Skew-symmetric cross-product matrices
+- Block-diagonal matrix construction
+- Matrix symmetrization and symmetry checks
 """
 
 from brahe._brahe import (
@@ -28,6 +33,11 @@ from brahe._brahe import (
     # Sensitivity providers
     NumericalSensitivity,
     PerturbationStrategy,
+    # Linear algebra
+    block_diagonal,
+    is_symmetric,
+    skew_symmetric,
+    symmetrize,
 )
 
 __all__ = [
@@ -40,4 +50,9 @@ __all__ = [
     # Sensitivity providers
     "NumericalSensitivity",
     "PerturbationStrategy",
+    # Linear algebra
+    "block_diagonal",
+    "is_symmetric",
+    "skew_symmetric",
+    "symmetrize",
 ]

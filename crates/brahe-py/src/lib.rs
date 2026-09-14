@@ -1016,6 +1016,9 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_unregister_custom_frame, module)?)?;
     module.add_function(wrap_pyfunction!(py_position_frame_to_frame, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_frame_to_frame, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_transform_jacobian, module)?)?;
+    module.add_function(wrap_pyfunction!(py_rotate_covariance, module)?)?;
+    module.add_function(wrap_pyfunction!(py_covariance_frame_to_frame, module)?)?;
 
     // ReferenceFrame / BodyFrame and the frame/object registries
     module.add_class::<PyBodyFrame>()?;
@@ -1176,6 +1179,10 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_rotation_rtn_to_eci, module)?)?;
     module.add_function(wrap_pyfunction!(py_rotation_eci_to_rtn, module)?)?;
     module.add_function(wrap_pyfunction!(py_omega_rtn, module)?)?;
+    module.add_function(wrap_pyfunction!(py_jacobian_rtn_to_eci, module)?)?;
+    module.add_function(wrap_pyfunction!(py_jacobian_eci_to_rtn, module)?)?;
+    module.add_function(wrap_pyfunction!(py_covariance_rtn_to_eci, module)?)?;
+    module.add_function(wrap_pyfunction!(py_covariance_eci_to_rtn, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_eci_to_rtn, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_rtn_to_eci, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_oe_to_roe, module)?)?;
@@ -1556,6 +1563,12 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
 
     // Formatting
     module.add_function(wrap_pyfunction!(py_format_time_string, module)?)?;
+
+    //* Linear Algebra *//
+    module.add_function(wrap_pyfunction!(py_skew_symmetric, module)?)?;
+    module.add_function(wrap_pyfunction!(py_block_diagonal, module)?)?;
+    module.add_function(wrap_pyfunction!(py_symmetrize, module)?)?;
+    module.add_function(wrap_pyfunction!(py_is_symmetric, module)?)?;
 
     //* Jacobian *//
     module.add_class::<PyDifferenceMethod>()?;

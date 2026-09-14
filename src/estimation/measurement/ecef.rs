@@ -19,11 +19,11 @@ use nalgebra::{DMatrix, DVector};
 
 use crate::estimation::traits::MeasurementModel;
 use crate::frames::{position_eci_to_ecef, state_eci_to_ecef};
-use crate::math::covariance::{
+use crate::math::linalg::SVector6;
+use crate::math::{
     covariance_from_upper_triangular, diagonal_covariance, isotropic_covariance,
     validate_covariance,
 };
-use crate::math::linalg::SVector6;
 use crate::time::Epoch;
 use crate::utils::errors::BraheError;
 

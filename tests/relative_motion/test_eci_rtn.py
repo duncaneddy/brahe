@@ -276,3 +276,93 @@ def test_batch_rtn_length_one_broadcast(eop):
     np.testing.assert_array_equal(
         brahe.state_eci_to_rtn(chiefs[:1].T, deputies.T, axis=0), rel.T
     )
+
+
+# ============================================================================
+# RTN Covariance
+# ============================================================================
+
+
+def _inclined_test_state():
+    oe = np.array([brahe.R_EARTH + 700e3, 0.01, 97.8, 15.0, 30.0, 45.0])
+    return brahe.state_koe_to_eci(oe, brahe.AngleFormat.DEGREES)
+
+
+def _skew(v):
+    return np.array([[0.0, -v[2], v[1]], [v[2], 0.0, -v[0]], [-v[1], v[0], 0.0]])
+
+
+def test_jacobian_rtn_to_eci_inertial_is_block_diagonal(eop):
+    """Rust: test_jacobian_rtn_to_eci_inertial_is_block_diagonal"""
+    x = _inclined_test_state()
+    j = brahe.jacobian_rtn_to_eci(x, brahe.OrbitRelativeFrameVariant.INERTIAL)
+    r = brahe.rotation_rtn_to_eci(x)
+
+    np.testing.assert_allclose(j[0:3, 0:3], r, atol=1e-15, rtol=0)
+    np.testing.assert_allclose(j[3:6, 3:6], r, atol=1e-15, rtol=0)
+    np.testing.assert_allclose(j[3:6, 0:3], np.zeros((3, 3)), atol=1e-15, rtol=0)
+    np.testing.assert_allclose(j[0:3, 3:6], np.zeros((3, 3)), atol=1e-15, rtol=0)
+
+
+def test_jacobian_rtn_to_eci_rotating_coupling(eop):
+    """Rust: test_jacobian_rtn_to_eci_rotating_coupling"""
+    x = _inclined_test_state()
+    j = brahe.jacobian_rtn_to_eci(x, brahe.OrbitRelativeFrameVariant.ROTATING)
+    r = brahe.rotation_rtn_to_eci(x)
+    expected = r @ _skew(brahe.omega_rtn(x))
+
+    np.testing.assert_allclose(j[3:6, 0:3], expected, atol=1e-18, rtol=0)
+    assert np.linalg.norm(j[3:6, 0:3]) > 0.0
+    np.testing.assert_allclose(j[0:3, 3:6], np.zeros((3, 3)), atol=1e-15, rtol=0)
+
+
+def test_jacobian_eci_to_rtn_rotating_coupling(eop):
+    """Rust: test_jacobian_eci_to_rtn_rotating_coupling"""
+    x = _inclined_test_state()
+    j = brahe.jacobian_eci_to_rtn(x, brahe.OrbitRelativeFrameVariant.ROTATING)
+    r = brahe.rotation_eci_to_rtn(x)
+    expected = -_skew(brahe.omega_rtn(x)) @ r
+
+    np.testing.assert_allclose(j[3:6, 0:3], expected, atol=1e-18, rtol=0)
+
+
+def test_jacobian_rtn_eci_inverse_identity(eop):
+    """Rust: test_jacobian_rtn_eci_inverse_identity"""
+    x = _inclined_test_state()
+    for variant in (
+        brahe.OrbitRelativeFrameVariant.INERTIAL,
+        brahe.OrbitRelativeFrameVariant.ROTATING,
+    ):
+        forward = brahe.jacobian_rtn_to_eci(x, variant)
+        inverse = brahe.jacobian_eci_to_rtn(x, variant)
+        np.testing.assert_allclose(inverse @ forward, np.eye(6), atol=1e-12, rtol=0)
+        np.testing.assert_allclose(forward @ inverse, np.eye(6), atol=1e-12, rtol=0)
+
+
+def test_covariance_rtn_eci_round_trip(eop):
+    """Rust: test_covariance_rtn_eci_round_trip"""
+    x = _inclined_test_state()
+    p = np.diag([100.0, 100.0, 100.0, 0.01, 0.01, 0.01])
+    p[0, 1] = p[1, 0] = 25.0
+    p[2, 5] = p[5, 2] = 0.4
+
+    for variant in (
+        brahe.OrbitRelativeFrameVariant.INERTIAL,
+        brahe.OrbitRelativeFrameVariant.ROTATING,
+    ):
+        p_eci = brahe.covariance_rtn_to_eci(x, p, variant)
+        p_back = brahe.covariance_eci_to_rtn(x, p_eci, variant)
+        assert np.linalg.norm(p_back - p) / np.linalg.norm(p) < 1e-12
+        np.testing.assert_allclose(p_eci, p_eci.T, atol=1e-18, rtol=0)
+
+
+def test_covariance_eci_to_rtn_inertial_is_pure_rotation(eop):
+    """Rust: test_covariance_eci_to_rtn_inertial_is_pure_rotation"""
+    x = _inclined_test_state()
+    p = np.eye(6) * 100.0
+
+    p_rtn = brahe.covariance_eci_to_rtn(x, p, brahe.OrbitRelativeFrameVariant.INERTIAL)
+    np.testing.assert_allclose(p_rtn, p, atol=1e-12, rtol=0)
+
+    p_rot = brahe.covariance_eci_to_rtn(x, p, brahe.OrbitRelativeFrameVariant.ROTATING)
+    assert np.linalg.norm(p_rot - p) > 1e-6

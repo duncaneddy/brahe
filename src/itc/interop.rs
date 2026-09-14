@@ -2,7 +2,7 @@
  * Conversions between Modified ITC messages and orbit trajectories.
  */
 
-use nalgebra::{DMatrix, DVector};
+use nalgebra::DVector;
 
 use crate::frames::{
     CelestialFrame, OrbitRelativeFrameVariant, ReferenceFrame, rotate_covariance_6,
@@ -13,26 +13,9 @@ use crate::relative_motion::{covariance_eci_to_rtn, covariance_rtn_to_eci};
 use crate::time::Epoch;
 use crate::trajectories::dorbit_trajectory::DOrbitTrajectory;
 use crate::trajectories::traits::OrbitRepresentation;
-use crate::utils::BraheError;
+use crate::utils::{BraheError, dmatrix_from_smatrix};
 
 use super::types::{ITC, ITCCovarianceFrame, ITCHeader, ITCStateVector};
-
-/// Copies a fixed-size 6x6 matrix into a dynamically-sized `DMatrix`.
-///
-/// # Arguments
-/// * `m` - 6x6 matrix to copy
-///
-/// # Returns
-/// * `DMatrix<f64>`: Dynamically-sized 6x6 matrix with the same entries
-///
-/// # Examples
-/// ```text
-/// dmatrix_from(&SMatrix6::identity()) produces a 6x6 DMatrix equal to
-/// the identity matrix.
-/// ```
-fn dmatrix_from(m: &SMatrix6) -> DMatrix<f64> {
-    DMatrix::from_iterator(6, 6, m.iter().cloned())
-}
 
 /// Celestial frame a non-RTN Modified ITC covariance frame names.
 ///
@@ -209,7 +192,7 @@ impl ITC {
                         )
                     }
                 };
-                rotated.push(dmatrix_from(&p_state));
+                rotated.push(dmatrix_from_smatrix(&p_state));
             }
             Some(rotated)
         } else {
@@ -429,6 +412,7 @@ mod tests {
     use crate::trajectories::traits::{InterpolatableTrajectory, Trajectory};
     use crate::utils::testing::setup_global_test_eop;
     use approx::assert_abs_diff_eq;
+    use nalgebra::DMatrix;
     use serial_test::{parallel, serial};
 
     const FULL: &str = "test_assets/starlink/MEME_100001_STARLINK-38128_2540142_Operational_1473385380_UNCLASSIFIED.txt";
@@ -831,7 +815,7 @@ mod tests {
             .iter()
             .map(|p| {
                 let p6 = SMatrix6::from_iterator(p.iter().cloned());
-                dmatrix_from(&(b6 * p6 * b6.transpose()))
+                dmatrix_from_smatrix(&(b6 * p6 * b6.transpose()))
             })
             .collect();
         let gcrf = DOrbitTrajectory::from_orbital_data(

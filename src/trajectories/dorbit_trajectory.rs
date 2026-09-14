@@ -82,7 +82,7 @@
  */
 
 use crate::trajectories::traits::compute_lagrange_window;
-use nalgebra::{DMatrix, DVector, SMatrix, Vector6};
+use nalgebra::{DMatrix, DVector, Vector6};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::fmt;
@@ -121,23 +121,6 @@ fn dvec_to_svec6(dv: DVector<f64>) -> Vector6<f64> {
 #[inline]
 fn svec6_to_dvec(sv: Vector6<f64>) -> DVector<f64> {
     DVector::from_iterator(6, sv.iter().copied())
-}
-
-/// Convert a DMatrix to a static SMatrix<6, 6>.
-/// Panics if the DMatrix isn't 6x6.
-#[inline]
-#[allow(dead_code)]
-fn dmat_to_smat66(dm: DMatrix<f64>) -> SMatrix<f64, 6, 6> {
-    assert_eq!(dm.nrows(), 6, "DMatrix must have 6 rows");
-    assert_eq!(dm.ncols(), 6, "DMatrix must have 6 columns");
-    SMatrix::<f64, 6, 6>::from_iterator(dm.iter().copied())
-}
-
-/// Convert a static SMatrix<6, 6> to a DMatrix.
-#[inline]
-#[allow(dead_code)]
-fn smat66_to_dmat(sm: SMatrix<f64, 6, 6>) -> DMatrix<f64> {
-    DMatrix::from_iterator(6, 6, sm.iter().copied())
 }
 
 use super::traits::{
@@ -3120,62 +3103,6 @@ mod tests {
         let retrieved_cov = traj.covariance_at(epoch).unwrap().unwrap();
         assert_eq!(retrieved_cov.nrows(), 6);
         assert_eq!(retrieved_cov.ncols(), 6);
-    }
-
-    // ========== Helper Function Tests ==========
-
-    #[test]
-    #[parallel]
-    fn test_smat66_to_dmat_basic() {
-        use nalgebra::SMatrix;
-
-        let sm = SMatrix::<f64, 6, 6>::identity();
-        let dm = smat66_to_dmat(sm);
-        assert_eq!(dm.nrows(), 6);
-        assert_eq!(dm.ncols(), 6);
-        for i in 0..6 {
-            for j in 0..6 {
-                if i == j {
-                    assert_abs_diff_eq!(dm[(i, j)], 1.0, epsilon = 1e-10);
-                } else {
-                    assert_abs_diff_eq!(dm[(i, j)], 0.0, epsilon = 1e-10);
-                }
-            }
-        }
-    }
-
-    #[test]
-    #[parallel]
-    fn test_dmat_to_smat66_basic() {
-        let dm = DMatrix::identity(6, 6);
-        let sm = dmat_to_smat66(dm);
-        assert_eq!(sm.nrows(), 6);
-        assert_eq!(sm.ncols(), 6);
-        for i in 0..6 {
-            for j in 0..6 {
-                if i == j {
-                    assert_abs_diff_eq!(sm[(i, j)], 1.0, epsilon = 1e-10);
-                } else {
-                    assert_abs_diff_eq!(sm[(i, j)], 0.0, epsilon = 1e-10);
-                }
-            }
-        }
-    }
-
-    #[test]
-    #[should_panic(expected = "DMatrix must have 6 rows")]
-    #[parallel]
-    fn test_dmat_to_smat66_panic_wrong_rows() {
-        let dm = DMatrix::identity(5, 6);
-        let _ = dmat_to_smat66(dm);
-    }
-
-    #[test]
-    #[should_panic(expected = "DMatrix must have 6 columns")]
-    #[parallel]
-    fn test_dmat_to_smat66_panic_wrong_cols() {
-        let dm = DMatrix::identity(6, 5);
-        let _ = dmat_to_smat66(dm);
     }
 
     // ========== Constructor Panic Tests ==========

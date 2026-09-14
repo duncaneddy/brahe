@@ -122,7 +122,7 @@ def test_cache_dir_is_namespaced_by_base_url(tmp_path, monkeypatch):
     mirror_a = bh.StarlinkClient(base_url="http://127.0.0.1:1")
     dir_a = Path(mirror_a.cache_dir())
     assert dir_a.parent == default_dir / "mirrors"
-    assert dir_a.name.startswith("127.0.0.1-")
+    assert dir_a.name == "127.0.0.1-1-10d8eb39"
     assert dir_a.is_dir()
 
     mirror_b = bh.StarlinkClient(base_url="http://127.0.0.1:2")

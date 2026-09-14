@@ -20,7 +20,7 @@ use crate::frames::OrbitRelativeFrameVariant;
 use crate::itc::ITC;
 use crate::time::Epoch;
 use crate::trajectories::DOrbitTrajectory;
-use crate::utils::cache::is_older_than;
+use crate::utils::cache::{is_older_than, short_hash};
 use crate::utils::download::{backoff_delay, is_retryable_error};
 use crate::utils::fs::{modified_epoch, touch};
 use crate::utils::network::{CacheDecision, cache_policy, ensure_online, parse_http_date};
@@ -1246,7 +1246,7 @@ fn now_rounded() -> Epoch {
 /// The label is the URL's host (the text after `://` up to the first `/`,
 /// `?` or `#`; `mirror` if none is found) with every character that is not
 /// an ASCII alphanumeric, `-` or `.` replaced by `-`, followed by `-` and
-/// the first 8 hex digits of an FNV-1a 64-bit hash of `base_url`, so two
+/// the first 8 hex digits of the SHA-256 digest of `base_url`, so two
 /// distinct base URLs never collide even when their hosts are identical.
 ///
 /// # Arguments
@@ -1273,24 +1273,7 @@ fn mirror_label(base_url: &str) -> String {
             }
         })
         .collect();
-    let hex = format!("{:016x}", fnv1a_hash(base_url.as_bytes()));
-    format!("{sanitized}-{}", &hex[..8])
-}
-
-/// FNV-1a 64-bit hash, stable across Rust versions and platforms (unlike
-/// [`std::hash::DefaultHasher`]).
-///
-/// # Arguments
-/// * `bytes` - Data to hash
-///
-/// # Returns
-/// * `u64`: Hash of `bytes`
-fn fnv1a_hash(bytes: &[u8]) -> u64 {
-    const FNV_OFFSET_BASIS: u64 = 0xcbf2_9ce4_8422_2325;
-    const FNV_PRIME: u64 = 0x0000_0100_0000_01b3;
-    bytes.iter().fold(FNV_OFFSET_BASIS, |hash, &b| {
-        (hash ^ u64::from(b)).wrapping_mul(FNV_PRIME)
-    })
+    format!("{sanitized}-{}", &short_hash(base_url)[..8])
 }
 
 #[cfg(test)]
@@ -1898,6 +1881,27 @@ mod tests {
     }
 
     #[test]
+    #[parallel]
+    fn test_mirror_label_uses_sha256_prefix() {
+        let url = "http://127.0.0.1:1";
+        assert_eq!(
+            mirror_label(url),
+            format!("127.0.0.1-1-{}", &short_hash(url)[..8])
+        );
+        assert_eq!(mirror_label(url), "127.0.0.1-1-10d8eb39");
+
+        // Identical hosts on different ports stay distinct through the digest.
+        assert_ne!(mirror_label(url), mirror_label("http://127.0.0.1:2"));
+
+        // Characters illegal in a path component are replaced in the host part.
+        assert!(mirror_label("https://example.com:8443/files").starts_with("example.com-8443-"));
+
+        // A URL with no host falls back to the `mirror` stem.
+        assert!(mirror_label("not-a-url").starts_with("not-a-url-"));
+        assert!(mirror_label("https://").starts_with("mirror-"));
+    }
+
+    #[test]
     #[serial]
     fn test_cache_dir_is_namespaced_by_base_url() {
         let _cache = CacheRedirect::new();
@@ -1907,13 +1911,9 @@ mod tests {
         let mirror_a = StarlinkClient::with_base_url("http://127.0.0.1:1");
         let dir_a = mirror_a.cache_dir().unwrap();
         assert!(dir_a.starts_with(default_dir.join("mirrors")));
-        assert!(
-            dir_a
-                .file_name()
-                .unwrap()
-                .to_str()
-                .unwrap()
-                .starts_with("127.0.0.1-")
+        assert_eq!(
+            dir_a.file_name().unwrap().to_str().unwrap(),
+            "127.0.0.1-1-10d8eb39"
         );
         assert!(dir_a.is_dir());
 

@@ -7,6 +7,7 @@ pub use errors::*;
 pub use formatting::*;
 pub use fs::*;
 pub use identifiable::*;
+pub use matrix::*;
 pub use network::*;
 pub use state_providers::*;
 pub use threading::*;
@@ -19,6 +20,7 @@ pub mod errors;
 pub mod formatting;
 pub mod fs;
 pub mod identifiable;
+pub mod matrix;
 pub mod network;
 pub mod operators;
 #[cfg(feature = "python")]

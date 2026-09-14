@@ -428,6 +428,25 @@ def test_save_ephemeris_directory_and_file_destinations(starlink_server, tmp_pat
     assert renamed.exists()
 
 
+def test_save_ephemeris_keep_cached_copies_instead_of_moving(starlink_server, tmp_path):
+    """Rust: test_save_ephemeris_keep_cached_copies_instead_of_moving"""
+    base_url, _, _ = starlink_server
+    client = bh.StarlinkClient(base_url=base_url)
+    cached = cache_dir(client) / SHORT_FILE
+
+    kept = tmp_path / "kept"
+    saved = Path(client.save_ephemeris(100002, str(kept), keep_cached=True))
+    assert saved == kept / SHORT_FILE
+    assert cached.exists()
+    assert saved.read_bytes() == cached.read_bytes()
+    assert not any(p.name.endswith(".tmp") for p in kept.iterdir())
+
+    moved = tmp_path / "moved"
+    saved = Path(client.save_ephemeris(100002, str(moved), keep_cached=False))
+    assert saved.read_text() == (ASSETS / SHORT_FILE).read_text()
+    assert not cached.exists()
+
+
 def test_save_ephemeris_re_downloads_after_move(starlink_server, tmp_path):
     """Rust: test_save_ephemeris_re_downloads_after_move"""
     base_url, hits, _ = starlink_server
@@ -590,6 +609,30 @@ def test_save_all_moves_into_directory(starlink_server, tmp_path):
         client.save_all(str(file_dest))
     with pytest.raises(bh.BraheError, match="cache directory"):
         client.save_all(str(d))
+
+
+def test_save_all_keep_cached_copies_into_directory(starlink_server, tmp_path):
+    """Rust: test_save_all_keep_cached_copies_into_directory"""
+    base_url, _, _ = starlink_server
+    dest = tmp_path / "out" / "kept"
+    client = bh.StarlinkClient(base_url=base_url)
+    d = cache_dir(client)
+
+    saved = [
+        Path(p) for p in client.save_all(str(dest), concurrency=2, keep_cached=True)
+    ]
+    assert saved == [dest / FULL_FILE, dest / SHORT_FILE]
+    for name in (FULL_FILE, SHORT_FILE):
+        assert (d / name).exists()
+        assert (d / name).read_bytes() == (dest / name).read_bytes()
+    assert len(client.cached_files()) == 2
+
+    moved = tmp_path / "moved"
+    saved = [
+        Path(p) for p in client.save_all(str(moved), concurrency=2, keep_cached=False)
+    ]
+    assert saved == [moved / FULL_FILE, moved / SHORT_FILE]
+    assert client.cached_files() == []
 
 
 def test_get_manifest_rejects_path_traversal_line(starlink_server, tmp_path):

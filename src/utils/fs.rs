@@ -136,16 +136,7 @@ pub fn move_file(source: &Path, target: &Path) -> Result<(), BraheError> {
     match fs::rename(source, target) {
         Ok(()) => Ok(()),
         Err(e) if e.kind() == io::ErrorKind::CrossesDevices => {
-            let staging = staging_path(target);
-            if let Err(e) = fs::copy(source, &staging).and_then(|_| fs::rename(&staging, target)) {
-                let _ = fs::remove_file(&staging);
-                return Err(BraheError::IoError(format!(
-                    "Failed to copy {} to {}: {}",
-                    source.display(),
-                    target.display(),
-                    e
-                )));
-            }
+            copy_file(source, target)?;
             fs::remove_file(source).map_err(|e| {
                 BraheError::IoError(format!(
                     "Failed to remove {} after moving it to {}: {}",
@@ -162,6 +153,41 @@ pub fn move_file(source: &Path, target: &Path) -> Result<(), BraheError> {
             e
         ))),
     }
+}
+
+/// Copies a file to a destination path, leaving `source` in place.
+///
+/// The copy is written to a staging sibling of `target` and renamed into
+/// place, so a partial copy never appears at `target`.
+///
+/// # Arguments
+/// * `source` - File to copy; left in place
+/// * `target` - Destination path
+///
+/// # Returns
+/// * `Ok(())`: The file was copied
+/// * `Err(BraheError)`: If the copy or the rename into place fails; the staging file is removed
+///
+/// # Examples
+///
+/// ```no_run
+/// use std::path::Path;
+/// use brahe::utils::fs::copy_file;
+///
+/// copy_file(Path::new("./cache/data.txt"), Path::new("./out/data.txt")).unwrap();
+/// ```
+pub fn copy_file(source: &Path, target: &Path) -> Result<(), BraheError> {
+    let staging = staging_path(target);
+    if let Err(e) = fs::copy(source, &staging).and_then(|_| fs::rename(&staging, target)) {
+        let _ = fs::remove_file(&staging);
+        return Err(BraheError::IoError(format!(
+            "Failed to copy {} to {}: {}",
+            source.display(),
+            target.display(),
+            e
+        )));
+    }
+    Ok(())
 }
 
 /// Sets a file's modification time to now, so a `304 Not Modified` answer
@@ -302,6 +328,38 @@ mod tests {
             .unwrap_err()
             .to_string();
         assert!(err.contains("Failed to move"), "{err}");
+    }
+
+    #[test]
+    #[parallel]
+    fn test_copy_file_keeps_source_and_leaves_no_staging_file() {
+        let dir = tempdir().unwrap();
+        let source = dir.path().join("source.txt");
+        let target = dir.path().join("target.txt");
+        fs::write(&source, b"payload").unwrap();
+
+        copy_file(&source, &target).unwrap();
+
+        assert_eq!(fs::read(&source).unwrap(), b"payload");
+        assert_eq!(fs::read(&target).unwrap(), b"payload");
+        let staging: Vec<_> = fs::read_dir(dir.path())
+            .unwrap()
+            .filter_map(|e| e.ok())
+            .filter(|e| e.file_name().to_string_lossy().ends_with(".tmp"))
+            .collect();
+        assert!(staging.is_empty());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_copy_file_missing_source_errors() {
+        let dir = tempdir().unwrap();
+        let target = dir.path().join("target.txt");
+        let err = copy_file(&dir.path().join("missing.txt"), &target)
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("Failed to copy"), "{err}");
+        assert!(!target.exists());
     }
 
     #[test]

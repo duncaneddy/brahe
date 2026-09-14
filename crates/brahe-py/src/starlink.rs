@@ -610,31 +610,38 @@ impl PyStarlinkClient {
         .map_err(|e| BraheError::new_err(e.to_string()))
     }
 
-    /// Downloads (if needed) a satellite's ephemeris and moves it to ``destination``.
+    /// Downloads (if needed) a satellite's ephemeris and writes it to ``destination``.
     ///
     /// An existing directory, or a path whose last component has no
     /// extension, is treated as a directory (created if missing) and the
     /// original file name is kept; a path with an extension is the file
-    /// name. The destination becomes the only copy; the cache no longer
-    /// holds the file, so a later ``download_ephemeris`` call for the same
-    /// satellite downloads it again.
+    /// name. With ``keep_cached`` false the cached file is moved, so
+    /// ``destination`` becomes the only copy and a later
+    /// ``download_ephemeris`` call downloads it again; with ``keep_cached``
+    /// true it is copied and the cached copy stays.
     ///
     /// Args:
     ///     norad_cat_id (int): NORAD catalog number.
     ///     destination (str): Directory or file path, outside the cache directory.
+    ///     keep_cached (bool, optional): Copy instead of move, leaving the cached file in place. Defaults to False.
     ///
     /// Returns:
     ///     str: Path written.
     ///
     /// Raises:
     ///     BraheError: On download or filesystem failure, or if ``destination`` resolves inside the cache directory.
+    #[pyo3(signature = (norad_cat_id, destination, keep_cached=false))]
     fn save_ephemeris(
         &self,
         py: Python<'_>,
         norad_cat_id: u32,
         destination: &str,
+        keep_cached: bool,
     ) -> PyResult<String> {
-        py.detach(|| self.inner.save_ephemeris(norad_cat_id, destination))
+        py.detach(|| {
+            self.inner
+                .save_ephemeris(norad_cat_id, destination, keep_cached)
+        })
             .map(|p| p.to_string_lossy().into_owned())
             .map_err(|e| BraheError::new_err(e.to_string()))
     }
@@ -669,30 +676,33 @@ impl PyStarlinkClient {
             .map_err(|e| BraheError::new_err(e.to_string()))
     }
 
-    /// Runs ``download_all`` and moves every file into ``destination``.
+    /// Runs ``download_all`` and writes every file into ``destination``.
     ///
-    /// Each cached file is moved rather than duplicated, so the destination
-    /// becomes the only copy and the cache no longer holds any of the
-    /// ephemeris files; a later ``download_ephemeris`` or ``download_all``
-    /// call downloads them again.
+    /// With ``keep_cached`` false each cached file is moved, so
+    /// ``destination`` holds every ephemeris and the cache holds none and a
+    /// later ``download_ephemeris`` or ``download_all`` call downloads them
+    /// again; with ``keep_cached`` true each is copied and the cached copies
+    /// stay.
     ///
     /// Args:
     ///     destination (str): Directory, created if missing, outside the cache directory.
     ///     concurrency (int, optional): Worker threads, at least 1. Default: 8.
+    ///     keep_cached (bool, optional): Copy instead of move, leaving the cached file in place. Defaults to False.
     ///
     /// Returns:
     ///     list[str]: Paths written, in manifest order.
     ///
     /// Raises:
     ///     BraheError: On download failure, if ``destination`` is an existing file, or if it resolves to the cache directory.
-    #[pyo3(signature = (destination, concurrency=8))]
+    #[pyo3(signature = (destination, concurrency=8, keep_cached=false))]
     fn save_all(
         &self,
         py: Python<'_>,
         destination: &str,
         concurrency: usize,
+        keep_cached: bool,
     ) -> PyResult<Vec<String>> {
-        py.detach(|| self.inner.save_all(destination, concurrency))
+        py.detach(|| self.inner.save_all(destination, concurrency, keep_cached))
             .map(|paths| {
                 paths
                     .into_iter()

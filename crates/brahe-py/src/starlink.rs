@@ -629,7 +629,7 @@ impl PyStarlinkClient {
     ///     str: Path written.
     ///
     /// Raises:
-    ///     BraheError: On download or filesystem failure, or if ``destination`` resolves inside the cache directory.
+    ///     BraheError: If ``destination`` resolves inside the cache directory, which is checked before anything is downloaded, or on download or filesystem failure.
     #[pyo3(signature = (norad_cat_id, destination, keep_cached=false))]
     fn save_ephemeris(
         &self,
@@ -693,7 +693,7 @@ impl PyStarlinkClient {
     ///     list[str]: Paths written, in manifest order.
     ///
     /// Raises:
-    ///     BraheError: On download failure, if ``destination`` is an existing file, or if it resolves to the cache directory.
+    ///     BraheError: If ``destination`` is an existing file or resolves inside the cache directory, both checked before anything is downloaded, or on download or filesystem failure.
     #[pyo3(signature = (destination, concurrency=8, keep_cached=false))]
     fn save_all(
         &self,

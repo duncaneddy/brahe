@@ -858,7 +858,7 @@ impl StarlinkClient {
     ///
     /// # Returns
     /// * `Ok(PathBuf)`: Path written
-    /// * `Err(BraheError)`: On download or filesystem failure, or if `destination` resolves inside the cache directory
+    /// * `Err(BraheError)`: If `destination` resolves inside the cache directory, which is checked before anything is downloaded, or on download or filesystem failure
     ///
     /// # Examples
     ///
@@ -876,6 +876,11 @@ impl StarlinkClient {
         destination: P,
         keep_cached: bool,
     ) -> Result<PathBuf, BraheError> {
+        if is_within(destination.as_ref(), &self.cache_dir()?) {
+            return Err(BraheError::Error(
+                "save_ephemeris destination is inside the cache directory".to_string(),
+            ));
+        }
         let source = self.download_ephemeris(norad_cat_id)?;
         let name = source
             .file_name()
@@ -883,15 +888,6 @@ impl StarlinkClient {
             .unwrap_or_default()
             .to_string();
         let target = resolve_destination(destination.as_ref(), &name)?;
-        let target_dir = match target.parent() {
-            Some(parent) if !parent.as_os_str().is_empty() => parent,
-            _ => Path::new("."),
-        };
-        if is_within(target_dir, &self.cache_dir()?) {
-            return Err(BraheError::Error(
-                "save_ephemeris destination is inside the cache directory".to_string(),
-            ));
-        }
         if keep_cached {
             copy_file(&source, &target)?;
         } else {
@@ -994,7 +990,7 @@ impl StarlinkClient {
     ///
     /// # Returns
     /// * `Ok(Vec<PathBuf>)`: Paths written, in manifest order
-    /// * `Err(BraheError)`: On download failure, if `destination` is an existing file, or if it resolves to the cache directory
+    /// * `Err(BraheError)`: If `destination` is an existing file or resolves inside the cache directory, both checked before anything is downloaded, or on download or filesystem failure
     ///
     /// # Examples
     ///
@@ -1624,7 +1620,18 @@ mod tests {
         let _cache = CacheRedirect::new();
         let _mode = NetworkModeGuard::set(Some("online"));
         let server = MockServer::start();
-        mock_site(&server, two_line_manifest());
+        server.mock(|when, then| {
+            when.method(GET).path("/MANIFEST.txt");
+            then.status(200).body(two_line_manifest());
+        });
+        let full_mock = server.mock(|when, then| {
+            when.method(GET).path(format!("/{FULL_FILE}"));
+            then.status(200).body(asset(FULL_FILE));
+        });
+        let short_mock = server.mock(|when, then| {
+            when.method(GET).path(format!("/{SHORT_FILE}"));
+            then.status(200).body(asset(SHORT_FILE));
+        });
         let client = StarlinkClient::with_base_url(&server.base_url());
         let dir = starlink_dir(&client);
         let cached = client.download_ephemeris(100002).unwrap();
@@ -1654,11 +1661,17 @@ mod tests {
             }
         }
 
-        // Nothing was written anywhere under the cache directory.
+        // Nothing was written anywhere under the cache directory, and no
+        // rejected destination was created there either.
         assert_eq!(client.cached_files().unwrap(), before);
-        assert!(!dir.join("exports").join(SHORT_FILE).exists());
-        assert!(!dir.join("exports").join(FULL_FILE).exists());
+        assert!(!dir.join("exports").exists());
+        assert!(!dir.join("missing").exists());
         assert_eq!(fs::read_to_string(&cached).unwrap(), original);
+
+        // The guards ran before anything was fetched: only the one deliberate
+        // download above reached the server.
+        short_mock.assert_calls(1);
+        full_mock.assert_calls(0);
     }
 
     #[test]
@@ -1820,7 +1833,14 @@ mod tests {
         let _cache = CacheRedirect::new();
         let _mode = NetworkModeGuard::set(Some("online"));
         let server = MockServer::start();
-        mock_site(&server, two_line_manifest());
+        server.mock(|when, then| {
+            when.method(GET).path("/MANIFEST.txt");
+            then.status(200).body(two_line_manifest());
+        });
+        let file_mock = server.mock(|when, then| {
+            when.method(GET).path(format!("/{SHORT_FILE}"));
+            then.status(200).body(asset(SHORT_FILE));
+        });
         let client = StarlinkClient::with_base_url(&server.base_url());
         let dir = starlink_dir(&client);
         let previous = std::env::current_dir().unwrap();
@@ -1829,7 +1849,10 @@ mod tests {
         std::env::set_current_dir(previous).unwrap();
         let err = result.unwrap_err();
         assert!(err.to_string().contains("cache directory"), "{err}");
-        assert!(dir.join(SHORT_FILE).exists());
+
+        // The destination is rejected before anything is fetched.
+        file_mock.assert_calls(0);
+        assert!(!dir.join(SHORT_FILE).exists());
     }
 
     #[test]

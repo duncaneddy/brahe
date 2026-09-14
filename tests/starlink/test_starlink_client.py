@@ -581,14 +581,17 @@ def test_save_ephemeris_rejects_bare_name_when_cwd_is_the_cache(
     starlink_server, monkeypatch
 ):
     """Rust: test_save_ephemeris_rejects_bare_name_when_cwd_is_the_cache"""
-    base_url, _, _ = starlink_server
+    base_url, hits, _ = starlink_server
     client = bh.StarlinkClient(base_url=base_url)
     d = cache_dir(client)
     d.mkdir(parents=True, exist_ok=True)
     monkeypatch.chdir(d)
     with pytest.raises(bh.BraheError, match="cache directory"):
         client.save_ephemeris(100002, SHORT_FILE)
-    assert (d / SHORT_FILE).exists()
+
+    # The destination is rejected before anything is fetched.
+    assert [h[0] for h in hits].count(f"/{SHORT_FILE}") == 0
+    assert not (d / SHORT_FILE).exists()
 
 
 def test_save_all_moves_into_directory(starlink_server, tmp_path):
@@ -706,7 +709,7 @@ def test_save_ephemeris_into_cache_directory_errors(starlink_server, tmp_path):
 
 def test_save_into_cache_subdirectory_errors(starlink_server, tmp_path):
     """Rust: test_save_into_cache_subdirectory_errors"""
-    base_url, _, _ = starlink_server
+    base_url, hits, _ = starlink_server
     client = bh.StarlinkClient(base_url=base_url)
     d = cache_dir(client)
     cached = Path(client.download_ephemeris(100002))
@@ -732,11 +735,18 @@ def test_save_into_cache_subdirectory_errors(starlink_server, tmp_path):
                     str(destination), concurrency=2, keep_cached=keep_cached
                 )
 
-    # Nothing was written anywhere under the cache directory.
+    # Nothing was written anywhere under the cache directory, and no rejected
+    # destination was created there either.
     assert client.cached_files() == before
-    assert not (d / "exports" / SHORT_FILE).exists()
-    assert not (d / "exports" / FULL_FILE).exists()
+    assert not (d / "exports").exists()
+    assert not (d / "missing").exists()
     assert cached.read_text() == original
+
+    # The guards ran before anything was fetched: only the one deliberate
+    # download above reached the server.
+    paths = [h[0] for h in hits]
+    assert paths.count(f"/{SHORT_FILE}") == 1
+    assert paths.count(f"/{FULL_FILE}") == 0
 
 
 def test_get_manifest_sends_if_modified_since_without_etag(starlink_server, tmp_path):

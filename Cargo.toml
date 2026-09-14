@@ -90,7 +90,7 @@ optional = true
 [dev-dependencies]
 dhat = "0.3"
 approx = "0.5"
-rstest = "0.26"
+rstest = "0.27"
 serial_test = "4"
 httpmock = "0.8"
 tempfile = "3"

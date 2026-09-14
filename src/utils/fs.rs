@@ -2,9 +2,11 @@
  * Filesystem utilities for safe file operations.
  */
 
+use std::ffi::OsString;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::SystemTime;
 
 use crate::time::Epoch;
@@ -32,10 +34,7 @@ pub fn atomic_write(filepath: &Path, data: impl AsRef<[u8]>) -> Result<(), io::E
     // Ensure parent directory exists
     fs::create_dir_all(parent)?;
 
-    // Build temp filename: .{filename}.{pid}.tmp
-    let filename = filepath.file_name().unwrap_or_default().to_string_lossy();
-    let tmp_name = format!(".{}.{}.tmp", filename, std::process::id());
-    let tmp_path = parent.join(&tmp_name);
+    let tmp_path = staging_path(filepath);
 
     // Write to temp file, sync, then rename
     let result = (|| -> Result<(), io::Error> {
@@ -126,23 +125,97 @@ pub fn same_path(a: &Path, b: &Path) -> bool {
     }
 }
 
+/// Counter that makes each staging path distinct within a process, so two
+/// threads writing to the same target do not share, truncate or delete each
+/// other's staging file.
+static STAGING_COUNTER: AtomicU64 = AtomicU64::new(0);
+
 /// Staging path used while a file is written beside `target`, so a partial
 /// write never appears at `target` itself.
+///
+/// Every call returns a different name: the process id separates processes
+/// and a monotonic counter separates calls within one process.
 ///
 /// # Arguments
 /// * `target` - Final destination path
 ///
 /// # Returns
-/// * `PathBuf`: A `.{name}.{pid}.tmp` sibling of `target`
+/// * `PathBuf`: A `.{name}.{pid}.{n}.tmp` sibling of `target`, unique to this call
 fn staging_path(target: &Path) -> PathBuf {
     target.with_file_name(format!(
-        ".{}.{}.tmp",
+        ".{}.{}.{}.tmp",
         target
             .file_name()
             .and_then(|n| n.to_str())
             .unwrap_or("file"),
-        std::process::id()
+        std::process::id(),
+        STAGING_COUNTER.fetch_add(1, Ordering::Relaxed)
     ))
+}
+
+/// Resolves `path` as far as the filesystem allows: the nearest ancestor that
+/// exists is canonicalized and the remaining components are re-appended, with
+/// `.` dropped and `..` applied lexically.
+///
+/// # Arguments
+/// * `path` - Path to resolve, which need not exist
+///
+/// # Returns
+/// * `Some(PathBuf)`: The resolved path
+/// * `None`: If no ancestor of `path` can be canonicalized
+fn resolve_existing_ancestor(path: &Path) -> Option<PathBuf> {
+    let mut remainder: Vec<OsString> = Vec::new();
+    let mut current = path.to_path_buf();
+    loop {
+        if let Ok(canonical) = fs::canonicalize(&current) {
+            let mut resolved = canonical;
+            for part in remainder.iter().rev() {
+                if part == ".." {
+                    resolved.pop();
+                } else if part != "." {
+                    resolved.push(part);
+                }
+            }
+            return Some(resolved);
+        }
+        remainder.push(current.file_name()?.to_os_string());
+        current.pop();
+        if current.as_os_str().is_empty() {
+            current = PathBuf::from(".");
+        }
+    }
+}
+
+/// Whether `path` is `root` itself or lies underneath it.
+///
+/// Both sides are resolved before the comparison, so symlinks, `.` and `..`
+/// cannot hide a path that ends up inside `root`. `path` need not exist: its
+/// nearest existing ancestor is resolved and the remaining components are
+/// re-appended.
+///
+/// # Arguments
+/// * `path` - Path to test, existing or not
+/// * `root` - Directory that must contain `path`
+///
+/// # Returns
+/// * `bool`: `true` if `path` resolves to `root` or to an entry inside it; `false` if `root` does not exist or `path` cannot be resolved
+///
+/// # Examples
+///
+/// ```
+/// use std::path::Path;
+/// use brahe::utils::fs::is_within;
+///
+/// let root = std::env::temp_dir();
+/// assert!(is_within(&root.join("a").join("b"), &root));
+/// assert!(is_within(&root, &root));
+/// assert!(!is_within(Path::new("/"), &root));
+/// ```
+pub fn is_within(path: &Path, root: &Path) -> bool {
+    let Ok(root) = fs::canonicalize(root) else {
+        return false;
+    };
+    resolve_existing_ancestor(path).is_some_and(|resolved| resolved.starts_with(&root))
 }
 
 /// Moves a file to a destination path, so `source` no longer exists
@@ -195,8 +268,10 @@ pub fn move_file(source: &Path, target: &Path) -> Result<(), BraheError> {
 
 /// Copies a file to a destination path, leaving `source` in place.
 ///
-/// The copy is written to a staging sibling of `target` and renamed into
-/// place, so a partial copy never appears at `target`.
+/// The copy is written to a staging sibling of `target`, synced, and renamed
+/// into place, so a partial copy never appears at `target`. The staging file
+/// is created exclusively, so an unexpected file at that path is an error
+/// rather than something to truncate.
 ///
 /// # Arguments
 /// * `source` - File to copy; left in place
@@ -204,7 +279,7 @@ pub fn move_file(source: &Path, target: &Path) -> Result<(), BraheError> {
 ///
 /// # Returns
 /// * `Ok(())`: The file was copied
-/// * `Err(BraheError)`: If the copy or the rename into place fails; the staging file is removed
+/// * `Err(BraheError)`: If the source cannot be read, the staging file cannot be created, or the copy or the rename into place fails; a staging file this call created is removed
 ///
 /// # Examples
 ///
@@ -215,15 +290,29 @@ pub fn move_file(source: &Path, target: &Path) -> Result<(), BraheError> {
 /// copy_file(Path::new("./cache/data.txt"), Path::new("./out/data.txt")).unwrap();
 /// ```
 pub fn copy_file(source: &Path, target: &Path) -> Result<(), BraheError> {
-    let staging = staging_path(target);
-    if let Err(e) = fs::copy(source, &staging).and_then(|_| fs::rename(&staging, target)) {
-        let _ = fs::remove_file(&staging);
-        return Err(BraheError::IoError(format!(
+    let failed = |e: io::Error| {
+        BraheError::IoError(format!(
             "Failed to copy {} to {}: {}",
             source.display(),
             target.display(),
             e
-        )));
+        ))
+    };
+
+    let staging = staging_path(target);
+    let mut reader = fs::File::open(source).map_err(failed)?;
+    let mut writer = fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&staging)
+        .map_err(failed)?;
+
+    // Only now does this call own `staging` and may remove it on failure.
+    let result = io::copy(&mut reader, &mut writer).and_then(|_| writer.sync_all());
+    drop(writer);
+    if let Err(e) = result.and_then(|()| fs::rename(&staging, target)) {
+        let _ = fs::remove_file(&staging);
+        return Err(failed(e));
     }
     Ok(())
 }
@@ -435,20 +524,85 @@ mod tests {
 
     #[test]
     #[parallel]
-    fn test_staging_path_is_a_hidden_sibling() {
+    fn test_copy_file_leaves_nothing_behind_when_the_rename_fails() {
+        let dir = tempdir().unwrap();
+        let source = dir.path().join("source.txt");
+        fs::write(&source, b"payload").unwrap();
+
+        // Renaming a file onto an existing directory fails after the staging
+        // file has already been written.
+        let target = dir.path().join("target_dir");
+        fs::create_dir(&target).unwrap();
+
+        let err = copy_file(&source, &target).unwrap_err().to_string();
+        assert!(err.contains("Failed to copy"), "{err}");
+
+        assert_eq!(fs::read(&source).unwrap(), b"payload");
+        assert!(target.is_dir());
+        assert_eq!(fs::read_dir(&target).unwrap().count(), 0);
+        assert!(
+            fs::read_dir(dir.path())
+                .unwrap()
+                .filter_map(|e| e.ok())
+                .all(|e| !e.file_name().to_string_lossy().ends_with(".tmp"))
+        );
+    }
+
+    #[test]
+    #[parallel]
+    fn test_staging_path_is_a_unique_hidden_sibling() {
         let staging = staging_path(Path::new("/tmp/out/data.txt"));
         assert_eq!(staging.parent().unwrap(), Path::new("/tmp/out"));
         let name = staging.file_name().unwrap().to_str().unwrap();
         assert!(name.starts_with(".data.txt."), "{name}");
         assert!(name.ends_with(".tmp"), "{name}");
 
-        // A path with no file name component falls back to the `file` stem.
-        let fallback = staging_path(Path::new("/tmp/out/"));
-        let name = fallback.file_name().unwrap().to_str().unwrap();
+        // Two calls for the same target never name the same staging file.
+        assert_ne!(
+            staging_path(Path::new("/tmp/out/data.txt")),
+            staging_path(Path::new("/tmp/out/data.txt"))
+        );
+
+        let trailing_slash = staging_path(Path::new("/tmp/out/"));
+        let name = trailing_slash.file_name().unwrap().to_str().unwrap();
         assert!(name.starts_with(".out."), "{name}");
+
+        // A path with no file name component falls back to the `file` stem.
         let rooted = staging_path(Path::new("/"));
         let name = rooted.file_name().unwrap().to_str().unwrap();
         assert!(name.starts_with(".file."), "{name}");
+    }
+
+    #[test]
+    #[parallel]
+    fn test_is_within_covers_missing_paths_and_escapes() {
+        let dir = tempdir().unwrap();
+        let root = dir.path().join("cache");
+        fs::create_dir_all(root.join("nested")).unwrap();
+
+        assert!(is_within(&root, &root));
+        assert!(is_within(&root.join("nested"), &root));
+
+        // The destination need not exist yet.
+        assert!(is_within(&root.join("exports"), &root));
+        assert!(is_within(
+            &root.join("exports").join("a").join("b.txt"),
+            &root
+        ));
+
+        // `.` and `..` are applied before the comparison.
+        assert!(is_within(&root.join(".").join("exports"), &root));
+        assert!(!is_within(
+            &root.join("nested").join("..").join(".."),
+            &root
+        ));
+
+        let outside = dir.path().join("outside");
+        assert!(!is_within(&outside, &root));
+        assert!(!is_within(dir.path(), &root));
+
+        // A root that does not exist contains nothing.
+        assert!(!is_within(&root, &dir.path().join("missing")));
     }
 
     #[test]

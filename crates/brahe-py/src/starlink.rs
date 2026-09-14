@@ -687,7 +687,7 @@ impl PyStarlinkClient {
     /// Args:
     ///     destination (str): Directory, created if missing, outside the cache directory.
     ///     concurrency (int, optional): Worker threads, at least 1. Default: 8.
-    ///     keep_cached (bool, optional): Copy instead of move, leaving the cached file in place. Defaults to False.
+    ///     keep_cached (bool, optional): Copy instead of move, leaving the cached files in place. Defaults to False.
     ///
     /// Returns:
     ///     list[str]: Paths written, in manifest order.

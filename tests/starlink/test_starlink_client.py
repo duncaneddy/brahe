@@ -704,6 +704,32 @@ def test_save_ephemeris_into_cache_directory_errors(starlink_server, tmp_path):
     assert (d / SHORT_FILE).read_text() == original
 
 
+def test_save_into_cache_subdirectory_errors(starlink_server, tmp_path):
+    """Rust: test_save_into_cache_subdirectory_errors"""
+    base_url, _, _ = starlink_server
+    client = bh.StarlinkClient(base_url=base_url)
+    d = cache_dir(client)
+    cached = Path(client.download_ephemeris(100002))
+    original = cached.read_text()
+    nested = d / "exports"
+
+    for keep_cached in (False, True):
+        with pytest.raises(
+            bh.BraheError,
+            match="save_ephemeris destination is inside the cache directory",
+        ):
+            client.save_ephemeris(100002, str(nested), keep_cached=keep_cached)
+        assert not (nested / SHORT_FILE).exists()
+
+        with pytest.raises(
+            bh.BraheError, match="save_all destination is inside the cache directory"
+        ):
+            client.save_all(str(nested), concurrency=2, keep_cached=keep_cached)
+        assert not (nested / FULL_FILE).exists()
+
+    assert cached.read_text() == original
+
+
 def test_get_manifest_sends_if_modified_since_without_etag(starlink_server, tmp_path):
     """Rust: test_get_manifest_sends_if_modified_since_without_etag"""
     base_url, hits, files = starlink_server

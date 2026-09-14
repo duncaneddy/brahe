@@ -21,7 +21,7 @@ use crate::time::Epoch;
 use crate::trajectories::DOrbitTrajectory;
 use crate::utils::cache::{is_older_than, short_hash};
 use crate::utils::download::{backoff_delay, is_retryable_error};
-use crate::utils::fs::{copy_file, modified_epoch, move_file, same_path, touch};
+use crate::utils::fs::{copy_file, is_within, modified_epoch, move_file, touch};
 use crate::utils::network::{CacheDecision, cache_policy, ensure_online, parse_http_date};
 use crate::utils::{BraheError, atomic_write, get_starlink_cache_dir};
 
@@ -887,9 +887,9 @@ impl StarlinkClient {
             Some(parent) if !parent.as_os_str().is_empty() => parent,
             _ => Path::new("."),
         };
-        if same_path(target_dir, &self.cache_dir()?) {
+        if is_within(target_dir, &self.cache_dir()?) {
             return Err(BraheError::Error(
-                "save_ephemeris destination is the cache directory".to_string(),
+                "save_ephemeris destination is inside the cache directory".to_string(),
             ));
         }
         if keep_cached {
@@ -1017,9 +1017,9 @@ impl StarlinkClient {
                 destination.display()
             )));
         }
-        if same_path(destination, &self.cache_dir()?) {
+        if is_within(destination, &self.cache_dir()?) {
             return Err(BraheError::Error(
-                "save_all destination is the cache directory".to_string(),
+                "save_all destination is inside the cache directory".to_string(),
             ));
         }
         let sources = self.download_all(concurrency)?;
@@ -1185,8 +1185,9 @@ fn now_rounded() -> Epoch {
 /// The label is the URL's host (the text after `://` up to the first `/`,
 /// `?` or `#`; `mirror` if none is found) with every character that is not
 /// an ASCII alphanumeric, `-` or `.` replaced by `-`, followed by `-` and
-/// the first 8 hex digits of the SHA-256 digest of `base_url`, so two
-/// distinct base URLs never collide even when their hosts are identical.
+/// the first 8 hex digits of the SHA-256 digest of `base_url`, which keeps
+/// distinct base URLs apart in practice, even when their hosts are
+/// identical, without guaranteeing uniqueness.
 ///
 /// # Arguments
 /// * `base_url` - Normalised base URL (no trailing slash)
@@ -1615,6 +1616,42 @@ mod tests {
         let err = client.save_ephemeris(100002, &dir, false).unwrap_err();
         assert!(err.to_string().contains("cache directory"), "{err}");
         assert_eq!(fs::read_to_string(dir.join(SHORT_FILE)).unwrap(), original);
+    }
+
+    #[test]
+    #[serial]
+    fn test_save_into_cache_subdirectory_errors() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("online"));
+        let server = MockServer::start();
+        mock_site(&server, two_line_manifest());
+        let client = StarlinkClient::with_base_url(&server.base_url());
+        let dir = starlink_dir(&client);
+        let cached = client.download_ephemeris(100002).unwrap();
+        let original = fs::read_to_string(&cached).unwrap();
+        let nested = dir.join("exports");
+
+        for keep_cached in [false, true] {
+            let err = client
+                .save_ephemeris(100002, &nested, keep_cached)
+                .unwrap_err();
+            assert!(
+                err.to_string()
+                    .contains("save_ephemeris destination is inside the cache directory"),
+                "{err}"
+            );
+            assert!(!nested.join(SHORT_FILE).exists());
+
+            let err = client.save_all(&nested, 2, keep_cached).unwrap_err();
+            assert!(
+                err.to_string()
+                    .contains("save_all destination is inside the cache directory"),
+                "{err}"
+            );
+            assert!(!nested.join(FULL_FILE).exists());
+        }
+
+        assert_eq!(fs::read_to_string(&cached).unwrap(), original);
     }
 
     #[test]

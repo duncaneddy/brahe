@@ -16,7 +16,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::constants::{AngleFormat, GPS_ZERO, JD_J2000, MJD_ZERO, SECONDS_PER_DAY, UNIX_EPOCH_JD};
 use crate::math::linalg::split_float;
-use crate::time::conversions::{tai_offset_for_datetime, time_system_offset};
+use crate::time::conversions::{days_in_month, tai_offset_for_datetime, time_system_offset};
 use crate::time::time_types::TimeSystem;
 
 const NANOSECONDS_PER_SECOND_INT: u64 = 1_000_000_000;
@@ -1162,25 +1162,9 @@ impl Epoch {
         let (year, month, day, hour, minute, second, nanosecond) = self.to_datetime();
 
         // Calculate day of year
-        let is_leap = (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0);
-        let days_in_month = [
-            31,
-            if is_leap { 29 } else { 28 },
-            31,
-            30,
-            31,
-            30,
-            31,
-            31,
-            30,
-            31,
-            30,
-            31,
-        ];
-
         let mut day_of_year = day as f64;
-        for &days in days_in_month.iter().take((month - 1) as usize) {
-            day_of_year += days as f64;
+        for m in 1..month {
+            day_of_year += days_in_month(year, m).expect("month out of range") as f64;
         }
 
         // Add fractional part for hour, minute, second, nanosecond
@@ -1214,25 +1198,9 @@ impl Epoch {
             self.to_datetime_as_time_system(time_system);
 
         // Calculate day of year
-        let is_leap = (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0);
-        let days_in_month = [
-            31,
-            if is_leap { 29 } else { 28 },
-            31,
-            30,
-            31,
-            30,
-            31,
-            31,
-            30,
-            31,
-            30,
-            31,
-        ];
-
         let mut day_of_year = day as f64;
-        for &days in days_in_month.iter().take((month - 1) as usize) {
-            day_of_year += days as f64;
+        for m in 1..month {
+            day_of_year += days_in_month(year, m).expect("month out of range") as f64;
         }
 
         // Add fractional part for hour, minute, second, nanosecond

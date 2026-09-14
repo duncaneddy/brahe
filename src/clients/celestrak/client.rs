@@ -17,6 +17,7 @@ use crate::clients::celestrak::responses::CelestrakSATCATRecord;
 use crate::clients::celestrak::types::{CelestrakOutputFormat, SupGPSource};
 use crate::propagators::SGPPropagator;
 use crate::types::GPRecord;
+use crate::utils::cache::is_older_than;
 use crate::utils::network::{
     CacheDecision, NetworkMode, cache_policy, ensure_online, network_mode,
 };
@@ -799,18 +800,7 @@ impl CelestrakClient {
 
     /// Check if a cache file is older than the maximum cache age.
     fn is_cache_stale(&self, path: &Path) -> Result<bool, BraheError> {
-        let metadata = fs::metadata(path)
-            .map_err(|e| BraheError::IoError(format!("Failed to read file metadata: {}", e)))?;
-
-        let modified = metadata.modified().map_err(|e| {
-            BraheError::IoError(format!("Failed to read file modification time: {}", e))
-        })?;
-
-        let age = SystemTime::now()
-            .duration_since(modified)
-            .unwrap_or_default();
-
-        Ok(age.as_secs_f64() > self.cache_max_age)
+        is_older_than(path, self.cache_max_age)
     }
 
     /// Execute an HTTP GET request and return the response body.

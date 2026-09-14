@@ -53,6 +53,7 @@ from brahe import (
     space_weather,
     spacetrack,
     spice,
+    starlink,
     time,
     trajectories,
     utils,
@@ -79,6 +80,7 @@ from brahe.relative_motion import *
 from brahe.space_weather import *
 from brahe.spacetrack import *
 from brahe.spice import *
+from brahe.starlink import *
 
 # Re-export everything from submodules
 from brahe.time import *
@@ -113,6 +115,7 @@ __all__ = [
     "space_weather",
     "spacetrack",
     "spice",
+    "starlink",
     # Submodules
     "time",
     "trajectories",
@@ -140,6 +143,7 @@ __all__.extend(orbit_dynamics.__all__)
 __all__.extend(events.__all__)
 __all__.extend(spacetrack.__all__)
 __all__.extend(itc.__all__)
+__all__.extend(starlink.__all__)
 __all__.extend(estimation.__all__)
 __all__.extend(spice.__all__)
 

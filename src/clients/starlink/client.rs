@@ -5,7 +5,6 @@
 use std::collections::HashSet;
 use std::ffi::OsStr;
 use std::fs;
-use std::io;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
@@ -22,7 +21,7 @@ use crate::time::Epoch;
 use crate::trajectories::DOrbitTrajectory;
 use crate::utils::cache::{is_older_than, short_hash};
 use crate::utils::download::{backoff_delay, is_retryable_error};
-use crate::utils::fs::{modified_epoch, touch};
+use crate::utils::fs::{modified_epoch, move_file, same_path, touch};
 use crate::utils::network::{CacheDecision, cache_policy, ensure_online, parse_http_date};
 use crate::utils::{BraheError, atomic_write, get_starlink_cache_dir};
 
@@ -1155,79 +1154,6 @@ fn resolve_destination(destination: &Path, file_name: &str) -> Result<PathBuf, B
         destination.to_path_buf()
     };
     Ok(target)
-}
-
-/// Whether two paths refer to the same location on disk.
-///
-/// Compares canonical paths when both exist, and falls back to a literal
-/// comparison otherwise (for example, before a destination directory has
-/// been created).
-///
-/// # Arguments
-/// * `a` - First path
-/// * `b` - Second path
-///
-/// # Returns
-/// * `bool`: `true` if the paths resolve to the same location
-fn same_path(a: &Path, b: &Path) -> bool {
-    match (fs::canonicalize(a), fs::canonicalize(b)) {
-        (Ok(a), Ok(b)) => a == b,
-        _ => a == b,
-    }
-}
-
-/// Moves a cached file to a destination path, so the cache no longer holds
-/// it afterwards.
-///
-/// Tries [`fs::rename`] first, which is atomic on a single filesystem. When
-/// `source` and `target` are on different filesystems, `fs::rename` fails
-/// with [`io::ErrorKind::CrossesDevices`]; in that case the file is copied
-/// to `target` and the source is then removed.
-///
-/// # Arguments
-/// * `source` - Cached file to move; removed on success
-/// * `target` - Destination path
-///
-/// # Returns
-/// * `Ok(())`: The file was moved
-/// * `Err(BraheError)`: If the rename fails for a reason other than a cross-device move, or the fallback (copy to a sibling staging file, rename into place, remove the source) fails
-fn move_file(source: &Path, target: &Path) -> Result<(), BraheError> {
-    match fs::rename(source, target) {
-        Ok(()) => Ok(()),
-        Err(e) if e.kind() == io::ErrorKind::CrossesDevices => {
-            let staging = target.with_file_name(format!(
-                ".{}.{}.tmp",
-                target
-                    .file_name()
-                    .and_then(|n| n.to_str())
-                    .unwrap_or("ephemeris"),
-                std::process::id()
-            ));
-            if let Err(e) = fs::copy(source, &staging).and_then(|_| fs::rename(&staging, target)) {
-                let _ = fs::remove_file(&staging);
-                return Err(BraheError::IoError(format!(
-                    "Failed to copy {} to {}: {}",
-                    source.display(),
-                    target.display(),
-                    e
-                )));
-            }
-            fs::remove_file(source).map_err(|e| {
-                BraheError::IoError(format!(
-                    "Failed to remove {} after moving it to {}: {}",
-                    source.display(),
-                    target.display(),
-                    e
-                ))
-            })
-        }
-        Err(e) => Err(BraheError::IoError(format!(
-            "Failed to move {} to {}: {}",
-            source.display(),
-            target.display(),
-            e
-        ))),
-    }
 }
 
 /// The current instant, rounded to whatever precision the manifest sidecar's

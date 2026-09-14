@@ -4,7 +4,7 @@
 
 use std::fs;
 use std::io;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
 use crate::time::Epoch;
@@ -57,6 +57,111 @@ pub fn atomic_write(filepath: &Path, data: impl AsRef<[u8]>) -> Result<(), io::E
     }
 
     result
+}
+
+/// Whether two paths refer to the same location on disk.
+///
+/// Compares canonical paths when both exist, and falls back to a literal
+/// comparison otherwise (for example, before a destination directory has
+/// been created).
+///
+/// # Arguments
+/// * `a` - First path
+/// * `b` - Second path
+///
+/// # Returns
+/// * `bool`: `true` if the paths resolve to the same location
+///
+/// # Examples
+///
+/// ```
+/// use std::path::Path;
+/// use brahe::utils::fs::same_path;
+///
+/// assert!(same_path(Path::new("./data/a.txt"), Path::new("./data/a.txt")));
+/// assert!(!same_path(Path::new("./data/a.txt"), Path::new("./data/b.txt")));
+/// ```
+pub fn same_path(a: &Path, b: &Path) -> bool {
+    match (fs::canonicalize(a), fs::canonicalize(b)) {
+        (Ok(a), Ok(b)) => a == b,
+        _ => a == b,
+    }
+}
+
+/// Staging path used while a file is written beside `target`, so a partial
+/// write never appears at `target` itself.
+///
+/// # Arguments
+/// * `target` - Final destination path
+///
+/// # Returns
+/// * `PathBuf`: A `.{name}.{pid}.tmp` sibling of `target`
+fn staging_path(target: &Path) -> PathBuf {
+    target.with_file_name(format!(
+        ".{}.{}.tmp",
+        target
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("file"),
+        std::process::id()
+    ))
+}
+
+/// Moves a file to a destination path, so `source` no longer exists
+/// afterwards.
+///
+/// Tries [`fs::rename`] first, which is atomic on a single filesystem. When
+/// `source` and `target` are on different filesystems, `fs::rename` fails
+/// with [`io::ErrorKind::CrossesDevices`]; in that case the file is copied
+/// to a staging sibling of `target`, renamed into place, and the source is
+/// then removed.
+///
+/// # Arguments
+/// * `source` - File to move; removed on success
+/// * `target` - Destination path
+///
+/// # Returns
+/// * `Ok(())`: The file was moved
+/// * `Err(BraheError)`: If the rename fails for a reason other than a cross-device move, or the fallback (copy to a sibling staging file, rename into place, remove the source) fails
+///
+/// # Examples
+///
+/// ```no_run
+/// use std::path::Path;
+/// use brahe::utils::fs::move_file;
+///
+/// move_file(Path::new("./cache/data.txt"), Path::new("./out/data.txt")).unwrap();
+/// ```
+pub fn move_file(source: &Path, target: &Path) -> Result<(), BraheError> {
+    match fs::rename(source, target) {
+        Ok(()) => Ok(()),
+        Err(e) if e.kind() == io::ErrorKind::CrossesDevices => {
+            let staging = staging_path(target);
+            if let Err(e) = fs::copy(source, &staging).and_then(|_| fs::rename(&staging, target)) {
+                let _ = fs::remove_file(&staging);
+                return Err(BraheError::IoError(format!(
+                    "Failed to copy {} to {}: {}",
+                    source.display(),
+                    target.display(),
+                    e
+                )));
+            }
+            fs::remove_file(source).map_err(|e| {
+                BraheError::IoError(format!(
+                    "Failed to remove {} after moving it to {}: {}",
+                    source.display(),
+                    target.display(),
+                    e
+                ))
+            })
+        }
+        Err(e) => Err(BraheError::IoError(format!(
+            "Failed to move {} to {}: {}",
+            source.display(),
+            target.display(),
+            e
+        ))),
+    }
 }
 
 /// Sets a file's modification time to now, so a `304 Not Modified` answer
@@ -155,6 +260,66 @@ mod tests {
             .filter(|e| e.file_name().to_string_lossy().ends_with(".tmp"))
             .collect();
         assert!(entries.is_empty());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_same_path_compares_canonical_locations() {
+        let dir = tempdir().unwrap();
+        let file = dir.path().join("a.txt");
+        fs::write(&file, b"data").unwrap();
+
+        assert!(same_path(&file, &file));
+        assert!(same_path(&file, &dir.path().join(".").join("a.txt")));
+        assert!(!same_path(&file, &dir.path().join("b.txt")));
+
+        // Neither path exists, so the comparison is literal.
+        let missing = dir.path().join("missing");
+        assert!(same_path(&missing, &missing));
+        assert!(!same_path(&missing, &dir.path().join("other")));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_move_file_moves_and_removes_source() {
+        let dir = tempdir().unwrap();
+        let source = dir.path().join("source.txt");
+        let target = dir.path().join("nested").join("target.txt");
+        fs::create_dir_all(target.parent().unwrap()).unwrap();
+        fs::write(&source, b"payload").unwrap();
+
+        move_file(&source, &target).unwrap();
+
+        assert!(!source.exists());
+        assert_eq!(fs::read(&target).unwrap(), b"payload");
+    }
+
+    #[test]
+    #[parallel]
+    fn test_move_file_missing_source_errors() {
+        let dir = tempdir().unwrap();
+        let err = move_file(&dir.path().join("missing.txt"), &dir.path().join("out.txt"))
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("Failed to move"), "{err}");
+    }
+
+    #[test]
+    #[parallel]
+    fn test_staging_path_is_a_hidden_sibling() {
+        let staging = staging_path(Path::new("/tmp/out/data.txt"));
+        assert_eq!(staging.parent().unwrap(), Path::new("/tmp/out"));
+        let name = staging.file_name().unwrap().to_str().unwrap();
+        assert!(name.starts_with(".data.txt."), "{name}");
+        assert!(name.ends_with(".tmp"), "{name}");
+
+        // A path with no file name component falls back to the `file` stem.
+        let fallback = staging_path(Path::new("/tmp/out/"));
+        let name = fallback.file_name().unwrap().to_str().unwrap();
+        assert!(name.starts_with(".out."), "{name}");
+        let rooted = staging_path(Path::new("/"));
+        let name = rooted.file_name().unwrap().to_str().unwrap();
+        assert!(name.starts_with(".file."), "{name}");
     }
 
     #[test]

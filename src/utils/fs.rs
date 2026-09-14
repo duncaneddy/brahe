@@ -5,7 +5,7 @@
 use std::ffi::OsString;
 use std::fs;
 use std::io;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::SystemTime;
 
@@ -96,35 +96,6 @@ pub fn validate_path_component(field: &str, value: &str) -> Result<(), BraheErro
     Ok(())
 }
 
-/// Whether two paths refer to the same location on disk.
-///
-/// Compares canonical paths when both exist, and falls back to a literal
-/// comparison otherwise (for example, before a destination directory has
-/// been created).
-///
-/// # Arguments
-/// * `a` - First path
-/// * `b` - Second path
-///
-/// # Returns
-/// * `bool`: `true` if the paths resolve to the same location
-///
-/// # Examples
-///
-/// ```
-/// use std::path::Path;
-/// use brahe::utils::fs::same_path;
-///
-/// assert!(same_path(Path::new("./data/a.txt"), Path::new("./data/a.txt")));
-/// assert!(!same_path(Path::new("./data/a.txt"), Path::new("./data/b.txt")));
-/// ```
-pub fn same_path(a: &Path, b: &Path) -> bool {
-    match (fs::canonicalize(a), fs::canonicalize(b)) {
-        (Ok(a), Ok(b)) => a == b,
-        _ => a == b,
-    }
-}
-
 /// Counter that makes each staging path distinct within a process, so two
 /// threads writing to the same target do not share, truncate or delete each
 /// other's staging file.
@@ -153,45 +124,87 @@ fn staging_path(target: &Path) -> PathBuf {
     ))
 }
 
-/// Resolves `path` as far as the filesystem allows: the nearest ancestor that
-/// exists is canonicalized and the remaining components are re-appended, with
-/// `.` dropped and `..` applied lexically.
+/// Normalises `path` to an absolute path without `.` or `..` components,
+/// without consulting the filesystem.
+///
+/// A relative path is taken against the current working directory first, so
+/// the result is always absolute. `.` components are dropped and each `..`
+/// removes the preceding component when that component is a normal name; a
+/// `..` directly under the root is dropped, since the root is its own parent.
+///
+/// # Arguments
+/// * `path` - Path to normalise, which need not exist
+///
+/// # Returns
+/// * `Some(PathBuf)`: The normalised absolute path
+/// * `None`: If `path` is relative and the current working directory cannot be read
+fn normalize_lexically(path: &Path) -> Option<PathBuf> {
+    let absolute = if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        std::env::current_dir().ok()?.join(path)
+    };
+
+    let mut normalized = PathBuf::new();
+    for component in absolute.components() {
+        match component {
+            Component::Prefix(_) | Component::RootDir | Component::Normal(_) => {
+                normalized.push(component.as_os_str())
+            }
+            Component::CurDir => {}
+            Component::ParentDir => {
+                if matches!(
+                    normalized.components().next_back(),
+                    Some(Component::Normal(_))
+                ) {
+                    normalized.pop();
+                }
+            }
+        }
+    }
+    Some(normalized)
+}
+
+/// Resolves `path` as far as the filesystem allows.
+///
+/// The path is first normalised lexically, which makes it absolute and
+/// removes every `.` and `..`. The longest prefix of the result that exists
+/// is then canonicalized, so symlinks in the part that exists are followed,
+/// and the components that do not exist yet are appended to it.
 ///
 /// # Arguments
 /// * `path` - Path to resolve, which need not exist
 ///
 /// # Returns
 /// * `Some(PathBuf)`: The resolved path
-/// * `None`: If no ancestor of `path` can be canonicalized
+/// * `None`: If `path` cannot be normalised, or if no prefix of it can be canonicalized
 fn resolve_existing_ancestor(path: &Path) -> Option<PathBuf> {
+    let mut existing = normalize_lexically(path)?;
     let mut remainder: Vec<OsString> = Vec::new();
-    let mut current = path.to_path_buf();
     loop {
-        if let Ok(canonical) = fs::canonicalize(&current) {
+        if let Ok(canonical) = fs::canonicalize(&existing) {
             let mut resolved = canonical;
             for part in remainder.iter().rev() {
-                if part == ".." {
-                    resolved.pop();
-                } else if part != "." {
-                    resolved.push(part);
-                }
+                resolved.push(part);
             }
             return Some(resolved);
         }
-        remainder.push(current.file_name()?.to_os_string());
-        current.pop();
-        if current.as_os_str().is_empty() {
-            current = PathBuf::from(".");
+        remainder.push(existing.file_name()?.to_os_string());
+        if !existing.pop() {
+            return None;
         }
     }
 }
 
 /// Whether `path` is `root` itself or lies underneath it.
 ///
-/// Both sides are resolved before the comparison, so symlinks, `.` and `..`
-/// cannot hide a path that ends up inside `root`. `path` need not exist: its
-/// nearest existing ancestor is resolved and the remaining components are
-/// re-appended.
+/// `path` need not exist. It is normalised lexically first — made absolute
+/// against the current working directory, with `.` dropped and `..` applied
+/// to the preceding component — and the longest existing prefix of the result
+/// is then canonicalized, so a symlink in the part that exists cannot hide a
+/// path that ends up inside `root`. Because `..` is applied before the
+/// filesystem is consulted, a `..` that crosses a symlinked directory is
+/// judged on the written path rather than on where that symlink points.
 ///
 /// # Arguments
 /// * `path` - Path to test, existing or not
@@ -209,6 +222,7 @@ fn resolve_existing_ancestor(path: &Path) -> Option<PathBuf> {
 /// let root = std::env::temp_dir();
 /// assert!(is_within(&root.join("a").join("b"), &root));
 /// assert!(is_within(&root, &root));
+/// assert!(is_within(&root.join("a").join("..").join("b"), &root));
 /// assert!(!is_within(Path::new("/"), &root));
 /// ```
 pub fn is_within(path: &Path, root: &Path) -> bool {
@@ -358,7 +372,7 @@ pub(crate) fn modified_epoch(path: &Path) -> Result<Epoch, BraheError> {
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
-    use serial_test::parallel;
+    use serial_test::{parallel, serial};
     use tempfile::tempdir;
 
     #[test]
@@ -446,23 +460,6 @@ mod tests {
             assert!(err.contains("must not be '.' or '..'"), "{value}: {err}");
             assert!(err.contains("invalid metadata"), "{err}");
         }
-    }
-
-    #[test]
-    #[parallel]
-    fn test_same_path_compares_canonical_locations() {
-        let dir = tempdir().unwrap();
-        let file = dir.path().join("a.txt");
-        fs::write(&file, b"data").unwrap();
-
-        assert!(same_path(&file, &file));
-        assert!(same_path(&file, &dir.path().join(".").join("a.txt")));
-        assert!(!same_path(&file, &dir.path().join("b.txt")));
-
-        // Neither path exists, so the comparison is literal.
-        let missing = dir.path().join("missing");
-        assert!(same_path(&missing, &missing));
-        assert!(!same_path(&missing, &dir.path().join("other")));
     }
 
     #[test]
@@ -597,12 +594,50 @@ mod tests {
             &root
         ));
 
+        // `..` after a component that does not exist still lands inside.
+        assert!(is_within(&root.join("missing").join(".."), &root));
+        assert!(
+            is_within(&root.join("missing").join("..").join("exports"), &root),
+            "a missing intermediate must not defeat the containment check"
+        );
+
+        // `..` that walks back out of the root is rejected.
+        assert!(!is_within(
+            &root.join("missing").join("..").join(".."),
+            &root
+        ));
+        assert!(!is_within(
+            &root.join("nested").join("..").join("..").join("escape"),
+            &root
+        ));
+
         let outside = dir.path().join("outside");
         assert!(!is_within(&outside, &root));
         assert!(!is_within(dir.path(), &root));
 
         // A root that does not exist contains nothing.
         assert!(!is_within(&root, &dir.path().join("missing")));
+    }
+
+    #[test]
+    #[serial]
+    fn test_is_within_resolves_relative_paths_against_the_working_directory() {
+        let dir = tempdir().unwrap();
+        let root = fs::canonicalize(dir.path()).unwrap();
+        fs::create_dir_all(root.join("cache")).unwrap();
+
+        let original = std::env::current_dir().unwrap();
+        std::env::set_current_dir(&root).unwrap();
+
+        let relative_inside = is_within(Path::new("cache/exports"), &root.join("cache"));
+        let bare_inside = is_within(Path::new("out.txt"), &root);
+        let relative_outside = is_within(Path::new(".."), &root);
+
+        std::env::set_current_dir(original).unwrap();
+
+        assert!(relative_inside);
+        assert!(bare_inside);
+        assert!(!relative_outside);
     }
 
     #[test]

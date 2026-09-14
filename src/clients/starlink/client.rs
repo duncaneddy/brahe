@@ -1629,28 +1629,35 @@ mod tests {
         let dir = starlink_dir(&client);
         let cached = client.download_ephemeris(100002).unwrap();
         let original = fs::read_to_string(&cached).unwrap();
-        let nested = dir.join("exports");
+        // A subdirectory of the cache, and a path that walks back into the
+        // cache through a component that does not exist.
+        let destinations = [dir.join("exports"), dir.join("missing").join("..")];
+        let before = client.cached_files().unwrap();
 
         for keep_cached in [false, true] {
-            let err = client
-                .save_ephemeris(100002, &nested, keep_cached)
-                .unwrap_err();
-            assert!(
-                err.to_string()
-                    .contains("save_ephemeris destination is inside the cache directory"),
-                "{err}"
-            );
-            assert!(!nested.join(SHORT_FILE).exists());
+            for destination in &destinations {
+                let err = client
+                    .save_ephemeris(100002, destination, keep_cached)
+                    .unwrap_err();
+                assert!(
+                    err.to_string()
+                        .contains("save_ephemeris destination is inside the cache directory"),
+                    "{destination:?}: {err}"
+                );
 
-            let err = client.save_all(&nested, 2, keep_cached).unwrap_err();
-            assert!(
-                err.to_string()
-                    .contains("save_all destination is inside the cache directory"),
-                "{err}"
-            );
-            assert!(!nested.join(FULL_FILE).exists());
+                let err = client.save_all(destination, 2, keep_cached).unwrap_err();
+                assert!(
+                    err.to_string()
+                        .contains("save_all destination is inside the cache directory"),
+                    "{destination:?}: {err}"
+                );
+            }
         }
 
+        // Nothing was written anywhere under the cache directory.
+        assert_eq!(client.cached_files().unwrap(), before);
+        assert!(!dir.join("exports").join(SHORT_FILE).exists());
+        assert!(!dir.join("exports").join(FULL_FILE).exists());
         assert_eq!(fs::read_to_string(&cached).unwrap(), original);
     }
 

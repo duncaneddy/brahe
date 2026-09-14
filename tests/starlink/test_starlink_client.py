@@ -711,22 +711,31 @@ def test_save_into_cache_subdirectory_errors(starlink_server, tmp_path):
     d = cache_dir(client)
     cached = Path(client.download_ephemeris(100002))
     original = cached.read_text()
-    nested = d / "exports"
+    # A subdirectory of the cache, and a path that walks back into the cache
+    # through a component that does not exist.
+    destinations = (d / "exports", d / "missing" / "..")
+    before = client.cached_files()
 
     for keep_cached in (False, True):
-        with pytest.raises(
-            bh.BraheError,
-            match="save_ephemeris destination is inside the cache directory",
-        ):
-            client.save_ephemeris(100002, str(nested), keep_cached=keep_cached)
-        assert not (nested / SHORT_FILE).exists()
+        for destination in destinations:
+            with pytest.raises(
+                bh.BraheError,
+                match="save_ephemeris destination is inside the cache directory",
+            ):
+                client.save_ephemeris(100002, str(destination), keep_cached=keep_cached)
 
-        with pytest.raises(
-            bh.BraheError, match="save_all destination is inside the cache directory"
-        ):
-            client.save_all(str(nested), concurrency=2, keep_cached=keep_cached)
-        assert not (nested / FULL_FILE).exists()
+            with pytest.raises(
+                bh.BraheError,
+                match="save_all destination is inside the cache directory",
+            ):
+                client.save_all(
+                    str(destination), concurrency=2, keep_cached=keep_cached
+                )
 
+    # Nothing was written anywhere under the cache directory.
+    assert client.cached_files() == before
+    assert not (d / "exports" / SHORT_FILE).exists()
+    assert not (d / "exports" / FULL_FILE).exists()
     assert cached.read_text() == original
 
 

@@ -8,7 +8,7 @@
 
 use polars::prelude::*;
 
-use crate::datasets::gcat::records::{GCATPsatcatRecord, GCATSatcatRecord};
+use crate::clients::gcat::records::{GCATPsatcatRecord, GCATSatcatRecord};
 use crate::utils::BraheError;
 
 /// Container for GCAT SATCAT records with search and filter methods.

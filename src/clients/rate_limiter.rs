@@ -1,31 +1,31 @@
 /*!
- * Sliding-window rate limiter for SpaceTrack API requests.
+ * Sliding-window request rate limiter shared by the network clients.
  *
- * Space-Track.org enforces rate limits of 30 requests per minute and
- * 300 requests per hour. This module provides a rate limiter that tracks
- * request timestamps in two sliding windows (1-minute and 1-hour) to
- * prevent exceeding these limits.
- *
- * Default limits are set conservatively at ~83% of the actual limits
- * (25/min, 250/hour) to provide safety margin for clock drift and
- * shared accounts.
+ * Tracks request timestamps in two sliding windows (one minute and one
+ * hour) and reports how long a caller must wait before its next request
+ * stays within both limits. Each client supplies its own default
+ * [`RateLimitConfig`]; the type-level default of 25 requests per minute
+ * and 250 per hour is roughly 83% of Space-Track.org's documented 30 per
+ * minute and 300 per hour, leaving margin for clock drift and shared
+ * accounts.
  */
 
 use std::collections::VecDeque;
 use std::time::{Duration, Instant};
 
-/// Configuration for SpaceTrack API rate limiting.
+/// Configuration for a client's sliding-window request rate limit.
 ///
 /// Defines the maximum number of requests allowed per minute and per hour.
-/// Defaults to 25 requests/minute and 250 requests/hour (~83% of
-/// Space-Track.org's actual limits of 30/min and 300/hour).
+/// The type default is 25 requests per minute and 250 requests per hour,
+/// which is roughly 83% of Space-Track.org's documented limits and is what
+/// `SpaceTrackClient` uses. Other clients supply their own defaults.
 ///
 /// # Examples
 ///
 /// ```
-/// use brahe::spacetrack::RateLimitConfig;
+/// use brahe::clients::RateLimitConfig;
 ///
-/// // Use default conservative limits
+/// // Space-Track defaults
 /// let config = RateLimitConfig::default();
 /// assert_eq!(config.max_per_minute, 25);
 /// assert_eq!(config.max_per_hour, 250);
@@ -38,6 +38,7 @@ use std::time::{Duration, Instant};
 ///
 /// // Disable rate limiting
 /// let config = RateLimitConfig::disabled();
+/// assert_eq!(config.max_per_minute, u32::MAX);
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RateLimitConfig {
@@ -64,7 +65,7 @@ impl RateLimitConfig {
     /// # Examples
     ///
     /// ```
-    /// use brahe::spacetrack::RateLimitConfig;
+    /// use brahe::clients::RateLimitConfig;
     ///
     /// let config = RateLimitConfig::disabled();
     /// assert_eq!(config.max_per_minute, u32::MAX);

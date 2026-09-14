@@ -9,7 +9,7 @@
  * `/<controller>/query/class/<class>/FIELD/value/.../format/<format>`
  */
 
-use crate::spacetrack::types::{OutputFormat, RequestClass, RequestController, SortOrder};
+use crate::clients::spacetrack::types::{OutputFormat, RequestClass, RequestController, SortOrder};
 
 /// Percent-encode characters that are invalid in URI path segments.
 ///
@@ -392,7 +392,7 @@ impl SpaceTrackQuery {
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
-    use crate::spacetrack::operators;
+    use crate::clients::spacetrack::operators;
     use serial_test::parallel;
 
     #[test]

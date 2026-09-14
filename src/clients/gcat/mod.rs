@@ -41,7 +41,7 @@ const DEFAULT_CACHE_MAX_AGE: f64 = 86400.0;
 ///
 /// # Examples
 /// ```no_run
-/// use brahe::datasets::gcat::get_satcat;
+/// use brahe::gcat::get_satcat;
 /// let satcat = get_satcat(None).unwrap();  // default 24h cache
 /// println!("Loaded {} records", satcat.len());
 /// ```
@@ -69,7 +69,7 @@ pub fn get_satcat(cache_max_age: Option<f64>) -> Result<GCATSatcat, BraheError> 
 ///
 /// # Examples
 /// ```no_run
-/// use brahe::datasets::gcat::get_psatcat;
+/// use brahe::gcat::get_psatcat;
 /// let psatcat = get_psatcat(None).unwrap();
 /// println!("Loaded {} records", psatcat.len());
 /// ```

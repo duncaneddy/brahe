@@ -9,7 +9,7 @@
  * `?GROUP=stations&FORMAT=JSON`
  */
 
-use crate::celestrak::types::{CelestrakOutputFormat, CelestrakQueryType, SupGPSource};
+use crate::clients::celestrak::types::{CelestrakOutputFormat, CelestrakQueryType, SupGPSource};
 use crate::types::GPRecord;
 
 /// A client-side filter predicate for post-download filtering.
@@ -446,7 +446,7 @@ impl CelestrakQuery {
     /// A GP query whose only server-side parameters are exactly one of
     /// `CATNR`, `INTDES`, or `NAME` (the output format and client-side
     /// filter, ordering, and limit do not count) can be answered from the
-    /// cached `active` group by [`crate::celestrak::CelestrakClient`].
+    /// cached `active` group by [`crate::clients::celestrak::CelestrakClient`].
     ///
     /// # Returns
     ///

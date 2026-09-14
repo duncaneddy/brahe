@@ -101,6 +101,10 @@ email me at duncan.eddy (at) gmail.com.
 // Re-export commonly used types
 pub use access::*;
 pub use attitude::*;
+pub use clients::gcat::{
+    GCATPsatcat, GCATPsatcatRecord, GCATSatcat, GCATSatcatRecord, get_psatcat, get_satcat,
+};
+pub use clients::{celestrak, gcat, spacetrack};
 pub use constants::*;
 pub use coordinates::*;
 pub use datasets::*;
@@ -121,11 +125,12 @@ pub use trajectories::*;
 
 // Module declarations
 pub mod access;
-// Note: celestrak, spacetrack, and ccsds are not glob-re-exported since they use
+// Note: the client modules and ccsds are not glob-re-exported since they use
 // namespaced patterns that should be accessed via brahe::ccsds::*, brahe::celestrak::*, etc.
+// The GCAT types and functions re-exported above are the one exception.
 pub mod attitude;
 pub mod ccsds;
-pub mod celestrak;
+pub mod clients;
 pub mod constants;
 pub mod coordinates;
 pub mod datasets;
@@ -141,7 +146,6 @@ pub mod orbits;
 pub mod propagators;
 pub mod relative_motion;
 pub mod space_weather;
-pub mod spacetrack;
 pub mod spice;
 pub mod time;
 pub mod trajectories;

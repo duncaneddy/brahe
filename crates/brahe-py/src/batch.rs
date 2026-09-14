@@ -357,11 +357,11 @@ fn dmatrices_to_numpy<'py>(
 ///
 /// A populated batch is validated element by element inside the core
 /// transform; an empty one has no element to inspect, so the shape numpy
-/// declared is run through the same check against a zero matrix.
+/// declared goes through the same rule directly.
 fn check_empty_covariance_shape(covariances: &MatrixArg) -> PyResult<()> {
     if covariances.as_slice().is_empty() {
         let (rows, cols) = covariances.element_shape();
-        brahe::frames::rotate_covariance(&DMatrix::zeros(rows, cols), &SMatrix6::identity())?;
+        brahe::frames::validate_covariance_shape(rows, cols)?;
     }
     Ok(())
 }

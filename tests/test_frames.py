@@ -2750,11 +2750,11 @@ def test_covariance_frame_to_frame_preserves_extra_dimensions(eop):
 def test_covariance_frame_to_frame_shape_errors(eop):
     """Rust: test_rotate_covariance_shape_errors"""
     epc = _covariance_test_epoch()
-    with pytest.raises(Exception, match="at least 6x6"):
+    with pytest.raises(brahe.BraheError, match="at least 6x6"):
         brahe.covariance_frame_to_frame(
             brahe.CelestialFrame.GCRF, brahe.CelestialFrame.ITRF, epc, np.eye(5)
         )
-    with pytest.raises(Exception, match="must be square"):
+    with pytest.raises(brahe.BraheError, match="must be square"):
         brahe.covariance_frame_to_frame(
             brahe.CelestialFrame.GCRF, brahe.CelestialFrame.ITRF, epc, np.zeros((6, 5))
         )
@@ -2817,9 +2817,9 @@ def test_rotate_covariance_6():
 def test_rotate_covariance_shape_errors():
     """Rust: test_rotate_covariance_shape_errors"""
     j = np.eye(6)
-    with pytest.raises(Exception, match="at least 6x6"):
+    with pytest.raises(brahe.BraheError, match="at least 6x6"):
         brahe.rotate_covariance(np.eye(5), j)
-    with pytest.raises(Exception, match="must be square"):
+    with pytest.raises(brahe.BraheError, match="must be square"):
         brahe.rotate_covariance(np.zeros((6, 5)), j)
 
 

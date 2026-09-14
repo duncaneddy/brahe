@@ -174,6 +174,47 @@ pub fn state_transform_jacobians(
     )
 }
 
+/// Checks that a covariance of shape `rows x cols` can be rotated by a 6x6
+/// state Jacobian.
+///
+/// The shape requirement of [`rotate_covariance`], stated on the dimensions
+/// alone so a caller holding only a declared shape — an empty batch of
+/// covariances, say, which has no element to inspect — can apply the same
+/// rule and report the same message.
+///
+/// # Arguments
+/// * `rows` - Number of rows in the covariance
+/// * `cols` - Number of columns in the covariance
+///
+/// # Returns
+/// * `Ok(())`: If the shape is square and at least 6x6
+/// * `Err(BraheError)`: If the shape is not square, or is smaller than 6x6
+///
+/// # Examples
+///
+/// ```
+/// use brahe::frames::validate_covariance_shape;
+///
+/// assert!(validate_covariance_shape(7, 7).is_ok());
+/// assert!(validate_covariance_shape(6, 5).unwrap_err().to_string().contains("must be square"));
+/// assert!(validate_covariance_shape(5, 5).unwrap_err().to_string().contains("at least 6x6"));
+/// ```
+pub fn validate_covariance_shape(rows: usize, cols: usize) -> Result<(), BraheError> {
+    if rows != cols {
+        return Err(BraheError::Error(format!(
+            "covariance must be square, got {}x{}",
+            rows, cols
+        )));
+    }
+    if rows < 6 {
+        return Err(BraheError::Error(format!(
+            "covariance must be at least 6x6, got {}x{}",
+            rows, cols
+        )));
+    }
+    Ok(())
+}
+
 /// Rotates an `n x n` covariance (`n >= 6`) with a 6x6 state Jacobian,
 /// leaving elements beyond the orbital six unchanged, and symmetrizes the
 /// result.
@@ -210,18 +251,7 @@ pub fn rotate_covariance(
     jacobian: &SMatrix6,
 ) -> Result<DMatrix<f64>, BraheError> {
     let (rows, cols) = (covariance.nrows(), covariance.ncols());
-    if rows != cols {
-        return Err(BraheError::Error(format!(
-            "covariance must be square, got {}x{}",
-            rows, cols
-        )));
-    }
-    if rows < 6 {
-        return Err(BraheError::Error(format!(
-            "covariance must be at least 6x6, got {}x{}",
-            rows, cols
-        )));
-    }
+    validate_covariance_shape(rows, cols)?;
 
     let mut j = DMatrix::<f64>::identity(rows, rows);
     j.view_mut((0, 0), (6, 6)).copy_from(jacobian);
@@ -633,6 +663,34 @@ mod tests {
             for k in 0..6 {
                 assert_abs_diff_eq!(rotated[(i, k)], dynamic[(i, k)], epsilon = 1e-15);
             }
+        }
+    }
+
+    #[test]
+    #[parallel]
+    fn test_validate_covariance_shape() {
+        assert!(validate_covariance_shape(6, 6).is_ok());
+        assert!(validate_covariance_shape(9, 9).is_ok());
+
+        let err = validate_covariance_shape(6, 5).unwrap_err();
+        assert!(err.to_string().contains("must be square"));
+        assert!(err.to_string().contains("6x5"));
+
+        let err = validate_covariance_shape(5, 5).unwrap_err();
+        assert!(err.to_string().contains("at least 6x6"));
+        assert!(err.to_string().contains("5x5"));
+
+        // A zero-sized shape is caught by the size rule, not the square one.
+        let err = validate_covariance_shape(0, 0).unwrap_err();
+        assert!(err.to_string().contains("at least 6x6"));
+
+        // The messages are exactly the ones rotate_covariance reports.
+        for (rows, cols) in [(6, 5), (5, 5)] {
+            let direct = validate_covariance_shape(rows, cols).unwrap_err();
+            let routed =
+                rotate_covariance(&DMatrix::<f64>::zeros(rows, cols), &SMatrix6::identity())
+                    .unwrap_err();
+            assert_eq!(direct.to_string(), routed.to_string());
         }
     }
 

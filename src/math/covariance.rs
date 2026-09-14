@@ -11,6 +11,43 @@ use nalgebra::{DMatrix, DVector};
 
 use crate::utils::errors::BraheError;
 
+/// Whether a square matrix is symmetric to within a relative tolerance.
+///
+/// # Arguments
+/// * `m` - Square matrix
+/// * `rtol` - Relative tolerance applied to the larger magnitude of each mirrored pair
+///
+/// # Returns
+/// * `bool`: `true` when every pair `(i, k)`, `(k, i)` agrees within `rtol`, or when `m` is not square is `false`
+///
+/// # Examples
+///
+/// ```
+/// use brahe::math::is_symmetric;
+/// use nalgebra::DMatrix;
+///
+/// let m = DMatrix::from_row_slice(2, 2, &[1.0, 0.5, 0.5, 2.0]);
+/// assert!(is_symmetric(&m, 1e-12));
+/// let n = DMatrix::from_row_slice(2, 2, &[1.0, 0.5, 0.4, 2.0]);
+/// assert!(!is_symmetric(&n, 1e-12));
+/// ```
+pub fn is_symmetric<D: nalgebra::Dim, S: nalgebra::Storage<f64, D, D>>(
+    m: &nalgebra::Matrix<f64, D, D, S>,
+    rtol: f64,
+) -> bool {
+    let n = m.nrows();
+    if n != m.ncols() {
+        return false;
+    }
+    (0..n).all(|i| {
+        (0..i).all(|k| {
+            let a = m[(i, k)];
+            let b = m[(k, i)];
+            (a - b).abs() <= rtol * a.abs().max(b.abs()).max(f64::MIN_POSITIVE)
+        })
+    })
+}
+
 /// Create an isotropic covariance matrix: σ² · I.
 ///
 /// Builds a `dim × dim` diagonal matrix where every diagonal element is
@@ -209,6 +246,28 @@ mod tests {
     use super::*;
     use approx::assert_abs_diff_eq;
     use serial_test::parallel;
+
+    #[test]
+    #[parallel]
+    fn test_is_symmetric() {
+        let symmetric = DMatrix::from_row_slice(
+            6,
+            6,
+            &[
+                1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 2.0, 7.0, 8.0, 9.0, 10.0, 11.0, 3.0, 8.0, 12.0, 13.0,
+                14.0, 15.0, 4.0, 9.0, 13.0, 16.0, 17.0, 18.0, 5.0, 10.0, 14.0, 17.0, 19.0, 20.0,
+                6.0, 11.0, 15.0, 18.0, 20.0, 21.0,
+            ],
+        );
+        assert!(is_symmetric(&symmetric, 1e-12));
+
+        let mut asymmetric = symmetric.clone();
+        asymmetric[(0, 1)] = 100.0;
+        assert!(!is_symmetric(&asymmetric, 1e-12));
+
+        let non_square = DMatrix::zeros(3, 4);
+        assert!(!is_symmetric(&non_square, 1e-12));
+    }
 
     #[test]
     #[parallel]

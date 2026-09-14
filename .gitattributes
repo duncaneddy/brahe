@@ -3,3 +3,7 @@
 # response. Normalizing them would make the seeded cache differ from what the
 # client would have written itself.
 test_assets/celestrak/*.json -text
+
+# Starlink Modified ITC fixtures are compared byte for byte against the
+# writer's output, so they must check out with the LF endings the site serves.
+test_assets/starlink/*.txt -text

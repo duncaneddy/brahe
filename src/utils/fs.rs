@@ -59,6 +59,44 @@ pub fn atomic_write(filepath: &Path, data: impl AsRef<[u8]>) -> Result<(), io::E
     result
 }
 
+/// Characters that turn a value into a path rather than a single component
+/// of one.
+const FORBIDDEN_PATH_COMPONENT_CHARACTERS: [char; 3] = ['/', '\\', '\0'];
+
+/// Validates that a value names no path of its own, so that a path assembled
+/// from it always addresses an entry inside a single directory.
+///
+/// # Arguments
+/// * `field` - Name of the value being validated, used in the error message
+/// * `value` - Value to validate, which may be empty
+///
+/// # Returns
+/// * `Ok(())`: The value is safe to use as a single path component
+/// * `Err(BraheError)`: If the value contains `/`, `\` or NUL, or is `.` or `..`
+///
+/// # Examples
+///
+/// ```
+/// use brahe::utils::fs::validate_path_component;
+///
+/// assert!(validate_path_component("object_name", "STARLINK-38128").is_ok());
+/// assert!(validate_path_component("object_name", "../evil").is_err());
+/// assert!(validate_path_component("object_name", "..").is_err());
+/// ```
+pub fn validate_path_component(field: &str, value: &str) -> Result<(), BraheError> {
+    if value.contains(FORBIDDEN_PATH_COMPONENT_CHARACTERS) {
+        return Err(BraheError::Error(format!(
+            "invalid {field}: '{value}' must not contain '/', '\\' or NUL"
+        )));
+    }
+    if value == "." || value == ".." {
+        return Err(BraheError::Error(format!(
+            "invalid {field}: '{value}' must not be '.' or '..'"
+        )));
+    }
+    Ok(())
+}
+
 /// Whether two paths refer to the same location on disk.
 ///
 /// Compares canonical paths when both exist, and falls back to a literal
@@ -286,6 +324,39 @@ mod tests {
             .filter(|e| e.file_name().to_string_lossy().ends_with(".tmp"))
             .collect();
         assert!(entries.is_empty());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_validate_path_component_accepts_plain_values() {
+        for value in ["STARLINK-38128", "", "a_b", "...", ".hidden", "a.b.c"] {
+            assert!(
+                validate_path_component("object_name", value).is_ok(),
+                "expected '{value}' to be accepted"
+            );
+        }
+    }
+
+    #[test]
+    #[parallel]
+    fn test_validate_path_component_rejects_separators_and_traversal() {
+        for value in ["a/b", "a\\b", "a\0b", "../evil", "/tmp/evil"] {
+            let err = validate_path_component("object_name", value)
+                .unwrap_err()
+                .to_string();
+            assert!(
+                err.contains("must not contain '/', '\\' or NUL"),
+                "{value}: {err}"
+            );
+        }
+
+        for value in [".", ".."] {
+            let err = validate_path_component("metadata", value)
+                .unwrap_err()
+                .to_string();
+            assert!(err.contains("must not be '.' or '..'"), "{value}: {err}");
+            assert!(err.contains("invalid metadata"), "{err}");
+        }
     }
 
     #[test]

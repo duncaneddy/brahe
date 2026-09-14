@@ -14,6 +14,7 @@ use serde::{Deserialize, Serialize};
 use crate::time::conversions::day_of_year_from_calendar;
 use crate::time::{Epoch, TimeSystem};
 use crate::utils::BraheError;
+use crate::utils::fs::validate_path_component;
 
 /// Whether an ephemeris file describes the planned (operational) trajectory
 /// or a special-case alternative.
@@ -127,9 +128,6 @@ pub struct SpaceTrackEphemerisFileName {
     pub extension: String,
 }
 
-/// Characters that turn a field into a path rather than part of a file name.
-const FORBIDDEN_FIELD_CHARACTERS: [char; 3] = ['/', '\\', '\0'];
-
 /// Validates that a file-name field names no path of its own, so that a name
 /// assembled from the fields always addresses a file inside a single
 /// directory.
@@ -142,19 +140,7 @@ const FORBIDDEN_FIELD_CHARACTERS: [char; 3] = ['/', '\\', '\0'];
 /// * `Ok(())`: The value is safe to place in a file name
 /// * `Err(BraheError)`: If the value contains `/`, `\` or NUL, or is `.` or `..`
 fn validate_path_field(field: &str, value: &str) -> Result<(), BraheError> {
-    if value.contains(FORBIDDEN_FIELD_CHARACTERS) {
-        return Err(BraheError::Error(format!(
-            "invalid ephemeris file name field {}: '{}' must not contain '/', '\\' or NUL",
-            field, value
-        )));
-    }
-    if value == "." || value == ".." {
-        return Err(BraheError::Error(format!(
-            "invalid ephemeris file name field {}: '{}' must not be '.' or '..'",
-            field, value
-        )));
-    }
-    Ok(())
+    validate_path_component(&format!("ephemeris file name field {field}"), value)
 }
 
 /// Validates that a single-token file-name field is non-empty, does not

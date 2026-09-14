@@ -5885,7 +5885,7 @@ fn py_rotate_covariance<'py>(
         return Ok(matrix_to_numpy!(py, rotated_ref, n, m, f64).into_any());
     }
 
-    check_empty_covariance_shape(&covariances)?;
+    check_covariance_shape(&covariances)?;
     let element_shape = covariances.element_shape();
     let rotated =
         py.detach(|| frames::rotate_covariances(covariances.as_slice(), jacobians.as_slice()))?;
@@ -5957,7 +5957,7 @@ fn py_covariance_frame_to_frame<'py>(
         return Ok(matrix_to_numpy!(py, rotated_ref, n, m, f64).into_any());
     }
 
-    check_empty_covariance_shape(&covariances)?;
+    check_covariance_shape(&covariances)?;
     let element_shape = covariances.element_shape();
     let epochs = match epochs {
         EpochArg::Single(e) => vec![e],

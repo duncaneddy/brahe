@@ -3081,3 +3081,24 @@ def test_covariance_empty_batch_still_checks_trailing_shape(eop):
         brahe.covariance_frame_to_frame(gcrf, itrf, epc, np.zeros((0, 6, 5)))
     with pytest.raises(brahe.BraheError, match="at least 6x6"):
         brahe.covariance_frame_to_frame(gcrf, itrf, epc, np.zeros((0, 5, 5)))
+
+
+def test_covariance_shape_checked_when_the_other_argument_is_empty(eop):
+    """A malformed covariance is rejected even when the empty batch is on the
+    other argument, which would otherwise leave the core with no element to
+    validate and yield an empty result instead of an error."""
+    epc = _covariance_test_epoch()
+    gcrf, itrf = brahe.CelestialFrame.GCRF, brahe.CelestialFrame.ITRF
+
+    with pytest.raises(brahe.BraheError, match="at least 6x6"):
+        brahe.rotate_covariance(np.eye(5), np.zeros((0, 6, 6)))
+    with pytest.raises(brahe.BraheError, match="must be square"):
+        brahe.rotate_covariance(np.zeros((6, 5)), np.zeros((0, 6, 6)))
+    with pytest.raises(brahe.BraheError, match="at least 6x6"):
+        brahe.covariance_frame_to_frame(gcrf, gcrf, [], np.eye(5))
+    with pytest.raises(brahe.BraheError, match="must be square"):
+        brahe.covariance_frame_to_frame(gcrf, itrf, [epc], np.zeros((6, 5)))
+
+    # A well-formed covariance with an empty counterpart still returns empty.
+    assert brahe.rotate_covariance(np.eye(6), np.zeros((0, 6, 6))).shape == (0, 6, 6)
+    assert brahe.covariance_frame_to_frame(gcrf, itrf, [], np.eye(6)).shape == (0, 6, 6)

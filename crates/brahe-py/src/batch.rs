@@ -352,17 +352,17 @@ fn dmatrices_to_numpy<'py>(
         .into_any())
 }
 
-/// Validate the declared element shape of a covariance argument whose batch
-/// is empty, so `(0, 6, 5)` fails exactly as `(1, 6, 5)` would.
+/// Validate the declared element shape of a covariance argument.
 ///
-/// A populated batch is validated element by element inside the core
-/// transform; an empty one has no element to inspect, so the shape numpy
-/// declared goes through the same rule directly.
-fn check_empty_covariance_shape(covariances: &MatrixArg) -> PyResult<()> {
-    if covariances.as_slice().is_empty() {
-        let (rows, cols) = covariances.element_shape();
-        brahe::frames::validate_covariance_shape(rows, cols)?;
-    }
+/// The core transform validates each element it visits, which leaves nothing
+/// checked whenever the broadcast produces an empty result: an empty batch of
+/// covariances, or a well-formed covariance paired with an empty batch on the
+/// other argument. Checking the declared shape covers both, and since the
+/// rule is two integer comparisons the repeat on populated input costs
+/// nothing.
+fn check_covariance_shape(covariances: &MatrixArg) -> PyResult<()> {
+    let (rows, cols) = covariances.element_shape();
+    brahe::frames::validate_covariance_shape(rows, cols)?;
     Ok(())
 }
 

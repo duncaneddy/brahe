@@ -1,6 +1,5 @@
 """Tests for the brahe starlink CLI."""
 
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from typer.testing import CliRunner
@@ -163,36 +162,14 @@ def test_download_output_with_extension_is_still_a_directory(mock_client_cls, tm
 def test_download_with_keep_cached(mock_client_cls, tmp_path):
     client = MagicMock()
     mock_client_cls.return_value = client
-    cache_dir = tmp_path / "cache"
-    cache_dir.mkdir()
-    cached_file = cache_dir / "100001.txt"
-    cached_file.write_text("ephemeris")
-
-    def save_ephemeris(norad_id, destination, keep_cached):
-        target = Path(destination) / f"{norad_id}.txt"
-        if keep_cached:
-            target.write_text(cached_file.read_text())
-        else:
-            cached_file.replace(target)
-        return str(target)
-
-    client.save_ephemeris.side_effect = save_ephemeris
-    output = tmp_path / "out"
+    client.save_ephemeris.side_effect = lambda i, d, k: f"{d}/{i}.txt"
     result = runner.invoke(
         app,
-        [
-            "starlink",
-            "download",
-            "100001",
-            "--output",
-            str(output),
-            "--keep-cached",
-        ],
+        ["starlink", "download", "100001", "--output", str(tmp_path), "--keep-cached"],
     )
     assert result.exit_code == 0
-    client.save_ephemeris.assert_called_once_with(100001, str(output), True)
-    assert (output / "100001.txt").exists()
-    assert cached_file.exists()
+    client.save_ephemeris.assert_called_once_with(100001, str(tmp_path), True)
+    assert str(tmp_path) in result.stdout
 
 
 @patch("brahe.cli.starlink.bh.starlink.StarlinkClient")

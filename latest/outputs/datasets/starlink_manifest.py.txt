@@ -1,0 +1,10 @@
+Manifest lists 5 satellites
+NORAD 100001 is STARLINK-38128
+STARLINK-37711 is NORAD 100002
+  100001 STARLINK-38128: 2026-09-11 01:42:00.000 UTC to 2026-09-14 01:43:00.000 GPS
+  100002 STARLINK-37711: 2026-09-11 01:49:00.000 UTC to 2026-09-14 01:50:00.000 GPS
+  100003 STARLINK-38123: 2026-09-11 01:41:00.000 UTC to 2026-09-14 01:42:00.000 GPS
+No previous manifest cached; nothing to diff against
+DataFrame shape: (5, 6)
+Columns: ['norad_cat_id', 'object_name', 'category', 'ephemeris_start', 'ephemeris_stop', 'file_name']
+Entries starting after 2026-09-11T01:42:30: ['STARLINK-37711', 'STARLINK-38122']

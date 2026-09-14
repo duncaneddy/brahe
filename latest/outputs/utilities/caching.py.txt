@@ -1,4 +1,5 @@
 Main cache directory: /home/runner/.cache/brahe
 EOP cache directory: /home/runner/.cache/brahe/eop
 CelesTrak cache directory: /home/runner/.cache/brahe/celestrak
+Starlink cache directory: /home/runner/.cache/brahe/starlink
 Custom cache subdirectory: /home/runner/.cache/brahe/custom_data

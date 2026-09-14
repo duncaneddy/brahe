@@ -1,0 +1,8 @@
+Manifest lists 5 satellites (retrieved 2026-09-14 03:32:25.210 UTC)
+STARLINK-38128: NORAD 100001, Operational
+  ephemeris 2026-09-11 01:42:00.000 UTC to 2026-09-14 01:43:00.000 GPS
+  file MEME_100001_STARLINK-38128_2540142_Operational_1473385380_UNCLASSIFIED.txt
+Trajectory: 4321 samples in EME2000
+Cached files: 2
+Manifest table shape: (3, 3)
+Columns: ["norad_cat_id", "object_name", "ephemeris_start"]

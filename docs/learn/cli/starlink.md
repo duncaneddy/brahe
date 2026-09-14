@@ -63,7 +63,8 @@ brahe starlink download NORAD_ID... [OPTIONS]
 - `NORAD_ID...` - One or more NORAD catalog numbers
 
 **Options:**
-- `--output`, `-o <dir>` - Directory to move the files into; they stay in the cache when omitted
+- `--output`, `-o <dir>` - Directory to place the files in; they stay in the cache when omitted
+- `--keep-cached` - Copy the files instead of moving them, leaving the cached copies in place
 
 **Examples:**
 

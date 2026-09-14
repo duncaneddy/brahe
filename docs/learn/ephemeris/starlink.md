@@ -109,12 +109,14 @@ optional `covariance_variant`, and `get_trajectory_with_covariance_variant` take
         --8<-- "./docs/outputs/datasets/starlink_trajectory_access.rs.txt"
         ```
 
-`save_ephemeris` moves the downloaded file to a destination outside the cache instead of copying it:
-an existing directory, or a path whose last component has no extension, is treated as a directory
-and the original file name is kept, while a path with an extension is used as the file name
-directly, and a missing directory is created. A destination that resolves to the cache directory is
-an error. After the move the destination is the only copy and the cache no longer holds the file, so
-a later `download_ephemeris` or `get_ephemeris` call for the same satellite downloads it again.
+`save_ephemeris` downloads a satellite's file and writes it to a destination outside the cache: an
+existing directory, or a path whose last component has no extension, is treated as a directory and
+the original file name is kept, while a path with an extension is used as the file name directly,
+and a missing directory is created. A destination inside the cache directory is an error, checked
+before anything is downloaded. The `keep_cached` argument chooses how the file reaches the
+destination: false moves the downloaded file, so the destination becomes the only copy and a later
+`download_ephemeris` or `get_ephemeris` call for the same satellite downloads it again; true copies
+the file instead, so the cache keeps its copy alongside the one written to the destination.
 
 ## Bulk Downloads
 
@@ -122,9 +124,13 @@ a later `download_ephemeris` or `get_ephemeris` call for the same satellite down
 file per NORAD ID, using up to `concurrency` worker threads that share the client's rate limiter. As
 of writing the full listing is about 11,000 files and approximately 22 GB, so a first run against the
 public mirror is a long transfer; the call stops at the first failure and returns it, and it never
-prunes files no longer listed. `save_all` runs `download_all` and moves every downloaded file into a
-destination directory, so the destination holds every listed ephemeris and the cache holds none of
-them afterward; files for satellites no longer listed stay until `prune_cache` removes them.
+prunes files no longer listed. `save_all` runs `download_all` and writes every downloaded file into
+a destination directory, created if missing; a destination inside the cache directory is an error,
+checked before anything is downloaded. With `keep_cached` false each file is moved, so the
+destination holds every listed ephemeris and the cache holds none of them, and a later
+`download_ephemeris` or `download_all` call downloads them again; with `keep_cached` true each file
+is copied, so the cache keeps its copies alongside the ones written to the destination. Files for
+satellites no longer listed stay until `prune_cache` removes them.
 `prune_cache` removes cached ephemeris files the current manifest no longer lists, without touching
 `MANIFEST.txt` or `MANIFEST.previous.txt`. `cached_files` lists the ephemeris files currently in the
 cache. The cache directory itself is not coordinated across processes or across clients sharing it,

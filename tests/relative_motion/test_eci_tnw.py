@@ -113,6 +113,7 @@ def test_omega_tnw_matches_finite_difference(eop):
         dt,
     )
     np.testing.assert_allclose(omega_fd, brahe.omega_tnw(x0), atol=1e-9)
+    assert np.linalg.norm(brahe.omega_tnw(x0) - brahe.omega_rtn(x0)) > 1e-6
 
 
 def test_omega_tnw_for_body_matches_finite_difference_about_mars(eop):
@@ -128,6 +129,7 @@ def test_omega_tnw_for_body_matches_finite_difference_about_mars(eop):
     )
     omega_body = brahe.omega_tnw_for_body(x0, brahe.GM_MARS)
     np.testing.assert_allclose(omega_fd, omega_body, atol=1e-9)
+    assert np.linalg.norm(omega_body - brahe.omega_tnw(x0)) > 1e-6
 
 
 def test_earth_functions_equal_for_body_with_gm_earth(eop):

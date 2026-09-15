@@ -1,5 +1,4 @@
-//! Build the LVLH frame of a satellite, check it against RTN, and express a
-//! deputy's relative state in it, both directly and through the frame graph.
+//! Build the LVLH frame of a satellite, compare it with RTN, and use it directly and through the frame graph.
 
 #[allow(unused_imports)]
 use brahe as bh;

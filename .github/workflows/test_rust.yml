@@ -27,6 +27,19 @@ jobs:
             # restore main's cache regardless of matrix/job-name hashing, and
             # only let main saves refresh it — PR-scoped saves are unrestorable
             # by any other run (GitHub cache isolation) and just churn quota.
+            #
+            # This is the one cargo cache saved per OS. test-rust-docs below,
+            # integration_tests.yml, test_python.yml and warm_data_cache.yml
+            # restore it read-only: their dependency sets are subsets of this
+            # job's, and a saved entry per job would multiply the footprint
+            # past the repository's 10 GB cache budget. On ubuntu the coverage
+            # run compiles its dependencies instrumented under
+            # target/llvm-cov-target, so only the other llvm-cov jobs reuse
+            # them there; every sharer still reuses the registry, and the
+            # macOS and Windows entries hold the plain dependency build.
+            # rust-cache folds every CARGO*/RUST*-prefixed environment
+            # variable into the key, so a job can share this key only if it
+            # exports the same set.
             -   name: Set up Rust toolchain with cache
                 uses: actions-rust-lang/setup-rust-toolchain@v2.0.0
                 with:
@@ -101,13 +114,16 @@ jobs:
             BRAHE_NETWORK_MODE: ${{ inputs.network_mode }}
         steps:
             -   uses: actions/checkout@v7.0.1
-            # See "test-rust" job above for the shared-key/save-if cache scheme.
+            # Restore-only against the test-rust cache above: the doc tests
+            # build the same dependency set, so a second saved entry per OS
+            # would only duplicate it. On ubuntu this reuses the registry and
+            # recompiles the dependencies uninstrumented.
             -   name: Set up Rust toolchain with cache
                 uses: actions-rust-lang/setup-rust-toolchain@v2.0.0
                 with:
                     toolchain: ${{ matrix.rust-toolchain }}
-                    cache-shared-key: test-rust-docs
-                    cache-save-if: ${{ github.ref == 'refs/heads/main' }}
+                    cache-shared-key: test-rust
+                    cache-save-if: false
             -   name: Set default Rust toolchain
                 run: |
                     rustup update ${{ matrix.rust-toolchain }}

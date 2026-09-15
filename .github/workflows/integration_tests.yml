@@ -101,6 +101,11 @@ jobs:
                     retry_wait_seconds: 60
                     command: cargo llvm-cov -p brahe --features integration --lcov --output-path lcov-integration.info
 
+            # `--tests` runs the unit and integration test targets and skips
+            # doctests, matching what `cargo llvm-cov` runs on Ubuntu above.
+            # The doctests are not network-gated and already run on every OS
+            # in test_rust.yml; on Windows they take ~27 minutes on their own,
+            # which pushes the full `cargo test` past the 30-minute attempt cap.
             -   name: Run Rust integration tests (non-Ubuntu)
                 if: matrix.os != 'ubuntu-latest'
                 uses: nick-fields/retry@v4
@@ -108,7 +113,7 @@ jobs:
                     timeout_minutes: 30
                     max_attempts: 3
                     retry_wait_seconds: 60
-                    command: cargo test -p brahe --features integration
+                    command: cargo test -p brahe --features integration --tests
 
             -   name: Upload integration coverage to Codecov
                 if: matrix.os == 'ubuntu-latest'
@@ -219,7 +224,11 @@ jobs:
                     timeout_minutes: 30
                     max_attempts: 3
                     retry_wait_seconds: 60
+                    # The retry action runs this block under `bash -c` without
+                    # errexit, so without `set -e` a pytest failure is masked by
+                    # the coverage report that follows it and the step passes.
                     command: |
+                        set -euo pipefail
                         cargo llvm-cov clean --workspace
                         eval "$(cargo llvm-cov show-env --export-prefix)"
                         uv pip install maturin --quiet

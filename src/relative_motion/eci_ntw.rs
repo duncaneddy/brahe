@@ -777,6 +777,14 @@ pub fn omegas_ntw(x_eci: &[SVector6]) -> Vec<Vector3<f64>> {
 /// # Returns
 /// - Jacobians such that `P_inertial = J P_ntw Jᵀ`, one per state, in input order
 ///
+/// # References
+/// 1. NASA Conjunction Assessment Risk Analysis (CARA),
+///    [*Conjunction Assessment Handbook*, NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13)](https://ntrs.nasa.gov/citations/20205011318)
+/// 2. NASA CARA Analysis Tools,
+///    [`RIC2ECI.m`](https://github.com/nasa/CARA_Analysis_Tools)
+/// 3. D. A. Vallado,
+///    ["Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003](https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf)
+///
 /// # Examples
 /// ```
 /// use brahe::constants::GM_MARS;
@@ -788,14 +796,6 @@ pub fn omegas_ntw(x_eci: &[SVector6]) -> Vec<Vector3<f64>> {
 /// let j = jacobians_ntw_to_inertial_for_body(&[x, x], GM_MARS, OrbitRelativeFrameVariant::Rotating);
 /// assert_eq!(j.len(), 2);
 /// ```
-///
-/// # References:
-/// 1. NASA Conjunction Assessment Risk Analysis (CARA),
-///    [*Conjunction Assessment Handbook*, NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13)](https://ntrs.nasa.gov/citations/20205011318)
-/// 2. NASA CARA Analysis Tools,
-///    [`RIC2ECI.m`](https://github.com/nasa/CARA_Analysis_Tools)
-/// 3. D. A. Vallado,
-///    ["Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003](https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf)
 pub fn jacobians_ntw_to_inertial_for_body(
     x_inertial: &[SVector6],
     gm: f64,
@@ -819,6 +819,14 @@ pub fn jacobians_ntw_to_inertial_for_body(
 /// # Returns
 /// - Jacobians such that `P_eci = J P_ntw Jᵀ`, one per state, in input order
 ///
+/// # References
+/// 1. NASA Conjunction Assessment Risk Analysis (CARA),
+///    [*Conjunction Assessment Handbook*, NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13)](https://ntrs.nasa.gov/citations/20205011318)
+/// 2. NASA CARA Analysis Tools,
+///    [`RIC2ECI.m`](https://github.com/nasa/CARA_Analysis_Tools)
+/// 3. D. A. Vallado,
+///    ["Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003](https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf)
+///
 /// # Examples
 /// ```
 /// use brahe::constants::{R_EARTH, AngleFormat};
@@ -831,14 +839,6 @@ pub fn jacobians_ntw_to_inertial_for_body(
 /// let j = jacobians_ntw_to_eci(&[x, x], OrbitRelativeFrameVariant::Rotating);
 /// assert_eq!(j.len(), 2);
 /// ```
-///
-/// # References:
-/// 1. NASA Conjunction Assessment Risk Analysis (CARA),
-///    [*Conjunction Assessment Handbook*, NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13)](https://ntrs.nasa.gov/citations/20205011318)
-/// 2. NASA CARA Analysis Tools,
-///    [`RIC2ECI.m`](https://github.com/nasa/CARA_Analysis_Tools)
-/// 3. D. A. Vallado,
-///    ["Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003](https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf)
 pub fn jacobians_ntw_to_eci(
     x_eci: &[SVector6],
     variant: OrbitRelativeFrameVariant,
@@ -860,6 +860,14 @@ pub fn jacobians_ntw_to_eci(
 /// # Returns
 /// - Jacobians such that `P_ntw = J P_inertial Jᵀ`, one per state, in input order
 ///
+/// # References
+/// 1. NASA Conjunction Assessment Risk Analysis (CARA),
+///    [*Conjunction Assessment Handbook*, NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13)](https://ntrs.nasa.gov/citations/20205011318)
+/// 2. NASA CARA Analysis Tools,
+///    [`RIC2ECI.m`](https://github.com/nasa/CARA_Analysis_Tools)
+/// 3. D. A. Vallado,
+///    ["Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003](https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf)
+///
 /// # Examples
 /// ```
 /// use brahe::constants::GM_MARS;
@@ -871,14 +879,6 @@ pub fn jacobians_ntw_to_eci(
 /// let j = jacobians_inertial_to_ntw_for_body(&[x, x], GM_MARS, OrbitRelativeFrameVariant::Rotating);
 /// assert_eq!(j.len(), 2);
 /// ```
-///
-/// # References:
-/// 1. NASA Conjunction Assessment Risk Analysis (CARA),
-///    [*Conjunction Assessment Handbook*, NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13)](https://ntrs.nasa.gov/citations/20205011318)
-/// 2. NASA CARA Analysis Tools,
-///    [`RIC2ECI.m`](https://github.com/nasa/CARA_Analysis_Tools)
-/// 3. D. A. Vallado,
-///    ["Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003](https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf)
 pub fn jacobians_inertial_to_ntw_for_body(
     x_inertial: &[SVector6],
     gm: f64,
@@ -902,6 +902,14 @@ pub fn jacobians_inertial_to_ntw_for_body(
 /// # Returns
 /// - Jacobians such that `P_ntw = J P_eci Jᵀ`, one per state, in input order
 ///
+/// # References
+/// 1. NASA Conjunction Assessment Risk Analysis (CARA),
+///    [*Conjunction Assessment Handbook*, NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13)](https://ntrs.nasa.gov/citations/20205011318)
+/// 2. NASA CARA Analysis Tools,
+///    [`RIC2ECI.m`](https://github.com/nasa/CARA_Analysis_Tools)
+/// 3. D. A. Vallado,
+///    ["Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003](https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf)
+///
 /// # Examples
 /// ```
 /// use brahe::constants::{R_EARTH, AngleFormat};
@@ -914,14 +922,6 @@ pub fn jacobians_inertial_to_ntw_for_body(
 /// let j = jacobians_eci_to_ntw(&[x, x], OrbitRelativeFrameVariant::Rotating);
 /// assert_eq!(j.len(), 2);
 /// ```
-///
-/// # References:
-/// 1. NASA Conjunction Assessment Risk Analysis (CARA),
-///    [*Conjunction Assessment Handbook*, NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13)](https://ntrs.nasa.gov/citations/20205011318)
-/// 2. NASA CARA Analysis Tools,
-///    [`RIC2ECI.m`](https://github.com/nasa/CARA_Analysis_Tools)
-/// 3. D. A. Vallado,
-///    ["Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003](https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf)
 pub fn jacobians_eci_to_ntw(
     x_eci: &[SVector6],
     variant: OrbitRelativeFrameVariant,
@@ -948,6 +948,14 @@ pub fn jacobians_eci_to_ntw(
 /// - State covariances in inertial axes, in input order. Units: (*m²*, *m²/s*, *m²/s²*)
 /// - Error if the lengths do not satisfy the broadcast rule
 ///
+/// # References
+/// 1. NASA Conjunction Assessment Risk Analysis (CARA),
+///    [*Conjunction Assessment Handbook*, NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13)](https://ntrs.nasa.gov/citations/20205011318)
+/// 2. NASA CARA Analysis Tools,
+///    [`RIC2ECI.m`](https://github.com/nasa/CARA_Analysis_Tools)
+/// 3. D. A. Vallado,
+///    ["Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003](https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf)
+///
 /// # Examples
 /// ```
 /// use brahe::SMatrix6;
@@ -961,14 +969,6 @@ pub fn jacobians_eci_to_ntw(
 /// let p_inertial = covariances_ntw_to_inertial_for_body(&[x], &p, GM_MARS, OrbitRelativeFrameVariant::Rotating).unwrap();
 /// assert_eq!(p_inertial.len(), 2);
 /// ```
-///
-/// # References:
-/// 1. NASA Conjunction Assessment Risk Analysis (CARA),
-///    [*Conjunction Assessment Handbook*, NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13)](https://ntrs.nasa.gov/citations/20205011318)
-/// 2. NASA CARA Analysis Tools,
-///    [`RIC2ECI.m`](https://github.com/nasa/CARA_Analysis_Tools)
-/// 3. D. A. Vallado,
-///    ["Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003](https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf)
 pub fn covariances_ntw_to_inertial_for_body(
     x_inertial: &[SVector6],
     covariances: &[SMatrix6],
@@ -999,6 +999,14 @@ pub fn covariances_ntw_to_inertial_for_body(
 /// - State covariances in ECI axes, in input order. Units: (*m²*, *m²/s*, *m²/s²*)
 /// - Error if the lengths do not satisfy the broadcast rule
 ///
+/// # References
+/// 1. NASA Conjunction Assessment Risk Analysis (CARA),
+///    [*Conjunction Assessment Handbook*, NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13)](https://ntrs.nasa.gov/citations/20205011318)
+/// 2. NASA CARA Analysis Tools,
+///    [`RIC2ECI.m`](https://github.com/nasa/CARA_Analysis_Tools)
+/// 3. D. A. Vallado,
+///    ["Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003](https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf)
+///
 /// # Examples
 /// ```
 /// use brahe::SMatrix6;
@@ -1013,14 +1021,6 @@ pub fn covariances_ntw_to_inertial_for_body(
 /// let p_eci = covariances_ntw_to_eci(&[x], &p, OrbitRelativeFrameVariant::Rotating).unwrap();
 /// assert_eq!(p_eci.len(), 2);
 /// ```
-///
-/// # References:
-/// 1. NASA Conjunction Assessment Risk Analysis (CARA),
-///    [*Conjunction Assessment Handbook*, NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13)](https://ntrs.nasa.gov/citations/20205011318)
-/// 2. NASA CARA Analysis Tools,
-///    [`RIC2ECI.m`](https://github.com/nasa/CARA_Analysis_Tools)
-/// 3. D. A. Vallado,
-///    ["Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003](https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf)
 pub fn covariances_ntw_to_eci(
     x_eci: &[SVector6],
     covariances: &[SMatrix6],
@@ -1052,6 +1052,14 @@ pub fn covariances_ntw_to_eci(
 /// - State covariances in NTW axes, in input order. Units: (*m²*, *m²/s*, *m²/s²*)
 /// - Error if the lengths do not satisfy the broadcast rule
 ///
+/// # References
+/// 1. NASA Conjunction Assessment Risk Analysis (CARA),
+///    [*Conjunction Assessment Handbook*, NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13)](https://ntrs.nasa.gov/citations/20205011318)
+/// 2. NASA CARA Analysis Tools,
+///    [`RIC2ECI.m`](https://github.com/nasa/CARA_Analysis_Tools)
+/// 3. D. A. Vallado,
+///    ["Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003](https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf)
+///
 /// # Examples
 /// ```
 /// use brahe::SMatrix6;
@@ -1065,14 +1073,6 @@ pub fn covariances_ntw_to_eci(
 /// let p_ntw = covariances_inertial_to_ntw_for_body(&[x], &p, GM_MARS, OrbitRelativeFrameVariant::Rotating).unwrap();
 /// assert_eq!(p_ntw.len(), 2);
 /// ```
-///
-/// # References:
-/// 1. NASA Conjunction Assessment Risk Analysis (CARA),
-///    [*Conjunction Assessment Handbook*, NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13)](https://ntrs.nasa.gov/citations/20205011318)
-/// 2. NASA CARA Analysis Tools,
-///    [`RIC2ECI.m`](https://github.com/nasa/CARA_Analysis_Tools)
-/// 3. D. A. Vallado,
-///    ["Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003](https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf)
 pub fn covariances_inertial_to_ntw_for_body(
     x_inertial: &[SVector6],
     covariances: &[SMatrix6],
@@ -1103,6 +1103,14 @@ pub fn covariances_inertial_to_ntw_for_body(
 /// - State covariances in NTW axes, in input order. Units: (*m²*, *m²/s*, *m²/s²*)
 /// - Error if the lengths do not satisfy the broadcast rule
 ///
+/// # References
+/// 1. NASA Conjunction Assessment Risk Analysis (CARA),
+///    [*Conjunction Assessment Handbook*, NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13)](https://ntrs.nasa.gov/citations/20205011318)
+/// 2. NASA CARA Analysis Tools,
+///    [`RIC2ECI.m`](https://github.com/nasa/CARA_Analysis_Tools)
+/// 3. D. A. Vallado,
+///    ["Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003](https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf)
+///
 /// # Examples
 /// ```
 /// use brahe::SMatrix6;
@@ -1117,14 +1125,6 @@ pub fn covariances_inertial_to_ntw_for_body(
 /// let p_ntw = covariances_eci_to_ntw(&[x], &p, OrbitRelativeFrameVariant::Rotating).unwrap();
 /// assert_eq!(p_ntw.len(), 2);
 /// ```
-///
-/// # References:
-/// 1. NASA Conjunction Assessment Risk Analysis (CARA),
-///    [*Conjunction Assessment Handbook*, NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13)](https://ntrs.nasa.gov/citations/20205011318)
-/// 2. NASA CARA Analysis Tools,
-///    [`RIC2ECI.m`](https://github.com/nasa/CARA_Analysis_Tools)
-/// 3. D. A. Vallado,
-///    ["Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003](https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf)
 pub fn covariances_eci_to_ntw(
     x_eci: &[SVector6],
     covariances: &[SMatrix6],

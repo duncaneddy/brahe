@@ -512,6 +512,26 @@ def test_ntw_inertial_variant_needs_no_gm(clear_frame_registries):
         bh.state_frame_to_frame(no_gm_frame, bh.ReferenceFrame.NTW("X"), epc, x)
 
 
+def test_tnw_inertial_variant_needs_no_gm(clear_frame_registries):
+    epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+    # NAIF ID 2000001 has no packaged GM constant, so it only works for the
+    # inertial variant, which does not need one.
+    no_gm_frame = bh.CelestialFrame.Centered(2000001, bh.FrameAxes.ICRF)
+    x = bh.state_koe_to_eci(
+        np.array([bh.R_EARTH + 500e3, 0.05, 97.8, 15.0, 30.0, 45.0]),
+        bh.AngleFormat.DEGREES,
+    )
+    bh.register_object("X", lambda epc: x, no_gm_frame)
+
+    inertial = bh.ReferenceFrame.orbit_relative(
+        bh.OrbitRelativeFrameKind.TNW, bh.OrbitRelativeFrameVariant.INERTIAL, "X"
+    )
+    bh.rotation_frame_to_frame(no_gm_frame, inertial, epc)
+
+    with pytest.raises(RuntimeError, match="gravitational parameter"):
+        bh.state_frame_to_frame(no_gm_frame, bh.ReferenceFrame.TNW("X"), epc, x)
+
+
 def test_tnw_rotation_matches_relative_motion(clear_frame_registries):
     epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
     oe = np.array([bh.R_EARTH + 500e3, 0.05, 97.8, 15.0, 30.0, 45.0])

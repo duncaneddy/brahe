@@ -1336,7 +1336,7 @@ mod tests {
     use crate::orbits::{mean_motion, mean_motion_general};
     use crate::propagators::CentralBody;
     use crate::relative_motion::{
-        omega_ntw, omega_ntw_for_body, rotation_rtn_to_eci, state_eci_to_rtn,
+        omega_ntw, omega_ntw_for_body, omega_rtn, rotation_rtn_to_eci, state_eci_to_rtn,
     };
     use approx::assert_abs_diff_eq;
     use serial_test::parallel;
@@ -1443,6 +1443,7 @@ mod tests {
             / (2.0 * dt);
         let omega_fd = angular_velocity_from_rotation_rate(&rotation_eci_to_tnw(x0), &r_dot);
         assert_abs_diff_eq!(omega_fd, omega_tnw(x0), epsilon = 1e-9);
+        assert!((omega_tnw(x0) - omega_rtn(x0)).norm() > 1e-6);
     }
 
     #[test]
@@ -1454,6 +1455,7 @@ mod tests {
             / (2.0 * dt);
         let omega_fd = angular_velocity_from_rotation_rate(&rotation_eci_to_tnw(x0), &r_dot);
         assert_abs_diff_eq!(omega_fd, omega_tnw_for_body(x0, GM_MARS), epsilon = 1e-9);
+        assert!((omega_tnw_for_body(x0, GM_MARS) - omega_tnw(x0)).norm() > 1e-6);
     }
 
     #[test]

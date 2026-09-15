@@ -3703,7 +3703,8 @@ fn py_state_vnc_to_inertial_for_body<'py>(
 ///
 /// Degenerate orbits use the zero-angle conventions: when the eccentricity vector norm is
 /// below 1e-9 (circular orbit) P is taken along the ascending node, and when the node vector
-/// norm is also below 1e-9 (equatorial orbit) P is taken along the inertial x axis.
+/// norm is also below 1e-9 (equatorial orbit) P is taken along the inertial x axis projected
+/// into the orbit plane.
 ///
 /// Args:
 ///     x_eci (numpy.ndarray or list): 6D state vector in the ECI frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
@@ -3760,7 +3761,8 @@ fn py_rotation_pqw_to_eci<'py>(
 ///
 /// Degenerate orbits use the zero-angle conventions: when the eccentricity vector norm is
 /// below 1e-9 (circular orbit) P is taken along the ascending node, and when the node vector
-/// norm is also below 1e-9 (equatorial orbit) P is taken along the inertial x axis.
+/// norm is also below 1e-9 (equatorial orbit) P is taken along the inertial x axis projected
+/// into the orbit plane.
 ///
 /// Args:
 ///     x_inertial (numpy.ndarray or list): 6D state vector in the inertial frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
@@ -3820,7 +3822,8 @@ fn py_rotation_pqw_to_inertial_for_body<'py>(
 ///
 /// Degenerate orbits use the zero-angle conventions: when the eccentricity vector norm is
 /// below 1e-9 (circular orbit) P is taken along the ascending node, and when the node vector
-/// norm is also below 1e-9 (equatorial orbit) P is taken along the inertial x axis.
+/// norm is also below 1e-9 (equatorial orbit) P is taken along the inertial x axis projected
+/// into the orbit plane.
 ///
 /// Args:
 ///     x_eci (numpy.ndarray or list): 6D state vector in the ECI frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
@@ -3879,7 +3882,8 @@ fn py_rotation_eci_to_pqw<'py>(
 ///
 /// Degenerate orbits use the zero-angle conventions: when the eccentricity vector norm is
 /// below 1e-9 (circular orbit) P is taken along the ascending node, and when the node vector
-/// norm is also below 1e-9 (equatorial orbit) P is taken along the inertial x axis.
+/// norm is also below 1e-9 (equatorial orbit) P is taken along the inertial x axis projected
+/// into the orbit plane.
 ///
 /// Args:
 ///     x_inertial (numpy.ndarray or list): 6D state vector in the inertial frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of

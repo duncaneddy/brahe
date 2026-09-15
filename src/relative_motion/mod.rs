@@ -5,7 +5,8 @@
  * This module provides transformations between inertial frames and orbital
  * reference frames such as RTN (Radial-Tangential-Normal), LVLH
  * (Local-Vertical Local-Horizontal), NTW (Normal-Tangential-Cross-track),
- * TNW (Tangential-Normal-Cross-track), and PQW (Perifocal).
+ * TNW (Tangential-Normal-Cross-track), VNC (Velocity-Normal-Co-normal),
+ * and PQW (Perifocal).
  */
 
 pub(crate) mod common;

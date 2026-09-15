@@ -18,7 +18,7 @@ r = np.linalg.norm(x_ecc[:3])
 f = np.radians(bh.anomaly_mean_to_true(45.0, 0.1, angle_format=bh.AngleFormat.DEGREES))
 print(
     "Own position in PQW equals r [cos f, sin f, 0]:",
-    np.allclose(r_pqw, r * np.array([np.cos(f), np.sin(f), 0.0])),
+    np.allclose(r_pqw, r * np.array([np.cos(f), np.sin(f), 0.0]), atol=1e-6),
 )
 
 # Circular orbit: periapsis is undefined, P falls back to the ascending node

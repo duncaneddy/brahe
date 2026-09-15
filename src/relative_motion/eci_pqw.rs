@@ -1331,6 +1331,20 @@ mod tests {
 
     #[test]
     #[parallel]
+    fn test_rotation_pqw_circular_equatorial_retrograde_is_right_handed() {
+        let x = state(0.0, 180.0, 15.0, 30.0, 45.0);
+        let m = rotation_pqw_to_eci(x);
+        let p: Vector3<f64> = m.column(0).into();
+        let q: Vector3<f64> = m.column(1).into();
+        let w: Vector3<f64> = m.column(2).into();
+        assert_abs_diff_eq!(p, Vector3::x(), epsilon = 1e-12);
+        assert_abs_diff_eq!(q, -Vector3::y(), epsilon = 1e-12);
+        assert_abs_diff_eq!(w, -Vector3::z(), epsilon = 1e-12);
+        assert_abs_diff_eq!(m.determinant(), 1.0, epsilon = 1e-14);
+    }
+
+    #[test]
+    #[parallel]
     fn test_rotation_pqw_for_body_about_mars() {
         let oe = SVector6::new(R_MARS + 400e3, 0.05, 92.6, 45.0, 270.0, 10.0);
         let x =

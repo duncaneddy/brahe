@@ -715,9 +715,9 @@ mod tests {
         let ntw = rotation_ntw_to_eci(x);
         let tnw = rotation_tnw_to_eci(x);
         // X_TNW = Y_NTW, Y_TNW = -X_NTW, Z_TNW = Z_NTW
-        assert_abs_diff_eq!(tnw.column(0), ntw.column(1), epsilon = 1e-15);
-        assert_abs_diff_eq!(tnw.column(1).into_owned(), -ntw.column(0), epsilon = 1e-15);
-        assert_abs_diff_eq!(tnw.column(2), ntw.column(2), epsilon = 1e-15);
+        assert_eq!(tnw.column(0), ntw.column(1));
+        assert_eq!(tnw.column(1).into_owned(), -ntw.column(0));
+        assert_eq!(tnw.column(2), ntw.column(2));
     }
 
     #[test]

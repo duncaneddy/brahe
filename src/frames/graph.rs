@@ -445,8 +445,9 @@ fn provider_error(frame: &ReferenceFrame, err: BraheError) -> BraheError {
 ///   the frame's angular velocity relative to `root` (*rad/s*): the orbital
 ///   rate for the rotating variant, zero for the inertial snapshot
 /// - `Err(BraheError)`: If `kind` has no axes derivation, `object` is not
-///   registered, its state cannot be evaluated at `epc`, or (for `NTW`) its
-///   declared center has no packaged gravitational parameter
+///   registered, its state cannot be evaluated at `epc`, or (for `NTW`'s
+///   rotating variant) its declared center has no packaged gravitational
+///   parameter
 fn resolve_orbit_relative(
     kind: OrbitRelativeFrameKind,
     variant: OrbitRelativeFrameVariant,
@@ -470,10 +471,26 @@ fn resolve_orbit_relative(
         OrbitRelativeFrameKind::RTN => (rotation_eci_to_rtn(x_root), omega_rtn(x_root)),
         OrbitRelativeFrameKind::LVLH => (rotation_eci_to_lvlh(x_root), omega_lvlh(x_root)),
         OrbitRelativeFrameKind::NTW => {
-            let gm = body_gm(root.center().naif_id())?;
-            (rotation_eci_to_ntw(x_root), omega_ntw_for_body(x_root, gm))
+            let omega = match variant {
+                OrbitRelativeFrameVariant::Rotating => {
+                    let gm = body_gm(root.center().naif_id()).map_err(|e| {
+                        BraheError::Error(format!(
+                            "orbit-relative kind NTW needs the gravitational parameter of \
+                             {object}'s declared center for its rotating rate: {e}"
+                        ))
+                    })?;
+                    omega_ntw_for_body(x_root, gm)
+                }
+                OrbitRelativeFrameVariant::Inertial => Vector3::zeros(),
+            };
+            (rotation_eci_to_ntw(x_root), omega)
         }
-        _ => unreachable!("kind support is checked above"),
+        _ => {
+            return Err(BraheError::Error(format!(
+                "orbit-relative kind {kind} does not yet have an axes derivation (tracked in \
+                 issue #452); supported kinds: RTN, LVLH, NTW"
+            )));
+        }
     };
 
     Ok(Resolved {
@@ -1262,6 +1279,35 @@ mod tests {
             omega_ntw_for_body(x, GM_MARS),
             epsilon = 1e-15
         );
+        clear_object_registry();
+    }
+
+    #[test]
+    #[serial]
+    fn test_ntw_inertial_variant_needs_no_gm() {
+        clear_object_registry();
+        let epc = Epoch::from_date(2024, 3, 1, TimeSystem::UTC);
+        // NAIF ID 2000001 has no packaged GM constant, so it only works for
+        // the inertial variant, which does not need one.
+        let no_gm_center = CelestialFrame::centered(2000001, FrameAxes::ICRF);
+        let oe = SVector6::new(R_EARTH + 500e3, 0.05, 97.8, 15.0, 30.0, 45.0);
+        let x = state_koe_to_eci(oe, AngleFormat::Degrees);
+        register_object("A", FnProvider(move |_| Ok(x)), no_gm_center).unwrap();
+
+        let inertial = ReferenceFrame::orbit_relative(
+            OrbitRelativeFrameKind::NTW,
+            OrbitRelativeFrameVariant::Inertial,
+            Some("A".into()),
+        )
+        .unwrap();
+        let resolved = resolve_orientation(&inertial, epc, true).unwrap();
+        assert_eq!(resolved.omega.unwrap(), Vector3::zeros());
+
+        let err = rotation_frame_to_frame(CelestialFrame::GCRF, ReferenceFrame::NTW("A"), epc)
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("NTW"));
+        assert!(err.contains("gravitational parameter"));
         clear_object_registry();
     }
 

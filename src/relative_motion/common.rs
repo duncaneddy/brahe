@@ -54,13 +54,30 @@ pub(crate) fn relative_state_from_frame(
     x_chief + state_rotating_to_inertial(r_eci_to_frame, omega, &x_rel)
 }
 
+/// True-anomaly rate of an orbit, `ḟ = |r × v| / r²`, the rate at which the
+/// radial direction rotates under two-body motion.
+///
+/// # Arguments
+/// - `x_inertial`: Cartesian state in an inertial frame (position, velocity) (m, m/s)
+///
+/// # Returns
+/// - True-anomaly rate (rad/s)
+///
+/// # References:
+/// - K. T. Alfriend, S. R. Vadali, P. Gurfil, J. P. How, L. S. Breger, *Spacecraft Formation Flying*, Elsevier, 2010, eq. 2.16
+pub(crate) fn true_anomaly_rate(x_inertial: SVector6) -> f64 {
+    let r = x_inertial.fixed_rows::<3>(0);
+    let v = x_inertial.fixed_rows::<3>(3);
+    (r.cross(&v)).norm() / (r.norm().powi(2))
+}
+
 /// 6x6 Jacobian of the state map from a local orbital frame into inertial
 /// axes: `[[R, 0], [R [ω]×, R]]` for the rotating variant and the block
 /// diagonal `[[R, 0], [0, R]]` for the inertial snapshot.
 ///
 /// # Arguments
 /// - `r_frame_to_eci`: Rotation from the local frame into the inertial axes (dimensionless)
-/// - `omega`: Angular velocity of the local frame, expressed in the local frame (rad/s)
+/// - `omega`: Angular velocity of the local frame relative to the inertial axes, expressed in the local frame (rad/s)
 /// - `variant`: Rotating or inertial snapshot
 ///
 /// # Returns
@@ -85,7 +102,7 @@ pub(crate) fn jacobian_to_inertial(
 ///
 /// # Arguments
 /// - `r_eci_to_frame`: Rotation from the inertial axes into the local frame (dimensionless)
-/// - `omega`: Angular velocity of the local frame, expressed in the local frame (rad/s)
+/// - `omega`: Angular velocity of the local frame relative to the inertial axes, expressed in the local frame (rad/s)
 /// - `variant`: Rotating or inertial snapshot
 ///
 /// # Returns
@@ -140,6 +157,16 @@ mod tests {
 
         let back = relative_state_from_frame(&r, &omega, x_chief, rel);
         assert_eq!(back, state_rtn_to_eci(x_chief, rel));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_true_anomaly_rate_matches_omega_rtn_bitwise() {
+        let x = state_koe_to_eci(
+            SVector6::new(R_EARTH + 700e3, 0.1, 97.8, 15.0, 30.0, 45.0),
+            AngleFormat::Degrees,
+        );
+        assert_eq!(true_anomaly_rate(x), omega_rtn(x)[2]);
     }
 
     #[test]

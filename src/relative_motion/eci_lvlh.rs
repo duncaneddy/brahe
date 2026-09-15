@@ -8,9 +8,8 @@ use crate::frames::{OrbitRelativeFrameVariant, rotate_covariance_6};
 use crate::math::{SMatrix3, SMatrix6, SVector6};
 use crate::relative_motion::common::{
     jacobian_from_inertial, jacobian_to_inertial, relative_state_from_frame,
-    relative_state_to_frame,
+    relative_state_to_frame, true_anomaly_rate,
 };
-use crate::relative_motion::omega_rtn;
 use crate::utils::BraheError;
 use crate::utils::batch::{batch_map, batch_zip};
 
@@ -123,8 +122,7 @@ pub fn rotation_eci_to_lvlh(x_eci: SVector6) -> SMatrix3 {
 /// let omega = omega_lvlh(x_eci);
 /// ```
 pub fn omega_lvlh(x_eci: SVector6) -> Vector3<f64> {
-    let f_dot = omega_rtn(x_eci)[2];
-    Vector3::new(0.0, -f_dot, 0.0)
+    Vector3::new(0.0, -true_anomaly_rate(x_eci), 0.0)
 }
 
 /// 6x6 Jacobian taking an LVLH state covariance into ECI axes.
@@ -153,6 +151,14 @@ pub fn omega_lvlh(x_eci: SVector6) -> Vector3<f64> {
 ///
 /// let j = jacobian_lvlh_to_eci(x_eci, OrbitRelativeFrameVariant::Rotating);
 /// ```
+///
+/// # References:
+/// 1. NASA Conjunction Assessment Risk Analysis (CARA),
+///    [*Conjunction Assessment Handbook*, NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13)](https://ntrs.nasa.gov/citations/20205011318)
+/// 2. NASA CARA Analysis Tools,
+///    [`RIC2ECI.m`](https://github.com/nasa/CARA_Analysis_Tools)
+/// 3. D. A. Vallado,
+///    ["Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003](https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf)
 pub fn jacobian_lvlh_to_eci(x_eci: SVector6, variant: OrbitRelativeFrameVariant) -> SMatrix6 {
     jacobian_to_inertial(&rotation_lvlh_to_eci(x_eci), &omega_lvlh(x_eci), variant)
 }
@@ -180,6 +186,14 @@ pub fn jacobian_lvlh_to_eci(x_eci: SVector6, variant: OrbitRelativeFrameVariant)
 ///
 /// let j = jacobian_eci_to_lvlh(x_eci, OrbitRelativeFrameVariant::Rotating);
 /// ```
+///
+/// # References:
+/// 1. NASA Conjunction Assessment Risk Analysis (CARA),
+///    [*Conjunction Assessment Handbook*, NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13)](https://ntrs.nasa.gov/citations/20205011318)
+/// 2. NASA CARA Analysis Tools,
+///    [`RIC2ECI.m`](https://github.com/nasa/CARA_Analysis_Tools)
+/// 3. D. A. Vallado,
+///    ["Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003](https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf)
 pub fn jacobian_eci_to_lvlh(x_eci: SVector6, variant: OrbitRelativeFrameVariant) -> SMatrix6 {
     jacobian_from_inertial(&rotation_eci_to_lvlh(x_eci), &omega_lvlh(x_eci), variant)
 }
@@ -211,6 +225,14 @@ pub fn jacobian_eci_to_lvlh(x_eci: SVector6, variant: OrbitRelativeFrameVariant)
 ///
 /// let p_eci = covariance_lvlh_to_eci(x_eci, &p_lvlh, OrbitRelativeFrameVariant::Rotating);
 /// ```
+///
+/// # References:
+/// 1. NASA Conjunction Assessment Risk Analysis (CARA),
+///    [*Conjunction Assessment Handbook*, NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13)](https://ntrs.nasa.gov/citations/20205011318)
+/// 2. NASA CARA Analysis Tools,
+///    [`RIC2ECI.m`](https://github.com/nasa/CARA_Analysis_Tools)
+/// 3. D. A. Vallado,
+///    ["Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003](https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf)
 pub fn covariance_lvlh_to_eci(
     x_eci: SVector6,
     covariance: &SMatrix6,
@@ -246,6 +268,14 @@ pub fn covariance_lvlh_to_eci(
 ///
 /// let p_lvlh = covariance_eci_to_lvlh(x_eci, &p_eci, OrbitRelativeFrameVariant::Rotating);
 /// ```
+///
+/// # References:
+/// 1. NASA Conjunction Assessment Risk Analysis (CARA),
+///    [*Conjunction Assessment Handbook*, NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13)](https://ntrs.nasa.gov/citations/20205011318)
+/// 2. NASA CARA Analysis Tools,
+///    [`RIC2ECI.m`](https://github.com/nasa/CARA_Analysis_Tools)
+/// 3. D. A. Vallado,
+///    ["Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003](https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf)
 pub fn covariance_eci_to_lvlh(
     x_eci: SVector6,
     covariance: &SMatrix6,
@@ -264,6 +294,10 @@ pub fn covariance_eci_to_lvlh(
 ///
 /// # Returns:
 /// - `x_rel_lvlh`: 6D relative state of the deputy with respect to the chief in the LVLH frame [ρ_X, ρ_Y, ρ_Z, ρ̇_X, ρ̇_Y, ρ̇_Z] (m, m/s)
+///
+/// # References:
+/// - SANA Orbit-Relative Reference Frames registry, `LVLH_ROTATING`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
+/// - CCSDS 500.0-G-4, *Navigation Data—Definitions and Conventions*, Section 4.3.7.2, p. 4-7, November 2019
 ///
 /// # Examples:
 /// ```
@@ -300,6 +334,10 @@ pub fn state_eci_to_lvlh(x_chief: SVector6, x_deputy: SVector6) -> SVector6 {
 /// # Returns:
 /// - `x_deputy`: 6D state vector of the deputy satellite in the ECI frame [x, y, z, vx, vy, vz] (m, m/s)
 ///
+/// # References:
+/// - SANA Orbit-Relative Reference Frames registry, `LVLH_ROTATING`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
+/// - CCSDS 500.0-G-4, *Navigation Data—Definitions and Conventions*, Section 4.3.7.2, p. 4-7, November 2019
+///
 /// # Examples:
 /// ```
 /// use brahe::SVector6;
@@ -333,6 +371,10 @@ pub fn state_lvlh_to_eci(x_chief: SVector6, x_rel_lvlh: SVector6) -> SVector6 {
 /// # Returns
 /// - Rotation matrices transforming LVLH -> ECI, one per state, in input order
 ///
+/// # References
+/// - SANA Orbit-Relative Reference Frames registry, `LVLH_ROTATING`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
+/// - CCSDS 500.0-G-4, *Navigation Data—Definitions and Conventions*, Section 4.3.7.2, p. 4-7, November 2019
+///
 /// # Examples
 /// ```
 /// use brahe::constants::{R_EARTH, AngleFormat};
@@ -358,6 +400,10 @@ pub fn rotations_lvlh_to_eci(x_eci: &[SVector6]) -> Vec<SMatrix3> {
 ///
 /// # Returns
 /// - Rotation matrices transforming ECI -> LVLH, one per state, in input order
+///
+/// # References
+/// - SANA Orbit-Relative Reference Frames registry, `LVLH_ROTATING`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
+/// - CCSDS 500.0-G-4, *Navigation Data—Definitions and Conventions*, Section 4.3.7.2, p. 4-7, November 2019
 ///
 /// # Examples
 /// ```
@@ -386,6 +432,10 @@ pub fn rotations_eci_to_lvlh(x_eci: &[SVector6]) -> Vec<SMatrix3> {
 /// - Angular velocities of the LVLH frame relative to ECI, expressed in LVLH axes, one per
 ///   state, in input order. Units: (*rad/s*)
 ///
+/// # References
+/// - SANA Orbit-Relative Reference Frames registry, `LVLH_ROTATING`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
+/// - CCSDS 500.0-G-4, *Navigation Data—Definitions and Conventions*, Section 4.3.7.2, p. 4-7, November 2019
+///
 /// # Examples
 /// ```
 /// use brahe::constants::{R_EARTH, AngleFormat};
@@ -412,6 +462,10 @@ pub fn omegas_lvlh(x_eci: &[SVector6]) -> Vec<Vector3<f64>> {
 ///
 /// # Returns
 /// - Jacobians such that `P_eci = J P_lvlh Jᵀ`, one per state, in input order
+///
+/// # References
+/// - SANA Orbit-Relative Reference Frames registry, `LVLH_ROTATING`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
+/// - CCSDS 500.0-G-4, *Navigation Data—Definitions and Conventions*, Section 4.3.7.2, p. 4-7, November 2019
 ///
 /// # Examples
 /// ```
@@ -443,6 +497,10 @@ pub fn jacobians_lvlh_to_eci(
 ///
 /// # Returns
 /// - Jacobians such that `P_lvlh = J P_eci Jᵀ`, one per state, in input order
+///
+/// # References
+/// - SANA Orbit-Relative Reference Frames registry, `LVLH_ROTATING`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
+/// - CCSDS 500.0-G-4, *Navigation Data—Definitions and Conventions*, Section 4.3.7.2, p. 4-7, November 2019
 ///
 /// # Examples
 /// ```
@@ -479,6 +537,10 @@ pub fn jacobians_eci_to_lvlh(
 /// # Returns
 /// - State covariances in ECI axes, in input order. Units: (*m²*, *m²/s*, *m²/s²*)
 /// - Error if the lengths do not satisfy the broadcast rule
+///
+/// # References
+/// - SANA Orbit-Relative Reference Frames registry, `LVLH_ROTATING`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
+/// - CCSDS 500.0-G-4, *Navigation Data—Definitions and Conventions*, Section 4.3.7.2, p. 4-7, November 2019
 ///
 /// # Examples
 /// ```
@@ -523,6 +585,10 @@ pub fn covariances_lvlh_to_eci(
 /// - State covariances in LVLH axes, in input order. Units: (*m²*, *m²/s*, *m²/s²*)
 /// - Error if the lengths do not satisfy the broadcast rule
 ///
+/// # References
+/// - SANA Orbit-Relative Reference Frames registry, `LVLH_ROTATING`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
+/// - CCSDS 500.0-G-4, *Navigation Data—Definitions and Conventions*, Section 4.3.7.2, p. 4-7, November 2019
+///
 /// # Examples
 /// ```
 /// use brahe::{SMatrix6};
@@ -566,6 +632,10 @@ pub fn covariances_eci_to_lvlh(
 /// - Deputy relative states in the chief LVLH frame, in input order. Units: (*m*; *m/s*)
 /// - Error if the lengths do not satisfy the broadcast rule
 ///
+/// # References
+/// - SANA Orbit-Relative Reference Frames registry, `LVLH_ROTATING`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
+/// - CCSDS 500.0-G-4, *Navigation Data—Definitions and Conventions*, Section 4.3.7.2, p. 4-7, November 2019
+///
 /// # Examples
 /// ```
 /// use brahe::constants::{R_EARTH, AngleFormat};
@@ -605,6 +675,10 @@ pub fn states_eci_to_lvlh(
 /// - Deputy Cartesian ECI states, in input order. Units: (*m*; *m/s*)
 /// - Error if the lengths do not satisfy the broadcast rule
 ///
+/// # References
+/// - SANA Orbit-Relative Reference Frames registry, `LVLH_ROTATING`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
+/// - CCSDS 500.0-G-4, *Navigation Data—Definitions and Conventions*, Section 4.3.7.2, p. 4-7, November 2019
+///
 /// # Examples
 /// ```
 /// use brahe::constants::{R_EARTH, AngleFormat};
@@ -634,7 +708,7 @@ mod tests {
     use crate::frames::angular_velocity_from_rotation_rate;
     use crate::math::{block_diagonal, skew_symmetric, vector6_from_array};
     use crate::orbits::mean_motion;
-    use crate::relative_motion::{rotation_rtn_to_eci, state_eci_to_rtn};
+    use crate::relative_motion::{omega_rtn, rotation_rtn_to_eci, state_eci_to_rtn};
     use approx::assert_abs_diff_eq;
     use serial_test::parallel;
 
@@ -670,7 +744,7 @@ mod tests {
 
         assert_abs_diff_eq!(z_axis, -r_hat, epsilon = 1e-15);
         assert_abs_diff_eq!(y_axis, -h_hat, epsilon = 1e-15);
-        assert_abs_diff_eq!(x_axis, y_axis.cross(&z_axis), epsilon = 1e-15);
+        assert_abs_diff_eq!(x_axis, h_hat.cross(&r_hat), epsilon = 1e-15);
         assert_abs_diff_eq!(m.determinant(), 1.0, epsilon = 1e-14);
         assert_abs_diff_eq!(m * m.transpose(), SMatrix3::identity(), epsilon = 1e-14);
     }

@@ -45,9 +45,9 @@ def test_rotation_lvlh_is_signed_permutation_of_rtn(eop):
     x = _inclined_test_state()
     rtn = brahe.rotation_rtn_to_eci(x)
     lvlh = brahe.rotation_lvlh_to_eci(x)
-    np.testing.assert_allclose(lvlh[:, 0], rtn[:, 1], atol=1e-15)
-    np.testing.assert_allclose(lvlh[:, 1], -rtn[:, 2], atol=1e-15)
-    np.testing.assert_allclose(lvlh[:, 2], -rtn[:, 0], atol=1e-15)
+    np.testing.assert_array_equal(lvlh[:, 0], rtn[:, 1])
+    np.testing.assert_array_equal(lvlh[:, 1], -rtn[:, 2])
+    np.testing.assert_array_equal(lvlh[:, 2], -rtn[:, 0])
 
 
 def test_rotation_eci_to_lvlh_is_transpose(eop):
@@ -216,6 +216,12 @@ def test_batch_lvlh_match_scalar(eop):
     # Column layout: components along axis 0
     np.testing.assert_array_equal(brahe.rotation_lvlh_to_eci(chiefs.T, axis=0), rot)
     np.testing.assert_array_equal(brahe.omega_lvlh(chiefs.T, axis=0), omegas.T)
+    np.testing.assert_array_equal(
+        brahe.state_eci_to_lvlh(chiefs.T, deputies.T, axis=0), rel.T
+    )
+    np.testing.assert_array_equal(
+        brahe.covariance_lvlh_to_eci(chiefs.T, covs, variant, axis=0), cov_eci
+    )
 
 
 def test_batch_lvlh_covariance_preserves_state_batch_shape(eop):
@@ -232,13 +238,51 @@ def test_batch_lvlh_covariance_preserves_state_batch_shape(eop):
             for i in range(4)
         ]
     ).reshape(2, 2, 6)
-    p_eci = brahe.covariance_lvlh_to_eci(states, np.eye(6), variant)
+    p = np.eye(6)
+    p_eci = brahe.covariance_lvlh_to_eci(states, p, variant)
     assert p_eci.shape == (2, 2, 6, 6)
+    for i in range(2):
+        for j in range(2):
+            np.testing.assert_array_equal(
+                p_eci[i, j], brahe.covariance_lvlh_to_eci(states[i, j], p, variant)
+            )
 
     x = _inclined_test_state()
     covs = np.array([np.eye(6) * (i + 1.0) for i in range(3)])
-    p_eci_single_state = brahe.covariance_lvlh_to_eci(x, covs, variant)
-    assert p_eci_single_state.shape == (3, 6, 6)
+    p_lvlh_single_state = brahe.covariance_eci_to_lvlh(x, covs, variant)
+    assert p_lvlh_single_state.shape == (3, 6, 6)
+    for k in range(3):
+        np.testing.assert_array_equal(
+            p_lvlh_single_state[k], brahe.covariance_eci_to_lvlh(x, covs[k], variant)
+        )
+
+    chiefs = np.array(
+        [
+            brahe.state_koe_to_eci(
+                np.array(
+                    [brahe.R_EARTH + 700e3 + 1e3 * i, 0.01, 97.8, 15.0, 30.0, 45.0 + i]
+                ),
+                brahe.AngleFormat.DEGREES,
+            )
+            for i in range(3)
+        ]
+    )
+    p_eci_singleton_batch = brahe.covariance_lvlh_to_eci(chiefs[:1], covs, variant)
+    assert p_eci_singleton_batch.shape == (3, 6, 6)
+    for k in range(3):
+        np.testing.assert_array_equal(
+            p_eci_singleton_batch[k],
+            brahe.covariance_lvlh_to_eci(chiefs[0], covs[k], variant),
+        )
+
+
+def test_batch_lvlh_empty_covariance_batch(eop):
+    x = _inclined_test_state()
+    variant = brahe.OrbitRelativeFrameVariant.ROTATING
+    empty = brahe.covariance_lvlh_to_eci(x, np.zeros((0, 6, 6)), variant)
+    assert empty.shape == (0, 6, 6)
+    with pytest.raises(ValueError, match="6x6"):
+        brahe.covariance_lvlh_to_eci(x, np.zeros((0, 5, 5)), variant)
 
 
 def test_batch_lvlh_length_mismatch_raises(eop):
@@ -254,8 +298,8 @@ def test_batch_lvlh_length_mismatch_raises(eop):
 
 
 def test_covariance_lvlh_to_eci_matches_manual_rotation(eop):
-    """An asymmetric covariance reproduces J P J^T (symmetrized), which pins
-    the row/column order the parser uses."""
+    """Covariance congruence check: an asymmetric input reproduces the
+    symmetrized J P J^T."""
     x = _inclined_test_state()
     p = np.arange(36.0).reshape(6, 6)
     variant = brahe.OrbitRelativeFrameVariant.INERTIAL

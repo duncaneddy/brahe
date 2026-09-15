@@ -32,7 +32,8 @@ const DEGENERATE_TOLERANCE: f64 = 1e-9;
 ///
 /// Degenerate orbits use the zero-angle conventions: when the eccentricity vector norm is below
 /// 1e-9 (circular orbit) P is taken along the ascending node, and when the node vector norm is
-/// also below 1e-9 (equatorial orbit) P is taken along the inertial x axis.
+/// also below 1e-9 (equatorial orbit) P is taken along the inertial x axis projected into the
+/// orbit plane, so the matrix stays orthonormal.
 ///
 /// # Arguments:
 /// - `x_inertial`: 6D state vector in the inertial frame [x, y, z, vx, vy, vz] (m, m/s)
@@ -71,7 +72,8 @@ pub fn rotation_pqw_to_inertial_for_body(x_inertial: SVector6, gm: f64) -> SMatr
         if node.norm() > DEGENERATE_TOLERANCE {
             node / node.norm()
         } else {
-            Vector3::x()
+            let x_in_plane = Vector3::x() - w_hat[0] * w_hat;
+            x_in_plane / x_in_plane.norm()
         }
     };
     let q_hat = w_hat.cross(&p_hat);
@@ -1340,6 +1342,17 @@ mod tests {
         assert_abs_diff_eq!(p, Vector3::x(), epsilon = 1e-12);
         assert_abs_diff_eq!(q, -Vector3::y(), epsilon = 1e-12);
         assert_abs_diff_eq!(w, -Vector3::z(), epsilon = 1e-12);
+        assert_abs_diff_eq!(m.determinant(), 1.0, epsilon = 1e-14);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_rotation_pqw_near_equatorial_fallback_is_orthonormal() {
+        let x = state(0.0, 3e-8, 15.0, 30.0, 45.0);
+        let m = rotation_pqw_to_eci(x);
+        assert_abs_diff_eq!(m.transpose() * m, SMatrix3::identity(), epsilon = 1e-15);
+        let p: Vector3<f64> = m.column(0).into();
+        assert_abs_diff_eq!(p, Vector3::x(), epsilon = 1e-9);
         assert_abs_diff_eq!(m.determinant(), 1.0, epsilon = 1e-14);
     }
 

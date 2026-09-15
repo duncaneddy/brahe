@@ -81,6 +81,15 @@ def test_rotation_pqw_circular_equatorial_retrograde_is_right_handed(eop):
     assert np.linalg.det(m) == approx(1.0, abs=1e-14)
 
 
+def test_rotation_pqw_near_equatorial_fallback_is_orthonormal(eop):
+    """Rust: test_rotation_pqw_near_equatorial_fallback_is_orthonormal"""
+    x = _state(0.0, 3e-8, 15.0, 30.0, 45.0)
+    m = brahe.rotation_pqw_to_eci(x)
+    np.testing.assert_allclose(m.T @ m, np.eye(3), atol=1e-15)
+    np.testing.assert_allclose(m[:, 0], np.array([1.0, 0.0, 0.0]), atol=1e-9)
+    assert np.linalg.det(m) == approx(1.0, abs=1e-14)
+
+
 def test_rotation_pqw_for_body_about_mars(eop):
     """Rust: test_rotation_pqw_for_body_about_mars"""
     oe = np.array([brahe.R_MARS + 400e3, 0.05, 92.6, 45.0, 270.0, 10.0])

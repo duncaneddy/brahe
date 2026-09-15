@@ -4,8 +4,7 @@ Relative Motion Module
 Satellite relative motion and orbital reference frames.
 
 This module provides transformations between inertial frames and orbital
-reference frames such as RTN (Radial-Tangential-Normal) and LVLH
-(Local-Vertical Local-Horizontal).
+reference frames such as RTN, LVLH, and NTW.
 
 The RTN frame is an orbital reference frame defined as:
 - R (Radial): Points from Earth's center to satellite position

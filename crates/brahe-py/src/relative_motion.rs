@@ -1533,8 +1533,7 @@ fn py_jacobian_eci_to_ntw<'py>(
 }
 
 /// 6x6 Jacobian taking a state covariance in an inertial frame centered on a body with
-/// gravitational parameter `gm` into NTW axes. Exact inverse of
-/// `jacobian_ntw_to_inertial_for_body`.
+/// gravitational parameter `gm` into NTW axes.
 ///
 /// Exact inverse of `jacobian_ntw_to_inertial_for_body`: with `R.T` the inertial-to-NTW
 /// rotation, the Jacobian is `[[R.T, 0], [-skew(omega) @ R.T, R.T]]`.

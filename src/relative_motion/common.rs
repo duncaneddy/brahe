@@ -236,7 +236,7 @@ mod tests {
             expected,
             epsilon = 1e-13
         );
-        // Velocity-direction rate exceeds the position-direction rate at periapsis
+        // Velocity-direction rate is smaller than the position-direction rate at periapsis
         let x_peri = state_koe_to_eci(
             SVector6::new(sma, 0.2, 45.0, 10.0, 0.0, 0.0),
             AngleFormat::Degrees,

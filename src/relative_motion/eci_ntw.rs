@@ -890,7 +890,7 @@ pub fn jacobians_inertial_to_ntw_for_body(
     )
 }
 
-/// Computes the inertial-to-NTW covariance Jacobian for each state in `x_eci`.
+/// Computes the ECI-to-NTW covariance Jacobian for each state in `x_eci`.
 ///
 /// Batch form of [`jacobian_eci_to_ntw`]. Evaluation runs on the global thread pool for
 /// large inputs.
@@ -1330,13 +1330,11 @@ mod tests {
     use approx::assert_abs_diff_eq;
     use serial_test::parallel;
 
-    const OE: [f64; 6] = [0.0, 0.1, 97.8, 15.0, 30.0, 45.0];
-
     fn eccentric_state(dt: f64) -> SVector6 {
         let sma = R_EARTH + 700e3;
         let n = mean_motion(sma, AngleFormat::Degrees);
         state_koe_to_eci(
-            SVector6::new(sma, OE[1], OE[2], OE[3], OE[4], OE[5] + n * dt),
+            SVector6::new(sma, 0.1, 97.8, 15.0, 30.0, 45.0 + n * dt),
             AngleFormat::Degrees,
         )
     }

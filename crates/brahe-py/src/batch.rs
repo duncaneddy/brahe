@@ -582,8 +582,8 @@ fn dispatch_vec_pair<'py, const N: usize>(
 ///
 /// Each argument may be a single vector or a batch. Batches must share a
 /// length, or have length 1, and the returned layout is that of the first
-/// batched argument with the common length. `None` means every argument was
-/// a single vector.
+/// batched argument whose length equals the broadcast length. `None` means
+/// every argument was a single vector.
 #[allow(clippy::type_complexity)]
 fn parse_vec_args<const N: usize>(
     objs: &[&Bound<'_, PyAny>],
@@ -734,7 +734,10 @@ fn parse_covariance_arg(obj: &Bound<'_, PyAny>) -> PyResult<(Vec<SMatrix6>, bool
 /// Dispatch a state-plus-covariance map (covariance rotation about a frame
 /// origin) on scalar or batched arguments. `x` follows the component-axis
 /// convention; a batch of covariances stacks along a leading axis. The two
-/// batch lengths must match or one must be 1. Batched output is `(n, 6, 6)`.
+/// batch lengths must match or one must be 1. When `x` is batched, the
+/// output is `x`'s batch dimensions followed by `(6, 6)`, matching
+/// [`dispatch_vec_matrix`]; when only `covariance` is batched, the output is
+/// `(n, 6, 6)`.
 fn dispatch_vec_covariance<'py, const N: usize>(
     py: Python<'py>,
     x: &Bound<'py, PyAny>,
@@ -743,12 +746,12 @@ fn dispatch_vec_covariance<'py, const N: usize>(
     scalar: impl Fn(SVector<f64, N>, &SMatrix6) -> SMatrix6,
     batch: impl Fn(&[SVector<f64, N>], &[SMatrix6]) -> Result<Vec<SMatrix6>, RustBraheError> + Sync,
 ) -> PyResult<Bound<'py, PyAny>> {
-    let (vecs, is_vec_batch) = match parse_vec_arg::<N>(x, axis)? {
-        VecArg::Single(v) => (vec![v], false),
-        VecArg::Batch { vecs, .. } => (vecs, true),
+    let (vecs, vec_layout) = match parse_vec_arg::<N>(x, axis)? {
+        VecArg::Single(v) => (vec![v], None),
+        VecArg::Batch { vecs, layout } => (vecs, Some(layout)),
     };
     let (covs, is_cov_batch) = parse_covariance_arg(covariance)?;
-    if !is_vec_batch && !is_cov_batch {
+    if vec_layout.is_none() && !is_cov_batch {
         let rotated = scalar(vecs[0], &covs[0]);
         return Ok(matrix_to_numpy!(py, rotated, 6, 6, f64).into_any());
     }
@@ -760,7 +763,10 @@ fn dispatch_vec_covariance<'py, const N: usize>(
         )));
     }
     let out = py.detach(|| batch(&vecs, &covs))?;
-    Ok(matrices_to_numpy::<6>(py, out))
+    match vec_layout {
+        Some(layout) => matrix_batch_to_numpy::<6>(py, &layout, out),
+        None => Ok(matrices_to_numpy::<6>(py, out)),
+    }
 }
 
 /// A numeric argument parsed from Python: a scalar or an array of any shape.

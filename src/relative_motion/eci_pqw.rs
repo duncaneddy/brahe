@@ -11,6 +11,8 @@ use crate::relative_motion::common::{
     jacobian_from_inertial, jacobian_to_inertial, relative_state_from_frame,
     relative_state_to_frame,
 };
+use crate::utils::BraheError;
+use crate::utils::batch::{batch_map, batch_zip};
 
 /// Below this eccentricity-vector or node-vector norm the direction is
 /// undefined and the zero-angle convention applies.
@@ -625,6 +627,632 @@ pub fn state_pqw_to_eci(x_chief: SVector6, x_rel_pqw: SVector6) -> SVector6 {
     state_pqw_to_inertial_for_body(x_chief, x_rel_pqw, GM_EARTH)
 }
 
+/// Computes the PQW-to-inertial rotation matrix, for a body with gravitational parameter
+/// `gm`, for each state in `x_inertial`.
+///
+/// Batch form of [`rotation_pqw_to_inertial_for_body`]. Evaluation runs on the global thread
+/// pool for large inputs.
+///
+/// # Arguments
+/// - `x_inertial`: Cartesian inertial states (position, velocity). Units: (*m*; *m/s*)
+/// - `gm`: Gravitational parameter of the central body. Units: (*m³/s²*)
+///
+/// # Returns
+/// - Rotation matrices transforming PQW -> inertial, one per state, in input order
+///
+/// # References
+/// - SANA Orbit-Relative Reference Frames registry, `PQW_INERTIAL`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
+/// - D. A. Vallado, *Fundamentals of Astrodynamics and Applications*, 4th ed., Section 3.3.3
+///
+/// # Examples
+/// ```
+/// use brahe::constants::GM_MARS;
+/// use brahe::relative_motion::rotations_pqw_to_inertial_for_body;
+/// use brahe::vector6_from_array;
+///
+/// let x = vector6_from_array([3.8e6, 0.0, 0.0, 0.0, 3200.0, 0.0]);
+/// let r = rotations_pqw_to_inertial_for_body(&[x, x], GM_MARS);
+/// assert_eq!(r.len(), 2);
+/// ```
+pub fn rotations_pqw_to_inertial_for_body(x_inertial: &[SVector6], gm: f64) -> Vec<SMatrix3> {
+    batch_map(|x| rotation_pqw_to_inertial_for_body(*x, gm), x_inertial)
+}
+
+/// Computes the PQW-to-ECI rotation matrix for each state in `x_eci`.
+///
+/// Batch form of [`rotation_pqw_to_eci`]. Evaluation runs on the global thread pool for large
+/// inputs.
+///
+/// # Arguments
+/// - `x_eci`: Cartesian ECI states (position, velocity). Units: (*m*; *m/s*)
+///
+/// # Returns
+/// - Rotation matrices transforming PQW -> ECI, one per state, in input order
+///
+/// # References
+/// - SANA Orbit-Relative Reference Frames registry, `PQW_INERTIAL`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
+/// - D. A. Vallado, *Fundamentals of Astrodynamics and Applications*, 4th ed., Section 3.3.3
+///
+/// # Examples
+/// ```
+/// use brahe::constants::{R_EARTH, AngleFormat};
+/// use brahe::coordinates::state_koe_to_eci;
+/// use brahe::relative_motion::rotations_pqw_to_eci;
+/// use brahe::vector6_from_array;
+///
+/// let x = state_koe_to_eci(vector6_from_array([R_EARTH + 700e3, 0.001, 97.8, 15.0, 30.0, 45.0]), AngleFormat::Degrees);
+/// let r = rotations_pqw_to_eci(&[x, x]);
+/// assert_eq!(r.len(), 2);
+/// ```
+pub fn rotations_pqw_to_eci(x_eci: &[SVector6]) -> Vec<SMatrix3> {
+    batch_map(|x| rotation_pqw_to_eci(*x), x_eci)
+}
+
+/// Computes the inertial-to-PQW rotation matrix, for a body with gravitational parameter
+/// `gm`, for each state in `x_inertial`.
+///
+/// Batch form of [`rotation_inertial_to_pqw_for_body`]. Evaluation runs on the global thread
+/// pool for large inputs.
+///
+/// # Arguments
+/// - `x_inertial`: Cartesian inertial states (position, velocity). Units: (*m*; *m/s*)
+/// - `gm`: Gravitational parameter of the central body. Units: (*m³/s²*)
+///
+/// # Returns
+/// - Rotation matrices transforming inertial -> PQW, one per state, in input order
+///
+/// # References
+/// - SANA Orbit-Relative Reference Frames registry, `PQW_INERTIAL`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
+/// - D. A. Vallado, *Fundamentals of Astrodynamics and Applications*, 4th ed., Section 3.3.3
+///
+/// # Examples
+/// ```
+/// use brahe::constants::GM_MARS;
+/// use brahe::relative_motion::rotations_inertial_to_pqw_for_body;
+/// use brahe::vector6_from_array;
+///
+/// let x = vector6_from_array([3.8e6, 0.0, 0.0, 0.0, 3200.0, 0.0]);
+/// let r = rotations_inertial_to_pqw_for_body(&[x, x], GM_MARS);
+/// assert_eq!(r.len(), 2);
+/// ```
+pub fn rotations_inertial_to_pqw_for_body(x_inertial: &[SVector6], gm: f64) -> Vec<SMatrix3> {
+    batch_map(|x| rotation_inertial_to_pqw_for_body(*x, gm), x_inertial)
+}
+
+/// Computes the ECI-to-PQW rotation matrix for each state in `x_eci`.
+///
+/// Batch form of [`rotation_eci_to_pqw`]. Evaluation runs on the global thread pool for large
+/// inputs.
+///
+/// # Arguments
+/// - `x_eci`: Cartesian ECI states (position, velocity). Units: (*m*; *m/s*)
+///
+/// # Returns
+/// - Rotation matrices transforming ECI -> PQW, one per state, in input order
+///
+/// # References
+/// - SANA Orbit-Relative Reference Frames registry, `PQW_INERTIAL`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
+/// - D. A. Vallado, *Fundamentals of Astrodynamics and Applications*, 4th ed., Section 3.3.3
+///
+/// # Examples
+/// ```
+/// use brahe::constants::{R_EARTH, AngleFormat};
+/// use brahe::coordinates::state_koe_to_eci;
+/// use brahe::relative_motion::rotations_eci_to_pqw;
+/// use brahe::vector6_from_array;
+///
+/// let x = state_koe_to_eci(vector6_from_array([R_EARTH + 700e3, 0.001, 97.8, 15.0, 30.0, 45.0]), AngleFormat::Degrees);
+/// let r = rotations_eci_to_pqw(&[x, x]);
+/// assert_eq!(r.len(), 2);
+/// ```
+pub fn rotations_eci_to_pqw(x_eci: &[SVector6]) -> Vec<SMatrix3> {
+    batch_map(|x| rotation_eci_to_pqw(*x), x_eci)
+}
+
+/// Computes the PQW-to-inertial covariance Jacobian, for a body with gravitational parameter
+/// `gm`, for each state in `x_inertial`.
+///
+/// Batch form of [`jacobian_pqw_to_inertial_for_body`]. Evaluation runs on the global thread
+/// pool for large inputs.
+///
+/// # Arguments
+/// - `x_inertial`: Cartesian inertial states of the frame's origin (position, velocity). Units: (*m*; *m/s*)
+/// - `gm`: Gravitational parameter of the central body. Units: (*m³/s²*)
+///
+/// # Returns
+/// - Jacobians such that `P_inertial = J P_pqw Jᵀ`, one per state, in input order
+///
+/// # References
+/// 1. NASA Conjunction Assessment Risk Analysis (CARA),
+///    [*Conjunction Assessment Handbook*, NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13)](https://ntrs.nasa.gov/citations/20205011318)
+/// 2. NASA CARA Analysis Tools,
+///    [`RIC2ECI.m`](https://github.com/nasa/CARA_Analysis_Tools)
+/// 3. D. A. Vallado,
+///    ["Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003](https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf)
+///
+/// # Examples
+/// ```
+/// use brahe::constants::GM_MARS;
+/// use brahe::relative_motion::jacobians_pqw_to_inertial_for_body;
+/// use brahe::vector6_from_array;
+///
+/// let x = vector6_from_array([3.8e6, 0.0, 0.0, 0.0, 3200.0, 0.0]);
+/// let j = jacobians_pqw_to_inertial_for_body(&[x, x], GM_MARS);
+/// assert_eq!(j.len(), 2);
+/// ```
+pub fn jacobians_pqw_to_inertial_for_body(x_inertial: &[SVector6], gm: f64) -> Vec<SMatrix6> {
+    batch_map(|x| jacobian_pqw_to_inertial_for_body(*x, gm), x_inertial)
+}
+
+/// Computes the PQW-to-ECI covariance Jacobian for each state in `x_eci`.
+///
+/// Batch form of [`jacobian_pqw_to_eci`]. Evaluation runs on the global thread pool for
+/// large inputs.
+///
+/// # Arguments
+/// - `x_eci`: Cartesian ECI states of the frame's origin (position, velocity). Units: (*m*; *m/s*)
+///
+/// # Returns
+/// - Jacobians such that `P_eci = J P_pqw Jᵀ`, one per state, in input order
+///
+/// # References
+/// 1. NASA Conjunction Assessment Risk Analysis (CARA),
+///    [*Conjunction Assessment Handbook*, NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13)](https://ntrs.nasa.gov/citations/20205011318)
+/// 2. NASA CARA Analysis Tools,
+///    [`RIC2ECI.m`](https://github.com/nasa/CARA_Analysis_Tools)
+/// 3. D. A. Vallado,
+///    ["Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003](https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf)
+///
+/// # Examples
+/// ```
+/// use brahe::constants::{R_EARTH, AngleFormat};
+/// use brahe::coordinates::state_koe_to_eci;
+/// use brahe::relative_motion::jacobians_pqw_to_eci;
+/// use brahe::vector6_from_array;
+///
+/// let x = state_koe_to_eci(vector6_from_array([R_EARTH + 700e3, 0.001, 97.8, 15.0, 30.0, 45.0]), AngleFormat::Degrees);
+/// let j = jacobians_pqw_to_eci(&[x, x]);
+/// assert_eq!(j.len(), 2);
+/// ```
+pub fn jacobians_pqw_to_eci(x_eci: &[SVector6]) -> Vec<SMatrix6> {
+    batch_map(|x| jacobian_pqw_to_eci(*x), x_eci)
+}
+
+/// Computes the inertial-to-PQW covariance Jacobian, for a body with gravitational parameter
+/// `gm`, for each state in `x_inertial`.
+///
+/// Batch form of [`jacobian_inertial_to_pqw_for_body`]. Evaluation runs on the global thread
+/// pool for large inputs.
+///
+/// # Arguments
+/// - `x_inertial`: Cartesian inertial states of the frame's origin (position, velocity). Units: (*m*; *m/s*)
+/// - `gm`: Gravitational parameter of the central body. Units: (*m³/s²*)
+///
+/// # Returns
+/// - Jacobians such that `P_pqw = J P_inertial Jᵀ`, one per state, in input order
+///
+/// # References
+/// 1. NASA Conjunction Assessment Risk Analysis (CARA),
+///    [*Conjunction Assessment Handbook*, NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13)](https://ntrs.nasa.gov/citations/20205011318)
+/// 2. NASA CARA Analysis Tools,
+///    [`RIC2ECI.m`](https://github.com/nasa/CARA_Analysis_Tools)
+/// 3. D. A. Vallado,
+///    ["Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003](https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf)
+///
+/// # Examples
+/// ```
+/// use brahe::constants::GM_MARS;
+/// use brahe::relative_motion::jacobians_inertial_to_pqw_for_body;
+/// use brahe::vector6_from_array;
+///
+/// let x = vector6_from_array([3.8e6, 0.0, 0.0, 0.0, 3200.0, 0.0]);
+/// let j = jacobians_inertial_to_pqw_for_body(&[x, x], GM_MARS);
+/// assert_eq!(j.len(), 2);
+/// ```
+pub fn jacobians_inertial_to_pqw_for_body(x_inertial: &[SVector6], gm: f64) -> Vec<SMatrix6> {
+    batch_map(|x| jacobian_inertial_to_pqw_for_body(*x, gm), x_inertial)
+}
+
+/// Computes the ECI-to-PQW covariance Jacobian for each state in `x_eci`.
+///
+/// Batch form of [`jacobian_eci_to_pqw`]. Evaluation runs on the global thread pool for
+/// large inputs.
+///
+/// # Arguments
+/// - `x_eci`: Cartesian ECI states of the frame's origin (position, velocity). Units: (*m*; *m/s*)
+///
+/// # Returns
+/// - Jacobians such that `P_pqw = J P_eci Jᵀ`, one per state, in input order
+///
+/// # References
+/// 1. NASA Conjunction Assessment Risk Analysis (CARA),
+///    [*Conjunction Assessment Handbook*, NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13)](https://ntrs.nasa.gov/citations/20205011318)
+/// 2. NASA CARA Analysis Tools,
+///    [`RIC2ECI.m`](https://github.com/nasa/CARA_Analysis_Tools)
+/// 3. D. A. Vallado,
+///    ["Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003](https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf)
+///
+/// # Examples
+/// ```
+/// use brahe::constants::{R_EARTH, AngleFormat};
+/// use brahe::coordinates::state_koe_to_eci;
+/// use brahe::relative_motion::jacobians_eci_to_pqw;
+/// use brahe::vector6_from_array;
+///
+/// let x = state_koe_to_eci(vector6_from_array([R_EARTH + 700e3, 0.001, 97.8, 15.0, 30.0, 45.0]), AngleFormat::Degrees);
+/// let j = jacobians_eci_to_pqw(&[x, x]);
+/// assert_eq!(j.len(), 2);
+/// ```
+pub fn jacobians_eci_to_pqw(x_eci: &[SVector6]) -> Vec<SMatrix6> {
+    batch_map(|x| jacobian_eci_to_pqw(*x), x_eci)
+}
+
+/// Transforms each state covariance in `covariances` from PQW axes into an inertial frame
+/// centered on a body with gravitational parameter `gm`.
+///
+/// Batch form of [`covariance_pqw_to_inertial_for_body`]. Evaluation runs on the global
+/// thread pool for large inputs.
+///
+/// The `x_inertial` and `covariances` arguments follow the broadcast rule: each argument has
+/// length 1 or the common batch length.
+///
+/// # Arguments
+/// - `x_inertial`: Cartesian inertial states of the frame's origin, length 1 or the batch length. Units: (*m*; *m/s*)
+/// - `covariances`: State covariances in PQW axes, length 1 or the batch length. Units: (*m²*, *m²/s*, *m²/s²*)
+/// - `gm`: Gravitational parameter of the central body. Units: (*m³/s²*)
+///
+/// # Returns
+/// - State covariances in inertial axes, in input order. Units: (*m²*, *m²/s*, *m²/s²*)
+/// - Error if the lengths do not satisfy the broadcast rule
+///
+/// # References
+/// 1. NASA Conjunction Assessment Risk Analysis (CARA),
+///    [*Conjunction Assessment Handbook*, NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13)](https://ntrs.nasa.gov/citations/20205011318)
+/// 2. NASA CARA Analysis Tools,
+///    [`RIC2ECI.m`](https://github.com/nasa/CARA_Analysis_Tools)
+/// 3. D. A. Vallado,
+///    ["Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003](https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf)
+///
+/// # Examples
+/// ```
+/// use brahe::SMatrix6;
+/// use brahe::constants::GM_MARS;
+/// use brahe::relative_motion::covariances_pqw_to_inertial_for_body;
+/// use brahe::vector6_from_array;
+///
+/// let x = vector6_from_array([3.8e6, 0.0, 0.0, 0.0, 3200.0, 0.0]);
+/// let p = vec![SMatrix6::identity(); 2];
+/// let p_inertial = covariances_pqw_to_inertial_for_body(&[x], &p, GM_MARS).unwrap();
+/// assert_eq!(p_inertial.len(), 2);
+/// ```
+pub fn covariances_pqw_to_inertial_for_body(
+    x_inertial: &[SVector6],
+    covariances: &[SMatrix6],
+    gm: f64,
+) -> Result<Vec<SMatrix6>, BraheError> {
+    batch_zip(
+        |x, p| covariance_pqw_to_inertial_for_body(*x, p, gm),
+        x_inertial,
+        covariances,
+    )
+}
+
+/// Transforms each state covariance in `covariances` from PQW axes into ECI axes.
+///
+/// Batch form of [`covariance_pqw_to_eci`]. Evaluation runs on the global thread pool for
+/// large inputs.
+///
+/// The `x_eci` and `covariances` arguments follow the broadcast rule: each argument has
+/// length 1 or the common batch length.
+///
+/// # Arguments
+/// - `x_eci`: Cartesian ECI states of the frame's origin, length 1 or the batch length. Units: (*m*; *m/s*)
+/// - `covariances`: State covariances in PQW axes, length 1 or the batch length. Units: (*m²*, *m²/s*, *m²/s²*)
+///
+/// # Returns
+/// - State covariances in ECI axes, in input order. Units: (*m²*, *m²/s*, *m²/s²*)
+/// - Error if the lengths do not satisfy the broadcast rule
+///
+/// # References
+/// 1. NASA Conjunction Assessment Risk Analysis (CARA),
+///    [*Conjunction Assessment Handbook*, NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13)](https://ntrs.nasa.gov/citations/20205011318)
+/// 2. NASA CARA Analysis Tools,
+///    [`RIC2ECI.m`](https://github.com/nasa/CARA_Analysis_Tools)
+/// 3. D. A. Vallado,
+///    ["Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003](https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf)
+///
+/// # Examples
+/// ```
+/// use brahe::SMatrix6;
+/// use brahe::constants::{R_EARTH, AngleFormat};
+/// use brahe::coordinates::state_koe_to_eci;
+/// use brahe::relative_motion::covariances_pqw_to_eci;
+/// use brahe::vector6_from_array;
+///
+/// let x = state_koe_to_eci(vector6_from_array([R_EARTH + 700e3, 0.001, 97.8, 15.0, 30.0, 45.0]), AngleFormat::Degrees);
+/// let p = vec![SMatrix6::identity(); 2];
+/// let p_eci = covariances_pqw_to_eci(&[x], &p).unwrap();
+/// assert_eq!(p_eci.len(), 2);
+/// ```
+pub fn covariances_pqw_to_eci(
+    x_eci: &[SVector6],
+    covariances: &[SMatrix6],
+) -> Result<Vec<SMatrix6>, BraheError> {
+    batch_zip(|x, p| covariance_pqw_to_eci(*x, p), x_eci, covariances)
+}
+
+/// Transforms each state covariance in `covariances` from an inertial frame centered on a
+/// body with gravitational parameter `gm` into PQW axes.
+///
+/// Batch form of [`covariance_inertial_to_pqw_for_body`]. Evaluation runs on the global
+/// thread pool for large inputs.
+///
+/// The `x_inertial` and `covariances` arguments follow the broadcast rule: each argument has
+/// length 1 or the common batch length.
+///
+/// # Arguments
+/// - `x_inertial`: Cartesian inertial states of the frame's origin, length 1 or the batch length. Units: (*m*; *m/s*)
+/// - `covariances`: State covariances in the inertial frame, length 1 or the batch length. Units: (*m²*, *m²/s*, *m²/s²*)
+/// - `gm`: Gravitational parameter of the central body. Units: (*m³/s²*)
+///
+/// # Returns
+/// - State covariances in PQW axes, in input order. Units: (*m²*, *m²/s*, *m²/s²*)
+/// - Error if the lengths do not satisfy the broadcast rule
+///
+/// # References
+/// 1. NASA Conjunction Assessment Risk Analysis (CARA),
+///    [*Conjunction Assessment Handbook*, NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13)](https://ntrs.nasa.gov/citations/20205011318)
+/// 2. NASA CARA Analysis Tools,
+///    [`RIC2ECI.m`](https://github.com/nasa/CARA_Analysis_Tools)
+/// 3. D. A. Vallado,
+///    ["Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003](https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf)
+///
+/// # Examples
+/// ```
+/// use brahe::SMatrix6;
+/// use brahe::constants::GM_MARS;
+/// use brahe::relative_motion::covariances_inertial_to_pqw_for_body;
+/// use brahe::vector6_from_array;
+///
+/// let x = vector6_from_array([3.8e6, 0.0, 0.0, 0.0, 3200.0, 0.0]);
+/// let p = vec![SMatrix6::identity(); 2];
+/// let p_pqw = covariances_inertial_to_pqw_for_body(&[x], &p, GM_MARS).unwrap();
+/// assert_eq!(p_pqw.len(), 2);
+/// ```
+pub fn covariances_inertial_to_pqw_for_body(
+    x_inertial: &[SVector6],
+    covariances: &[SMatrix6],
+    gm: f64,
+) -> Result<Vec<SMatrix6>, BraheError> {
+    batch_zip(
+        |x, p| covariance_inertial_to_pqw_for_body(*x, p, gm),
+        x_inertial,
+        covariances,
+    )
+}
+
+/// Transforms each state covariance in `covariances` from ECI axes into PQW axes.
+///
+/// Batch form of [`covariance_eci_to_pqw`]. Evaluation runs on the global thread pool for
+/// large inputs.
+///
+/// The `x_eci` and `covariances` arguments follow the broadcast rule: each argument has
+/// length 1 or the common batch length.
+///
+/// # Arguments
+/// - `x_eci`: Cartesian ECI states of the frame's origin, length 1 or the batch length. Units: (*m*; *m/s*)
+/// - `covariances`: State covariances in ECI axes, length 1 or the batch length. Units: (*m²*, *m²/s*, *m²/s²*)
+///
+/// # Returns
+/// - State covariances in PQW axes, in input order. Units: (*m²*, *m²/s*, *m²/s²*)
+/// - Error if the lengths do not satisfy the broadcast rule
+///
+/// # References
+/// 1. NASA Conjunction Assessment Risk Analysis (CARA),
+///    [*Conjunction Assessment Handbook*, NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13)](https://ntrs.nasa.gov/citations/20205011318)
+/// 2. NASA CARA Analysis Tools,
+///    [`RIC2ECI.m`](https://github.com/nasa/CARA_Analysis_Tools)
+/// 3. D. A. Vallado,
+///    ["Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003](https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf)
+///
+/// # Examples
+/// ```
+/// use brahe::SMatrix6;
+/// use brahe::constants::{R_EARTH, AngleFormat};
+/// use brahe::coordinates::state_koe_to_eci;
+/// use brahe::relative_motion::covariances_eci_to_pqw;
+/// use brahe::vector6_from_array;
+///
+/// let x = state_koe_to_eci(vector6_from_array([R_EARTH + 700e3, 0.001, 97.8, 15.0, 30.0, 45.0]), AngleFormat::Degrees);
+/// let p = vec![SMatrix6::identity(); 2];
+/// let p_pqw = covariances_eci_to_pqw(&[x], &p).unwrap();
+/// assert_eq!(p_pqw.len(), 2);
+/// ```
+pub fn covariances_eci_to_pqw(
+    x_eci: &[SVector6],
+    covariances: &[SMatrix6],
+) -> Result<Vec<SMatrix6>, BraheError> {
+    batch_zip(|x, p| covariance_eci_to_pqw(*x, p), x_eci, covariances)
+}
+
+/// Computes the PQW relative state of each deputy with respect to its chief, for a body with
+/// gravitational parameter `gm`.
+///
+/// Batch form of [`state_inertial_to_pqw_for_body`]. Evaluation runs on the global thread
+/// pool for large inputs.
+///
+/// The chief and deputy arguments follow the broadcast rule: each has length 1
+/// or the common batch length, so one chief may be paired with many deputies
+/// and vice versa.
+///
+/// # Arguments
+/// - `x_chief`: Chief Cartesian inertial states, length 1 or the batch length. Units: (*m*; *m/s*)
+/// - `x_deputy`: Deputy Cartesian inertial states, length 1 or the batch length. Units: (*m*; *m/s*)
+/// - `gm`: Gravitational parameter of the central body. Units: (*m³/s²*)
+///
+/// # Returns
+/// - Deputy relative states in the chief PQW frame, in input order. Units: (*m*; *m/s*)
+/// - Error if the lengths do not satisfy the broadcast rule
+///
+/// # References
+/// - SANA Orbit-Relative Reference Frames registry, `PQW_INERTIAL`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
+/// - D. A. Vallado, *Fundamentals of Astrodynamics and Applications*, 4th ed., Section 3.3.3
+///
+/// # Examples
+/// ```
+/// use brahe::constants::GM_MARS;
+/// use brahe::relative_motion::states_inertial_to_pqw_for_body;
+/// use brahe::vector6_from_array;
+///
+/// let chief = vector6_from_array([3.8e6, 0.0, 0.0, 0.0, 3200.0, 0.0]);
+/// let deputies = vec![
+///     vector6_from_array([3.8e6 + 100.0, 200.0, -50.0, 0.1, 3200.0, 0.1]),
+///     vector6_from_array([3.8e6 - 150.0, -100.0, 80.0, -0.1, 3200.1, -0.2]),
+/// ];
+/// let rel = states_inertial_to_pqw_for_body(&[chief], &deputies, GM_MARS).unwrap();
+/// assert_eq!(rel.len(), 2);
+/// ```
+pub fn states_inertial_to_pqw_for_body(
+    x_chief: &[SVector6],
+    x_deputy: &[SVector6],
+    gm: f64,
+) -> Result<Vec<SVector6>, BraheError> {
+    batch_zip(
+        |c, d| state_inertial_to_pqw_for_body(*c, *d, gm),
+        x_chief,
+        x_deputy,
+    )
+}
+
+/// Computes the PQW relative state of each deputy with respect to its chief.
+///
+/// Batch form of [`state_eci_to_pqw`]. Evaluation runs on the global thread pool for
+/// large inputs.
+///
+/// The chief and deputy arguments follow the broadcast rule: each has length 1
+/// or the common batch length, so one chief may be paired with many deputies
+/// and vice versa.
+///
+/// # Arguments
+/// - `x_chief`: Chief Cartesian ECI states, length 1 or the batch length. Units: (*m*; *m/s*)
+/// - `x_deputy`: Deputy Cartesian ECI states, length 1 or the batch length. Units: (*m*; *m/s*)
+///
+/// # Returns
+/// - Deputy relative states in the chief PQW frame, in input order. Units: (*m*; *m/s*)
+/// - Error if the lengths do not satisfy the broadcast rule
+///
+/// # References
+/// - SANA Orbit-Relative Reference Frames registry, `PQW_INERTIAL`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
+/// - D. A. Vallado, *Fundamentals of Astrodynamics and Applications*, 4th ed., Section 3.3.3
+///
+/// # Examples
+/// ```
+/// use brahe::constants::{R_EARTH, AngleFormat};
+/// use brahe::coordinates::state_koe_to_eci;
+/// use brahe::relative_motion::states_eci_to_pqw;
+/// use brahe::vector6_from_array;
+///
+/// let chief = state_koe_to_eci(vector6_from_array([R_EARTH + 700e3, 0.001, 97.8, 15.0, 30.0, 45.0]), AngleFormat::Degrees);
+/// let deputies = vec![
+///     state_koe_to_eci(vector6_from_array([R_EARTH + 701e3, 0.0015, 97.85, 15.05, 30.05, 45.05]), AngleFormat::Degrees),
+///     state_koe_to_eci(vector6_from_array([R_EARTH + 702e3, 0.0012, 97.82, 15.02, 30.02, 45.02]), AngleFormat::Degrees),
+/// ];
+/// let rel = states_eci_to_pqw(&[chief], &deputies).unwrap();
+/// assert_eq!(rel.len(), 2);
+/// ```
+pub fn states_eci_to_pqw(
+    x_chief: &[SVector6],
+    x_deputy: &[SVector6],
+) -> Result<Vec<SVector6>, BraheError> {
+    batch_zip(|c, d| state_eci_to_pqw(*c, *d), x_chief, x_deputy)
+}
+
+/// Computes the inertial state of each deputy from its PQW relative state and chief, for a
+/// body with gravitational parameter `gm`.
+///
+/// Batch form of [`state_pqw_to_inertial_for_body`]. Evaluation runs on the global thread
+/// pool for large inputs.
+///
+/// The chief and deputy arguments follow the broadcast rule: each has length 1
+/// or the common batch length, so one chief may be paired with many deputies
+/// and vice versa.
+///
+/// # Arguments
+/// - `x_chief`: Chief Cartesian inertial states, length 1 or the batch length. Units: (*m*; *m/s*)
+/// - `x_rel_pqw`: Deputy relative states in the chief PQW frame, length 1 or the batch length. Units: (*m*; *m/s*)
+/// - `gm`: Gravitational parameter of the central body. Units: (*m³/s²*)
+///
+/// # Returns
+/// - Deputy Cartesian inertial states, in input order. Units: (*m*; *m/s*)
+/// - Error if the lengths do not satisfy the broadcast rule
+///
+/// # References
+/// - SANA Orbit-Relative Reference Frames registry, `PQW_INERTIAL`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
+/// - D. A. Vallado, *Fundamentals of Astrodynamics and Applications*, 4th ed., Section 3.3.3
+///
+/// # Examples
+/// ```
+/// use brahe::constants::GM_MARS;
+/// use brahe::relative_motion::states_pqw_to_inertial_for_body;
+/// use brahe::vector6_from_array;
+///
+/// let chief = vector6_from_array([3.8e6, 0.0, 0.0, 0.0, 3200.0, 0.0]);
+/// let rel = vec![vector6_from_array([1000.0, 500.0, -300.0, 0.0, 0.0, 0.0]); 2];
+/// let deputies = states_pqw_to_inertial_for_body(&[chief], &rel, GM_MARS).unwrap();
+/// assert_eq!(deputies.len(), 2);
+/// ```
+pub fn states_pqw_to_inertial_for_body(
+    x_chief: &[SVector6],
+    x_rel_pqw: &[SVector6],
+    gm: f64,
+) -> Result<Vec<SVector6>, BraheError> {
+    batch_zip(
+        |c, r| state_pqw_to_inertial_for_body(*c, *r, gm),
+        x_chief,
+        x_rel_pqw,
+    )
+}
+
+/// Computes the ECI state of each deputy from its PQW relative state and chief.
+///
+/// Batch form of [`state_pqw_to_eci`]. Evaluation runs on the global thread pool for
+/// large inputs.
+///
+/// The chief and deputy arguments follow the broadcast rule: each has length 1
+/// or the common batch length, so one chief may be paired with many deputies
+/// and vice versa.
+///
+/// # Arguments
+/// - `x_chief`: Chief Cartesian ECI states, length 1 or the batch length. Units: (*m*; *m/s*)
+/// - `x_rel_pqw`: Deputy relative states in the chief PQW frame, length 1 or the batch length. Units: (*m*; *m/s*)
+///
+/// # Returns
+/// - Deputy Cartesian ECI states, in input order. Units: (*m*; *m/s*)
+/// - Error if the lengths do not satisfy the broadcast rule
+///
+/// # References
+/// - SANA Orbit-Relative Reference Frames registry, `PQW_INERTIAL`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
+/// - D. A. Vallado, *Fundamentals of Astrodynamics and Applications*, 4th ed., Section 3.3.3
+///
+/// # Examples
+/// ```
+/// use brahe::constants::{R_EARTH, AngleFormat};
+/// use brahe::coordinates::state_koe_to_eci;
+/// use brahe::relative_motion::states_pqw_to_eci;
+/// use brahe::vector6_from_array;
+///
+/// let chief = state_koe_to_eci(vector6_from_array([R_EARTH + 700e3, 0.001, 97.8, 15.0, 30.0, 45.0]), AngleFormat::Degrees);
+/// let rel = vec![vector6_from_array([1000.0, 500.0, -300.0, 0.0, 0.0, 0.0]); 2];
+/// let deputies = states_pqw_to_eci(&[chief], &rel).unwrap();
+/// assert_eq!(deputies.len(), 2);
+/// ```
+pub fn states_pqw_to_eci(
+    x_chief: &[SVector6],
+    x_rel_pqw: &[SVector6],
+) -> Result<Vec<SVector6>, BraheError> {
+    batch_zip(|c, r| state_pqw_to_eci(*c, *r), x_chief, x_rel_pqw)
+}
+
 #[cfg(test)]
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
@@ -850,5 +1478,87 @@ mod tests {
         let x_rel = SVector6::new(1000.0, 500.0, -300.0, 0.1, -0.05, 0.02);
         let x_deputy = state_pqw_to_eci(x_chief, x_rel);
         assert_abs_diff_eq!(state_eci_to_pqw(x_chief, x_deputy), x_rel, epsilon = 1e-8);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_batch_pqw_match_scalar() {
+        let chiefs: Vec<SVector6> = (0..3)
+            .map(|i| state(0.1, 97.8, 15.0, 30.0, 45.0 + i as f64))
+            .collect();
+        let deputies: Vec<SVector6> = chiefs
+            .iter()
+            .map(|c| c + SVector6::new(100.0, 200.0, 300.0, 0.1, 0.2, 0.3))
+            .collect();
+        let covs: Vec<SMatrix6> = (0..3)
+            .map(|i| SMatrix6::identity() * (i as f64 + 1.0))
+            .collect();
+        let gm = GM_MARS;
+
+        let rot = rotations_pqw_to_eci(&chiefs);
+        let rot_body = rotations_pqw_to_inertial_for_body(&chiefs, gm);
+        let rot_inv = rotations_eci_to_pqw(&chiefs);
+        let rot_inv_body = rotations_inertial_to_pqw_for_body(&chiefs, gm);
+        let jac = jacobians_pqw_to_eci(&chiefs);
+        let jac_body = jacobians_pqw_to_inertial_for_body(&chiefs, gm);
+        let jac_inv = jacobians_eci_to_pqw(&chiefs);
+        let jac_inv_body = jacobians_inertial_to_pqw_for_body(&chiefs, gm);
+        // covariances_pqw_to_eci broadcasts a single covariance across all chiefs
+        let cov = covariances_pqw_to_eci(&chiefs, &covs[..1]).unwrap();
+        let cov_body = covariances_pqw_to_inertial_for_body(&chiefs, &covs, gm).unwrap();
+        let cov_inv = covariances_eci_to_pqw(&chiefs, &covs).unwrap();
+        let cov_inv_body = covariances_inertial_to_pqw_for_body(&chiefs, &covs, gm).unwrap();
+        // states_eci_to_pqw broadcasts a single chief across all deputies
+        let rel = states_eci_to_pqw(&chiefs[..1], &deputies).unwrap();
+        let rel_body = states_inertial_to_pqw_for_body(&chiefs, &deputies, gm).unwrap();
+        let back = states_pqw_to_eci(&chiefs, &rel).unwrap();
+        let back_body = states_pqw_to_inertial_for_body(&chiefs, &rel, gm).unwrap();
+
+        for i in 0..3 {
+            assert_eq!(rot[i], rotation_pqw_to_eci(chiefs[i]));
+            assert_eq!(
+                rot_body[i],
+                rotation_pqw_to_inertial_for_body(chiefs[i], gm)
+            );
+            assert_eq!(rot_inv[i], rotation_eci_to_pqw(chiefs[i]));
+            assert_eq!(
+                rot_inv_body[i],
+                rotation_inertial_to_pqw_for_body(chiefs[i], gm)
+            );
+            assert_eq!(jac[i], jacobian_pqw_to_eci(chiefs[i]));
+            assert_eq!(
+                jac_body[i],
+                jacobian_pqw_to_inertial_for_body(chiefs[i], gm)
+            );
+            assert_eq!(jac_inv[i], jacobian_eci_to_pqw(chiefs[i]));
+            assert_eq!(
+                jac_inv_body[i],
+                jacobian_inertial_to_pqw_for_body(chiefs[i], gm)
+            );
+            assert_eq!(cov[i], covariance_pqw_to_eci(chiefs[i], &covs[0]));
+            assert_eq!(
+                cov_body[i],
+                covariance_pqw_to_inertial_for_body(chiefs[i], &covs[i], gm)
+            );
+            assert_eq!(cov_inv[i], covariance_eci_to_pqw(chiefs[i], &covs[i]));
+            assert_eq!(
+                cov_inv_body[i],
+                covariance_inertial_to_pqw_for_body(chiefs[i], &covs[i], gm)
+            );
+            assert_eq!(rel[i], state_eci_to_pqw(chiefs[0], deputies[i]));
+            assert_eq!(
+                rel_body[i],
+                state_inertial_to_pqw_for_body(chiefs[i], deputies[i], gm)
+            );
+            assert_eq!(back[i], state_pqw_to_eci(chiefs[i], rel[i]));
+            assert_eq!(
+                back_body[i],
+                state_pqw_to_inertial_for_body(chiefs[i], rel[i], gm)
+            );
+        }
+
+        assert!(states_eci_to_pqw(&chiefs[..2], &deputies).is_err());
+        assert!(covariances_pqw_to_eci(&chiefs[..2], &covs).is_err());
+        assert!(rotations_pqw_to_eci(&[]).is_empty());
     }
 }

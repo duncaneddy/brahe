@@ -656,17 +656,19 @@ mod tests {
     use crate::frames::registry::{FRAME_REGISTRY, FrameEntry};
     use crate::frames::{
         CallbackOrientation, OrientationProvider, clear_frame_registry, clear_object_registry,
-        position_frame_to_frame, register_frame, register_object, rotation_frame_to_frame,
-        unregister_frame,
+        covariance_frame_to_frame, position_frame_to_frame, register_frame, register_object,
+        rotation_frame_to_frame, unregister_frame,
     };
-    use crate::math::SVector6;
+    use crate::math::{SMatrix6, SVector6};
     use crate::orbit_dynamics::ephemerides::sun_position;
     use crate::relative_motion::{
-        omega_lvlh, rotation_eci_to_lvlh, state_eci_to_lvlh, state_eci_to_rtn,
+        covariance_eci_to_lvlh, omega_lvlh, rotation_eci_to_lvlh, state_eci_to_lvlh,
+        state_eci_to_rtn,
     };
     use crate::spice::NAIFId;
     use crate::time::TimeSystem;
     use crate::utils::testing::{setup_global_test_eop, setup_global_test_spice};
+    use nalgebra::DMatrix;
 
     #[test]
     #[parallel]
@@ -1152,6 +1154,39 @@ mod tests {
         let r =
             rotation_frame_to_frame(CelestialFrame::GCRF, ReferenceFrame::LVLH("A"), epc).unwrap();
         assert_abs_diff_eq!(r, rotation_eci_to_lvlh(x), epsilon = 1e-14);
+        clear_object_registry();
+    }
+
+    #[test]
+    #[serial]
+    fn test_lvlh_covariance_route_matches_relative_motion() {
+        clear_object_registry();
+        let epc = Epoch::from_date(2024, 3, 1, TimeSystem::UTC);
+        let oe = SVector6::new(R_EARTH + 500e3, 0.001, 97.8, 15.0, 30.0, 45.0);
+        let x = state_koe_to_eci(oe, AngleFormat::Degrees);
+        register_object("A", FnProvider(move |_| Ok(x)), CelestialFrame::GCRF).unwrap();
+
+        let mut p = DMatrix::<f64>::zeros(6, 6);
+        for i in 0..6 {
+            p[(i, i)] = (i as f64 + 1.0) * 10.0;
+        }
+
+        // `covariance_frame_to_frame` routes through a numerically differenced
+        // Jacobian, so the comparison uses a looser relative tolerance than the
+        // analytic transforms in `relative_motion`.
+        let p_graph =
+            covariance_frame_to_frame(CelestialFrame::GCRF, ReferenceFrame::LVLH("A"), epc, &p)
+                .unwrap();
+        let p_graph_static = SMatrix6::from_iterator(p_graph.iter().copied());
+
+        let p6 = SMatrix6::from_iterator(p.iter().copied());
+        let p_expected = covariance_eci_to_lvlh(x, &p6, OrbitRelativeFrameVariant::Rotating);
+
+        assert_abs_diff_eq!(
+            (p_graph_static - p_expected).norm() / p_expected.norm(),
+            0.0,
+            epsilon = 1e-6
+        );
         clear_object_registry();
     }
 

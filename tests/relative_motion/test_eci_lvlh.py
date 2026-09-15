@@ -36,7 +36,7 @@ def test_rotation_lvlh_to_eci_axes_match_definition(eop):
     m = brahe.rotation_lvlh_to_eci(x)
     np.testing.assert_allclose(m[:, 2], -r_hat, atol=1e-15)
     np.testing.assert_allclose(m[:, 1], -h_hat, atol=1e-15)
-    np.testing.assert_allclose(m[:, 0], np.cross(m[:, 1], m[:, 2]), atol=1e-15)
+    np.testing.assert_allclose(m[:, 0], np.cross(h_hat, r_hat), atol=1e-15)
     assert np.linalg.det(m) == approx(1.0, abs=1e-14)
     np.testing.assert_allclose(m @ m.T, np.eye(3), atol=1e-14)
 
@@ -218,6 +218,29 @@ def test_batch_lvlh_match_scalar(eop):
     np.testing.assert_array_equal(brahe.omega_lvlh(chiefs.T, axis=0), omegas.T)
 
 
+def test_batch_lvlh_covariance_preserves_state_batch_shape(eop):
+    variant = brahe.OrbitRelativeFrameVariant.ROTATING
+
+    states = np.array(
+        [
+            brahe.state_koe_to_eci(
+                np.array(
+                    [brahe.R_EARTH + 700e3 + 1e3 * i, 0.01, 97.8, 15.0, 30.0, 45.0 + i]
+                ),
+                brahe.AngleFormat.DEGREES,
+            )
+            for i in range(4)
+        ]
+    ).reshape(2, 2, 6)
+    p_eci = brahe.covariance_lvlh_to_eci(states, np.eye(6), variant)
+    assert p_eci.shape == (2, 2, 6, 6)
+
+    x = _inclined_test_state()
+    covs = np.array([np.eye(6) * (i + 1.0) for i in range(3)])
+    p_eci_single_state = brahe.covariance_lvlh_to_eci(x, covs, variant)
+    assert p_eci_single_state.shape == (3, 6, 6)
+
+
 def test_batch_lvlh_length_mismatch_raises(eop):
     chiefs = np.array([_inclined_test_state()] * 2)
     deputies = np.array([_inclined_test_state()] * 3)
@@ -231,9 +254,8 @@ def test_batch_lvlh_length_mismatch_raises(eop):
 
 
 def test_covariance_lvlh_to_eci_matches_manual_rotation(eop):
-    """Catches a transpose defect in the batch covariance parser: an
-    asymmetric input only reproduces symmetrize(R6 @ p @ R6.T) if the matrix
-    is loaded without an erroneous extra transpose."""
+    """An asymmetric covariance reproduces J P J^T (symmetrized), which pins
+    the row/column order the parser uses."""
     x = _inclined_test_state()
     p = np.arange(36.0).reshape(6, 6)
     variant = brahe.OrbitRelativeFrameVariant.INERTIAL

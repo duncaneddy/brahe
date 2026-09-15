@@ -475,6 +475,23 @@ def test_ntw_rotation_matches_relative_motion(clear_frame_registries):
     np.testing.assert_allclose(got, bh.state_eci_to_ntw(x, x_b), atol=1e-9)
 
 
+def test_ntw_rate_uses_the_declared_center_gm(clear_frame_registries):
+    epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+    oe = np.array([bh.R_MARS + 400e3, 0.05, 92.6, 45.0, 270.0, 10.0])
+    x = bh.state_koe_to_inertial_for_body(
+        oe, bh.CentralBody.Mars, bh.AngleFormat.DEGREES
+    )
+    mars_frame = bh.CelestialFrame.Centered(499, bh.FrameAxes.ICRF)
+    bh.register_object("M", lambda epc: x, mars_frame)
+    oe_b = np.array([bh.R_MARS + 400e3, 0.05, 92.6, 45.0, 270.0, 10.2])
+    x_b = bh.state_koe_to_inertial_for_body(
+        oe_b, bh.CentralBody.Mars, bh.AngleFormat.DEGREES
+    )
+    got = bh.state_frame_to_frame(mars_frame, bh.ReferenceFrame.NTW("M"), epc, x_b)
+    expected = bh.state_inertial_to_ntw_for_body(x, x_b, bh.GM_MARS)
+    np.testing.assert_allclose(got, expected, atol=1e-9)
+
+
 def test_sun_vector_in_sensor_frame(eop, clear_frame_registries):
     epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
     x_sc = bh.state_koe_to_eci(

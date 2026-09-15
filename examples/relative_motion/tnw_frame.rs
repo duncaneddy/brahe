@@ -20,7 +20,7 @@ impl SStateProvider for ConstantProvider {
 fn main() {
     bh::initialize_eop().unwrap();
 
-    // Circular orbit: X = T, Z = N, and the in-plane axes are reversed from RTN
+    // Circular orbit: X = RTN's T, Z = RTN's N, and the in-plane axes are the RTN pair swapped and negated
     let x_circ = bh::state_koe_to_eci(
         Vector6::new(bh::R_EARTH + 700e3, 0.0, 97.8, 15.0, 30.0, 45.0),
         bh::AngleFormat::Degrees,

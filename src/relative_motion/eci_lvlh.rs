@@ -11,6 +11,8 @@ use crate::relative_motion::common::{
     relative_state_to_frame,
 };
 use crate::relative_motion::omega_rtn;
+use crate::utils::BraheError;
+use crate::utils::batch::{batch_map, batch_zip};
 
 /// Computes the rotation matrix transforming a vector in the Local-Vertical Local-Horizontal
 /// (LVLH) frame to the Earth-Centered Inertial (ECI) frame.
@@ -320,6 +322,308 @@ pub fn state_lvlh_to_eci(x_chief: SVector6, x_rel_lvlh: SVector6) -> SVector6 {
     )
 }
 
+/// Computes the LVLH-to-ECI rotation matrix for each state in `x_eci`.
+///
+/// Batch form of [`rotation_lvlh_to_eci`]. Evaluation runs on the global thread pool for
+/// large inputs.
+///
+/// # Arguments
+/// - `x_eci`: Cartesian ECI states (position, velocity). Units: (*m*; *m/s*)
+///
+/// # Returns
+/// - Rotation matrices transforming LVLH -> ECI, one per state, in input order
+///
+/// # Examples
+/// ```
+/// use brahe::constants::{R_EARTH, AngleFormat};
+/// use brahe::coordinates::state_koe_to_eci;
+/// use brahe::relative_motion::rotations_lvlh_to_eci;
+/// use brahe::vector6_from_array;
+///
+/// let x = state_koe_to_eci(vector6_from_array([R_EARTH + 700e3, 0.001, 97.8, 15.0, 30.0, 45.0]), AngleFormat::Degrees);
+/// let r = rotations_lvlh_to_eci(&[x, x]);
+/// assert_eq!(r.len(), 2);
+/// ```
+pub fn rotations_lvlh_to_eci(x_eci: &[SVector6]) -> Vec<SMatrix3> {
+    batch_map(|x| rotation_lvlh_to_eci(*x), x_eci)
+}
+
+/// Computes the ECI-to-LVLH rotation matrix for each state in `x_eci`.
+///
+/// Batch form of [`rotation_eci_to_lvlh`]. Evaluation runs on the global thread pool for
+/// large inputs.
+///
+/// # Arguments
+/// - `x_eci`: Cartesian ECI states (position, velocity). Units: (*m*; *m/s*)
+///
+/// # Returns
+/// - Rotation matrices transforming ECI -> LVLH, one per state, in input order
+///
+/// # Examples
+/// ```
+/// use brahe::constants::{R_EARTH, AngleFormat};
+/// use brahe::coordinates::state_koe_to_eci;
+/// use brahe::relative_motion::rotations_eci_to_lvlh;
+/// use brahe::vector6_from_array;
+///
+/// let x = state_koe_to_eci(vector6_from_array([R_EARTH + 700e3, 0.001, 97.8, 15.0, 30.0, 45.0]), AngleFormat::Degrees);
+/// let r = rotations_eci_to_lvlh(&[x, x]);
+/// assert_eq!(r.len(), 2);
+/// ```
+pub fn rotations_eci_to_lvlh(x_eci: &[SVector6]) -> Vec<SMatrix3> {
+    batch_map(|x| rotation_eci_to_lvlh(*x), x_eci)
+}
+
+/// Computes the LVLH frame angular velocity for each state in `x_eci`.
+///
+/// Batch form of [`omega_lvlh`]. Evaluation runs on the global thread pool for
+/// large inputs.
+///
+/// # Arguments
+/// - `x_eci`: Cartesian ECI states (position, velocity). Units: (*m*; *m/s*)
+///
+/// # Returns
+/// - Angular velocities of the LVLH frame relative to ECI, expressed in LVLH axes, one per
+///   state, in input order. Units: (*rad/s*)
+///
+/// # Examples
+/// ```
+/// use brahe::constants::{R_EARTH, AngleFormat};
+/// use brahe::coordinates::state_koe_to_eci;
+/// use brahe::relative_motion::omegas_lvlh;
+/// use brahe::vector6_from_array;
+///
+/// let x = state_koe_to_eci(vector6_from_array([R_EARTH + 700e3, 0.001, 97.8, 15.0, 30.0, 45.0]), AngleFormat::Degrees);
+/// let omega = omegas_lvlh(&[x, x]);
+/// assert_eq!(omega.len(), 2);
+/// ```
+pub fn omegas_lvlh(x_eci: &[SVector6]) -> Vec<Vector3<f64>> {
+    batch_map(|x| omega_lvlh(*x), x_eci)
+}
+
+/// Computes the LVLH-to-ECI covariance Jacobian for each state in `x_eci`.
+///
+/// Batch form of [`jacobian_lvlh_to_eci`]. Evaluation runs on the global thread pool for
+/// large inputs.
+///
+/// # Arguments
+/// - `x_eci`: Cartesian ECI states of the frame's origin (position, velocity). Units: (*m*; *m/s*)
+/// - `variant`: Whether the LVLH axes rotate with the orbit or are frozen at the epoch
+///
+/// # Returns
+/// - Jacobians such that `P_eci = J P_lvlh Jᵀ`, one per state, in input order
+///
+/// # Examples
+/// ```
+/// use brahe::constants::{R_EARTH, AngleFormat};
+/// use brahe::coordinates::state_koe_to_eci;
+/// use brahe::frames::OrbitRelativeFrameVariant;
+/// use brahe::relative_motion::jacobians_lvlh_to_eci;
+/// use brahe::vector6_from_array;
+///
+/// let x = state_koe_to_eci(vector6_from_array([R_EARTH + 700e3, 0.001, 97.8, 15.0, 30.0, 45.0]), AngleFormat::Degrees);
+/// let j = jacobians_lvlh_to_eci(&[x, x], OrbitRelativeFrameVariant::Rotating);
+/// assert_eq!(j.len(), 2);
+/// ```
+pub fn jacobians_lvlh_to_eci(
+    x_eci: &[SVector6],
+    variant: OrbitRelativeFrameVariant,
+) -> Vec<SMatrix6> {
+    batch_map(|x| jacobian_lvlh_to_eci(*x, variant), x_eci)
+}
+
+/// Computes the ECI-to-LVLH covariance Jacobian for each state in `x_eci`.
+///
+/// Batch form of [`jacobian_eci_to_lvlh`]. Evaluation runs on the global thread pool for
+/// large inputs.
+///
+/// # Arguments
+/// - `x_eci`: Cartesian ECI states of the frame's origin (position, velocity). Units: (*m*; *m/s*)
+/// - `variant`: Whether the LVLH axes rotate with the orbit or are frozen at the epoch
+///
+/// # Returns
+/// - Jacobians such that `P_lvlh = J P_eci Jᵀ`, one per state, in input order
+///
+/// # Examples
+/// ```
+/// use brahe::constants::{R_EARTH, AngleFormat};
+/// use brahe::coordinates::state_koe_to_eci;
+/// use brahe::frames::OrbitRelativeFrameVariant;
+/// use brahe::relative_motion::jacobians_eci_to_lvlh;
+/// use brahe::vector6_from_array;
+///
+/// let x = state_koe_to_eci(vector6_from_array([R_EARTH + 700e3, 0.001, 97.8, 15.0, 30.0, 45.0]), AngleFormat::Degrees);
+/// let j = jacobians_eci_to_lvlh(&[x, x], OrbitRelativeFrameVariant::Rotating);
+/// assert_eq!(j.len(), 2);
+/// ```
+pub fn jacobians_eci_to_lvlh(
+    x_eci: &[SVector6],
+    variant: OrbitRelativeFrameVariant,
+) -> Vec<SMatrix6> {
+    batch_map(|x| jacobian_eci_to_lvlh(*x, variant), x_eci)
+}
+
+/// Transforms each state covariance in `covariances` from LVLH axes into ECI axes.
+///
+/// Batch form of [`covariance_lvlh_to_eci`]. Evaluation runs on the global thread pool for
+/// large inputs.
+///
+/// The `x_eci` and `covariances` arguments follow the broadcast rule: each argument has
+/// length 1 or the common batch length.
+///
+/// # Arguments
+/// - `x_eci`: Cartesian ECI states of the frame's origin, length 1 or the batch length. Units: (*m*; *m/s*)
+/// - `covariances`: State covariances in LVLH axes, length 1 or the batch length. Units: (*m²*, *m²/s*, *m²/s²*)
+/// - `variant`: Whether the LVLH axes rotate with the orbit or are frozen at the epoch
+///
+/// # Returns
+/// - State covariances in ECI axes, in input order. Units: (*m²*, *m²/s*, *m²/s²*)
+/// - Error if the lengths do not satisfy the broadcast rule
+///
+/// # Examples
+/// ```
+/// use brahe::{SMatrix6};
+/// use brahe::constants::{R_EARTH, AngleFormat};
+/// use brahe::coordinates::state_koe_to_eci;
+/// use brahe::frames::OrbitRelativeFrameVariant;
+/// use brahe::relative_motion::covariances_lvlh_to_eci;
+/// use brahe::vector6_from_array;
+///
+/// let x = state_koe_to_eci(vector6_from_array([R_EARTH + 700e3, 0.001, 97.8, 15.0, 30.0, 45.0]), AngleFormat::Degrees);
+/// let p = vec![SMatrix6::identity(); 2];
+/// let p_eci = covariances_lvlh_to_eci(&[x], &p, OrbitRelativeFrameVariant::Rotating).unwrap();
+/// assert_eq!(p_eci.len(), 2);
+/// ```
+pub fn covariances_lvlh_to_eci(
+    x_eci: &[SVector6],
+    covariances: &[SMatrix6],
+    variant: OrbitRelativeFrameVariant,
+) -> Result<Vec<SMatrix6>, BraheError> {
+    batch_zip(
+        |x, p| covariance_lvlh_to_eci(*x, p, variant),
+        x_eci,
+        covariances,
+    )
+}
+
+/// Transforms each state covariance in `covariances` from ECI axes into LVLH axes.
+///
+/// Batch form of [`covariance_eci_to_lvlh`]. Evaluation runs on the global thread pool for
+/// large inputs.
+///
+/// The `x_eci` and `covariances` arguments follow the broadcast rule: each argument has
+/// length 1 or the common batch length.
+///
+/// # Arguments
+/// - `x_eci`: Cartesian ECI states of the frame's origin, length 1 or the batch length. Units: (*m*; *m/s*)
+/// - `covariances`: State covariances in ECI axes, length 1 or the batch length. Units: (*m²*, *m²/s*, *m²/s²*)
+/// - `variant`: Whether the LVLH axes rotate with the orbit or are frozen at the epoch
+///
+/// # Returns
+/// - State covariances in LVLH axes, in input order. Units: (*m²*, *m²/s*, *m²/s²*)
+/// - Error if the lengths do not satisfy the broadcast rule
+///
+/// # Examples
+/// ```
+/// use brahe::{SMatrix6};
+/// use brahe::constants::{R_EARTH, AngleFormat};
+/// use brahe::coordinates::state_koe_to_eci;
+/// use brahe::frames::OrbitRelativeFrameVariant;
+/// use brahe::relative_motion::covariances_eci_to_lvlh;
+/// use brahe::vector6_from_array;
+///
+/// let x = state_koe_to_eci(vector6_from_array([R_EARTH + 700e3, 0.001, 97.8, 15.0, 30.0, 45.0]), AngleFormat::Degrees);
+/// let p = vec![SMatrix6::identity(); 2];
+/// let p_lvlh = covariances_eci_to_lvlh(&[x], &p, OrbitRelativeFrameVariant::Rotating).unwrap();
+/// assert_eq!(p_lvlh.len(), 2);
+/// ```
+pub fn covariances_eci_to_lvlh(
+    x_eci: &[SVector6],
+    covariances: &[SMatrix6],
+    variant: OrbitRelativeFrameVariant,
+) -> Result<Vec<SMatrix6>, BraheError> {
+    batch_zip(
+        |x, p| covariance_eci_to_lvlh(*x, p, variant),
+        x_eci,
+        covariances,
+    )
+}
+
+/// Computes the LVLH relative state of each deputy with respect to its chief.
+///
+/// Batch form of [`state_eci_to_lvlh`]. Evaluation runs on the global thread pool for
+/// large inputs.
+///
+/// The chief and deputy arguments follow the broadcast rule: each has length 1
+/// or the common batch length, so one chief may be paired with many deputies
+/// and vice versa.
+///
+/// # Arguments
+/// - `x_chief`: Chief Cartesian ECI states, length 1 or the batch length. Units: (*m*; *m/s*)
+/// - `x_deputy`: Deputy Cartesian ECI states, length 1 or the batch length. Units: (*m*; *m/s*)
+///
+/// # Returns
+/// - Deputy relative states in the chief LVLH frame, in input order. Units: (*m*; *m/s*)
+/// - Error if the lengths do not satisfy the broadcast rule
+///
+/// # Examples
+/// ```
+/// use brahe::constants::{R_EARTH, AngleFormat};
+/// use brahe::coordinates::state_koe_to_eci;
+/// use brahe::relative_motion::states_eci_to_lvlh;
+/// use brahe::vector6_from_array;
+///
+/// let chief = state_koe_to_eci(vector6_from_array([R_EARTH + 700e3, 0.001, 97.8, 15.0, 30.0, 45.0]), AngleFormat::Degrees);
+/// let deputies = vec![
+///     state_koe_to_eci(vector6_from_array([R_EARTH + 701e3, 0.0015, 97.85, 15.05, 30.05, 45.05]), AngleFormat::Degrees),
+///     state_koe_to_eci(vector6_from_array([R_EARTH + 702e3, 0.0012, 97.82, 15.02, 30.02, 45.02]), AngleFormat::Degrees),
+/// ];
+/// let rel = states_eci_to_lvlh(&[chief], &deputies).unwrap();
+/// assert_eq!(rel.len(), 2);
+/// ```
+pub fn states_eci_to_lvlh(
+    x_chief: &[SVector6],
+    x_deputy: &[SVector6],
+) -> Result<Vec<SVector6>, BraheError> {
+    batch_zip(|c, d| state_eci_to_lvlh(*c, *d), x_chief, x_deputy)
+}
+
+/// Computes the ECI state of each deputy from its LVLH relative state and chief.
+///
+/// Batch form of [`state_lvlh_to_eci`]. Evaluation runs on the global thread pool for
+/// large inputs.
+///
+/// The chief and deputy arguments follow the broadcast rule: each has length 1
+/// or the common batch length, so one chief may be paired with many deputies
+/// and vice versa.
+///
+/// # Arguments
+/// - `x_chief`: Chief Cartesian ECI states, length 1 or the batch length. Units: (*m*; *m/s*)
+/// - `x_rel_lvlh`: Deputy relative states in the chief LVLH frame, length 1 or the batch length. Units: (*m*; *m/s*)
+///
+/// # Returns
+/// - Deputy Cartesian ECI states, in input order. Units: (*m*; *m/s*)
+/// - Error if the lengths do not satisfy the broadcast rule
+///
+/// # Examples
+/// ```
+/// use brahe::constants::{R_EARTH, AngleFormat};
+/// use brahe::coordinates::state_koe_to_eci;
+/// use brahe::relative_motion::states_lvlh_to_eci;
+/// use brahe::vector6_from_array;
+///
+/// let chief = state_koe_to_eci(vector6_from_array([R_EARTH + 700e3, 0.001, 97.8, 15.0, 30.0, 45.0]), AngleFormat::Degrees);
+/// let rel = vec![vector6_from_array([1000.0, 500.0, -300.0, 0.0, 0.0, 0.0]); 2];
+/// let deputies = states_lvlh_to_eci(&[chief], &rel).unwrap();
+/// assert_eq!(deputies.len(), 2);
+/// ```
+pub fn states_lvlh_to_eci(
+    x_chief: &[SVector6],
+    x_rel_lvlh: &[SVector6],
+) -> Result<Vec<SVector6>, BraheError> {
+    batch_zip(|c, r| state_lvlh_to_eci(*c, *r), x_chief, x_rel_lvlh)
+}
+
 #[cfg(test)]
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
@@ -503,5 +807,76 @@ mod tests {
         let x_deputy = state_lvlh_to_eci(x_chief, x_rel);
         let recovered = state_eci_to_lvlh(x_chief, x_deputy);
         assert_abs_diff_eq!(recovered, x_rel, epsilon = 1e-8);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_batch_lvlh_match_scalar() {
+        let chiefs: Vec<SVector6> = (0..3)
+            .map(|i| {
+                state_koe_to_eci(
+                    vector6_from_array([
+                        R_EARTH + 700e3 + 1e3 * i as f64,
+                        0.01,
+                        97.8,
+                        15.0,
+                        30.0,
+                        45.0 + i as f64,
+                    ]),
+                    AngleFormat::Degrees,
+                )
+            })
+            .collect();
+        let deputies: Vec<SVector6> = (0..3)
+            .map(|i| {
+                state_koe_to_eci(
+                    vector6_from_array([
+                        R_EARTH + 701e3 + 1e3 * i as f64,
+                        0.0115,
+                        97.85,
+                        15.05,
+                        30.05,
+                        45.05 + i as f64,
+                    ]),
+                    AngleFormat::Degrees,
+                )
+            })
+            .collect();
+        let covs: Vec<SMatrix6> = (0..3)
+            .map(|i| SMatrix6::identity() * (i as f64 + 1.0))
+            .collect();
+        let variant = OrbitRelativeFrameVariant::Rotating;
+
+        let rot = rotations_lvlh_to_eci(&chiefs);
+        let rot_inv = rotations_eci_to_lvlh(&chiefs);
+        let omegas = omegas_lvlh(&chiefs);
+        let jac = jacobians_lvlh_to_eci(&chiefs, variant);
+        let jac_inv = jacobians_eci_to_lvlh(&chiefs, variant);
+        let cov_eci = covariances_lvlh_to_eci(&chiefs, &covs, variant).unwrap();
+        let cov_lvlh = covariances_eci_to_lvlh(&chiefs, &covs[..1], variant).unwrap();
+        let rel = states_eci_to_lvlh(&chiefs, &deputies).unwrap();
+        let rel_one_chief = states_eci_to_lvlh(&chiefs[..1], &deputies).unwrap();
+        let back = states_lvlh_to_eci(&chiefs, &rel).unwrap();
+        for i in 0..3 {
+            assert_eq!(rot[i], rotation_lvlh_to_eci(chiefs[i]));
+            assert_eq!(rot_inv[i], rotation_eci_to_lvlh(chiefs[i]));
+            assert_eq!(omegas[i], omega_lvlh(chiefs[i]));
+            assert_eq!(jac[i], jacobian_lvlh_to_eci(chiefs[i], variant));
+            assert_eq!(jac_inv[i], jacobian_eci_to_lvlh(chiefs[i], variant));
+            assert_eq!(
+                cov_eci[i],
+                covariance_lvlh_to_eci(chiefs[i], &covs[i], variant)
+            );
+            assert_eq!(
+                cov_lvlh[i],
+                covariance_eci_to_lvlh(chiefs[i], &covs[0], variant)
+            );
+            assert_eq!(rel[i], state_eci_to_lvlh(chiefs[i], deputies[i]));
+            assert_eq!(rel_one_chief[i], state_eci_to_lvlh(chiefs[0], deputies[i]));
+            assert_eq!(back[i], state_lvlh_to_eci(chiefs[i], rel[i]));
+        }
+        assert!(states_eci_to_lvlh(&chiefs[..2], &deputies).is_err());
+        assert!(covariances_lvlh_to_eci(&chiefs[..2], &covs, variant).is_err());
+        assert!(rotations_lvlh_to_eci(&[]).is_empty());
     }
 }

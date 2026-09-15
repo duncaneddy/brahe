@@ -84,6 +84,7 @@ def test_jacobian_lvlh_to_eci_inertial_is_block_diagonal(eop):
     np.testing.assert_allclose(j[:3, :3], r, atol=1e-15)
     np.testing.assert_allclose(j[3:, 3:], r, atol=1e-15)
     assert np.linalg.norm(j[3:, :3]) == approx(0.0, abs=1e-15)
+    assert np.linalg.norm(j[:3, 3:]) == approx(0.0, abs=1e-15)
 
 
 def test_jacobian_lvlh_to_eci_rotating_coupling(eop):

@@ -2022,7 +2022,7 @@ fn py_state_ntw_to_inertial_for_body<'py>(
 ///   velocity, pointing inward (nadir for a circular orbit).
 ///
 /// The matrix is assembled from the NTW axes as `[Y_NTW, -X_NTW, Z_NTW]`, which equals the
-/// definition exactly. `VNC = [Y_NTW, Z_NTW, X_NTW]`.
+/// definition exactly.
 ///
 /// Args:
 ///     x_eci (numpy.ndarray or list): 6D state vector in the ECI frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
@@ -2079,7 +2079,7 @@ fn py_rotation_tnw_to_eci<'py>(
 ///   velocity, pointing inward (nadir for a circular orbit).
 ///
 /// The matrix is assembled from the NTW axes as `[Y_NTW, -X_NTW, Z_NTW]`, which equals the
-/// definition exactly. `VNC = [Y_NTW, Z_NTW, X_NTW]`.
+/// definition exactly.
 ///
 /// Args:
 ///     x_eci (numpy.ndarray or list): 6D state vector in the ECI frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of

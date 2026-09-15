@@ -20,7 +20,8 @@ print(
     np.allclose(bh.rotation_ntw_to_eci(x_circ), bh.rotation_rtn_to_eci(x_circ)),
 )
 
-# Eccentric orbit: the T axis leads R by the flight-path angle
+# Eccentric orbit: the NTW T axis is tilted from the RTN along-track axis
+# toward R by the flight-path angle
 x_ecc = bh.state_koe_to_eci(
     np.array([bh.R_EARTH + 700e3, 0.1, 97.8, 15.0, 30.0, 45.0]), bh.AngleFormat.DEGREES
 )
@@ -28,7 +29,7 @@ r_ntw = bh.rotation_ntw_to_eci(x_ecc)
 r_rtn = bh.rotation_rtn_to_eci(x_ecc)
 gamma = np.degrees(np.arcsin(np.dot(r_ntw[:, 1], r_rtn[:, 0])))
 print(
-    f"Eccentric: flight-path angle (NTW T axis vs RTN T axis, from sin = T_ntw . R_rtn): {gamma:.3f} deg"
+    f"Eccentric: flight-path angle from the RTN along-track axis to the NTW T axis: {gamma:.3f} deg"
 )
 
 # Rates: the velocity direction turns slower than the position direction near periapsis
@@ -37,8 +38,9 @@ print(
 )
 
 # About Mars, pass the gravitational parameter explicitly
-x_mars = bh.state_koe_to_eci(
-    np.array([bh.R_MARS + 400e3, 0.05, 92.6, 45.0, 270.0, 10.0]), bh.AngleFormat.DEGREES
+oe_mars = np.array([bh.R_MARS + 400e3, 0.05, 92.6, 45.0, 270.0, 10.0])
+x_mars = bh.state_koe_to_inertial_for_body(
+    oe_mars, bh.CentralBody.Mars, bh.AngleFormat.DEGREES
 )
 print(
     f"omega_ntw_for_body about Mars: {bh.omega_ntw_for_body(x_mars, bh.GM_MARS)[2]:.6e} rad/s"

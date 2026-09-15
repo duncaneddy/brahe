@@ -30,7 +30,8 @@ fn main() {
         (bh::rotation_ntw_to_eci(x_circ) - bh::rotation_rtn_to_eci(x_circ)).norm() < 1e-12
     );
 
-    // Eccentric orbit: the T axis leads R by the flight-path angle
+    // Eccentric orbit: the NTW T axis is tilted from the RTN along-track axis
+    // toward R by the flight-path angle
     let x_ecc = bh::state_koe_to_eci(
         Vector6::new(bh::R_EARTH + 700e3, 0.1, 97.8, 15.0, 30.0, 45.0),
         bh::AngleFormat::Degrees,
@@ -39,7 +40,7 @@ fn main() {
     let r_rtn = bh::rotation_rtn_to_eci(x_ecc);
     let gamma = r_ntw.column(1).dot(&r_rtn.column(0)).asin().to_degrees();
     println!(
-        "Eccentric: flight-path angle (NTW T axis vs RTN T axis, from sin = T_ntw . R_rtn): {:.3} deg",
+        "Eccentric: flight-path angle from the RTN along-track axis to the NTW T axis: {:.3} deg",
         gamma
     );
 
@@ -52,10 +53,13 @@ fn main() {
     );
 
     // About Mars, pass the gravitational parameter explicitly
-    let x_mars = bh::state_koe_to_eci(
-        Vector6::new(bh::R_MARS + 400e3, 0.05, 92.6, 45.0, 270.0, 10.0),
+    let oe_mars = Vector6::new(bh::R_MARS + 400e3, 0.05, 92.6, 45.0, 270.0, 10.0);
+    let x_mars = bh::state_koe_to_inertial_for_body(
+        oe_mars,
+        &bh::CentralBody::Mars,
         bh::AngleFormat::Degrees,
-    );
+    )
+    .unwrap();
     println!(
         "omega_ntw_for_body about Mars: {:.6e} rad/s",
         bh::omega_ntw_for_body(x_mars, bh::GM_MARS)[2]

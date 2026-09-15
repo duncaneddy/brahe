@@ -24,7 +24,7 @@ Every frame exists as a rotating frame, which carries the orbital angular veloci
 
 LVLH has two incompatible definitions in the literature. Vallado and STK use the name for the RTN axes. CCSDS, SANA, and this library put Z toward nadir and Y opposite the orbit normal, so that X is along-track for a circular orbit. The two are related by $X_\mathrm{LVLH} = T$, $Y_\mathrm{LVLH} = -N$, $Z_\mathrm{LVLH} = -R$.
 
-Frame rates are exact under two-body motion and are the rates of the osculating frame otherwise. The RTN and LVLH rates depend only on the state. The NTW rate needs the central body's gravitational parameter, so its `omega_`, `jacobian_`, `covariance_`, and `state_` functions have an Earth form and a `_for_body` form taking `gm`; TNW and VNC follow the same pattern. The frame graph uses the declared center's value.
+Frame rates are exact under two-body motion and are the rates of the osculating frame otherwise. The RTN and LVLH rates depend only on the state. The NTW rate needs the central body's gravitational parameter, so its `omega_`, `jacobian_`, `covariance_`, and `state_` functions have an Earth form and a `_for_body` form taking `gm`; frames added later that share this rate take the same form. The frame graph uses the declared center's value.
 
 ## LVLH
 

@@ -26,8 +26,8 @@ use crate::utils::batch::{batch_map, batch_zip};
 ///   velocity, pointing outward (radial for a circular orbit).
 ///
 /// On a circular orbit NTW coincides with RTN; on an eccentric orbit the two differ by the
-/// flight-path angle. The same three axes ordered `[T, N, W]` and `[V, N, C]` are the TNW and
-/// VNC frames.
+/// flight-path angle. TNW and VNC use the same three directions reordered with a sign change:
+/// `TNW = [Y_NTW, −X_NTW, Z_NTW]` and `VNC = [Y_NTW, Z_NTW, X_NTW]`.
 ///
 /// # Arguments:
 /// - `x_eci`: 6D state vector in the ECI frame [x, y, z, vx, vy, vz] (m, m/s)

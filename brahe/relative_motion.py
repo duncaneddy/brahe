@@ -4,19 +4,21 @@ Relative Motion Module
 Satellite relative motion and orbital reference frames.
 
 This module provides transformations between inertial frames and orbital
-reference frames such as RTN (Radial-Tangential-Normal).
+reference frames such as RTN (Radial-Tangential-Normal) and LVLH
+(Local-Vertical Local-Horizontal).
 
 The RTN frame is an orbital reference frame defined as:
 - R (Radial): Points from Earth's center to satellite position
 - T (Tangential): Along-track direction in orbital plane
 - N (Normal): Perpendicular to orbital plane (angular momentum direction)
 
+The LVLH frame (CCSDS/SANA definition) has Z toward nadir, Y opposite the
+orbit normal, and X = Y × Z.
+
 Functions are provided for:
 - Rotation matrices between ECI and RTN frames
+- Rotation matrices between ECI and LVLH frames
 - (Future) Relative motion dynamics (Clohessy-Wiltshire equations, etc.)
-
-The LVLH frame (CCSDS/SANA definition) has Z toward nadir, Y opposite the orbit normal, and
-X = Y × Z.
 """
 
 from brahe._brahe import (

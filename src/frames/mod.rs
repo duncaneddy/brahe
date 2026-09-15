@@ -44,7 +44,7 @@ pub mod teme;
 pub mod transform;
 
 pub(crate) use graph::{celestial_root, icrf_aligned_inertial};
-pub(crate) use kinematics::state_inertial_to_rotating;
+pub(crate) use kinematics::{state_inertial_to_rotating, state_rotating_to_inertial};
 
 pub use axes::*;
 pub use center::*;

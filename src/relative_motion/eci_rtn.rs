@@ -3,7 +3,11 @@
  */
 
 use crate::frames::{OrbitRelativeFrameVariant, rotate_covariance_6};
-use crate::math::{SMatrix3, SMatrix6, SVector6, block_diagonal, skew_symmetric};
+use crate::math::{SMatrix3, SMatrix6, SVector6};
+use crate::relative_motion::common::{
+    jacobian_from_inertial, jacobian_to_inertial, relative_state_from_frame,
+    relative_state_to_frame,
+};
 use nalgebra::Vector3;
 
 use crate::utils::BraheError;
@@ -156,29 +160,11 @@ pub fn omega_rtn(x_eci: SVector6) -> Vector3<f64> {
 /// let x_rel_rtn = state_eci_to_rtn(x_chief, x_deputy);
 /// ```
 pub fn state_eci_to_rtn(x_chief: SVector6, x_deputy: SVector6) -> SVector6 {
-    // NOTE: This could potentially be more accurately revised based on equations in section 4.7.1 of Alfriend
-
-    // Get RTN rotation matrix
-    let r_eci_to_rtn = rotation_eci_to_rtn(x_chief);
-
-    // Relative position and velocity in ECI frame
-    let rho_eci = x_deputy.fixed_rows::<3>(0) - x_chief.fixed_rows::<3>(0);
-    let rho_dot_eci = x_deputy.fixed_rows::<3>(3) - x_chief.fixed_rows::<3>(3);
-
-    // Get angular velocity of RTN frame with respect to ECI frame
-    let omega = omega_rtn(x_chief);
-
-    // Transform relative position and velocity to RTN frame
-    let rho_rtn = r_eci_to_rtn * rho_eci;
-    let rho_dot_rtn = r_eci_to_rtn * rho_dot_eci - omega.cross(&rho_rtn);
-
-    SVector6::new(
-        rho_rtn[0],
-        rho_rtn[1],
-        rho_rtn[2],
-        rho_dot_rtn[0],
-        rho_dot_rtn[1],
-        rho_dot_rtn[2],
+    relative_state_to_frame(
+        &rotation_eci_to_rtn(x_chief),
+        &omega_rtn(x_chief),
+        x_chief,
+        x_deputy,
     )
 }
 
@@ -211,31 +197,11 @@ pub fn state_eci_to_rtn(x_chief: SVector6, x_deputy: SVector6) -> SVector6 {
 /// let x_deputy_reconstructed = state_rtn_to_eci(x_chief, x_rel_rtn);
 /// ```
 pub fn state_rtn_to_eci(x_chief: SVector6, x_rel_rtn: SVector6) -> SVector6 {
-    // Extract chief position and velocity
-    let rc = x_chief.fixed_rows::<3>(0);
-    let vc = x_chief.fixed_rows::<3>(3);
-
-    // Get RTN rotation matrix
-    let r_rtn_to_eci = rotation_rtn_to_eci(x_chief);
-
-    // Extract relative position and velocity in RTN frame
-    let rho_rtn = x_rel_rtn.fixed_rows::<3>(0);
-    let rho_dot_rtn = x_rel_rtn.fixed_rows::<3>(3);
-
-    // Get angular velocity of RTN frame with respect to ECI frame
-    let omega = omega_rtn(x_chief);
-
-    // Compute deputy absolute state in ECI frame
-    let r_deputy = rc + r_rtn_to_eci * rho_rtn;
-    let v_deputy = r_rtn_to_eci * (rho_dot_rtn + omega.cross(&rho_rtn)) + vc;
-
-    SVector6::new(
-        r_deputy[0],
-        r_deputy[1],
-        r_deputy[2],
-        v_deputy[0],
-        v_deputy[1],
-        v_deputy[2],
+    relative_state_from_frame(
+        &rotation_eci_to_rtn(x_chief),
+        &omega_rtn(x_chief),
+        x_chief,
+        x_rel_rtn,
     )
 }
 
@@ -279,13 +245,7 @@ pub fn state_rtn_to_eci(x_chief: SVector6, x_rel_rtn: SVector6) -> SVector6 {
 /// 3. D. A. Vallado,
 ///    ["Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003](https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf)
 pub fn jacobian_rtn_to_eci(x_eci: SVector6, variant: OrbitRelativeFrameVariant) -> SMatrix6 {
-    let r = rotation_rtn_to_eci(x_eci);
-    let mut j = block_diagonal(&r, &r);
-    if variant == OrbitRelativeFrameVariant::Rotating {
-        let coupling = r * skew_symmetric(&omega_rtn(x_eci));
-        j.fixed_view_mut::<3, 3>(3, 0).copy_from(&coupling);
-    }
-    j
+    jacobian_to_inertial(&rotation_rtn_to_eci(x_eci), &omega_rtn(x_eci), variant)
 }
 
 /// 6x6 Jacobian taking an ECI state covariance into RTN axes.
@@ -325,13 +285,7 @@ pub fn jacobian_rtn_to_eci(x_eci: SVector6, variant: OrbitRelativeFrameVariant) 
 /// 3. D. A. Vallado,
 ///    ["Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003](https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf)
 pub fn jacobian_eci_to_rtn(x_eci: SVector6, variant: OrbitRelativeFrameVariant) -> SMatrix6 {
-    let r = rotation_eci_to_rtn(x_eci);
-    let mut j = block_diagonal(&r, &r);
-    if variant == OrbitRelativeFrameVariant::Rotating {
-        let coupling = -skew_symmetric(&omega_rtn(x_eci)) * r;
-        j.fixed_view_mut::<3, 3>(3, 0).copy_from(&coupling);
-    }
-    j
+    jacobian_from_inertial(&rotation_eci_to_rtn(x_eci), &omega_rtn(x_eci), variant)
 }
 
 /// Transforms a 6x6 state covariance from RTN axes into ECI axes.
@@ -559,6 +513,7 @@ mod tests {
     use crate::R_EARTH;
     use crate::coordinates::state_koe_to_eci;
     use crate::math::vector6_from_array;
+    use crate::math::{block_diagonal, skew_symmetric};
     use crate::orbits::{mean_motion, perigee_velocity};
     use crate::utils::testing::setup_global_test_eop;
     use approx::assert_abs_diff_eq;

@@ -14,6 +14,7 @@ pub mod eci_ntw;
 pub mod eci_roe;
 pub mod eci_rtn;
 pub mod eci_tnw;
+pub mod eci_vnc;
 pub mod oe_roe;
 
 pub use eci_lvlh::*;
@@ -21,4 +22,5 @@ pub use eci_ntw::*;
 pub use eci_roe::*;
 pub use eci_rtn::*;
 pub use eci_tnw::*;
+pub use eci_vnc::*;
 pub use oe_roe::*;

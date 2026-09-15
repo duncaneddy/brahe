@@ -12,6 +12,7 @@ With $\hat{r}$ the unit position, $\hat{v}$ the unit velocity, $\hat{h}$ the uni
 |---|---|---|---|---|
 | RTN (SANA RSW; also QSW, RIC) | $\hat{r}$ | $\hat{h} \times \hat{r}$ | $\hat{h}$ | $+Z$ |
 | LVLH | $\hat{h} \times \hat{r}$ | $-\hat{h}$ | $-\hat{r}$ | $-Y$ |
+| NTW | $\hat{v} \times \hat{h}$ | $\hat{v}$ | $\hat{h}$ | $+Z$ |
 
 Source: SANA Orbit-Relative Reference Frames registry (<https://sanaregistry.org/r/orbit_relative_reference_frames>) and CCSDS 500.0-G-4, *Navigation Data—Definitions and Conventions*, Section 4.3.7.
 
@@ -23,7 +24,7 @@ Every frame exists as a rotating frame, which carries the orbital angular veloci
 
 LVLH has two incompatible definitions in the literature. Vallado and STK use the name for the RTN axes. CCSDS, SANA, and this library put Z toward nadir and Y opposite the orbit normal, so that X is along-track for a circular orbit. The two are related by $X_\mathrm{LVLH} = T$, $Y_\mathrm{LVLH} = -N$, $Z_\mathrm{LVLH} = -R$.
 
-Frame rates are exact under two-body motion and are the rates of the osculating frame otherwise. The RTN and LVLH rates depend only on the state.
+Frame rates are exact under two-body motion and are the rates of the osculating frame otherwise. The RTN and LVLH rates depend only on the state. The NTW, TNW, and VNC rates need the central body's gravitational parameter, so their `omega_`, `jacobian_`, `covariance_`, and `state_` functions have an Earth form and a `_for_body` form taking `gm`; the frame graph uses the declared center's value.
 
 ## LVLH
 
@@ -52,8 +53,36 @@ The Local-Vertical Local-Horizontal frame places Z along nadir, Y opposite the o
         --8<-- "./docs/outputs/relative_motion/lvlh_frame.rs.txt"
         ```
 
+## NTW
+
+The NTW frame places Y along the velocity, Z along the orbit normal, and X = Y × Z in the orbit plane, outward. It coincides with RTN on a circular orbit and differs by the flight-path angle otherwise. Because its axes follow the velocity direction, its rate is the two-body turn rate of the velocity, $\mu |h| / (r^3 v^2)$ about Z, which requires the central body's gravitational parameter.
+
+=== "Python"
+
+    ``` python
+    --8<-- "./examples/relative_motion/ntw_frame.py:8"
+    ```
+
+=== "Rust"
+
+    ``` rust
+    --8<-- "./examples/relative_motion/ntw_frame.rs:4"
+    ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/relative_motion/ntw_frame.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/relative_motion/ntw_frame.rs.txt"
+        ```
+
 ### See Also
 
 - [RTN Transformations](rtn_transformations.md)
 - [Frame Graph](../frames/frame_graph.md)
 - [LVLH Transformations API Reference](../../library_api/relative_motion/lvlh_transformations.md)
+- [NTW Transformations API Reference](../../library_api/relative_motion/ntw_transformations.md)

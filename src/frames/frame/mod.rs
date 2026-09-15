@@ -315,10 +315,9 @@ impl ReferenceFrame {
     /// (inertial-snapshot variant; `EQW` is SANA-registered only as
     /// inertial).
     ///
-    /// Among the orbit-relative kinds only `RTN`, `LVLH`, `NTW`, `TNW`,
-    /// `VNC`, and `PQW` have axes derivations today, so this frame is
-    /// constructible but every transform through it errors until issue
-    /// #452 adds the remaining derivations.
+    /// Axes: E along the ascending node, W along the orbit normal, Q = W ×
+    /// E (see [`crate::relative_motion::rotation_eqw_to_eci`]). SANA
+    /// registers EQW only as an inertial snapshot, so its rate is zero.
     ///
     /// # Arguments
     /// * `object` - The object the frame is defined relative to

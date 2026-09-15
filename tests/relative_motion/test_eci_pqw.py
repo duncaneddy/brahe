@@ -71,6 +71,16 @@ def test_rotation_pqw_circular_equatorial_orbit_uses_x_axis(eop):
     assert np.linalg.det(m) == approx(1.0, abs=1e-14)
 
 
+def test_rotation_pqw_circular_equatorial_retrograde_is_right_handed(eop):
+    """Rust: test_rotation_pqw_circular_equatorial_retrograde_is_right_handed"""
+    x = _state(0.0, 180.0, 15.0, 30.0, 45.0)
+    m = brahe.rotation_pqw_to_eci(x)
+    np.testing.assert_allclose(m[:, 0], np.array([1.0, 0.0, 0.0]), atol=1e-12)
+    np.testing.assert_allclose(m[:, 1], np.array([0.0, -1.0, 0.0]), atol=1e-12)
+    np.testing.assert_allclose(m[:, 2], np.array([0.0, 0.0, -1.0]), atol=1e-12)
+    assert np.linalg.det(m) == approx(1.0, abs=1e-14)
+
+
 def test_rotation_pqw_for_body_about_mars(eop):
     """Rust: test_rotation_pqw_for_body_about_mars"""
     oe = np.array([brahe.R_MARS + 400e3, 0.05, 92.6, 45.0, 270.0, 10.0])

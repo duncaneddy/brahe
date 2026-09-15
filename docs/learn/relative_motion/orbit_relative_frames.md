@@ -21,7 +21,7 @@ Source: SANA Orbit-Relative Reference Frames registry (<https://sanaregistry.org
 
 ## Variants
 
-Every frame exists as a rotating frame, which carries the orbital angular velocity, and as an inertial snapshot, whose rate is zero. The `state_*` relative-state functions always use the rotating transport term. The `jacobian_*` and `covariance_*` functions take an `OrbitRelativeFrameVariant` selecting which.
+Every frame exists as a rotating frame, which carries the orbital angular velocity, and as an inertial snapshot, whose rate is zero. The `state_*` relative-state functions always use the rotating transport term. The `jacobian_*` and `covariance_*` functions take an `OrbitRelativeFrameVariant` selecting which. PQW and EQW are the exception: SANA registers them only as inertial snapshots, so they have no `omega_*` functions, their `jacobian_*` and `covariance_*` functions take no variant and are always block diagonal, and their `state_*` functions apply no transport term.
 
 ## Conventions
 

@@ -658,6 +658,7 @@ def test_pqw_uses_the_declared_center_gm(clear_frame_registries):
     got = bh.state_frame_to_frame(mars_frame, bh.ReferenceFrame.PQW("M"), epc, x_b)
     expected = bh.state_inertial_to_pqw_for_body(x, x_b, bh.GM_MARS)
     np.testing.assert_allclose(got, expected, atol=1e-9)
+    assert not np.allclose(got, bh.state_eci_to_pqw(x, x_b), atol=1e-9)
 
 
 def test_pqw_needs_gm_for_its_axes(clear_frame_registries):
@@ -672,6 +673,8 @@ def test_pqw_needs_gm_for_its_axes(clear_frame_registries):
     )
     bh.register_object("X", lambda epc: x, no_gm_frame)
 
+    with pytest.raises(RuntimeError, match="PQW"):
+        bh.state_frame_to_frame(no_gm_frame, bh.ReferenceFrame.PQW("X"), epc, x)
     with pytest.raises(RuntimeError, match="gravitational parameter"):
         bh.state_frame_to_frame(no_gm_frame, bh.ReferenceFrame.PQW("X"), epc, x)
 

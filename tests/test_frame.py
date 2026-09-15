@@ -512,6 +512,25 @@ def test_ntw_inertial_variant_needs_no_gm(clear_frame_registries):
         bh.state_frame_to_frame(no_gm_frame, bh.ReferenceFrame.NTW("X"), epc, x)
 
 
+def test_tnw_rotation_matches_relative_motion(clear_frame_registries):
+    epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+    oe = np.array([bh.R_EARTH + 500e3, 0.05, 97.8, 15.0, 30.0, 45.0])
+    x = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
+    bh.register_object("A", lambda epc: x, bh.CelestialFrame.GCRF)
+    r = bh.rotation_frame_to_frame(
+        bh.CelestialFrame.GCRF, bh.ReferenceFrame.TNW("A"), epc
+    )
+    np.testing.assert_allclose(r, bh.rotation_eci_to_tnw(x), atol=1e-14)
+    x_b = bh.state_koe_to_eci(
+        np.array([bh.R_EARTH + 500e3, 0.05, 97.8, 15.0, 30.0, 45.2]),
+        bh.AngleFormat.DEGREES,
+    )
+    got = bh.state_frame_to_frame(
+        bh.CelestialFrame.GCRF, bh.ReferenceFrame.TNW("A"), epc, x_b
+    )
+    np.testing.assert_allclose(got, bh.state_eci_to_tnw(x, x_b), atol=1e-9)
+
+
 def test_sun_vector_in_sensor_frame(eop, clear_frame_registries):
     epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
     x_sc = bh.state_koe_to_eci(

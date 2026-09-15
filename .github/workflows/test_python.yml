@@ -35,18 +35,25 @@ jobs:
                 python-version: ${{ fromJSON(inputs.python-versions) }}
                 rust-toolchain: [stable]
         steps:
+            # Checkout precedes the toolchain step: rust-cache reads Cargo.lock
+            # and the workspace layout when it derives its key, so with nothing
+            # checked out it would key on an empty lockfile and cache no target
+            # directory at all.
             -   uses: actions/checkout@v7.0.1
-            # Cargo cache scheme: this job runs from both pr_tests.yml (PRs) and
-            # unit_tests.yml (push to main). Shared-key is stable across the
-            # python-version matrix (same Rust build either way), so only main
-            # saves refresh it and PRs restore that warm cache instead of
-            # building their own throwaway, ref-scoped one.
+            # Cargo cache scheme: restore-only against test_rust.yml's per-OS
+            # cache, which every python-version leg on an OS shares. The
+            # coverage leg reuses its instrumented dependency build and the
+            # macOS and Windows legs its plain one, recompiling only the
+            # crates whose features differ; the remaining ubuntu legs reuse
+            # the registry. The job saves nothing: a saved entry per OS here
+            # would duplicate that cache and push the repository past its
+            # cache budget.
             -   name: Set up Rust toolchain
                 uses: actions-rust-lang/setup-rust-toolchain@v1.17.0
                 with:
                     toolchain: ${{ matrix.rust-toolchain }}
-                    cache-shared-key: test-python
-                    cache-save-if: ${{ github.ref == 'refs/heads/main' }}
+                    cache-shared-key: test-rust
+                    cache-save-if: false
             -   name: Set default Rust toolchain
                 run: |
                     rustup update ${{ matrix.rust-toolchain }}

@@ -44,6 +44,17 @@ jobs:
       # (push to main), and integration_tests.yml (scheduled/dispatch --network
       # runs, which resolve to main). Only main saves refresh the shared cache;
       # PRs restore it instead of paying for their own unrestorable copy.
+      #
+      # This is the one Linux cargo cache saved by a job that builds the whole
+      # workspace in the dev profile (`cargo build` plus the editable extension
+      # install). rust-cache keeps the dependency build and drops the workspace
+      # crates themselves, so what it carries is every third-party crate the
+      # extension and the examples link against. The docs builds and package
+      # validations in pr_tests.yml, update_docs.yml and docs_only.yml run the
+      # same builds and restore it read-only rather than each saving a
+      # near-identical entry. rust-cache folds every CARGO*/RUST*-prefixed
+      # environment variable into the key, so those jobs export the same
+      # RUST_TOOLCHAIN variable this one does.
       - name: Set up Rust toolchain with cache
         uses: actions-rust-lang/setup-rust-toolchain@v1.17.0
         with:
@@ -65,14 +76,21 @@ jobs:
       # compiles in about 80 seconds without it and relinks in about one second
       # with it. Restore-only on pull requests, matching the cargo caches; main
       # produces the copy every branch reads.
+      #
+      # Pull requests fall back to the newest entry under the prefix so a
+      # lockfile bump still relinks against main's dependency build. Main takes
+      # an exact match only: a fallback restore would carry every artifact of
+      # the previous generation into the entry saved below, and the entry would
+      # grow by the superseded dependency build on each key roll. A cold build
+      # once per roll keeps each saved generation bounded to what the current
+      # lockfile needs.
       - name: Restore rust-script build cache
         id: rust-script-cache
         uses: actions/cache/restore@v6.1.0
         with:
           path: ~/.cache/rust-script
-          key: rust-script-${{ runner.os }}-${{ hashFiles('Cargo.lock', 'scripts/_build_utils.py') }}
-          restore-keys: |
-            rust-script-${{ runner.os }}-
+          key: rust-script-v2-${{ runner.os }}-${{ hashFiles('Cargo.lock', 'scripts/_build_utils.py') }}
+          restore-keys: ${{ github.ref != 'refs/heads/main' && format('rust-script-v2-{0}-', runner.os) || '' }}
 
       - name: Install the latest version of uv
         uses: astral-sh/setup-uv@v10.0.1
@@ -307,18 +325,23 @@ jobs:
           retention-days: 7
 
       # Drop the per-example binaries before saving: they relink in about a
-      # second each, and keeping 376 of them would grow the cache past the
-      # repository's budget. The shared dependency build is what is worth
-      # carrying between runs.
+      # second each, and at roughly 10 MB apiece the several hundred of them
+      # outweigh the shared dependency build several times over. Each example
+      # is a cargo package named `examples__<path>_<hash>`, so its artifacts
+      # are the top-level executable, the `deps/` executable and dep-info
+      # cargo links from, and its `.fingerprint/` directory. The shared
+      # dependency build is what is worth carrying between runs.
       - name: Prune per-example binaries from the rust-script cache
         if: github.ref == 'refs/heads/main'
         run: |
           release=~/.cache/rust-script/binaries/release
           [ -d "$release" ] || exit 0
           find "$release" -maxdepth 1 -type f -delete
+          find "$release/deps" -maxdepth 1 -type f -name 'examples__*' -delete
           find "$release/.fingerprint" -maxdepth 1 -type d -name 'examples__*' \
             -exec rm -rf {} + 2>/dev/null || true
           rm -rf ~/.cache/rust-script/projects
+          du -sh ~/.cache/rust-script
 
       - name: Save rust-script build cache (main only)
         if: github.ref == 'refs/heads/main'
@@ -326,7 +349,7 @@ jobs:
         uses: actions/cache/save@v6.1.0
         with:
           path: ~/.cache/rust-script
-          key: rust-script-${{ runner.os }}-${{ hashFiles('Cargo.lock', 'scripts/_build_utils.py') }}
+          key: rust-script-v2-${{ runner.os }}-${{ hashFiles('Cargo.lock', 'scripts/_build_utils.py') }}
 
       - name: Generate documentation plots
         if: ${{ !inputs.use_retry }}

@@ -35,6 +35,7 @@ jobs:
                 python-version: ${{ fromJSON(inputs.python-versions) }}
                 rust-toolchain: [stable]
         steps:
+            -   uses: actions/checkout@v7.0.1
             # Cargo cache scheme: this job runs from both pr_tests.yml (PRs) and
             # unit_tests.yml (push to main). Shared-key is stable across the
             # python-version matrix (same Rust build either way), so only main
@@ -50,7 +51,6 @@ jobs:
                 run: |
                     rustup update ${{ matrix.rust-toolchain }}
                     rustup default ${{ matrix.rust-toolchain }}
-            -   uses: actions/checkout@v7.0.1
             # Every SPICE kernel the unit suites auto-load is a committed test
             # asset, so the suites run offline straight from a clone with no
             # download step and no cache to warm. tests/test_frames.py loads

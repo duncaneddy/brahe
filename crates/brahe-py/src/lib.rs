@@ -1252,6 +1252,34 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_state_inertial_to_tnw_for_body, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_tnw_to_eci, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_tnw_to_inertial_for_body, module)?)?;
+    module.add_function(wrap_pyfunction!(py_rotation_vnc_to_eci, module)?)?;
+    module.add_function(wrap_pyfunction!(py_rotation_eci_to_vnc, module)?)?;
+    module.add_function(wrap_pyfunction!(py_omega_vnc, module)?)?;
+    module.add_function(wrap_pyfunction!(py_omega_vnc_for_body, module)?)?;
+    module.add_function(wrap_pyfunction!(py_jacobian_vnc_to_eci, module)?)?;
+    module.add_function(wrap_pyfunction!(
+        py_jacobian_vnc_to_inertial_for_body,
+        module
+    )?)?;
+    module.add_function(wrap_pyfunction!(py_jacobian_eci_to_vnc, module)?)?;
+    module.add_function(wrap_pyfunction!(
+        py_jacobian_inertial_to_vnc_for_body,
+        module
+    )?)?;
+    module.add_function(wrap_pyfunction!(py_covariance_vnc_to_eci, module)?)?;
+    module.add_function(wrap_pyfunction!(
+        py_covariance_vnc_to_inertial_for_body,
+        module
+    )?)?;
+    module.add_function(wrap_pyfunction!(py_covariance_eci_to_vnc, module)?)?;
+    module.add_function(wrap_pyfunction!(
+        py_covariance_inertial_to_vnc_for_body,
+        module
+    )?)?;
+    module.add_function(wrap_pyfunction!(py_state_eci_to_vnc, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_inertial_to_vnc_for_body, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_vnc_to_eci, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_vnc_to_inertial_for_body, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_oe_to_roe, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_roe_to_oe, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_eci_to_roe, module)?)?;

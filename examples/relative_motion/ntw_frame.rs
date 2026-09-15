@@ -38,7 +38,10 @@ fn main() {
     let r_ntw = bh::rotation_ntw_to_eci(x_ecc);
     let r_rtn = bh::rotation_rtn_to_eci(x_ecc);
     let gamma = r_ntw.column(1).dot(&r_rtn.column(0)).asin().to_degrees();
-    println!("Eccentric: flight-path angle between T and RTN T axis: {:.3} deg", gamma);
+    println!(
+        "Eccentric: flight-path angle (NTW T axis vs RTN T axis, from sin = T_ntw . R_rtn): {:.3} deg",
+        gamma
+    );
 
     // Rates: the velocity direction turns slower than the position direction near periapsis
     let omega_ntw = bh::omega_ntw(x_ecc);

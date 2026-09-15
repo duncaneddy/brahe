@@ -27,7 +27,9 @@ x_ecc = bh.state_koe_to_eci(
 r_ntw = bh.rotation_ntw_to_eci(x_ecc)
 r_rtn = bh.rotation_rtn_to_eci(x_ecc)
 gamma = np.degrees(np.arcsin(np.dot(r_ntw[:, 1], r_rtn[:, 0])))
-print(f"Eccentric: flight-path angle between T and RTN T axis: {gamma:.3f} deg")
+print(
+    f"Eccentric: flight-path angle (NTW T axis vs RTN T axis, from sin = T_ntw . R_rtn): {gamma:.3f} deg"
+)
 
 # Rates: the velocity direction turns slower than the position direction near periapsis
 print(

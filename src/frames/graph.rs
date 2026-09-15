@@ -29,12 +29,16 @@ use nalgebra::Vector3;
 use crate::frames::kinematics::{state_inertial_to_rotating, state_rotating_to_inertial};
 use crate::frames::object_registry::{object_frame, object_state};
 use crate::frames::registry::{FrameKey, frame_entry, frame_key};
+use crate::frames::synodic::body_gm;
 use crate::frames::{
     BodyFrame, CelestialFrame, FrameAxes, ObjectId, OrbitRelativeFrameKind,
     OrbitRelativeFrameVariant, ReferenceFrame,
 };
 use crate::math::{SMatrix3, SVector6};
-use crate::relative_motion::{omega_lvlh, omega_rtn, rotation_eci_to_lvlh, rotation_eci_to_rtn};
+use crate::relative_motion::{
+    omega_lvlh, omega_ntw_for_body, omega_rtn, rotation_eci_to_lvlh, rotation_eci_to_ntw,
+    rotation_eci_to_rtn,
+};
 use crate::time::Epoch;
 use crate::utils::BraheError;
 
@@ -441,28 +445,36 @@ fn provider_error(frame: &ReferenceFrame, err: BraheError) -> BraheError {
 ///   the frame's angular velocity relative to `root` (*rad/s*): the orbital
 ///   rate for the rotating variant, zero for the inertial snapshot
 /// - `Err(BraheError)`: If `kind` has no axes derivation, `object` is not
-///   registered, or its state cannot be evaluated at `epc`
+///   registered, its state cannot be evaluated at `epc`, or (for `NTW`) its
+///   declared center has no packaged gravitational parameter
 fn resolve_orbit_relative(
     kind: OrbitRelativeFrameKind,
     variant: OrbitRelativeFrameVariant,
     object: &ObjectId,
     epc: Epoch,
 ) -> Result<Resolved, BraheError> {
-    let derive_axes: fn(SVector6) -> (SMatrix3, Vector3<f64>) = match kind {
-        OrbitRelativeFrameKind::RTN => |x| (rotation_eci_to_rtn(x), omega_rtn(x)),
-        OrbitRelativeFrameKind::LVLH => |x| (rotation_eci_to_lvlh(x), omega_lvlh(x)),
-        other => {
-            return Err(BraheError::Error(format!(
-                "orbit-relative kind {other} does not yet have an axes derivation (tracked in \
-                 issue #452); supported kinds: RTN, LVLH"
-            )));
-        }
-    };
+    if !matches!(
+        kind,
+        OrbitRelativeFrameKind::RTN | OrbitRelativeFrameKind::LVLH | OrbitRelativeFrameKind::NTW
+    ) {
+        return Err(BraheError::Error(format!(
+            "orbit-relative kind {kind} does not yet have an axes derivation (tracked in \
+             issue #452); supported kinds: RTN, LVLH, NTW"
+        )));
+    }
 
     let (declared, x) = object_state(object, epc)?;
     let root = icrf_aligned_inertial(declared);
     let x_root = state_frame_to_frame(declared, root, epc, x)?;
-    let (dcm, omega) = derive_axes(x_root);
+    let (dcm, omega) = match kind {
+        OrbitRelativeFrameKind::RTN => (rotation_eci_to_rtn(x_root), omega_rtn(x_root)),
+        OrbitRelativeFrameKind::LVLH => (rotation_eci_to_lvlh(x_root), omega_lvlh(x_root)),
+        OrbitRelativeFrameKind::NTW => {
+            let gm = body_gm(root.center().naif_id())?;
+            (rotation_eci_to_ntw(x_root), omega_ntw_for_body(x_root, gm))
+        }
+        _ => unreachable!("kind support is checked above"),
+    };
 
     Ok(Resolved {
         root,
@@ -650,8 +662,8 @@ mod tests {
 
     use super::*;
     use crate::attitude::{EulerAxis, FromAttitude, Quaternion, ToAttitude};
-    use crate::constants::{AngleFormat, R_EARTH};
-    use crate::coordinates::state_koe_to_eci;
+    use crate::constants::{AngleFormat, GM_MARS, R_EARTH, R_MARS};
+    use crate::coordinates::{state_koe_to_eci, state_koe_to_inertial_for_body};
     use crate::frames::object_registry::FnProvider;
     use crate::frames::registry::{FRAME_REGISTRY, FrameEntry};
     use crate::frames::{
@@ -661,9 +673,10 @@ mod tests {
     };
     use crate::math::{SMatrix6, SVector6};
     use crate::orbit_dynamics::ephemerides::sun_position;
+    use crate::propagators::CentralBody;
     use crate::relative_motion::{
-        covariance_eci_to_lvlh, omega_lvlh, rotation_eci_to_lvlh, state_eci_to_lvlh,
-        state_eci_to_rtn,
+        covariance_eci_to_lvlh, omega_lvlh, omega_ntw, omega_ntw_for_body, rotation_eci_to_lvlh,
+        rotation_eci_to_ntw, state_eci_to_lvlh, state_eci_to_rtn,
     };
     use crate::spice::NAIFId;
     use crate::time::TimeSystem;
@@ -1216,6 +1229,44 @@ mod tests {
 
     #[test]
     #[serial]
+    fn test_ntw_rotation_and_rate_match_relative_motion() {
+        clear_object_registry();
+        let epc = Epoch::from_date(2024, 3, 1, TimeSystem::UTC);
+        let oe = SVector6::new(R_EARTH + 500e3, 0.05, 97.8, 15.0, 30.0, 45.0);
+        let x = state_koe_to_eci(oe, AngleFormat::Degrees);
+        register_object("A", FnProvider(move |_| Ok(x)), CelestialFrame::GCRF).unwrap();
+        let r =
+            rotation_frame_to_frame(CelestialFrame::GCRF, ReferenceFrame::NTW("A"), epc).unwrap();
+        assert_abs_diff_eq!(r, rotation_eci_to_ntw(x), epsilon = 1e-14);
+        let resolved = resolve_orientation(&ReferenceFrame::NTW("A"), epc, true).unwrap();
+        assert_abs_diff_eq!(resolved.omega.unwrap(), omega_ntw(x), epsilon = 1e-15);
+        clear_object_registry();
+    }
+
+    #[test]
+    #[serial]
+    fn test_ntw_rate_uses_the_declared_center_gm() {
+        clear_object_registry();
+        let epc = Epoch::from_date(2024, 3, 1, TimeSystem::UTC);
+        let x = state_koe_to_inertial_for_body(
+            SVector6::new(R_MARS + 400e3, 0.05, 92.6, 45.0, 270.0, 10.0),
+            &CentralBody::Mars,
+            AngleFormat::Degrees,
+        )
+        .unwrap();
+        let mars_icrf = CelestialFrame::centered(499, FrameAxes::ICRF);
+        register_object("M", FnProvider(move |_| Ok(x)), mars_icrf).unwrap();
+        let resolved = resolve_orientation(&ReferenceFrame::NTW("M"), epc, true).unwrap();
+        assert_abs_diff_eq!(
+            resolved.omega.unwrap(),
+            omega_ntw_for_body(x, GM_MARS),
+            epsilon = 1e-15
+        );
+        clear_object_registry();
+    }
+
+    #[test]
+    #[serial]
     fn test_two_object_lvlh_matches_state_eci_to_lvlh() {
         clear_object_registry();
         let epc = Epoch::from_date(2024, 3, 1, TimeSystem::UTC);
@@ -1259,12 +1310,12 @@ mod tests {
     fn test_unsupported_orbit_relative_kind_names_issue() {
         clear_object_registry();
         let epc = Epoch::from_date(2024, 3, 1, TimeSystem::UTC);
-        let err = rotation_frame_to_frame(CelestialFrame::GCRF, ReferenceFrame::NTW("A"), epc)
+        let err = rotation_frame_to_frame(CelestialFrame::GCRF, ReferenceFrame::TNW("A"), epc)
             .unwrap_err()
             .to_string();
-        assert!(err.contains("NTW"));
+        assert!(err.contains("TNW"));
         assert!(err.contains("issue #452"));
-        assert!(err.contains("RTN, LVLH"));
+        assert!(err.contains("RTN, LVLH, NTW"));
 
         let unbound = ReferenceFrame::orbit_relative(
             OrbitRelativeFrameKind::RTN,

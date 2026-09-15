@@ -107,7 +107,7 @@ jobs:
       # warm_data_cache.yml runs the equivalent build weekly on main under the
       # same shared-key to keep a restorable cache warm for PRs.
       - name: Set up Rust toolchain
-        uses: actions-rust-lang/setup-rust-toolchain@v1.17.0
+        uses: actions-rust-lang/setup-rust-toolchain@v2.0.0
         with:
           toolchain: ${{ env.RUST_TOOLCHAIN }}
           cache-shared-key: validate-rust-package
@@ -150,7 +150,7 @@ jobs:
       # warm_data_cache.yml runs the equivalent build weekly on main under the
       # same shared-key to keep a restorable cache warm for PRs.
       - name: Set up Rust toolchain
-        uses: actions-rust-lang/setup-rust-toolchain@v1.17.0
+        uses: actions-rust-lang/setup-rust-toolchain@v2.0.0
         with:
           toolchain: ${{ env.RUST_TOOLCHAIN }}
           cache-shared-key: validate-python-package
@@ -194,7 +194,7 @@ jobs:
       # run on pushes to main and so are the ones that actually save this
       # cache; this PR job only ever restores it.
       - name: Set up Rust toolchain
-        uses: actions-rust-lang/setup-rust-toolchain@v1.17.0
+        uses: actions-rust-lang/setup-rust-toolchain@v2.0.0
         with:
           toolchain: ${{ env.RUST_TOOLCHAIN }}
           cache-shared-key: docs-build

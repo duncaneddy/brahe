@@ -34,7 +34,7 @@ use crate::frames::{
     OrbitRelativeFrameVariant, ReferenceFrame,
 };
 use crate::math::{SMatrix3, SVector6};
-use crate::relative_motion::{omega_rtn, rotation_eci_to_rtn};
+use crate::relative_motion::{omega_lvlh, omega_rtn, rotation_eci_to_lvlh, rotation_eci_to_rtn};
 use crate::time::Epoch;
 use crate::utils::BraheError;
 
@@ -448,22 +448,27 @@ fn resolve_orbit_relative(
     object: &ObjectId,
     epc: Epoch,
 ) -> Result<Resolved, BraheError> {
-    if kind != OrbitRelativeFrameKind::RTN {
-        return Err(BraheError::Error(format!(
-            "orbit-relative kind {kind} does not yet have an axes derivation (tracked in \
-             issue #452); RTN is supported"
-        )));
-    }
+    let derive_axes: fn(SVector6) -> (SMatrix3, Vector3<f64>) = match kind {
+        OrbitRelativeFrameKind::RTN => |x| (rotation_eci_to_rtn(x), omega_rtn(x)),
+        OrbitRelativeFrameKind::LVLH => |x| (rotation_eci_to_lvlh(x), omega_lvlh(x)),
+        other => {
+            return Err(BraheError::Error(format!(
+                "orbit-relative kind {other} does not yet have an axes derivation (tracked in \
+                 issue #452); supported kinds: RTN, LVLH"
+            )));
+        }
+    };
 
     let (declared, x) = object_state(object, epc)?;
     let root = icrf_aligned_inertial(declared);
     let x_root = state_frame_to_frame(declared, root, epc, x)?;
+    let (dcm, omega) = derive_axes(x_root);
 
     Ok(Resolved {
         root,
-        dcm: rotation_eci_to_rtn(x_root),
+        dcm,
         omega: Some(match variant {
-            OrbitRelativeFrameVariant::Rotating => omega_rtn(x_root),
+            OrbitRelativeFrameVariant::Rotating => omega,
             OrbitRelativeFrameVariant::Inertial => Vector3::zeros(),
         }),
         rateless_link: None,
@@ -656,7 +661,9 @@ mod tests {
     };
     use crate::math::SVector6;
     use crate::orbit_dynamics::ephemerides::sun_position;
-    use crate::relative_motion::state_eci_to_rtn;
+    use crate::relative_motion::{
+        omega_lvlh, rotation_eci_to_lvlh, state_eci_to_lvlh, state_eci_to_rtn,
+    };
     use crate::spice::NAIFId;
     use crate::time::TimeSystem;
     use crate::utils::testing::{setup_global_test_eop, setup_global_test_spice};
@@ -1136,6 +1143,64 @@ mod tests {
 
     #[test]
     #[serial]
+    fn test_lvlh_rotation_matches_relative_motion() {
+        clear_object_registry();
+        let epc = Epoch::from_date(2024, 3, 1, TimeSystem::UTC);
+        let oe = SVector6::new(R_EARTH + 500e3, 0.001, 97.8, 15.0, 30.0, 45.0);
+        let x = state_koe_to_eci(oe, AngleFormat::Degrees);
+        register_object("A", FnProvider(move |_| Ok(x)), CelestialFrame::GCRF).unwrap();
+        let r =
+            rotation_frame_to_frame(CelestialFrame::GCRF, ReferenceFrame::LVLH("A"), epc).unwrap();
+        assert_abs_diff_eq!(r, rotation_eci_to_lvlh(x), epsilon = 1e-14);
+        clear_object_registry();
+    }
+
+    #[test]
+    #[serial]
+    fn test_lvlh_variants_angular_velocity() {
+        clear_object_registry();
+        let epc = Epoch::from_date(2024, 3, 1, TimeSystem::UTC);
+        let oe = SVector6::new(R_EARTH + 500e3, 0.001, 97.8, 15.0, 30.0, 45.0);
+        let x = state_koe_to_eci(oe, AngleFormat::Degrees);
+        register_object("A", FnProvider(move |_| Ok(x)), CelestialFrame::GCRF).unwrap();
+
+        let rotating = resolve_orientation(&ReferenceFrame::LVLH("A"), epc, true).unwrap();
+        assert_abs_diff_eq!(rotating.omega.unwrap(), omega_lvlh(x), epsilon = 1e-15);
+
+        let inertial = ReferenceFrame::orbit_relative(
+            OrbitRelativeFrameKind::LVLH,
+            OrbitRelativeFrameVariant::Inertial,
+            Some("A".into()),
+        )
+        .unwrap();
+        let snapshot = resolve_orientation(&inertial, epc, true).unwrap();
+        assert_eq!(snapshot.omega.unwrap(), Vector3::zeros());
+        assert_eq!(snapshot.dcm, rotating.dcm);
+        clear_object_registry();
+    }
+
+    #[test]
+    #[serial]
+    fn test_two_object_lvlh_matches_state_eci_to_lvlh() {
+        clear_object_registry();
+        let epc = Epoch::from_date(2024, 3, 1, TimeSystem::UTC);
+        let x_a = state_koe_to_eci(
+            SVector6::new(R_EARTH + 500e3, 0.001, 97.8, 15.0, 30.0, 45.0),
+            AngleFormat::Degrees,
+        );
+        let x_b = state_koe_to_eci(
+            SVector6::new(R_EARTH + 500e3, 0.001, 97.8, 15.0, 30.0, 45.2),
+            AngleFormat::Degrees,
+        );
+        register_object("A", FnProvider(move |_| Ok(x_a)), CelestialFrame::GCRF).unwrap();
+        let got = state_frame_to_frame(CelestialFrame::GCRF, ReferenceFrame::LVLH("A"), epc, x_b)
+            .unwrap();
+        assert_eq!(got, state_eci_to_lvlh(x_a, x_b));
+        clear_object_registry();
+    }
+
+    #[test]
+    #[serial]
     fn test_rtn_non_icrf_declared_frame_converts_to_inertial_root() {
         setup_global_test_eop();
         clear_object_registry();
@@ -1159,12 +1224,12 @@ mod tests {
     fn test_unsupported_orbit_relative_kind_names_issue() {
         clear_object_registry();
         let epc = Epoch::from_date(2024, 3, 1, TimeSystem::UTC);
-        let err = rotation_frame_to_frame(CelestialFrame::GCRF, ReferenceFrame::LVLH("A"), epc)
+        let err = rotation_frame_to_frame(CelestialFrame::GCRF, ReferenceFrame::NTW("A"), epc)
             .unwrap_err()
             .to_string();
-        assert!(err.contains("LVLH"));
+        assert!(err.contains("NTW"));
         assert!(err.contains("issue #452"));
-        assert!(err.contains("RTN is supported"));
+        assert!(err.contains("RTN, LVLH"));
 
         let unbound = ReferenceFrame::orbit_relative(
             OrbitRelativeFrameKind::RTN,

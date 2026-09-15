@@ -1332,6 +1332,28 @@ mod tests {
 
     #[test]
     #[serial]
+    fn test_tnw_rate_uses_the_declared_center_gm() {
+        clear_object_registry();
+        let epc = Epoch::from_date(2024, 3, 1, TimeSystem::UTC);
+        let x = state_koe_to_inertial_for_body(
+            SVector6::new(R_MARS + 400e3, 0.05, 92.6, 45.0, 270.0, 10.0),
+            &CentralBody::Mars,
+            AngleFormat::Degrees,
+        )
+        .unwrap();
+        let mars_icrf = CelestialFrame::centered(499, FrameAxes::ICRF);
+        register_object("M", FnProvider(move |_| Ok(x)), mars_icrf).unwrap();
+        let resolved = resolve_orientation(&ReferenceFrame::TNW("M"), epc, true).unwrap();
+        assert_abs_diff_eq!(
+            resolved.omega.unwrap(),
+            omega_tnw_for_body(x, GM_MARS),
+            epsilon = 1e-15
+        );
+        clear_object_registry();
+    }
+
+    #[test]
+    #[serial]
     fn test_tnw_inertial_variant_needs_no_gm() {
         clear_object_registry();
         let epc = Epoch::from_date(2024, 3, 1, TimeSystem::UTC);

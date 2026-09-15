@@ -736,8 +736,10 @@ fn parse_covariance_arg(obj: &Bound<'_, PyAny>) -> PyResult<(Vec<SMatrix6>, bool
 /// convention; a batch of covariances stacks along a leading axis. The two
 /// batch lengths must match or one must be 1. When `x` is batched, the
 /// output is `x`'s batch dimensions followed by `(6, 6)`, matching
-/// [`dispatch_vec_matrix`]; when only `covariance` is batched, the output is
-/// `(n, 6, 6)`.
+/// [`dispatch_vec_matrix`], except a length-1 `x` batch broadcast against
+/// `n` covariances yields `(n, 6, 6)` (`matrix_batch_to_numpy`'s
+/// flat-leading-axis fallback); when only `covariance` is batched, the
+/// output is `(n, 6, 6)`.
 fn dispatch_vec_covariance<'py, const N: usize>(
     py: Python<'py>,
     x: &Bound<'py, PyAny>,

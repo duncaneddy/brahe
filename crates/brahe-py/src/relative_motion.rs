@@ -627,7 +627,7 @@ fn py_jacobian_eci_to_rtn<'py>(
 ///         (6, n) column layout uses `axis=0`.
 ///
 /// Returns:
-///     numpy.ndarray: 6x6 state covariance in ECI axes, shape (6, 6). For batched input, when `x_eci` is batched the output is its batch dimensions followed by (6, 6); when only `covariance` is batched the output is (n, 6, 6).
+///     numpy.ndarray: 6x6 state covariance in ECI axes, shape (6, 6). For batched input, when `x_eci` is batched the output is its batch dimensions followed by (6, 6), except a length-1 `x_eci` batch broadcast against n covariances yields (n, 6, 6); when only `covariance` is batched the output is (n, 6, 6).
 ///
 /// Example:
 ///     ```python
@@ -678,7 +678,7 @@ fn py_covariance_rtn_to_eci<'py>(
 ///         (6, n) column layout uses `axis=0`.
 ///
 /// Returns:
-///     numpy.ndarray: 6x6 state covariance in RTN axes, shape (6, 6). For batched input, when `x_eci` is batched the output is its batch dimensions followed by (6, 6); when only `covariance` is batched the output is (n, 6, 6).
+///     numpy.ndarray: 6x6 state covariance in RTN axes, shape (6, 6). For batched input, when `x_eci` is batched the output is its batch dimensions followed by (6, 6), except a length-1 `x_eci` batch broadcast against n covariances yields (n, 6, 6); when only `covariance` is batched the output is (n, 6, 6).
 ///
 /// Example:
 ///     ```python
@@ -974,7 +974,7 @@ fn py_jacobian_eci_to_lvlh<'py>(
 ///         (6, n) column layout uses `axis=0`.
 ///
 /// Returns:
-///     numpy.ndarray: 6x6 state covariance in ECI axes, shape (6, 6). For batched input, when `x_eci` is batched the output is its batch dimensions followed by (6, 6); when only `covariance` is batched the output is (n, 6, 6).
+///     numpy.ndarray: 6x6 state covariance in ECI axes, shape (6, 6). For batched input, when `x_eci` is batched the output is its batch dimensions followed by (6, 6), except a length-1 `x_eci` batch broadcast against n covariances yields (n, 6, 6); when only `covariance` is batched the output is (n, 6, 6).
 ///
 /// Example:
 ///     ```python
@@ -1025,7 +1025,7 @@ fn py_covariance_lvlh_to_eci<'py>(
 ///         (6, n) column layout uses `axis=0`.
 ///
 /// Returns:
-///     numpy.ndarray: 6x6 state covariance in LVLH axes, shape (6, 6). For batched input, when `x_eci` is batched the output is its batch dimensions followed by (6, 6); when only `covariance` is batched the output is (n, 6, 6).
+///     numpy.ndarray: 6x6 state covariance in LVLH axes, shape (6, 6). For batched input, when `x_eci` is batched the output is its batch dimensions followed by (6, 6), except a length-1 `x_eci` batch broadcast against n covariances yields (n, 6, 6); when only `covariance` is batched the output is (n, 6, 6).
 ///
 /// Example:
 ///     ```python

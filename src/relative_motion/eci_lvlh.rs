@@ -10,6 +10,7 @@ use crate::relative_motion::common::{
     jacobian_from_inertial, jacobian_to_inertial, relative_state_from_frame,
     relative_state_to_frame, true_anomaly_rate,
 };
+use crate::relative_motion::rotation_rtn_to_eci;
 use crate::utils::BraheError;
 use crate::utils::batch::{batch_map, batch_zip};
 
@@ -25,6 +26,8 @@ use crate::utils::batch::{batch_map, batch_zip};
 ///
 /// This is a signed permutation of the RTN axes: `X = T`, `Y = −N`, `Z = −R`. Vallado and
 /// STK use the name LVLH for the RTN axes themselves; brahe follows the CCSDS convention.
+/// The matrix is assembled from the RTN axes as `[T, −N, −R]`, which equals the definition
+/// exactly.
 ///
 /// # Arguments:
 /// - `x_eci`: 6D state vector in the ECI frame [x, y, z, vx, vy, vz] (m, m/s)
@@ -49,18 +52,12 @@ use crate::utils::batch::{batch_map, batch_zip};
 /// let rotation_matrix = rotation_lvlh_to_eci(x_eci);
 /// ```
 pub fn rotation_lvlh_to_eci(x_eci: SVector6) -> SMatrix3 {
-    let r = x_eci.fixed_rows::<3>(0);
-    let v = x_eci.fixed_rows::<3>(3);
+    let rtn = rotation_rtn_to_eci(x_eci);
+    let r_hat: Vector3<f64> = rtn.column(0).into();
+    let t_hat: Vector3<f64> = rtn.column(1).into();
+    let n_hat: Vector3<f64> = rtn.column(2).into();
 
-    let r_hat = r / r.norm();
-    let h = r.cross(&v);
-    let h_hat = h / h.norm();
-
-    let z_hat = -r_hat;
-    let y_hat = -h_hat;
-    let x_hat = y_hat.cross(&z_hat);
-
-    SMatrix3::from_columns(&[x_hat, y_hat, z_hat])
+    SMatrix3::from_columns(&[t_hat, -n_hat, -r_hat])
 }
 
 /// Computes the rotation matrix transforming a vector in the Earth-Centered Inertial (ECI)
@@ -762,9 +759,9 @@ mod tests {
         let rtn_t: Vector3<f64> = rtn.column(1).into();
         let rtn_n: Vector3<f64> = rtn.column(2).into();
         // X_lvlh = T, Y_lvlh = -N, Z_lvlh = -R
-        assert_abs_diff_eq!(lvlh_x, rtn_t, epsilon = 1e-15);
-        assert_abs_diff_eq!(lvlh_y, -rtn_n, epsilon = 1e-15);
-        assert_abs_diff_eq!(lvlh_z, -rtn_r, epsilon = 1e-15);
+        assert_eq!(lvlh_x, rtn_t);
+        assert_eq!(lvlh_y, -rtn_n);
+        assert_eq!(lvlh_z, -rtn_r);
     }
 
     #[test]

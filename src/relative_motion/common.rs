@@ -143,7 +143,6 @@ pub(crate) fn jacobian_from_inertial(
 ///
 /// # References
 /// - H. Schaub and J. L. Junkins, *Analytical Mechanics of Space Systems*, 4th ed., AIAA, 2018, Section 3.3
-#[allow(dead_code)]
 pub(crate) fn velocity_direction_rate(x_inertial: SVector6, gm: f64) -> f64 {
     let r = x_inertial.fixed_rows::<3>(0);
     let v = x_inertial.fixed_rows::<3>(3);

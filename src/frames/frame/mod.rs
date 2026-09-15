@@ -790,8 +790,8 @@ impl ReferenceFrame {
     /// requires: a celestial frame (always), or an orbit-relative/body
     /// frame with a bound object. `true` is necessary but not sufficient
     /// for the frame to actually resolve. An orbit-relative frame also needs
-    /// an axes derivation for its `kind` (currently only `RTN`), and a body
-    /// frame also needs its orientation chain registered
+    /// an axes derivation for its `kind` (currently `RTN` and `LVLH`), and a
+    /// body frame also needs its orientation chain registered
     /// (`register_frame`).
     ///
     /// # Returns

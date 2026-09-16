@@ -815,8 +815,8 @@ mod tests {
         covariance_eci_to_lvlh, omega_lvlh, omega_nsw, omega_ntw, omega_ntw_for_body, omega_tnw,
         omega_vnc, rotation_eci_to_eqw, rotation_eci_to_lvlh, rotation_eci_to_nsw,
         rotation_eci_to_ntw, rotation_eci_to_pqw, rotation_eci_to_tnw,
-        rotation_inertial_to_pqw_for_body, state_ecef_to_sez, state_eci_to_eqw, state_eci_to_lvlh,
-        state_eci_to_pqw, state_eci_to_rtn,
+        rotation_inertial_to_pqw_for_body, state_ecef_to_enz, state_ecef_to_sez, state_eci_to_eqw,
+        state_eci_to_lvlh, state_eci_to_pqw, state_eci_to_rtn,
     };
     use crate::spice::{NAIFId, spk_state};
     use crate::time::TimeSystem;
@@ -1992,6 +1992,55 @@ mod tests {
         assert_eq!(resolved.root, CelestialFrame::GCRF);
         let expected = rotation_ecef_to_enz(x_gs) * itrf_angular_velocity_at(epc);
         assert_abs_diff_eq!(resolved.omega.unwrap(), expected, epsilon = 1e-15);
+        clear_object_registry();
+    }
+
+    #[test]
+    #[serial]
+    fn test_enz_moving_site_rate_composes_site_and_earth_rotation() {
+        setup_global_test_eop();
+        clear_object_registry();
+        let epc = Epoch::from_date(2024, 3, 1, TimeSystem::UTC);
+        let r_gs = position_geodetic_to_ecef(Vector3::new(30.0, 45.0, 10e3), AngleFormat::Degrees)
+            .unwrap();
+        let x_gs = SVector6::new(r_gs[0], r_gs[1], r_gs[2], -120.0, 180.0, 90.0);
+        register_object("GS", FnProvider(move |_| Ok(x_gs)), CelestialFrame::ITRF).unwrap();
+
+        // Rate relative to GCRF: Earth's rotation in ENZ axes plus the site's
+        // own transport rate, which is nonzero for a moving site.
+        let resolved = resolve_orientation(&ReferenceFrame::ENZ("GS"), epc, true).unwrap();
+        let r_site = rotation_ecef_to_enz(x_gs);
+        let expected = r_site * itrf_angular_velocity_at(epc) + omega_enz(x_gs);
+        assert!(omega_enz(x_gs).norm() > 1e-6);
+        assert_abs_diff_eq!(resolved.omega.unwrap(), expected, epsilon = 1e-15);
+
+        // A target's relative state through the graph matches the ECEF-side
+        // transform, which carries the same site rate.
+        let r_t = r_gs + Vector3::new(200e3, 300e3, 400e3);
+        let x_t = SVector6::new(r_t[0], r_t[1], r_t[2], 0.0, 0.0, 0.0);
+        let rel = state_frame_to_frame(CelestialFrame::ITRF, ReferenceFrame::ENZ("GS"), epc, x_t)
+            .unwrap();
+        assert_abs_diff_eq!(rel, state_ecef_to_enz(x_gs, x_t), epsilon = 1e-6);
+        clear_object_registry();
+    }
+
+    #[test]
+    #[serial]
+    fn test_enz_pole_site_rotation_matches_relative_motion() {
+        setup_global_test_eop();
+        clear_object_registry();
+        let epc = Epoch::from_date(2024, 3, 1, TimeSystem::UTC);
+        let r_gs =
+            position_geodetic_to_ecef(Vector3::new(0.0, 90.0, 0.0), AngleFormat::Degrees).unwrap();
+        let x_gs = SVector6::new(r_gs[0], r_gs[1], r_gs[2], 0.0, 0.0, 0.0);
+        register_object("GS", FnProvider(move |_| Ok(x_gs)), CelestialFrame::ITRF).unwrap();
+
+        let got =
+            rotation_frame_to_frame(CelestialFrame::ITRF, ReferenceFrame::ENZ("GS"), epc).unwrap();
+        assert_abs_diff_eq!(got, rotation_ecef_to_enz(x_gs), epsilon = 1e-12);
+        assert_abs_diff_eq!(got * got.transpose(), SMatrix3::identity(), epsilon = 1e-12);
+        // Zenith at the pole is the polar axis
+        assert_abs_diff_eq!(got.row(2).transpose(), Vector3::z(), epsilon = 1e-9);
         clear_object_registry();
     }
 

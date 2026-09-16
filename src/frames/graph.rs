@@ -449,8 +449,8 @@ fn provider_error(frame: &ReferenceFrame, err: BraheError) -> BraheError {
 ///   registered, its state cannot be evaluated at `epc`, or (for `NTW`'s,
 ///   `TNW`'s, or `VNC`'s rotating variant, or for `PQW`) its declared
 ///   center has no packaged gravitational parameter — `PQW` needs it to
-///   locate periapsis for its axes, not just for a rate — or (for `PQW`)
-///   the frame carries the rotating variant, which the validating
+///   locate periapsis for its axes, not just for a rate — or (for `PQW` or
+///   `EQW`) the frame carries the rotating variant, which the validating
 ///   constructors reject but the enum's public fields and deserialization
 ///   admit
 fn resolve_orbit_relative(
@@ -544,7 +544,15 @@ fn resolve_orbit_relative(
                 Vector3::zeros(),
             )
         }
-        OrbitRelativeFrameKind::EQW => (rotation_eci_to_eqw(x_root), Vector3::zeros()),
+        OrbitRelativeFrameKind::EQW => {
+            if variant == OrbitRelativeFrameVariant::Rotating {
+                return Err(BraheError::Error(format!(
+                    "orbit-relative kind EQW exists only as an inertial SANA frame and cannot \
+                     be evaluated with the rotating variant for {object}"
+                )));
+            }
+            (rotation_eci_to_eqw(x_root), Vector3::zeros())
+        }
         _ => {
             return Err(BraheError::Error(format!(
                 "orbit-relative kind {kind} does not yet have an axes derivation (tracked in \
@@ -1553,6 +1561,30 @@ mod tests {
         clear_object_registry();
     }
 
+    #[test]
+    #[serial]
+    fn test_eqw_rotating_variant_is_rejected_by_resolver() {
+        // The validating constructors reject a rotating EQW frame, but the
+        // enum's public fields and deserialization admit one; the resolver
+        // must refuse it rather than silently evaluate it with zero rate.
+        clear_object_registry();
+        let epc = Epoch::from_date(2024, 3, 1, TimeSystem::UTC);
+        let oe = SVector6::new(R_EARTH + 500e3, 0.05, 97.8, 15.0, 30.0, 45.0);
+        let x = state_koe_to_eci(oe, AngleFormat::Degrees);
+        register_object("A", FnProvider(move |_| Ok(x)), CelestialFrame::GCRF).unwrap();
+
+        let rotating = ReferenceFrame::OrbitRelative {
+            kind: OrbitRelativeFrameKind::EQW,
+            variant: OrbitRelativeFrameVariant::Rotating,
+            object: Some("A".into()),
+        };
+        let err = rotation_frame_to_frame(CelestialFrame::GCRF, rotating, epc)
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("EQW"));
+        assert!(err.contains("rotating variant"));
+        clear_object_registry();
+    }
     #[test]
     #[serial]
     fn test_pqw_uses_the_declared_center_gm() {

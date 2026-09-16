@@ -22,6 +22,99 @@ def body_frames():
     )
 
 
+def test_attitude_state_new():
+    """Rust: test_attitude_state_new"""
+    q = bh.Quaternion(1.0, 0.0, 0.0, 0.0)
+    state = AttitudeState(q)
+    assert state.quaternion == q
+    assert state.angular_velocity is None
+
+
+def test_attitude_state_with_angular_velocity():
+    """Rust: test_attitude_state_with_angular_velocity"""
+    omega = np.array([0.1, 0.2, 0.3])
+    state = AttitudeState(bh.Quaternion(1.0, 0.0, 0.0, 0.0), omega)
+    np.testing.assert_array_equal(state.angular_velocity, omega)
+
+
+def test_attitude_interpolation_method_default():
+    """Rust: test_attitude_interpolation_method_default"""
+    frame_a, frame_b = body_frames()
+    traj = AttitudeTrajectory(frame_a, frame_b)
+    assert traj.interpolation_method == "SLERP"
+
+
+def test_attitude_trajectory_new():
+    """Rust: test_attitude_trajectory_new"""
+    frame_a, frame_b = body_frames()
+    traj = AttitudeTrajectory(frame_a, frame_b)
+    assert len(traj) == 0
+    assert traj.interpolation_method == "SLERP"
+    assert not traj.has_rates
+
+
+def test_attitude_trajectory_add_sorts_out_of_order_epochs():
+    """Rust: test_attitude_trajectory_add_sorts_out_of_order_epochs"""
+    frame_a, frame_b = body_frames()
+    traj = AttitudeTrajectory(frame_a, frame_b)
+    t0 = bh.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+
+    traj.add(t0 + 60.0, z_axis_quaternion(0.1))
+    traj.add(t0, z_axis_quaternion(0.0))
+    traj.add(t0 + 30.0, z_axis_quaternion(0.05))
+
+    assert len(traj) == 3
+    assert traj.start_epoch == t0
+    assert traj.end_epoch == t0 + 60.0
+    np.testing.assert_array_equal(
+        traj.quaternion(t0).to_vector(scalar_first=True),
+        z_axis_quaternion(0.0).to_vector(scalar_first=True),
+    )
+    np.testing.assert_array_equal(
+        traj.quaternion(t0 + 30.0).to_vector(scalar_first=True),
+        z_axis_quaternion(0.05).to_vector(scalar_first=True),
+    )
+    np.testing.assert_array_equal(
+        traj.quaternion(t0 + 60.0).to_vector(scalar_first=True),
+        z_axis_quaternion(0.1).to_vector(scalar_first=True),
+    )
+
+
+def test_attitude_trajectory_add_rate_mixing_error():
+    """Rust: test_attitude_trajectory_add_rate_mixing_error"""
+    frame_a, frame_b = body_frames()
+    traj = AttitudeTrajectory(frame_a, frame_b)
+    t0 = bh.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    traj.add(t0, z_axis_quaternion(0.0))
+
+    with pytest.raises(Exception, match="angular velocity"):
+        traj.add(t0 + 60.0, z_axis_quaternion(0.1), np.array([0.0, 0.0, 0.01]))
+
+
+def test_attitude_trajectory_add_rate_mixing_error_reverse_direction():
+    """Rust: test_attitude_trajectory_add_rate_mixing_error_reverse_direction"""
+    frame_a, frame_b = body_frames()
+    traj = AttitudeTrajectory(frame_a, frame_b)
+    t0 = bh.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    traj.add(t0, z_axis_quaternion(0.0), np.array([0.0, 0.0, 0.01]))
+
+    with pytest.raises(Exception, match="does not carry angular velocity"):
+        traj.add(t0 + 60.0, z_axis_quaternion(0.1))
+
+
+def test_attitude_trajectory_has_rates():
+    """Rust: test_attitude_trajectory_has_rates"""
+    frame_a, frame_b = body_frames()
+    traj = AttitudeTrajectory(frame_a, frame_b)
+    t0 = bh.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+
+    assert not traj.has_rates
+
+    traj.add(t0, z_axis_quaternion(0.0), np.array([0.0, 0.0, 0.01]))
+
+    assert traj.has_rates
+
+
 def test_attitude_state_construction():
     q = bh.Quaternion(1.0, 0.0, 0.0, 0.0)
     state = AttitudeState(q)

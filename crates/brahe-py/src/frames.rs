@@ -5978,10 +5978,8 @@ fn py_covariance_frame_to_frame<'py>(
 /// `RTN` is the frame the SANA registries call `RSW`; brahe uses its
 /// existing RTN vocabulary (`state_eci_to_rtn`, `covariance_rtn`).
 ///
-/// Every kind is a valid frame identity, which is what parsing a data file
-/// needs, but only `RTN`, `LVLH`, `NTW`, `TNW`, `VNC`, `PQW`, `EQW`, and
-/// `NSW` have axes derivations today. A transform through any other kind
-/// raises until issue #452 adds the remaining derivation.
+/// Every kind has an axes derivation; `SEZ` is evaluable only for
+/// Earth-centered objects.
 ///
 /// Example:
 ///     ```python
@@ -6509,10 +6507,8 @@ impl PyReferenceFrame {
     /// Bound topocentric South/East/Zenith orbit-relative frame (rotating
     /// variant).
     ///
-    /// Among the orbit-relative kinds only `RTN`, `LVLH`, `NTW`, `TNW`,
-    /// `VNC`, `PQW`, `EQW`, and `NSW` have axes derivations today, so this
-    /// frame is constructible but every transform through it raises until
-    /// issue #452 adds the remaining derivation.
+    /// Axes: S due south, E east, Z along the WGS84 geodetic vertical at
+    /// the object's position. Evaluable only for Earth-centered objects.
     ///
     /// Args:
     ///     object (str): The object the frame is defined relative to
@@ -6880,11 +6876,6 @@ impl PyReferenceFrame {
     /// combination. General form of the family staticmethods (`ReferenceFrame.RTN`,
     /// ...), for callers that hold a runtime kind/variant pair and an
     /// optional, not-yet-bound object.
-    ///
-    /// Among the orbit-relative kinds only `RTN`, `LVLH`, `NTW`, `TNW`,
-    /// `VNC`, `PQW`, `EQW`, and `NSW` have axes derivations today; the
-    /// others construct successfully but every transform through them
-    /// raises until issue #452 adds the remaining derivation.
     ///
     /// Args:
     ///     kind (OrbitRelativeFrameKind): Frame construction (axes definition)

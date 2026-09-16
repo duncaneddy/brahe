@@ -804,16 +804,38 @@ def test_nsw_auto_source_prefers_loaded_kernels(
     np.testing.assert_allclose(r, bh.rotation_eci_to_nsw(x, x_sun), atol=1e-14)
 
 
-def test_unsupported_orbit_relative_kind_names_issue(clear_frame_registries):
+def test_sez_station_rotation_matches_relative_motion(eop, clear_frame_registries):
     epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
-    with pytest.raises(RuntimeError, match="SEZ"):
-        bh.rotation_frame_to_frame(
-            bh.CelestialFrame.GCRF, bh.ReferenceFrame.SEZ("A"), epc
-        )
-    with pytest.raises(RuntimeError, match="RTN, LVLH, NTW, TNW, VNC, PQW, EQW, NSW"):
-        bh.rotation_frame_to_frame(
-            bh.CelestialFrame.GCRF, bh.ReferenceFrame.SEZ("A"), epc
-        )
+    r_gs = bh.position_geodetic_to_ecef(
+        np.array([30.0, 45.0, 500.0]), bh.AngleFormat.DEGREES
+    )
+    x_gs = np.concatenate([r_gs, np.zeros(3)])
+    bh.register_object("GS", lambda epc: x_gs, bh.CelestialFrame.ITRF)
+
+    got = bh.rotation_frame_to_frame(
+        bh.CelestialFrame.ITRF, bh.ReferenceFrame.SEZ("GS"), epc
+    )
+    np.testing.assert_allclose(got, bh.rotation_ecef_to_sez(x_gs), atol=1e-12)
+
+    r_t = r_gs + np.array([200e3, 300e3, 400e3])
+    x_t = np.concatenate([r_t, np.zeros(3)])
+    rel = bh.state_frame_to_frame(
+        bh.CelestialFrame.ITRF, bh.ReferenceFrame.SEZ("GS"), epc, x_t
+    )
+    np.testing.assert_allclose(rel, bh.state_ecef_to_sez(x_gs, x_t), atol=1e-6)
+
+
+def test_sez_requires_earth_centered_object(clear_frame_registries):
+    epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+    oe = np.array([bh.R_MARS + 400e3, 0.05, 92.6, 45.0, 270.0, 10.0])
+    x = bh.state_koe_to_inertial_for_body(
+        oe, bh.CentralBody.Mars, bh.AngleFormat.DEGREES
+    )
+    mars_frame = bh.CelestialFrame.Centered(499, bh.FrameAxes.ICRF)
+    bh.register_object("M", lambda epc: x, mars_frame)
+
+    with pytest.raises(RuntimeError, match="Earth"):
+        bh.rotation_frame_to_frame(mars_frame, bh.ReferenceFrame.SEZ("M"), epc)
 
 
 def test_sun_vector_in_sensor_frame(eop, clear_frame_registries):

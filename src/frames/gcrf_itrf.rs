@@ -449,7 +449,6 @@ pub(crate) fn itrf_angular_velocity(pm: &SMatrix3) -> Vector3<f64> {
 }
 
 /// [`itrf_angular_velocity`] at `epc`, evaluating polar motion.
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn itrf_angular_velocity_at(epc: Epoch) -> Vector3<f64> {
     itrf_angular_velocity(&polar_motion(epc))
 }

@@ -1284,6 +1284,64 @@ mod tests {
         clear_object_registry();
     }
 
+    #[test]
+    #[serial]
+    fn test_body_frame_on_orbit_relative_parent_composes_link_rate() {
+        clear_frame_registry();
+        clear_object_registry();
+        let epc = Epoch::from_date(2024, 3, 1, TimeSystem::UTC);
+        let x = state_koe_to_eci(
+            SVector6::new(R_EARTH + 500e3, 0.001, 97.8, 15.0, 30.0, 45.0),
+            AngleFormat::Degrees,
+        );
+        register_object("SC", FnProvider(move |_| Ok(x)), CelestialFrame::GCRF).unwrap();
+        // Body frame yawed about the LVLH Z axis and spinning about its own
+        // Z axis at a constant rate supplied by the link
+        let q =
+            Quaternion::from_euler_axis(EulerAxis::new(Vector3::z(), 0.3, AngleFormat::Radians));
+        let r_link = q.to_rotation_matrix().to_matrix();
+        let w_link = Vector3::new(0.0, 0.0, 2.0e-3);
+        let spin = CallbackOrientation::new(
+            move |_epc: Epoch| Ok(r_link),
+            Some(Box::new(move |_epc: Epoch| Ok(w_link))),
+        );
+        register_frame(
+            ReferenceFrame::SC_BODY("SC"),
+            ReferenceFrame::LVLH("SC"),
+            spin,
+        )
+        .unwrap();
+
+        // omega_body = omega_link + R_link * omega_lvlh
+        let resolved = resolve_orientation(&ReferenceFrame::SC_BODY("SC"), epc, true).unwrap();
+        let expected = w_link + r_link * omega_lvlh(x);
+        assert_abs_diff_eq!(resolved.omega.unwrap(), expected, epsilon = 1e-15);
+
+        // The link rate couples into the relative velocity:
+        // v_body = R_link v_lvlh - w_link x r_body
+        let x_b = state_koe_to_eci(
+            SVector6::new(R_EARTH + 500e3, 0.001, 97.8, 15.0, 30.0, 45.2),
+            AngleFormat::Degrees,
+        );
+        let via_body = state_frame_to_frame(
+            CelestialFrame::GCRF,
+            ReferenceFrame::SC_BODY("SC"),
+            epc,
+            x_b,
+        )
+        .unwrap();
+        let rateless = rotate_state(&r_link, &state_eci_to_lvlh(x, x_b));
+        let r_body = rateless.fixed_rows::<3>(0).into_owned();
+        let v_body = rateless.fixed_rows::<3>(3).into_owned() - w_link.cross(&r_body);
+        let expected_state = SVector6::new(
+            r_body[0], r_body[1], r_body[2], v_body[0], v_body[1], v_body[2],
+        );
+        assert_abs_diff_eq!(via_body, expected_state, epsilon = 1e-9);
+        assert!((via_body.fixed_rows::<3>(3) - rateless.fixed_rows::<3>(3)).norm() > 1e-3);
+        clear_frame_registry();
+        clear_object_registry();
+    }
+
     /// Rotation-only provider whose rate query always fails, to verify
     /// rotation-only and position-only queries never evaluate it.
     struct RotationOnlyErroringRates;

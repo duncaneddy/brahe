@@ -516,6 +516,47 @@ def test_body_frame_registered_on_orbit_relative_parent_resolves(
     np.testing.assert_allclose(via_body, expected_state, atol=1e-9)
 
 
+def test_body_frame_on_orbit_relative_parent_composes_link_rate(
+    clear_frame_registries,
+):
+    """Rust: test_body_frame_on_orbit_relative_parent_composes_link_rate"""
+    epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+    x = bh.state_koe_to_eci(
+        np.array([bh.R_EARTH + 500e3, 0.001, 97.8, 15.0, 30.0, 45.0]),
+        bh.AngleFormat.DEGREES,
+    )
+    bh.register_object("SC", lambda epc: x, bh.CelestialFrame.GCRF)
+    # Body frame yawed about the LVLH Z axis and spinning about its own Z
+    # axis at a constant rate supplied by the link
+    q = bh.Quaternion.from_euler_axis(
+        bh.EulerAxis(np.array([0.0, 0.0, 1.0]), 0.3, bh.AngleFormat.RADIANS)
+    )
+    r_link = q.to_rotation_matrix().to_matrix()
+    w_link = np.array([0.0, 0.0, 2.0e-3])
+    bh.register_frame(
+        bh.ReferenceFrame.SC_BODY("SC"),
+        bh.ReferenceFrame.LVLH("SC"),
+        lambda e: r_link,
+        omega=lambda e: w_link,
+    )
+
+    # The link rate couples into the relative velocity:
+    # v_body = R_link v_lvlh - w_link x r_body
+    x_b = bh.state_koe_to_eci(
+        np.array([bh.R_EARTH + 500e3, 0.001, 97.8, 15.0, 30.0, 45.2]),
+        bh.AngleFormat.DEGREES,
+    )
+    via_body = bh.state_frame_to_frame(
+        bh.CelestialFrame.GCRF, bh.ReferenceFrame.SC_BODY("SC"), epc, x_b
+    )
+    rel_lvlh = bh.state_eci_to_lvlh(x, x_b)
+    r_body = r_link @ rel_lvlh[:3]
+    v_rateless = r_link @ rel_lvlh[3:]
+    expected = np.concatenate([r_body, v_rateless - np.cross(w_link, r_body)])
+    np.testing.assert_allclose(via_body, expected, atol=1e-9)
+    assert np.linalg.norm(via_body[3:] - v_rateless) > 1e-3
+
+
 def test_register_frame_rejects_unbound_orbit_relative_parent(clear_frame_registries):
     unbound = bh.ReferenceFrame.orbit_relative(
         bh.OrbitRelativeFrameKind.LVLH, bh.OrbitRelativeFrameVariant.ROTATING

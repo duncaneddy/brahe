@@ -51,7 +51,6 @@ fn enz_axes(x_ecef: SVector6) -> (SMatrix3, Vector3<f64>) {
 /// - `r`: 3x3 Rotation matrix transforming from ECEF to ENZ frame
 ///
 /// # References:
-/// - `crate::coordinates::rotation_ellipsoid_to_enz`
 /// - D. A. Vallado, *Fundamentals of Astrodynamics and Applications*, 4th ed., Section 3.4
 ///
 /// # Examples:
@@ -81,7 +80,6 @@ pub fn rotation_ecef_to_enz(x_ecef: SVector6) -> SMatrix3 {
 /// - `r`: 3x3 Rotation matrix transforming from ENZ to ECEF frame
 ///
 /// # References:
-/// - `crate::coordinates::rotation_ellipsoid_to_enz`
 /// - D. A. Vallado, *Fundamentals of Astrodynamics and Applications*, 4th ed., Section 3.4
 ///
 /// # Examples:
@@ -327,9 +325,6 @@ pub fn covariance_ecef_to_enz(
 /// # Returns:
 /// - `x_rel_enz`: 6D relative state of the target with respect to the site in the ENZ frame [ρ_E, ρ_N, ρ_Z, ρ̇_E, ρ̇_N, ρ̇_Z] (m, m/s)
 ///
-/// # References:
-/// - `crate::coordinates::relative_position_ecef_to_enz`
-///
 /// # Examples:
 /// ```
 /// use brahe::SVector6;
@@ -362,9 +357,6 @@ pub fn state_ecef_to_enz(x_site: SVector6, x_target: SVector6) -> SVector6 {
 /// # Returns:
 /// - `x_target`: 6D state vector of the target in the ECEF frame [x, y, z, vx, vy, vz] (m, m/s)
 ///
-/// # References:
-/// - `crate::coordinates::relative_position_ecef_to_enz`
-///
 /// # Examples:
 /// ```
 /// use brahe::SVector6;
@@ -396,7 +388,6 @@ pub fn state_enz_to_ecef(x_site: SVector6, x_rel_enz: SVector6) -> SVector6 {
 /// - Rotation matrices transforming ECEF -> ENZ, one per site, in input order
 ///
 /// # References
-/// - `crate::coordinates::rotation_ellipsoid_to_enz`
 /// - D. A. Vallado, *Fundamentals of Astrodynamics and Applications*, 4th ed., Section 3.4
 ///
 /// # Examples
@@ -428,7 +419,6 @@ pub fn rotations_ecef_to_enz(x_ecef: &[SVector6]) -> Vec<SMatrix3> {
 /// - Rotation matrices transforming ENZ -> ECEF, one per site, in input order
 ///
 /// # References
-/// - `crate::coordinates::rotation_ellipsoid_to_enz`
 /// - D. A. Vallado, *Fundamentals of Astrodynamics and Applications*, 4th ed., Section 3.4
 ///
 /// # Examples
@@ -668,9 +658,6 @@ pub fn covariances_ecef_to_enz(
 /// - Target relative states in the site ENZ frame, in input order. Units: (*m*; *m/s*)
 /// - Error if the lengths do not satisfy the broadcast rule
 ///
-/// # References
-/// - `crate::coordinates::relative_position_ecef_to_enz`
-///
 /// # Examples
 /// ```
 /// use brahe::SVector6;
@@ -711,9 +698,6 @@ pub fn states_ecef_to_enz(
 /// # Returns
 /// - Target Cartesian ECEF states, in input order. Units: (*m*; *m/s*)
 /// - Error if the lengths do not satisfy the broadcast rule
-///
-/// # References
-/// - `crate::coordinates::relative_position_ecef_to_enz`
 ///
 /// # Examples
 /// ```
@@ -799,6 +783,8 @@ mod tests {
         assert_eq!(e_enz, e_sez);
         assert_eq!(n_enz, -s_sez);
         assert_eq!(z_enz, z_sez);
+        assert_abs_diff_eq!(m_enz.determinant(), 1.0, epsilon = 1e-14);
+        assert_eq!(omega_enz(x), Vector3::zeros());
     }
 
     #[test]

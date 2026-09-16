@@ -36,8 +36,9 @@ normal to X, and Z = X × Y; its functions take the Sun state as an argument.
 The SEZ frame is the south/east/zenith horizon frame of an ECEF site; its
 functions take ECEF states and its rate is relative to ECEF.
 
-The ENZ frame is the east/north/zenith horizon frame of an ECEF site; it is
-not a SANA frame.
+The ENZ frame is the east/north/zenith horizon frame of an ECEF site; its
+functions take ECEF states and its rate is relative to ECEF. It is not a SANA
+frame.
 
 Functions are provided for:
 - Rotation matrices between ECI and RTN frames

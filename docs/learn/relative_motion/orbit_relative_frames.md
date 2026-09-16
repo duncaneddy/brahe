@@ -19,9 +19,11 @@ With $\hat{r}$ the unit position, $\hat{v}$ the unit velocity, $\hat{h}$ the uni
 | EQW | $\hat{n}$ | $\hat{h} \times \hat{n}$ | $\hat{h}$ | inertial only |
 | NSW | $-\hat{r}$ | $\hat{s}$ projected normal to X | $X \times Y$ | rate from basis derivatives |
 | SEZ | south | east | geodetic up | rate relative to ECEF |
-| ENZ (brahe extension, not SANA) | east | north | geodetic up | rate relative to ECEF |
+| ENZ | east | north | geodetic up | rate relative to ECEF |
 
 Source: SANA Orbit-Relative Reference Frames registry (<https://sanaregistry.org/r/orbit_relative_reference_frames>) and CCSDS 500.0-G-4, *Navigation Data—Definitions and Conventions*, Section 4.3.7.
+
+ENZ is a brahe extension and is not in the SANA registry.
 
 ## Variants
 
@@ -257,7 +259,7 @@ The south/east/zenith frame is the topocentric horizon frame of a site: S points
 
 ## ENZ
 
-The east/north/zenith frame is the SEZ horizon frame with its horizontal axes reordered ($E_\mathrm{ENZ} = E_\mathrm{SEZ}$, $N_\mathrm{ENZ} = -S_\mathrm{SEZ}$). It is not in the SANA registry; brahe adds it because its `coordinates` module already uses ENZ for topocentric work, and CCSDS messages accept the tokens `ENZ_ROTATING` and `ENZ_INERTIAL` (with `ENU_*` accepted on input) as a brahe extension.
+The east/north/zenith frame is the SEZ horizon frame with its horizontal axes reordered ($E_\mathrm{ENZ} = E_\mathrm{SEZ}$, $N_\mathrm{ENZ} = -S_\mathrm{SEZ}$). It is not in the SANA registry; brahe adds it because its `coordinates` module already uses ENZ for topocentric work, and brahe's CCSDS reader and writer accept the tokens `ENZ_ROTATING` and `ENZ_INERTIAL` (with `ENU_*` accepted on input) as an extension; the tokens are not in the SANA registry, so other tools may not recognize them.
 
 === "Python"
 

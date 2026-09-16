@@ -61,6 +61,8 @@ def test_rotation_enz_is_permuted_sez():
     np.testing.assert_array_equal(e_enz, e_sez)
     np.testing.assert_array_equal(n_enz, -s_sez)
     np.testing.assert_array_equal(z_enz, z_sez)
+    assert np.linalg.det(m_enz) == approx(1.0, abs=1e-14)
+    np.testing.assert_array_equal(brahe.omega_enz(x), np.zeros(3))
 
 
 def test_omega_enz_is_sez_rate_in_enz_axes():

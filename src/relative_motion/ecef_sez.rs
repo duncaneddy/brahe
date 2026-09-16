@@ -243,14 +243,6 @@ pub fn jacobian_ecef_to_sez(x_ecef: SVector6, variant: OrbitRelativeFrameVariant
 /// # Returns:
 /// - `p_ecef`: 6x6 state covariance in the ECEF frame (m², m²/s, m²/s²)
 ///
-/// # References:
-/// 1. NASA Conjunction Assessment Risk Analysis (CARA),
-///    [*Conjunction Assessment Handbook*, NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13)](https://ntrs.nasa.gov/citations/20205011318)
-/// 2. NASA CARA Analysis Tools,
-///    [`RIC2ECI.m`](https://github.com/nasa/CARA_Analysis_Tools)
-/// 3. D. A. Vallado,
-///    ["Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003](https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf)
-///
 /// # Examples:
 /// ```
 /// use brahe::{SVector6, SMatrix6};
@@ -266,6 +258,14 @@ pub fn jacobian_ecef_to_sez(x_ecef: SVector6, variant: OrbitRelativeFrameVariant
 ///
 /// let p_ecef = covariance_sez_to_ecef(x_site, &p_sez, OrbitRelativeFrameVariant::Rotating);
 /// ```
+///
+/// # References:
+/// 1. NASA Conjunction Assessment Risk Analysis (CARA),
+///    [*Conjunction Assessment Handbook*, NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13)](https://ntrs.nasa.gov/citations/20205011318)
+/// 2. NASA CARA Analysis Tools,
+///    [`RIC2ECI.m`](https://github.com/nasa/CARA_Analysis_Tools)
+/// 3. D. A. Vallado,
+///    ["Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003](https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf)
 pub fn covariance_sez_to_ecef(
     x_ecef: SVector6,
     covariance: &SMatrix6,
@@ -289,14 +289,6 @@ pub fn covariance_sez_to_ecef(
 /// # Returns:
 /// - `p_sez`: 6x6 state covariance in SEZ axes (m², m²/s, m²/s²)
 ///
-/// # References:
-/// 1. NASA Conjunction Assessment Risk Analysis (CARA),
-///    [*Conjunction Assessment Handbook*, NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13)](https://ntrs.nasa.gov/citations/20205011318)
-/// 2. NASA CARA Analysis Tools,
-///    [`RIC2ECI.m`](https://github.com/nasa/CARA_Analysis_Tools)
-/// 3. D. A. Vallado,
-///    ["Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003](https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf)
-///
 /// # Examples:
 /// ```
 /// use brahe::{SVector6, SMatrix6};
@@ -312,6 +304,14 @@ pub fn covariance_sez_to_ecef(
 ///
 /// let p_sez = covariance_ecef_to_sez(x_site, &p_ecef, OrbitRelativeFrameVariant::Rotating);
 /// ```
+///
+/// # References:
+/// 1. NASA Conjunction Assessment Risk Analysis (CARA),
+///    [*Conjunction Assessment Handbook*, NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13)](https://ntrs.nasa.gov/citations/20205011318)
+/// 2. NASA CARA Analysis Tools,
+///    [`RIC2ECI.m`](https://github.com/nasa/CARA_Analysis_Tools)
+/// 3. D. A. Vallado,
+///    ["Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003](https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf)
 pub fn covariance_ecef_to_sez(
     x_ecef: SVector6,
     covariance: &SMatrix6,

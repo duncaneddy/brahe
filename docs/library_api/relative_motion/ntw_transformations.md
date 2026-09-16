@@ -1,10 +1,5 @@
 # NTW Transformations
 
-Rotation matrices, angular velocity, Jacobians, covariance transforms, and relative-state transforms between ECI and the Normal, Tangential, Cross-track (NTW) frame.
-
-!!! note
-    For the frame definition and examples, see [Orbit-Relative Frames](../../learn/relative_motion/orbit_relative_frames.md).
-
 ::: brahe.rotation_ntw_to_eci
 
 ::: brahe.rotation_eci_to_ntw
@@ -36,3 +31,7 @@ Rotation matrices, angular velocity, Jacobians, covariance transforms, and relat
 ::: brahe.state_ntw_to_eci
 
 ::: brahe.state_ntw_to_inertial_for_body
+
+## See Also
+
+- [Learn: Orbit-Relative Frames](../../learn/relative_motion/orbit_relative_frames.md)

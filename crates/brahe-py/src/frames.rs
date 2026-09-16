@@ -6468,6 +6468,13 @@ impl PyReferenceFrame {
     ///
     /// Returns:
     ///     ReferenceFrame: The bound `NTW (rotating)` orbit-relative frame
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     frame = bh.ReferenceFrame.NTW("SC")
+    ///     ```
     #[staticmethod]
     #[allow(non_snake_case)]
     fn NTW(object: String) -> Self {

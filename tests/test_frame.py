@@ -754,6 +754,56 @@ def test_nsw_analytic_source_errors_for_non_earth_center(clear_frame_registries)
         bh.set_frame_ephemeris_source(bh.FrameEphemerisSource.AUTO)
 
 
+def test_nsw_kernel_source_matches_spk_state(naif_cache_setup, clear_frame_registries):
+    """Rust: test_frame_sun_state_kernel_matches_spk_state"""
+    bh.load_spice_kernel("de440s")
+    bh.set_frame_ephemeris_source(bh.FrameEphemerisSource.KERNEL)
+    try:
+        epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+        oe = np.array([bh.R_EARTH + 500e3, 0.05, 97.8, 15.0, 30.0, 45.0])
+        x = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
+        bh.register_object("A", lambda epc: x, bh.CelestialFrame.GCRF)
+
+        x_sun = bh.spk_state(bh.NAIFId.SUN, bh.NAIFId.EARTH, epc)
+        r = bh.rotation_frame_to_frame(
+            bh.CelestialFrame.GCRF, bh.ReferenceFrame.NSW("A"), epc
+        )
+        np.testing.assert_allclose(r, bh.rotation_eci_to_nsw(x, x_sun), atol=1e-14)
+
+        r_sun = bh.sun_position(epc)
+        v_sun = (bh.sun_position(epc + 0.5) - bh.sun_position(epc - 0.5)) / 1.0
+        x_sun_analytic = np.concatenate([r_sun, v_sun])
+        assert np.abs(r - bh.rotation_eci_to_nsw(x, x_sun_analytic)).max() > 1e-10
+    finally:
+        bh.set_frame_ephemeris_source(bh.FrameEphemerisSource.AUTO)
+
+
+def test_nsw_auto_source_prefers_loaded_kernels(
+    naif_cache_setup, no_spice_kernels, clear_frame_registries
+):
+    """Rust: test_frame_sun_state_auto_prefers_loaded_kernels"""
+    bh.set_frame_ephemeris_source(bh.FrameEphemerisSource.AUTO)
+    epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+    oe = np.array([bh.R_EARTH + 500e3, 0.05, 97.8, 15.0, 30.0, 45.0])
+    x = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
+    bh.register_object("A", lambda epc: x, bh.CelestialFrame.GCRF)
+
+    r_sun = bh.sun_position(epc)
+    v_sun = (bh.sun_position(epc + 0.5) - bh.sun_position(epc - 0.5)) / 1.0
+    x_sun_analytic = np.concatenate([r_sun, v_sun])
+    r = bh.rotation_frame_to_frame(
+        bh.CelestialFrame.GCRF, bh.ReferenceFrame.NSW("A"), epc
+    )
+    np.testing.assert_allclose(r, bh.rotation_eci_to_nsw(x, x_sun_analytic), atol=1e-14)
+
+    bh.load_spice_kernel("de440s")
+    x_sun = bh.spk_state(bh.NAIFId.SUN, bh.NAIFId.EARTH, epc)
+    r = bh.rotation_frame_to_frame(
+        bh.CelestialFrame.GCRF, bh.ReferenceFrame.NSW("A"), epc
+    )
+    np.testing.assert_allclose(r, bh.rotation_eci_to_nsw(x, x_sun), atol=1e-14)
+
+
 def test_unsupported_orbit_relative_kind_names_issue(clear_frame_registries):
     epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
     with pytest.raises(RuntimeError, match="SEZ"):

@@ -705,15 +705,61 @@ def test_pqw_needs_gm_for_its_axes(clear_frame_registries):
         bh.state_frame_to_frame(no_gm_frame, bh.ReferenceFrame.PQW("X"), epc, x)
 
 
-def test_unsupported_orbit_relative_kind_names_issue(clear_frame_registries):
-    epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
-    with pytest.raises(RuntimeError, match="NSW"):
-        bh.rotation_frame_to_frame(
+def test_nsw_rotation_matches_relative_motion_analytic(clear_frame_registries):
+    bh.set_frame_ephemeris_source(bh.FrameEphemerisSource.ANALYTIC)
+    try:
+        epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+        oe = np.array([bh.R_EARTH + 500e3, 0.05, 97.8, 15.0, 30.0, 45.0])
+        x = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
+        bh.register_object("A", lambda epc: x, bh.CelestialFrame.GCRF)
+
+        r_sun = bh.sun_position(epc)
+        v_sun = (bh.sun_position(epc + 0.5) - bh.sun_position(epc - 0.5)) / 1.0
+        x_sun = np.concatenate([r_sun, v_sun])
+
+        r = bh.rotation_frame_to_frame(
             bh.CelestialFrame.GCRF, bh.ReferenceFrame.NSW("A"), epc
         )
-    with pytest.raises(RuntimeError, match="RTN, LVLH, NTW, TNW, VNC, PQW, EQW"):
+        np.testing.assert_allclose(r, bh.rotation_eci_to_nsw(x, x_sun), atol=1e-14)
+
+        x_b = bh.state_koe_to_eci(
+            np.array([bh.R_EARTH + 500e3, 0.05, 97.8, 15.0, 30.0, 45.2]),
+            bh.AngleFormat.DEGREES,
+        )
+        got = bh.state_frame_to_frame(
+            bh.CelestialFrame.GCRF, bh.ReferenceFrame.NSW("A"), epc, x_b
+        )
+        np.testing.assert_allclose(got, bh.state_eci_to_nsw(x, x_b, x_sun), atol=1e-9)
+    finally:
+        bh.set_frame_ephemeris_source(bh.FrameEphemerisSource.AUTO)
+
+
+def test_nsw_analytic_source_errors_for_non_earth_center(clear_frame_registries):
+    bh.set_frame_ephemeris_source(bh.FrameEphemerisSource.ANALYTIC)
+    try:
+        epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+        oe = np.array([bh.R_MARS + 400e3, 0.05, 92.6, 45.0, 270.0, 10.0])
+        x = bh.state_koe_to_inertial_for_body(
+            oe, bh.CentralBody.Mars, bh.AngleFormat.DEGREES
+        )
+        mars_frame = bh.CelestialFrame.Centered(499, bh.FrameAxes.ICRF)
+        bh.register_object("M", lambda epc: x, mars_frame)
+
+        with pytest.raises(RuntimeError, match="Analytic"):
+            bh.rotation_frame_to_frame(mars_frame, bh.ReferenceFrame.NSW("M"), epc)
+    finally:
+        bh.set_frame_ephemeris_source(bh.FrameEphemerisSource.AUTO)
+
+
+def test_unsupported_orbit_relative_kind_names_issue(clear_frame_registries):
+    epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+    with pytest.raises(RuntimeError, match="SEZ"):
         bh.rotation_frame_to_frame(
-            bh.CelestialFrame.GCRF, bh.ReferenceFrame.NSW("A"), epc
+            bh.CelestialFrame.GCRF, bh.ReferenceFrame.SEZ("A"), epc
+        )
+    with pytest.raises(RuntimeError, match="RTN, LVLH, NTW, TNW, VNC, PQW, EQW, NSW"):
+        bh.rotation_frame_to_frame(
+            bh.CelestialFrame.GCRF, bh.ReferenceFrame.SEZ("A"), epc
         )
 
 

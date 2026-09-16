@@ -5,7 +5,10 @@
 A `ReferenceFrame` is one of three variants:
 
 - **Celestial**: any `CelestialFrame` (`GCRF`, `ITRF`, `LFPA`, ...). Evaluable analytically from an epoch alone, exactly as in the router.
-- **Orbit-relative**: a local orbital frame of one object (`RTN`, `LVLH`, `NTW`, `TNW`, `PQW`, `EQW`, `SEZ`, `VNC`, or `NSW`), either rotating with the orbit or frozen as an inertial snapshot at each evaluation epoch. `RTN`, `LVLH`, `NTW`, `TNW`, `VNC`, `PQW`, and `EQW` have axes derivations today; the other kinds are valid frame identities, which is what parsing a data file needs, but a transform through one raises until [issue #452](https://github.com/duncaneddy/brahe/issues/452) adds the remaining derivations.
+- **Orbit-relative**: a local orbital frame of one object (`RTN`, `LVLH`, `NTW`, `TNW`, `PQW`, `EQW`, `SEZ`, `VNC`, or `NSW`), either rotating with the orbit or frozen as an inertial snapshot at each evaluation epoch. `RTN`, `LVLH`, `NTW`, `TNW`, `VNC`, `PQW`, `EQW`, and `NSW` have axes derivations today; `SEZ` is a valid frame identity, which is what parsing a data file needs, but a transform through it raises until [issue #452](https://github.com/duncaneddy/brahe/issues/452) adds the remaining derivation.
+
+The `NSW` frame's Sun state comes from the global ephemeris source selected with `set_frame_ephemeris_source`: `Auto` (the default) uses the SPICE registry when a kernel is already loaded and otherwise the analytic Sun model for an Earth-centered evaluation, `Analytic` forces the low-precision analytic model and works only for an Earth-centered frame, and `Kernel` forces the SPICE registry regardless of center.
+
 - **Body**: an object-local frame with no global transformation, such as a spacecraft body frame, a sensor, an actuator, or an instrument.
 
 Orbit-relative and body frames carry an object identity, a plain string (e.g. `"LRO"`, `"2024-123A"`) kept separate from NAIF or NORAD IDs. Constructing one through a family method, `ReferenceFrame.RTN("SC")` or `ReferenceFrame.CSS("SC", "1")`, binds it to that object directly.

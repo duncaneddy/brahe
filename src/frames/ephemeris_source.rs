@@ -113,8 +113,6 @@ pub fn get_frame_ephemeris_source() -> FrameEphemerisSource {
 /// # Returns
 /// - Sun position and velocity relative to `center`, in ICRF axes.
 ///   Units: (m, m/s)
-// Not yet called from non-test production code; wired up by a later task.
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn frame_sun_state(epc: Epoch, center: FrameCenter) -> Result<SVector6, BraheError> {
     let is_earth = center == FrameCenter::Body(NAIFId::Earth);
     let use_analytic = match get_frame_ephemeris_source() {

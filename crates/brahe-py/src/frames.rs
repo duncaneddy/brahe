@@ -5978,8 +5978,9 @@ fn py_covariance_frame_to_frame<'py>(
 /// `RTN` is the frame the SANA registries call `RSW`; brahe uses its
 /// existing RTN vocabulary (`state_eci_to_rtn`, `covariance_rtn`).
 ///
-/// Every kind has an axes derivation; `SEZ` is evaluable only for
-/// Earth-centered objects.
+/// Every kind has an axes derivation; `SEZ` and `ENZ` are topocentric
+/// frames on the WGS84 ellipsoid and are evaluable only for Earth-centered
+/// objects.
 ///
 /// Example:
 ///     ```python
@@ -6049,6 +6050,13 @@ impl PyOrbitRelativeFrameKind {
     #[classattr]
     fn NSW() -> Self {
         PyOrbitRelativeFrameKind { kind: frames::OrbitRelativeFrameKind::NSW }
+    }
+
+    /// Topocentric east / north / zenith. Not a SANA kind; brahe's ENZ
+    /// vocabulary.
+    #[classattr]
+    fn ENZ() -> Self {
+        PyOrbitRelativeFrameKind { kind: frames::OrbitRelativeFrameKind::ENZ }
     }
 
     fn __str__(&self) -> String {
@@ -6575,6 +6583,23 @@ impl PyReferenceFrame {
     #[allow(non_snake_case)]
     fn NSW(object: String) -> Self {
         PyReferenceFrame { frame: frames::ReferenceFrame::NSW(object) }
+    }
+
+    /// Bound east/north/zenith topocentric frame (rotating variant). Not a
+    /// SANA frame.
+    ///
+    /// Axes: E east, N north, Z along the WGS84 geodetic vertical at the
+    /// object's position. Evaluable only for Earth-centered objects.
+    ///
+    /// Args:
+    ///     object (str): The object the frame is defined relative to
+    ///
+    /// Returns:
+    ///     ReferenceFrame: The bound `ENZ (rotating)` orbit-relative frame
+    #[staticmethod]
+    #[allow(non_snake_case)]
+    fn ENZ(object: String) -> Self {
+        PyReferenceFrame { frame: frames::ReferenceFrame::ENZ(object) }
     }
 
     /// Bound Perifocal orbit-relative frame (inertial-snapshot variant;

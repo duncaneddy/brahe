@@ -280,9 +280,18 @@ fn parse_numeric_suffix(upper: &str, prefix: &str) -> Option<Option<u16>> {
 ///
 /// `*Rotating` variants are true local orbital frames; `*Inertial` variants
 /// are quasi-inertial snapshots evaluated at each time of interest. `EQW` and
-/// `PQW` exist only in inertial form.
+/// `PQW` exist only in inertial form. This is the SANA registry set plus
+/// `ENZInertial`/`ENZRotating`, a brahe extension not present in the
+/// registry; `ENU_*` tokens parse as aliases for the `ENZ_*` tokens.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CCSDSOrbitRelativeFrame {
+    /// East/north/zenith topocentric frame, inertial snapshot. Brahe
+    /// extension; not in the SANA registry. `ENU_INERTIAL` parses to this
+    /// variant.
+    ENZInertial,
+    /// East/north/zenith topocentric frame, rotating. Brahe extension; not
+    /// in the SANA registry. `ENU_ROTATING` parses to this variant.
+    ENZRotating,
     /// Equinoctial frame (inertial snapshot).
     EQWInertial,
     /// Local-Vertical Local-Horizontal, inertial snapshot.
@@ -322,6 +331,8 @@ pub enum CCSDSOrbitRelativeFrame {
 impl fmt::Display for CCSDSOrbitRelativeFrame {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let token = match self {
+            Self::ENZInertial => "ENZ_INERTIAL",
+            Self::ENZRotating => "ENZ_ROTATING",
             Self::EQWInertial => "EQW_INERTIAL",
             Self::LVLHInertial => "LVLH_INERTIAL",
             Self::LVLHRotating => "LVLH_ROTATING",
@@ -376,6 +387,8 @@ impl CCSDSOrbitRelativeFrame {
     pub fn parse(s: &str) -> Self {
         let token = s.trim();
         match token.to_uppercase().as_str() {
+            "ENZ_INERTIAL" | "ENU_INERTIAL" => Self::ENZInertial,
+            "ENZ_ROTATING" | "ENU_ROTATING" => Self::ENZRotating,
             "EQW_INERTIAL" => Self::EQWInertial,
             "LVLH_INERTIAL" => Self::LVLHInertial,
             "LVLH_ROTATING" => Self::LVLHRotating,
@@ -859,6 +872,8 @@ mod tests {
     #[parallel]
     fn test_orbit_relative_frame_roundtrip() {
         for token in [
+            "ENZ_INERTIAL",
+            "ENZ_ROTATING",
             "EQW_INERTIAL",
             "LVLH_INERTIAL",
             "LVLH_ROTATING",
@@ -886,6 +901,23 @@ mod tests {
         assert_eq!(
             CCSDSOrbitRelativeFrame::parse("LVLH_CUSTOM"),
             CCSDSOrbitRelativeFrame::Other("LVLH_CUSTOM".to_string())
+        );
+    }
+
+    #[test]
+    #[parallel]
+    fn test_orbit_relative_frame_enu_aliases_parse_as_enz() {
+        assert_eq!(
+            CCSDSOrbitRelativeFrame::parse("ENU_ROTATING"),
+            CCSDSOrbitRelativeFrame::ENZRotating
+        );
+        assert_eq!(
+            CCSDSOrbitRelativeFrame::parse("enu_inertial"),
+            CCSDSOrbitRelativeFrame::ENZInertial
+        );
+        assert_eq!(
+            CCSDSOrbitRelativeFrame::parse("ENU_ROTATING").to_string(),
+            "ENZ_ROTATING"
         );
     }
 

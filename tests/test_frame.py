@@ -34,6 +34,7 @@ def test_frame_family_constructors_display():
     assert str(bh.ReferenceFrame.VNC("SC")) == "VNC (rotating)@SC"
     assert str(bh.ReferenceFrame.NSW("SC")) == "NSW (rotating)@SC"
     assert str(bh.ReferenceFrame.EQW("SC")) == "EQW (inertial)@SC"
+    assert str(bh.ReferenceFrame.ENZ("GS")) == "ENZ (rotating)@GS"
     assert str(bh.ReferenceFrame.ACC("SC", "1")) == "ACC_1@SC"
     assert str(bh.ReferenceFrame.AST("SC", "1")) == "AST_1@SC"
     assert str(bh.ReferenceFrame.DSS("SC", "1")) == "DSS_1@SC"
@@ -92,6 +93,7 @@ def test_frame_ephemeris_source_default_and_setter():
 def test_orbit_relative_kind_and_variant_display():
     assert str(bh.OrbitRelativeFrameKind.RTN) == "RTN"
     assert str(bh.OrbitRelativeFrameKind.EQW) == "EQW"
+    assert str(bh.OrbitRelativeFrameKind.ENZ) == "ENZ"
     assert str(bh.OrbitRelativeFrameVariant.ROTATING) == "rotating"
     assert str(bh.OrbitRelativeFrameVariant.INERTIAL) == "inertial"
     assert bh.OrbitRelativeFrameKind.RTN == bh.OrbitRelativeFrameKind.RTN
@@ -901,6 +903,44 @@ def test_sez_pole_site_rotation_matches_relative_motion(eop, clear_frame_registr
     np.testing.assert_allclose(got, bh.rotation_ecef_to_sez(x_gs), atol=1e-12)
     np.testing.assert_allclose(got @ got.T, np.eye(3), atol=1e-12)
     np.testing.assert_allclose(got[2], np.array([0.0, 0.0, 1.0]), atol=1e-9)
+
+
+def test_enz_station_rotation_matches_relative_motion(eop, clear_frame_registries):
+    epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+    r_gs = bh.position_geodetic_to_ecef(
+        np.array([30.0, 45.0, 500.0]), bh.AngleFormat.DEGREES
+    )
+    x_gs = np.concatenate([r_gs, np.zeros(3)])
+    bh.register_object("GS", lambda epc: x_gs, bh.CelestialFrame.ITRF)
+
+    got = bh.rotation_frame_to_frame(
+        bh.CelestialFrame.ITRF, bh.ReferenceFrame.ENZ("GS"), epc
+    )
+    np.testing.assert_allclose(got, bh.rotation_ecef_to_enz(x_gs), atol=1e-12)
+
+    r_t = r_gs + np.array([200e3, 300e3, 400e3])
+    x_t = np.concatenate([r_t, np.zeros(3)])
+    rel = bh.state_frame_to_frame(
+        bh.CelestialFrame.ITRF, bh.ReferenceFrame.ENZ("GS"), epc, x_t
+    )
+    np.testing.assert_allclose(rel, bh.state_ecef_to_enz(x_gs, x_t), atol=1e-6)
+
+
+def test_enz_requires_earth_centered_object(clear_frame_registries):
+    epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+    oe = np.array([bh.R_MARS + 400e3, 0.05, 92.6, 45.0, 270.0, 10.0])
+    x = bh.state_koe_to_inertial_for_body(
+        oe, bh.CentralBody.Mars, bh.AngleFormat.DEGREES
+    )
+    mars_frame = bh.CelestialFrame.Centered(499, bh.FrameAxes.ICRF)
+    bh.register_object("M", lambda epc: x, mars_frame)
+
+    with pytest.raises(RuntimeError, match="ENZ"):
+        bh.rotation_frame_to_frame(
+            bh.CelestialFrame.GCRF, bh.ReferenceFrame.ENZ("M"), epc
+        )
+    with pytest.raises(RuntimeError, match="Earth"):
+        bh.rotation_frame_to_frame(mars_frame, bh.ReferenceFrame.ENZ("M"), epc)
 
 
 def test_sun_vector_in_sensor_frame(eop, clear_frame_registries):

@@ -8,7 +8,9 @@
  * - A `Celestial` frame is its own root, with an identity rotation.
  * - A `Body` frame is resolved by walking the frame registry's parent links
  *   from the frame up to the celestial frame that terminates its chain,
- *   composing each link's orientation provider along the way.
+ *   composing each link's orientation provider along the way. That chain may
+ *   terminate at a bound `OrbitRelative` frame instead, in which case the
+ *   parent's own resolution is composed in as the last link.
  * - An `OrbitRelative` frame is built from its bound object's registered
  *   state, expressed in the ICRF-aligned inertial frame sharing the center
  *   of the frame the object's states are declared in.
@@ -297,7 +299,8 @@ fn unbound_frame_error(frame: &ReferenceFrame) -> BraheError {
 }
 
 /// Walks a bound `Body` frame's registered parent links up to a celestial
-/// root, composing each link's rotation and angular velocity.
+/// root or a bound orbit-relative parent, whose own resolution is composed
+/// in, closing the chain.
 ///
 /// Rotations compose by matrix product, and rates compose by the angular
 /// velocity addition theorem, `ω_{C/A} = ω_{C/B} + R_{B→C} ω_{B/A}` in the
@@ -386,6 +389,26 @@ fn resolve_body(
             } => {
                 key = FrameKey::Body(parent_object.clone(), parent_body.clone());
                 link = parent;
+            }
+            ReferenceFrame::OrbitRelative {
+                kind,
+                variant,
+                object: Some(ref parent_object),
+            } => {
+                let parent_resolved = resolve_orbit_relative(kind, variant, parent_object, epc)?;
+                if need_rate {
+                    let omega_parent = parent_resolved
+                        .omega
+                        .expect("orbit-relative frames always carry an angular velocity");
+                    omega = omega.map(|total| total + dcm * omega_parent);
+                }
+                dcm *= parent_resolved.dcm;
+                return Ok(Resolved {
+                    root: parent_resolved.root,
+                    dcm,
+                    omega,
+                    rateless_link,
+                });
             }
             other => return Err(missing_link_error(frame, &other)),
         }
@@ -644,7 +667,8 @@ pub(crate) fn icrf_aligned_inertial(frame: CelestialFrame) -> CelestialFrame {
 ///
 /// A celestial frame is its own root. A bound orbit-relative frame's root is
 /// its object's declared frame. A bound body frame's root is found by walking
-/// the frame registry's parent links until a celestial frame.
+/// the frame registry's parent links until a celestial frame or a bound
+/// orbit-relative frame, whose root is that frame's object's declared frame.
 ///
 /// # Arguments
 /// - `frame`: The frame to resolve
@@ -671,6 +695,12 @@ pub(crate) fn celestial_root(frame: &ReferenceFrame) -> Result<CelestialFrame, B
                     .ok_or_else(|| missing_link_error(frame, &current))?;
                 match parent {
                     ReferenceFrame::Celestial(celestial) => return Ok(celestial),
+                    ReferenceFrame::OrbitRelative {
+                        object: Some(object),
+                        ..
+                    } => {
+                        return object_frame(&object);
+                    }
                     parent => current = parent,
                 }
             }
@@ -800,6 +830,7 @@ mod tests {
     use crate::coordinates::{
         position_geodetic_to_ecef, state_koe_to_eci, state_koe_to_inertial_for_body,
     };
+    use crate::frames::kinematics::rotate_state;
     use crate::frames::object_registry::FnProvider;
     use crate::frames::registry::{FRAME_REGISTRY, FrameEntry};
     use crate::frames::{
@@ -1185,6 +1216,69 @@ mod tests {
                 .is_none()
         );
         clear_frame_registry();
+    }
+
+    #[test]
+    #[serial]
+    fn test_body_frame_registered_on_orbit_relative_parent_resolves() {
+        clear_frame_registry();
+        clear_object_registry();
+        let epc = Epoch::from_date(2024, 3, 1, TimeSystem::UTC);
+        let x = state_koe_to_eci(
+            SVector6::new(R_EARTH + 500e3, 0.001, 97.8, 15.0, 30.0, 45.0),
+            AngleFormat::Degrees,
+        );
+        register_object("SC", FnProvider(move |_| Ok(x)), CelestialFrame::GCRF).unwrap();
+        // Body frame yawed 0.3 rad about the LVLH Z (nadir) axis
+        let q =
+            Quaternion::from_euler_axis(EulerAxis::new(Vector3::z(), 0.3, AngleFormat::Radians));
+        register_frame(ReferenceFrame::SC_BODY("SC"), ReferenceFrame::LVLH("SC"), q).unwrap();
+
+        assert_eq!(
+            celestial_root(&ReferenceFrame::SC_BODY("SC")).unwrap(),
+            CelestialFrame::GCRF
+        );
+
+        let got = rotation_frame_to_frame(CelestialFrame::GCRF, ReferenceFrame::SC_BODY("SC"), epc)
+            .unwrap();
+        let expected = q.to_rotation_matrix().to_matrix() * rotation_eci_to_lvlh(x);
+        assert_abs_diff_eq!(got, expected, epsilon = 1e-14);
+
+        // Rate: a constant link adds nothing, so the body rate is the LVLH rate in body axes
+        let resolved = resolve_orientation(&ReferenceFrame::SC_BODY("SC"), epc, true).unwrap();
+        let expected_omega = q.to_rotation_matrix().to_matrix() * omega_lvlh(x);
+        assert_abs_diff_eq!(resolved.omega.unwrap(), expected_omega, epsilon = 1e-15);
+
+        // A second link on top of the body frame still resolves through the orbit-relative parent
+        register_frame(
+            ReferenceFrame::CSS("SC", "1"),
+            ReferenceFrame::SC_BODY("SC"),
+            Quaternion::new(1.0, 0.0, 0.0, 0.0),
+        )
+        .unwrap();
+        let css =
+            rotation_frame_to_frame(CelestialFrame::GCRF, ReferenceFrame::CSS("SC", "1"), epc)
+                .unwrap();
+        assert_abs_diff_eq!(css, expected, epsilon = 1e-14);
+
+        // State transform through the chain equals the LVLH relative state rotated into the body
+        let x_b = state_koe_to_eci(
+            SVector6::new(R_EARTH + 500e3, 0.001, 97.8, 15.0, 30.0, 45.2),
+            AngleFormat::Degrees,
+        );
+        let via_body = state_frame_to_frame(
+            CelestialFrame::GCRF,
+            ReferenceFrame::SC_BODY("SC"),
+            epc,
+            x_b,
+        )
+        .unwrap();
+        let rel_lvlh = state_eci_to_lvlh(x, x_b);
+        let r_link = q.to_rotation_matrix().to_matrix();
+        let expected_state = rotate_state(&r_link, &rel_lvlh);
+        assert_abs_diff_eq!(via_body, expected_state, epsilon = 1e-9);
+        clear_frame_registry();
+        clear_object_registry();
     }
 
     /// Rotation-only provider whose rate query always fails, to verify

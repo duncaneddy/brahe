@@ -6581,6 +6581,13 @@ impl PyReferenceFrame {
     ///
     /// Returns:
     ///     ReferenceFrame: The bound `PQW (inertial)` orbit-relative frame
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     frame = bh.ReferenceFrame.PQW("SC")
+    ///     ```
     #[staticmethod]
     #[allow(non_snake_case)]
     fn PQW(object: String) -> Self {

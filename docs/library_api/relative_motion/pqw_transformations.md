@@ -1,10 +1,5 @@
 # PQW Transformations
 
-Rotation matrices, Jacobians, covariance transforms, and relative-state transforms between ECI and the Perifocal (PQW) frame.
-
-!!! note
-    For the frame definition and examples, see [Orbit-Relative Frames](../../learn/relative_motion/orbit_relative_frames.md).
-
 ::: brahe.rotation_pqw_to_eci
 
 ::: brahe.rotation_pqw_to_inertial_for_body
@@ -36,3 +31,7 @@ Rotation matrices, Jacobians, covariance transforms, and relative-state transfor
 ::: brahe.state_pqw_to_eci
 
 ::: brahe.state_pqw_to_inertial_for_body
+
+## See Also
+
+- [Learn: Orbit-Relative Frames](../../learn/relative_motion/orbit_relative_frames.md)

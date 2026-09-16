@@ -435,6 +435,25 @@ fn gcrf_itrf_context(epc: Epoch) -> GcrfItrfContext {
     }
 }
 
+/// Angular velocity of the ITRF axes relative to GCRF, expressed in ITRF
+/// axes: Earth's rotation rate about the Celestial Intermediate Pole
+/// carried into the ITRF by polar motion, `pm * (0, 0, OMEGA_EARTH)`.
+///
+/// # Arguments
+/// - `pm`: Polar motion matrix for the epoch (dimensionless)
+///
+/// # Returns
+/// - Angular velocity in ITRF axes. Units: (*rad/s*)
+pub(crate) fn itrf_angular_velocity(pm: &SMatrix3) -> Vector3<f64> {
+    pm * Vector3::new(0.0, 0.0, constants::OMEGA_EARTH)
+}
+
+/// [`itrf_angular_velocity`] at `epc`, evaluating polar motion.
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn itrf_angular_velocity_at(epc: Epoch) -> Vector3<f64> {
+    itrf_angular_velocity(&polar_motion(epc))
+}
+
 /// Assembles the GCRF-to-ITRF rotation and the ITRF-frame angular velocity
 /// from a precomputed context.
 ///
@@ -450,8 +469,7 @@ fn gcrf_itrf_context(epc: Epoch) -> GcrfItrfContext {
 /// - GCRF -> ITRF rotation matrix (dimensionless) and the ITRF axes' angular
 ///   velocity expressed in the ITRF. Units: (*rad/s*)
 fn gcrf_itrf_rotating_axes(c: &GcrfItrfContext) -> (SMatrix3, Vector3<f64>) {
-    let omega_cip = Vector3::new(0.0, 0.0, constants::OMEGA_EARTH);
-    (c.pm * c.r * c.bpn, c.pm * omega_cip)
+    (c.pm * c.r * c.bpn, itrf_angular_velocity(&c.pm))
 }
 
 /// Apply a precomputed GCRF-to-ITRF context to one Cartesian GCRF state.
@@ -843,7 +861,7 @@ mod tests {
     use nalgebra::Vector3;
     use serial_test::serial;
 
-    use crate::constants::{AS2RAD, DEGREES, R_EARTH};
+    use crate::constants::{self, AS2RAD, DEGREES, R_EARTH};
     use crate::coordinates::state_koe_to_eci;
     use crate::eop::{StaticEOPProvider, set_global_eop_provider};
     use crate::frames::*;
@@ -1327,5 +1345,16 @@ mod tests {
                 .is_empty()
         );
         assert!(states_gcrf_to_itrf(&[], &[]).unwrap().is_empty());
+    }
+
+    #[test]
+    #[serial]
+    fn test_itrf_angular_velocity_is_polar_motion_rotated_earth_rate() {
+        setup_global_test_eop();
+        let epc = Epoch::from_date(2024, 3, 1, TimeSystem::UTC);
+        let omega = itrf_angular_velocity_at(epc);
+        assert_abs_diff_eq!(omega.norm(), constants::OMEGA_EARTH, epsilon = 1e-18);
+        let (_, from_context) = super::gcrf_itrf_rotating_axes(&super::gcrf_itrf_context(epc));
+        assert_eq!(omega, from_context);
     }
 }

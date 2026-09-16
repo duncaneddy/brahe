@@ -44,6 +44,8 @@ pub mod synodic;
 pub mod teme;
 pub mod transform;
 
+#[allow(unused_imports)]
+pub(crate) use gcrf_itrf::{itrf_angular_velocity, itrf_angular_velocity_at};
 pub(crate) use graph::{celestial_root, icrf_aligned_inertial};
 #[cfg(test)]
 pub(crate) use kinematics::angular_velocity_from_rotation_rate;

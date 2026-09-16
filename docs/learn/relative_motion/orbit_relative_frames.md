@@ -27,11 +27,11 @@ ENZ is a brahe extension and is not in the SANA registry.
 
 ## Variants
 
-Every frame exists as a rotating frame, which carries the orbital angular velocity, and as an inertial snapshot, whose rate is zero. The `state_*` relative-state functions always use the rotating transport term. The `jacobian_*` and `covariance_*` functions take an `OrbitRelativeFrameVariant` selecting which. PQW and EQW are the exception: SANA registers them only as inertial snapshots, so they have no `omega_*` functions, their `jacobian_*` and `covariance_*` functions take no variant and are always block diagonal, and their `state_*` functions apply no transport term.
+Every frame exists as a rotating frame, which carries the orbital angular velocity, and as an inertial snapshot, whose rate is zero. The `state_*` relative-state functions always use the rotating transport term. The `jacobian_*` and `covariance_*` functions take an `OrbitRelativeFrameVariant` selecting which. The inertial variant reproduces the block-diagonal covariance transformation of Vallado's AAS 03-526 and the CCSDS CDM convention for RTN covariances; the rotating variant adds the $R[\omega]_\times$ coupling between position and velocity. PQW and EQW are the exception: SANA registers them only as inertial snapshots, so they have no `omega_*` functions, their `jacobian_*` and `covariance_*` functions take no variant and are always block diagonal, and their `state_*` functions apply no transport term.
 
 ## Conventions
 
-LVLH has two incompatible definitions in the literature. Vallado and STK use the name for the RTN axes. CCSDS, SANA, and this library put Z toward nadir and Y opposite the orbit normal, so that X is along-track for a circular orbit. The two are related by $X_\mathrm{LVLH} = T$, $Y_\mathrm{LVLH} = -N$, $Z_\mathrm{LVLH} = -R$.
+LVLH has two incompatible definitions in the literature. Vallado and STK use the name for the RTN axes. CCSDS, SANA, and this library put Z toward nadir and Y opposite the orbit normal, so that X is the RTN along-track axis, which lies along the velocity for a circular orbit. The two are related by $X_\mathrm{LVLH} = T$, $Y_\mathrm{LVLH} = -N$, $Z_\mathrm{LVLH} = -R$.
 
 Frame rates are exact under two-body motion and are the rates of the osculating frame otherwise. The RTN and LVLH rates depend only on the state. The NTW, TNW, and VNC rates need the central body's gravitational parameter, so their `omega_`, `jacobian_`, `covariance_`, and `state_` functions have an Earth form and a `_for_body` form taking `gm`. The frame graph uses the declared center's value. NSW is neither: its rate follows from the time derivatives of its axes and needs the Sun's velocity rather than the gravitational parameter.
 

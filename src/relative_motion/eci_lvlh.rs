@@ -22,7 +22,8 @@ use crate::utils::batch::{batch_map, batch_zip};
 /// The LVLH frame follows the CCSDS and SANA definition:
 /// - Z: Unit vector collinear with and opposite to the position vector (nadir).
 /// - Y: Unit vector collinear with and opposite to the orbital angular momentum `r × v`.
-/// - X: `Y × Z`, completing the right-handed set (along-track for a circular orbit).
+/// - X: `Y × Z`, completing the right-handed set (the RTN along-track axis, along the velocity
+///   for a circular orbit).
 ///
 /// This is a signed permutation of the RTN axes: `X = T`, `Y = −N`, `Z = −R`. Vallado and
 /// STK use the name LVLH for the RTN axes themselves; brahe follows the CCSDS convention.

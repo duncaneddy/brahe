@@ -212,6 +212,26 @@ pub(crate) fn batch_zip<A: Sync, B: Sync, U: Send>(
     Ok(map_indices(|i| f(pick(a, i), pick(b, i)), n))
 }
 
+/// Applies `f` element-wise across three slices with the broadcast rule of
+/// [`batch_zip`]: each slice has length 1 or the common batch length.
+///
+/// # Arguments
+/// - `f`: Function applied to each aligned triple
+/// - `a`, `b`, `c`: Input slices, each of length 1 or the batch length
+///
+/// # Returns
+/// - Outputs in batch order, or an error if the lengths do not broadcast
+#[allow(dead_code)]
+pub(crate) fn batch_zip3<A: Sync, B: Sync, C: Sync, U: Send>(
+    f: impl Fn(&A, &B, &C) -> U + Sync,
+    a: &[A],
+    b: &[B],
+    c: &[C],
+) -> Result<Vec<U>, BraheError> {
+    let n = broadcast_len(&[a.len(), b.len(), c.len()])?;
+    Ok(map_indices(|i| f(pick(a, i), pick(b, i), pick(c, i)), n))
+}
+
 /// Apply an epoch-dependent kernel across a batch, hoisting the epoch
 /// context when the batch shares a single epoch.
 ///
@@ -548,6 +568,23 @@ mod tests {
         let out = batch_zip(|x, y| x + y, &a, &b).unwrap();
         let expected: Vec<f64> = a.iter().map(|x| x + 0.5).collect();
         assert_eq!(out, expected);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_batch_zip3_broadcasts_and_rejects_mismatch() {
+        let a = [1.0, 2.0, 3.0];
+        let b = [10.0];
+        let c = [100.0, 200.0, 300.0];
+        let out = batch_zip3(|x, y, z| x + y + z, &a, &b, &c).unwrap();
+        assert_eq!(out, vec![111.0, 212.0, 313.0]);
+        assert!(batch_zip3(|x, y, z| x + y + z, &a[..2], &b, &c).is_err());
+        let empty: [f64; 0] = [];
+        assert!(
+            batch_zip3(|x, y, z| x + y + z, &empty, &b, &empty)
+                .unwrap()
+                .is_empty()
+        );
     }
 
     #[test]

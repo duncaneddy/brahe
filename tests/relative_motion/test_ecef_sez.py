@@ -276,3 +276,43 @@ def test_batch_sez_length_mismatch_raises():
         brahe.covariance_sez_to_ecef(sites[:2], covs, variant)
     with pytest.raises(ValueError, match="6x6"):
         brahe.covariance_sez_to_ecef(sites[0], np.eye(7), variant)
+
+
+def test_batch_sez_covariance_preserves_state_batch_shape():
+    variant = brahe.OrbitRelativeFrameVariant.ROTATING
+    states = np.array([_moving_site(10.0 * i) for i in range(4)]).reshape(2, 2, 6)
+    p = np.eye(6)
+    p_out = brahe.covariance_sez_to_ecef(states, p, variant)
+    assert p_out.shape == (2, 2, 6, 6)
+    for i in range(2):
+        for j in range(2):
+            np.testing.assert_array_equal(
+                p_out[i, j], brahe.covariance_sez_to_ecef(states[i, j], p, variant)
+            )
+
+    x = _site_state()
+    covs = np.array([np.eye(6) * (i + 1.0) for i in range(3)])
+    p_single_state = brahe.covariance_ecef_to_sez(x, covs, variant)
+    assert p_single_state.shape == (3, 6, 6)
+    for k in range(3):
+        np.testing.assert_array_equal(
+            p_single_state[k], brahe.covariance_ecef_to_sez(x, covs[k], variant)
+        )
+
+    batch = np.array([_moving_site(10.0 * i) for i in range(3)])
+    p_singleton_batch = brahe.covariance_sez_to_ecef(batch[:1], covs, variant)
+    assert p_singleton_batch.shape == (3, 6, 6)
+    for k in range(3):
+        np.testing.assert_array_equal(
+            p_singleton_batch[k],
+            brahe.covariance_sez_to_ecef(batch[0], covs[k], variant),
+        )
+
+
+def test_batch_sez_empty_covariance_batch():
+    variant = brahe.OrbitRelativeFrameVariant.ROTATING
+    x = _site_state()
+    empty = brahe.covariance_sez_to_ecef(x, np.zeros((0, 6, 6)), variant)
+    assert empty.shape == (0, 6, 6)
+    with pytest.raises(ValueError, match="6x6"):
+        brahe.covariance_sez_to_ecef(x, np.zeros((0, 5, 5)), variant)

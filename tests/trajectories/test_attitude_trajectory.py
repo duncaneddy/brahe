@@ -360,7 +360,7 @@ def test_attitude_trajectory_interpolate_lagrange_tolerance():
     analytic = z_axis_quaternion(theta(query_t))
 
     dot = np.dot(q.to_vector(scalar_first=True), analytic.to_vector(scalar_first=True))
-    angular_error = 2.0 * math.acos(max(-1.0, min(1.0, dot)))
+    angular_error = 2.0 * np.arccos(np.clip(dot, -1.0, 1.0))
 
     assert angular_error < 5e-3, f"angular_error = {angular_error}"
 
@@ -388,7 +388,7 @@ def test_attitude_trajectory_interpolate_lagrange_centered_window_tight_toleranc
     analytic = z_axis_quaternion(theta(query_t))
 
     dot = np.dot(q.to_vector(scalar_first=True), analytic.to_vector(scalar_first=True))
-    angular_error = 2.0 * math.acos(max(-1.0, min(1.0, dot)))
+    angular_error = 2.0 * np.arccos(np.clip(dot, -1.0, 1.0))
 
     assert angular_error < 1e-6, f"angular_error = {angular_error}"
 

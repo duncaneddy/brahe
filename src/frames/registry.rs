@@ -73,6 +73,8 @@ pub(crate) fn frame_key(frame: &ReferenceFrame) -> Option<FrameKey> {
 /// by walking the registry: `parent` is itself `ReferenceFrame::Celestial`, a
 /// bound `ReferenceFrame::OrbitRelative`, or a bound `Body` frame that is
 /// already registered and whose own parent chain terminates at one of those.
+/// An orbit-relative parent's object is not checked here; an unregistered
+/// object surfaces at the first transform through the chain.
 /// Re-registering an existing `frame` replaces its entry; the new parent
 /// chain is revalidated, so replacing a frame with a parent that would cycle
 /// back through `frame` itself is rejected. Validation and insertion happen

@@ -669,6 +669,9 @@ pub(crate) fn icrf_aligned_inertial(frame: CelestialFrame) -> CelestialFrame {
 /// its object's declared frame. A bound body frame's root is found by walking
 /// the frame registry's parent links until a celestial frame or a bound
 /// orbit-relative frame, whose root is that frame's object's declared frame.
+/// The declared frame identifies the center; a resolution through an
+/// orbit-relative frame reports the ICRF-aligned inertial frame of that
+/// center as its root.
 ///
 /// # Arguments
 /// - `frame`: The frame to resolve

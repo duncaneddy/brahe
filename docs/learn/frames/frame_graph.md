@@ -50,9 +50,9 @@ Parsing a CCSDS OEM is the common case, and `OEM.register_for(name)` is a one-li
 
 ## Registering Orientation Chains
 
-A body frame's orientation is not derived from any model; it is registered explicitly with `register_frame(frame, parent, provider)`. `parent` must itself resolve to a celestial root: either it is a `CelestialFrame` directly, or it is a body frame that is already registered and whose own parent chain terminates at one. Re-registering an existing frame replaces its entry, and the replacement's parent chain is revalidated, so a change that would cycle back through the frame itself is rejected.
+A body frame's orientation is not derived from any model; it is registered explicitly with `register_frame(frame, parent, provider)`. `parent` must itself resolve to a celestial root: it is a `CelestialFrame` directly, a bound orbit-relative frame, or a body frame that is already registered and whose own parent chain terminates at one of those. Re-registering an existing frame replaces its entry, and the replacement's parent chain is revalidated, so a change that would cycle back through the frame itself is rejected.
 
-A body frame's parent may also be a bound orbit-relative frame, for example `register_frame(ReferenceFrame::SC_BODY("SC"), ReferenceFrame::LVLH("SC"), provider)` for a nadir-pointing attitude expressed in LVLH; the chain then roots at the object's declared frame and carries the orbit-relative rate.
+A body frame parented on a bound orbit-relative frame, for example `register_frame(ReferenceFrame.SC_BODY("SC"), ReferenceFrame.LVLH("SC"), provider)` for a nadir-pointing attitude expressed in LVLH, resolves through that frame: the chain roots at the inertial frame of the object's central body and carries the orbit-relative rate. The orbit-relative parent's object is not checked at registration; an unregistered object surfaces at the first transform.
 
 `provider` supplies the rotation and, optionally, the angular velocity of `frame` relative to `parent`, expressed in `frame`. Two kinds of provider are available today:
 

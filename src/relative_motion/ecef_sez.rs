@@ -15,29 +15,30 @@ use crate::relative_motion::common::{
 use crate::utils::BraheError;
 use crate::utils::batch::{batch_map, batch_zip};
 
-/// Geodetic latitude of the site and the rates of its longitude and
-/// geodetic latitude from the ECEF velocity.
+/// ECEF-to-SEZ rotation and SEZ angular velocity relative to ECEF, from a
+/// single geodetic solve of the site position.
 ///
-/// `λ̇ = (x v_y − y v_x) / (x² + y²)` and `φ̇ = v_N / (R_M + h)` with `R_M`
-/// the WGS84 meridian radius of curvature and `v_N` the northward velocity.
-fn site_geodetic_rates(x_ecef: SVector6) -> (f64, f64, f64) {
+/// The rotation comes directly from the site's geodetic longitude and
+/// latitude; the rate is `ω = λ̇ ẑ_ECEF − φ̇ Ê = [−λ̇ cos φ, −φ̇, λ̇ sin φ]`
+/// in SEZ axes, with `λ̇ = (x v_y − y v_x) / (x² + y²)` and
+/// `φ̇ = v_N / (R_M + h)`, `R_M` the WGS84 meridian radius of curvature and
+/// `v_N` the northward velocity, taken as `−S` of the same rotation.
+fn sez_axes(x_ecef: SVector6) -> (SMatrix3, Vector3<f64>) {
     let r = x_ecef.fixed_rows::<3>(0).into_owned();
     let v = x_ecef.fixed_rows::<3>(3).into_owned();
     let lla = position_ecef_to_geodetic(r, AngleFormat::Radians);
     let (lat, alt) = (lla[1], lla[2]);
+    let rotation = rotation_ellipsoid_to_sez(lla, AngleFormat::Radians);
 
     let lon_dot = (r[0] * v[1] - r[1] * v[0]) / (r[0] * r[0] + r[1] * r[1]);
 
     let e2 = WGS84_F * (2.0 - WGS84_F);
     let meridian_radius = WGS84_A * (1.0 - e2) / (1.0 - e2 * lat.sin().powi(2)).powf(1.5);
-    let north = -Vector3::from(
-        rotation_ellipsoid_to_sez(lla, AngleFormat::Radians)
-            .row(0)
-            .transpose(),
-    );
+    let north = -Vector3::from(rotation.row(0).transpose());
     let lat_dot = v.dot(&north) / (meridian_radius + alt);
 
-    (lat, lon_dot, lat_dot)
+    let omega = Vector3::new(-lon_dot * lat.cos(), -lat_dot, lon_dot * lat.sin());
+    (rotation, omega)
 }
 
 /// Computes the rotation matrix transforming a vector in the Earth-Centered Earth-Fixed (ECEF)
@@ -72,9 +73,7 @@ fn site_geodetic_rates(x_ecef: SVector6) -> (f64, f64, f64) {
 /// let rotation_matrix = rotation_ecef_to_sez(x_site);
 /// ```
 pub fn rotation_ecef_to_sez(x_ecef: SVector6) -> SMatrix3 {
-    let lla =
-        position_ecef_to_geodetic(x_ecef.fixed_rows::<3>(0).into_owned(), AngleFormat::Radians);
-    rotation_ellipsoid_to_sez(lla, AngleFormat::Radians)
+    sez_axes(x_ecef).0
 }
 
 /// Computes the rotation matrix transforming a vector in the South, East, Zenith (SEZ)
@@ -119,6 +118,8 @@ pub fn rotation_sez_to_ecef(x_ecef: SVector6) -> SMatrix3 {
 /// with `λ̇ = (x v_y − y v_x)/(x² + y²)` and `φ̇ = v_N/(R_M + h)`, `R_M` the WGS84 meridian radius
 /// of curvature. A stationary site has zero rate. The rate relative to an inertial frame is
 /// this vector plus Earth's rotation rate rotated into SEZ, which the frame graph composes.
+/// Longitude, and therefore this rate, is undefined at the poles; the result is not finite
+/// there and is not special-cased.
 ///
 /// # Arguments:
 /// - `x_ecef`: 6D state vector of the site in the ECEF frame [x, y, z, vx, vy, vz] (m, m/s)
@@ -143,8 +144,7 @@ pub fn rotation_sez_to_ecef(x_ecef: SVector6) -> SMatrix3 {
 /// let omega = omega_sez(x_site);
 /// ```
 pub fn omega_sez(x_ecef: SVector6) -> Vector3<f64> {
-    let (lat, lon_dot, lat_dot) = site_geodetic_rates(x_ecef);
-    Vector3::new(-lon_dot * lat.cos(), -lat_dot, lon_dot * lat.sin())
+    sez_axes(x_ecef).1
 }
 
 /// 6x6 Jacobian taking a SEZ state covariance into the Earth-Centered Earth-Fixed (ECEF)
@@ -162,14 +162,6 @@ pub fn omega_sez(x_ecef: SVector6) -> Vector3<f64> {
 /// # Returns:
 /// - `j`: 6x6 Jacobian such that `P_ecef = J P_sez Jᵀ`
 ///
-/// # References:
-/// 1. NASA Conjunction Assessment Risk Analysis (CARA),
-///    [*Conjunction Assessment Handbook*, NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13)](https://ntrs.nasa.gov/citations/20205011318)
-/// 2. NASA CARA Analysis Tools,
-///    [`RIC2ECI.m`](https://github.com/nasa/CARA_Analysis_Tools)
-/// 3. D. A. Vallado,
-///    ["Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003](https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf)
-///
 /// # Examples:
 /// ```
 /// use brahe::SVector6;
@@ -184,8 +176,17 @@ pub fn omega_sez(x_ecef: SVector6) -> Vector3<f64> {
 ///
 /// let j = jacobian_sez_to_ecef(x_site, OrbitRelativeFrameVariant::Rotating);
 /// ```
+///
+/// # References:
+/// 1. NASA Conjunction Assessment Risk Analysis (CARA),
+///    [*Conjunction Assessment Handbook*, NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13)](https://ntrs.nasa.gov/citations/20205011318)
+/// 2. NASA CARA Analysis Tools,
+///    [`RIC2ECI.m`](https://github.com/nasa/CARA_Analysis_Tools)
+/// 3. D. A. Vallado,
+///    ["Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003](https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf)
 pub fn jacobian_sez_to_ecef(x_ecef: SVector6, variant: OrbitRelativeFrameVariant) -> SMatrix6 {
-    jacobian_to_inertial(&rotation_sez_to_ecef(x_ecef), &omega_sez(x_ecef), variant)
+    let (r, omega) = sez_axes(x_ecef);
+    jacobian_to_inertial(&r.transpose(), &omega, variant)
 }
 
 /// 6x6 Jacobian taking a state covariance in the Earth-Centered Earth-Fixed (ECEF) frame into
@@ -199,14 +200,6 @@ pub fn jacobian_sez_to_ecef(x_ecef: SVector6, variant: OrbitRelativeFrameVariant
 ///
 /// # Returns:
 /// - `j`: 6x6 Jacobian such that `P_sez = J P_ecef Jᵀ`
-///
-/// # References:
-/// 1. NASA Conjunction Assessment Risk Analysis (CARA),
-///    [*Conjunction Assessment Handbook*, NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13)](https://ntrs.nasa.gov/citations/20205011318)
-/// 2. NASA CARA Analysis Tools,
-///    [`RIC2ECI.m`](https://github.com/nasa/CARA_Analysis_Tools)
-/// 3. D. A. Vallado,
-///    ["Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003](https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf)
 ///
 /// # Examples:
 /// ```
@@ -222,8 +215,17 @@ pub fn jacobian_sez_to_ecef(x_ecef: SVector6, variant: OrbitRelativeFrameVariant
 ///
 /// let j = jacobian_ecef_to_sez(x_site, OrbitRelativeFrameVariant::Rotating);
 /// ```
+///
+/// # References:
+/// 1. NASA Conjunction Assessment Risk Analysis (CARA),
+///    [*Conjunction Assessment Handbook*, NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13)](https://ntrs.nasa.gov/citations/20205011318)
+/// 2. NASA CARA Analysis Tools,
+///    [`RIC2ECI.m`](https://github.com/nasa/CARA_Analysis_Tools)
+/// 3. D. A. Vallado,
+///    ["Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003](https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf)
 pub fn jacobian_ecef_to_sez(x_ecef: SVector6, variant: OrbitRelativeFrameVariant) -> SMatrix6 {
-    jacobian_from_inertial(&rotation_ecef_to_sez(x_ecef), &omega_sez(x_ecef), variant)
+    let (r, omega) = sez_axes(x_ecef);
+    jacobian_from_inertial(&r, &omega, variant)
 }
 
 /// Transforms a 6x6 state covariance from SEZ axes into the Earth-Centered Earth-Fixed (ECEF)
@@ -240,6 +242,14 @@ pub fn jacobian_ecef_to_sez(x_ecef: SVector6, variant: OrbitRelativeFrameVariant
 ///
 /// # Returns:
 /// - `p_ecef`: 6x6 state covariance in the ECEF frame (m², m²/s, m²/s²)
+///
+/// # References:
+/// 1. NASA Conjunction Assessment Risk Analysis (CARA),
+///    [*Conjunction Assessment Handbook*, NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13)](https://ntrs.nasa.gov/citations/20205011318)
+/// 2. NASA CARA Analysis Tools,
+///    [`RIC2ECI.m`](https://github.com/nasa/CARA_Analysis_Tools)
+/// 3. D. A. Vallado,
+///    ["Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003](https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf)
 ///
 /// # Examples:
 /// ```
@@ -278,6 +288,14 @@ pub fn covariance_sez_to_ecef(
 ///
 /// # Returns:
 /// - `p_sez`: 6x6 state covariance in SEZ axes (m², m²/s, m²/s²)
+///
+/// # References:
+/// 1. NASA Conjunction Assessment Risk Analysis (CARA),
+///    [*Conjunction Assessment Handbook*, NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13)](https://ntrs.nasa.gov/citations/20205011318)
+/// 2. NASA CARA Analysis Tools,
+///    [`RIC2ECI.m`](https://github.com/nasa/CARA_Analysis_Tools)
+/// 3. D. A. Vallado,
+///    ["Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003](https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf)
 ///
 /// # Examples:
 /// ```
@@ -333,12 +351,8 @@ pub fn covariance_ecef_to_sez(
 /// let x_rel_sez = state_ecef_to_sez(x_site, x_target);
 /// ```
 pub fn state_ecef_to_sez(x_site: SVector6, x_target: SVector6) -> SVector6 {
-    relative_state_to_frame(
-        &rotation_ecef_to_sez(x_site),
-        &omega_sez(x_site),
-        x_site,
-        x_target,
-    )
+    let (r, omega) = sez_axes(x_site);
+    relative_state_to_frame(&r, &omega, x_site, x_target)
 }
 
 /// Transforms the relative state of a target with respect to a site from the site's rotating
@@ -370,12 +384,8 @@ pub fn state_ecef_to_sez(x_site: SVector6, x_target: SVector6) -> SVector6 {
 /// let x_target = state_sez_to_ecef(x_site, x_rel_sez);
 /// ```
 pub fn state_sez_to_ecef(x_site: SVector6, x_rel_sez: SVector6) -> SVector6 {
-    relative_state_from_frame(
-        &rotation_ecef_to_sez(x_site),
-        &omega_sez(x_site),
-        x_site,
-        x_rel_sez,
-    )
+    let (r, omega) = sez_axes(x_site);
+    relative_state_from_frame(&r, &omega, x_site, x_rel_sez)
 }
 
 /// Computes the ECEF-to-SEZ rotation matrix for each site state in `x_ecef`.

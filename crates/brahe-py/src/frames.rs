@@ -7331,3 +7331,95 @@ fn py_register_object_from_naif(name: String, naif_id: i32) -> PyResult<()> {
     frames::register_object_from_naif(name, naif_id)?;
     Ok(())
 }
+
+/// Source of the Sun's state consulted by frame-graph evaluations that need
+/// it (the NSW frame), selected by `set_frame_ephemeris_source`.
+///
+/// Attributes:
+///     AUTO: The SPICE registry when any kernel is already loaded, otherwise the analytic model for an Earth-centered evaluation, otherwise the registry, which auto-loads the default `de440s` ephemeris rather than erroring. The default.
+///     ANALYTIC: Low-precision analytic Sun model, Earth-centered only; the SPICE registry is never consulted.
+///     KERNEL: The SPICE registry, using whatever kernels are loaded (auto-loading `de440s` if none are).
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     bh.set_frame_ephemeris_source(bh.FrameEphemerisSource.ANALYTIC)
+///     ```
+#[pyclass(module = "brahe._brahe", eq, from_py_object)]
+#[pyo3(name = "FrameEphemerisSource")]
+#[derive(Clone, Copy, PartialEq)]
+pub struct PyFrameEphemerisSource {
+    pub(crate) source: frames::FrameEphemerisSource,
+}
+
+#[pymethods]
+#[allow(non_snake_case)]
+impl PyFrameEphemerisSource {
+    /// SPICE registry when a kernel is already loaded, otherwise the
+    /// analytic model for Earth, otherwise the registry.
+    #[classattr]
+    fn AUTO() -> Self {
+        PyFrameEphemerisSource { source: frames::FrameEphemerisSource::Auto }
+    }
+
+    /// Low-precision analytic Sun model, Earth-centered only.
+    #[classattr]
+    fn ANALYTIC() -> Self {
+        PyFrameEphemerisSource { source: frames::FrameEphemerisSource::Analytic }
+    }
+
+    /// SPICE registry, using whatever kernels are loaded.
+    #[classattr]
+    fn KERNEL() -> Self {
+        PyFrameEphemerisSource { source: frames::FrameEphemerisSource::Kernel }
+    }
+
+    fn __str__(&self) -> String {
+        self.source.to_string()
+    }
+
+    fn __repr__(&self) -> String {
+        format!("FrameEphemerisSource.{}", self.source)
+    }
+}
+
+/// Sets the global source the frame graph uses for the Sun's state.
+///
+/// Args:
+///     source (FrameEphemerisSource): Frame ephemeris source to select.
+///
+/// Returns:
+///     None: The global setting is replaced.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     bh.set_frame_ephemeris_source(bh.FrameEphemerisSource.KERNEL)
+///     bh.set_frame_ephemeris_source(bh.FrameEphemerisSource.AUTO)
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(source)")]
+#[pyo3(name = "set_frame_ephemeris_source")]
+fn py_set_frame_ephemeris_source(source: &PyFrameEphemerisSource) {
+    frames::set_frame_ephemeris_source(source.source);
+}
+
+/// Gets the global source the frame graph uses for the Sun's state.
+///
+/// Returns:
+///     FrameEphemerisSource: Frame ephemeris source currently selected. `AUTO` unless `set_frame_ephemeris_source` has been called.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     source = bh.get_frame_ephemeris_source()
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "()")]
+#[pyo3(name = "get_frame_ephemeris_source")]
+fn py_get_frame_ephemeris_source() -> PyFrameEphemerisSource {
+    PyFrameEphemerisSource { source: frames::get_frame_ephemeris_source() }
+}

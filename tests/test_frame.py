@@ -79,6 +79,13 @@ def test_orbit_relative_rejects_non_enum_arguments():
         )
 
 
+def test_frame_ephemeris_source_setter_and_default():
+    bh.set_frame_ephemeris_source(bh.FrameEphemerisSource.ANALYTIC)
+    assert bh.get_frame_ephemeris_source() == bh.FrameEphemerisSource.ANALYTIC
+    bh.set_frame_ephemeris_source(bh.FrameEphemerisSource.AUTO)
+    assert bh.get_frame_ephemeris_source() == bh.FrameEphemerisSource.AUTO
+
+
 def test_orbit_relative_kind_and_variant_display():
     assert str(bh.OrbitRelativeFrameKind.RTN) == "RTN"
     assert str(bh.OrbitRelativeFrameKind.EQW) == "EQW"

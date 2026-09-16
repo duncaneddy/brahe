@@ -1035,6 +1035,9 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_clear_object_registry, module)?)?;
     module.add_function(wrap_pyfunction!(py_registered_objects, module)?)?;
     module.add_function(wrap_pyfunction!(py_register_object_from_naif, module)?)?;
+    module.add_class::<PyFrameEphemerisSource>()?;
+    module.add_function(wrap_pyfunction!(py_set_frame_ephemeris_source, module)?)?;
+    module.add_function(wrap_pyfunction!(py_get_frame_ephemeris_source, module)?)?;
 
     //* Coordinates *//
 

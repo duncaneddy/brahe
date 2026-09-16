@@ -192,3 +192,53 @@ def test_batch_eqw_match_scalar(eop):
         brahe.state_eci_to_eqw(chiefs[:2], deputies)
     with pytest.raises(ValueError, match="Batch lengths"):
         brahe.covariance_eqw_to_eci(chiefs[:2], covs)
+
+
+def test_batch_eqw_covariance_preserves_state_batch_shape(eop):
+    states = np.array(
+        [_state(0.1, 97.8, 15.0, 30.0, 45.0 + i) for i in range(4)]
+    ).reshape(2, 2, 6)
+    p = np.eye(6)
+    p_out = brahe.covariance_eqw_to_eci(states, p)
+    assert p_out.shape == (2, 2, 6, 6)
+    for i in range(2):
+        for j in range(2):
+            np.testing.assert_array_equal(
+                p_out[i, j], brahe.covariance_eqw_to_eci(states[i, j], p)
+            )
+
+    x = _state(0.1, 97.8, 15.0, 30.0, 45.0)
+    covs = np.array([np.eye(6) * (i + 1.0) for i in range(3)])
+    p_single_state = brahe.covariance_eci_to_eqw(x, covs)
+    assert p_single_state.shape == (3, 6, 6)
+    for k in range(3):
+        np.testing.assert_array_equal(
+            p_single_state[k], brahe.covariance_eci_to_eqw(x, covs[k])
+        )
+
+    batch = np.array([_state(0.1, 97.8, 15.0, 30.0, 45.0 + i) for i in range(3)])
+    p_singleton_batch = brahe.covariance_eqw_to_eci(batch[:1], covs)
+    assert p_singleton_batch.shape == (3, 6, 6)
+    for k in range(3):
+        np.testing.assert_array_equal(
+            p_singleton_batch[k], brahe.covariance_eqw_to_eci(batch[0], covs[k])
+        )
+
+
+def test_batch_eqw_empty_covariance_batch(eop):
+    x = _state(0.1, 97.8, 15.0, 30.0, 45.0)
+    empty = brahe.covariance_eqw_to_eci(x, np.zeros((0, 6, 6)))
+    assert empty.shape == (0, 6, 6)
+    with pytest.raises(ValueError, match="6x6"):
+        brahe.covariance_eqw_to_eci(x, np.zeros((0, 5, 5)))
+
+
+def test_batch_eqw_length_mismatch_raises(eop):
+    batch_two = np.array([_state(0.1, 97.8, 15.0, 30.0, 45.0)] * 2)
+    batch_three = np.array([_state(0.1, 97.8, 15.0, 30.0, 45.0)] * 3)
+    with pytest.raises(ValueError, match="Batch lengths"):
+        brahe.state_eci_to_eqw(batch_two, batch_three)
+    with pytest.raises(ValueError, match="Batch lengths"):
+        brahe.covariance_eqw_to_eci(batch_two, np.array([np.eye(6)] * 3))
+    with pytest.raises(ValueError, match="6x6"):
+        brahe.covariance_eqw_to_eci(batch_two[0], np.eye(7))

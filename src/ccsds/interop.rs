@@ -4025,6 +4025,7 @@ mod tests {
         assert!(err.contains("body frame"), "{err}");
         assert!(err.contains("LVLH"), "{err}");
         clear_frame_registry();
+        clear_object_registry();
     }
 
     #[test]

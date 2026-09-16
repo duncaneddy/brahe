@@ -526,6 +526,18 @@ def test_register_frame_rejects_unbound_orbit_relative_parent(clear_frame_regist
         )
 
 
+def test_unbound_orbit_relative_frame_errors(clear_frame_registries):
+    """Rust: test_unbound_orbit_relative_frame_errors"""
+    epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+    unbound = bh.ReferenceFrame.orbit_relative(
+        bh.OrbitRelativeFrameKind.RTN, bh.OrbitRelativeFrameVariant.ROTATING
+    )
+    with pytest.raises(RuntimeError, match="not bound to an object"):
+        bh.rotation_frame_to_frame(bh.CelestialFrame.GCRF, unbound, epc)
+    with pytest.raises(RuntimeError, match=r"ReferenceFrame::RTN\(object\)"):
+        bh.rotation_frame_to_frame(bh.CelestialFrame.GCRF, unbound, epc)
+
+
 def test_ntw_rotation_matches_relative_motion(clear_frame_registries):
     epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
     oe = np.array([bh.R_EARTH + 500e3, 0.05, 97.8, 15.0, 30.0, 45.0])

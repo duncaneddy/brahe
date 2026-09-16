@@ -7082,7 +7082,8 @@ impl SStateProvider for PyCallableStateProvider {
 ///
 /// Raises:
 ///     BraheError: If `frame` is not a bound `Body` frame, if the parent chain does not
-///         terminate at a celestial frame, or if it cycles back through `frame`
+///         terminate at a celestial frame or a bound orbit-relative frame, or if
+///         it cycles back through `frame`
 ///     TypeError: If `provider` is not a constant attitude or a callable, or if `omega` is given
 ///         and is not callable
 ///     ValueError: If `omega` or `numerical_rates_step` is given for a constant-attitude

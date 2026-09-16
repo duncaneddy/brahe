@@ -155,16 +155,13 @@ fn validate_parent_chain(
             ReferenceFrame::OrbitRelative {
                 object: Some(_), ..
             } => return Ok(()),
-            ReferenceFrame::OrbitRelative { object: None, .. } => {
+            ReferenceFrame::OrbitRelative {
+                kind, object: None, ..
+            } => {
                 return Err(BraheError::Error(format!(
                     "cannot register {}: parent {} is not bound to an object; bind it with \
                      ReferenceFrame::{}(object) before registering",
-                    frame,
-                    current,
-                    match &current {
-                        ReferenceFrame::OrbitRelative { kind, .. } => kind.to_string(),
-                        _ => String::new(),
-                    }
+                    frame, current, kind
                 )));
             }
             _ => {}

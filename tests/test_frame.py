@@ -905,6 +905,22 @@ def test_sez_pole_site_rotation_matches_relative_motion(eop, clear_frame_registr
     np.testing.assert_allclose(got[2], np.array([0.0, 0.0, 1.0]), atol=1e-9)
 
 
+def test_enz_gcrf_declared_station_matches_itrf_site(eop, clear_frame_registries):
+    """Rust: test_enz_gcrf_declared_station_matches_itrf_site"""
+    epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+    r_gs = bh.position_geodetic_to_ecef(
+        np.array([30.0, 45.0, 500.0]), bh.AngleFormat.DEGREES
+    )
+    x_gs = np.concatenate([r_gs, np.zeros(3)])
+    x_gcrf = bh.state_itrf_to_gcrf(epc, x_gs)
+    bh.register_object("GS", lambda epc: x_gcrf, bh.CelestialFrame.GCRF)
+
+    got = bh.rotation_frame_to_frame(
+        bh.CelestialFrame.ITRF, bh.ReferenceFrame.ENZ("GS"), epc
+    )
+    np.testing.assert_allclose(got, bh.rotation_ecef_to_enz(x_gs), atol=1e-9)
+
+
 def test_enz_station_rotation_matches_relative_motion(eop, clear_frame_registries):
     epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
     r_gs = bh.position_geodetic_to_ecef(

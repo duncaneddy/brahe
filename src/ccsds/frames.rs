@@ -356,7 +356,8 @@ impl fmt::Display for CCSDSOrbitRelativeFrame {
 }
 
 impl CCSDSOrbitRelativeFrame {
-    /// Parses a SANA orbit-relative frame token. Infallible: unknown tokens
+    /// Parses a SANA orbit-relative frame token, or the brahe `ENZ_*` extension
+    /// tokens and their `ENU_*` aliases. Infallible: unknown tokens
     /// return [`CCSDSOrbitRelativeFrame::Other`] preserving the input
     /// verbatim. Matching is case-insensitive.
     ///
@@ -991,6 +992,10 @@ mod tests {
         assert_eq!(
             ADMReferenceFrame::parse("RSW_ROTATING"),
             ADMReferenceFrame::OrbitRelative(CCSDSOrbitRelativeFrame::RSWRotating)
+        );
+        assert_eq!(
+            ADMReferenceFrame::parse("ENU_ROTATING").to_string(),
+            "ENZ_ROTATING"
         );
         assert_eq!(
             ADMReferenceFrame::parse("SC_BODY_1"),

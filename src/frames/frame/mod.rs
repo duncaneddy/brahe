@@ -220,8 +220,10 @@ impl ReferenceFrame {
     }
 
     /// Constructs a bound east/north/zenith topocentric frame (rotating
-    /// variant). Axes: E east, N north, Z along the WGS84 geodetic vertical
-    /// at the object's position (see
+    /// variant).
+    ///
+    /// Axes: E east, N north, Z along the WGS84 geodetic vertical at the
+    /// object's position (see
     /// [`crate::relative_motion::rotation_ecef_to_enz`]). Not a SANA frame;
     /// evaluable only for Earth-centered objects.
     ///

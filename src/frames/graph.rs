@@ -452,7 +452,6 @@ fn provider_error(frame: &ReferenceFrame, err: BraheError) -> BraheError {
 /// # Returns
 /// - `Ok(SVector6)`: The object's state in ITRF
 /// - `Err(BraheError)`: If `root`'s center is not Earth
-#[allow(clippy::too_many_arguments)]
 fn earth_site_state(
     kind: OrbitRelativeFrameKind,
     object: &ObjectId,
@@ -605,10 +604,9 @@ fn resolve_orbit_relative(
         OrbitRelativeFrameKind::ENZ => {
             let x_itrf = earth_site_state(kind, object, declared, root, x, x_root, epc)?;
             let r_site = rotation_ecef_to_enz(x_itrf);
-            (
-                r_site * rotation_gcrf_to_itrf(epc),
-                r_site * itrf_angular_velocity_at(epc) + omega_enz(x_itrf),
-            )
+            let dcm = r_site * rotation_gcrf_to_itrf(epc);
+            let omega = r_site * itrf_angular_velocity_at(epc) + omega_enz(x_itrf);
+            (dcm, omega)
         }
     };
 
@@ -808,7 +806,7 @@ mod tests {
         CallbackOrientation, FrameCenter, FrameEphemerisSource, OrientationProvider,
         clear_frame_registry, clear_object_registry, covariance_frame_to_frame,
         position_frame_to_frame, register_frame, register_object, rotation_frame_to_frame,
-        set_frame_ephemeris_source, unregister_frame,
+        set_frame_ephemeris_source, state_itrf_to_gcrf, unregister_frame,
     };
     use crate::math::{SMatrix6, SVector6};
     use crate::orbit_dynamics::ephemerides::sun_position;
@@ -1953,6 +1951,24 @@ mod tests {
             .to_string();
         assert!(err.contains("SEZ"), "{err}");
         assert!(err.contains("Earth"), "{err}");
+        clear_object_registry();
+    }
+
+    #[test]
+    #[serial]
+    fn test_enz_gcrf_declared_station_matches_itrf_site() {
+        setup_global_test_eop();
+        clear_object_registry();
+        let epc = Epoch::from_date(2024, 3, 1, TimeSystem::UTC);
+        let r = position_geodetic_to_ecef(Vector3::new(30.0, 45.0, 500.0), AngleFormat::Degrees)
+            .unwrap();
+        let x_gs = SVector6::new(r[0], r[1], r[2], 0.0, 0.0, 0.0);
+        let x_gcrf = state_itrf_to_gcrf(epc, x_gs);
+        register_object("GS", FnProvider(move |_| Ok(x_gcrf)), CelestialFrame::GCRF).unwrap();
+
+        let got =
+            rotation_frame_to_frame(CelestialFrame::ITRF, ReferenceFrame::ENZ("GS"), epc).unwrap();
+        assert_abs_diff_eq!(got, rotation_ecef_to_enz(x_gs), epsilon = 1e-9);
         clear_object_registry();
     }
 

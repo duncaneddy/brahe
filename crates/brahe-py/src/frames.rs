@@ -6536,6 +6536,23 @@ impl PyReferenceFrame {
         PyReferenceFrame { frame: frames::ReferenceFrame::SEZ(object) }
     }
 
+    /// Bound east/north/zenith topocentric frame (rotating variant). Not a
+    /// SANA frame.
+    ///
+    /// Axes: E east, N north, Z along the WGS84 geodetic vertical at the
+    /// object's position. Evaluable only for Earth-centered objects.
+    ///
+    /// Args:
+    ///     object (str): The object the frame is defined relative to
+    ///
+    /// Returns:
+    ///     ReferenceFrame: The bound `ENZ (rotating)` orbit-relative frame
+    #[staticmethod]
+    #[allow(non_snake_case)]
+    fn ENZ(object: String) -> Self {
+        PyReferenceFrame { frame: frames::ReferenceFrame::ENZ(object) }
+    }
+
     /// Bound Velocity/Normal/Co-normal orbit-relative frame (rotating
     /// variant).
     ///
@@ -6583,23 +6600,6 @@ impl PyReferenceFrame {
     #[allow(non_snake_case)]
     fn NSW(object: String) -> Self {
         PyReferenceFrame { frame: frames::ReferenceFrame::NSW(object) }
-    }
-
-    /// Bound east/north/zenith topocentric frame (rotating variant). Not a
-    /// SANA frame.
-    ///
-    /// Axes: E east, N north, Z along the WGS84 geodetic vertical at the
-    /// object's position. Evaluable only for Earth-centered objects.
-    ///
-    /// Args:
-    ///     object (str): The object the frame is defined relative to
-    ///
-    /// Returns:
-    ///     ReferenceFrame: The bound `ENZ (rotating)` orbit-relative frame
-    #[staticmethod]
-    #[allow(non_snake_case)]
-    fn ENZ(object: String) -> Self {
-        PyReferenceFrame { frame: frames::ReferenceFrame::ENZ(object) }
     }
 
     /// Bound Perifocal orbit-relative frame (inertial-snapshot variant;

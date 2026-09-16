@@ -6443,6 +6443,13 @@ impl PyReferenceFrame {
     ///
     /// Returns:
     ///     ReferenceFrame: The bound `LVLH (rotating)` orbit-relative frame
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     frame = bh.ReferenceFrame.LVLH("SC")
+    ///     ```
     #[staticmethod]
     #[allow(non_snake_case)]
     fn LVLH(object: String) -> Self {

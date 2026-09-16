@@ -221,6 +221,16 @@ pub(crate) fn batch_zip<A: Sync, B: Sync, U: Send>(
 ///
 /// # Returns
 /// - Outputs in batch order, or an error if the lengths do not broadcast
+///
+/// # Examples
+///
+/// ```ignore
+/// use crate::utils::batch::batch_zip3;
+///
+/// // A single middle operand broadcasts across the other two batches
+/// let sums = batch_zip3(|a, b, c| a + b + c, &[1.0, 2.0], &[10.0], &[100.0, 200.0]).unwrap();
+/// assert_eq!(sums, vec![111.0, 212.0]);
+/// ```
 pub(crate) fn batch_zip3<A: Sync, B: Sync, C: Sync, U: Send>(
     f: impl Fn(&A, &B, &C) -> U + Sync,
     a: &[A],

@@ -825,7 +825,11 @@ fn dispatch_vec_triple<'py, const N: usize>(
 /// depends on a second state, such as the Sun) on scalar or batched
 /// arguments. `a` and `b` follow the broadcast rule of `parse_vec_args`; the
 /// combined vector batch length and the covariance batch length must be
-/// equal or one of them must be 1.
+/// equal or one of them must be 1. Output shapes follow
+/// [`dispatch_vec_covariance`]: the vectors' batch dimensions followed by
+/// `(6, 6)` when a vector is batched (a length-1 vector batch against `n`
+/// covariances yields `(n, 6, 6)`), and `(n, 6, 6)` when only the covariance
+/// is batched.
 fn dispatch_vec_pair_covariance<'py, const N: usize>(
     py: Python<'py>,
     a: &Bound<'py, PyAny>,
@@ -851,7 +855,10 @@ fn dispatch_vec_pair_covariance<'py, const N: usize>(
         )));
     }
     let out = py.detach(|| batch(&vecs[0], &vecs[1], &covs))?;
-    Ok(matrices_to_numpy::<6>(py, out))
+    match layout {
+        Some(layout) => matrix_batch_to_numpy::<6>(py, &layout, out),
+        None => Ok(matrices_to_numpy::<6>(py, out)),
+    }
 }
 
 /// A numeric argument parsed from Python: a scalar or an array of any shape.

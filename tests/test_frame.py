@@ -79,10 +79,13 @@ def test_orbit_relative_rejects_non_enum_arguments():
         )
 
 
-def test_frame_ephemeris_source_setter_and_default():
-    bh.set_frame_ephemeris_source(bh.FrameEphemerisSource.ANALYTIC)
-    assert bh.get_frame_ephemeris_source() == bh.FrameEphemerisSource.ANALYTIC
-    bh.set_frame_ephemeris_source(bh.FrameEphemerisSource.AUTO)
+def test_frame_ephemeris_source_default_and_setter():
+    """Rust: test_frame_ephemeris_source_default_and_setter"""
+    try:
+        bh.set_frame_ephemeris_source(bh.FrameEphemerisSource.ANALYTIC)
+        assert bh.get_frame_ephemeris_source() == bh.FrameEphemerisSource.ANALYTIC
+    finally:
+        bh.set_frame_ephemeris_source(bh.FrameEphemerisSource.AUTO)
     assert bh.get_frame_ephemeris_source() == bh.FrameEphemerisSource.AUTO
 
 

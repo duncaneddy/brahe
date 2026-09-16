@@ -151,6 +151,10 @@ pub fn rotation_eci_to_nsw(x_eci: SVector6, x_sun: SVector6) -> SMatrix3 {
 /// kinematic and needs no gravitational parameter. Passing a Sun state with zero velocity gives
 /// the fixed-Sun approximation, which omits a term of order 2e-7 rad/s for an Earth orbit.
 ///
+/// On the nadir-aligned fallback branch the orbit plane is taken as fixed, so that branch is
+/// exact only under two-body motion. As the Sun approaches the nadir line the rate grows as the
+/// reciprocal of the sine of the Sun-nadir angle until the fallback engages.
+///
 /// # Arguments:
 /// - `x_eci`: 6D state vector in the ECI frame [x, y, z, vx, vy, vz] (m, m/s)
 /// - `x_sun`: 6D state vector of the Sun relative to the same center (m, m/s)

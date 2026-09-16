@@ -454,7 +454,8 @@ fn provider_error(frame: &ReferenceFrame, err: BraheError) -> BraheError {
 ///   locate periapsis for its axes, not just for a rate — or (for `PQW` or
 ///   `EQW`) the frame carries the rotating variant, which the validating
 ///   constructors reject but the enum's public fields and deserialization
-///   admit
+///   admit, or (for `NSW`) the Sun state cannot be obtained from the
+///   configured [`FrameEphemerisSource`](crate::frames::FrameEphemerisSource)
 fn resolve_orbit_relative(
     kind: OrbitRelativeFrameKind,
     variant: OrbitRelativeFrameVariant,

@@ -17,7 +17,7 @@ use crate::utils::errors::BraheError;
 /// Every kind is a valid frame identity, which is what parsing a data file
 /// needs, but only `RTN`, `LVLH`, `NTW`, `TNW`, `VNC`, `PQW`, `EQW`, and
 /// `NSW` have axes derivations today. A transform through any other kind
-/// errors until issue #452 adds the remaining derivations.
+/// errors until issue #452 adds the SEZ derivation.
 ///
 /// # Examples
 ///

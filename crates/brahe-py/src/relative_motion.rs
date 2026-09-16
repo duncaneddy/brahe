@@ -5240,7 +5240,7 @@ fn py_jacobian_eci_to_nsw<'py>(
 ///         may also be single and broadcasts against the combined `x_eci`/`x_sun` batch length.
 ///
 /// Returns:
-///     numpy.ndarray: 6x6 state covariance in ECI axes, shape (6, 6), or an (n, 6, 6) batch for batched input.
+///     numpy.ndarray: 6x6 state covariance in ECI axes, shape (6, 6). For batched input, when the states are batched the output is their batch dimensions followed by (6, 6), except a length-1 state batch broadcast against n covariances yields (n, 6, 6); when only `covariance` is batched the output is (n, 6, 6).
 ///
 /// Example:
 ///     ```python
@@ -5298,7 +5298,7 @@ fn py_covariance_nsw_to_eci<'py>(
 ///         may also be single and broadcasts against the combined `x_eci`/`x_sun` batch length.
 ///
 /// Returns:
-///     numpy.ndarray: 6x6 state covariance in NSW axes, shape (6, 6), or an (n, 6, 6) batch for batched input.
+///     numpy.ndarray: 6x6 state covariance in NSW axes, shape (6, 6). For batched input, when the states are batched the output is their batch dimensions followed by (6, 6), except a length-1 state batch broadcast against n covariances yields (n, 6, 6); when only `covariance` is batched the output is (n, 6, 6).
 ///
 /// Example:
 ///     ```python

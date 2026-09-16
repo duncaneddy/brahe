@@ -319,6 +319,19 @@ def test_batch_nsw_match_scalar(eop):
         cov,
     )
 
+    x_nd = np.stack([chiefs, chiefs])
+    s_nd = np.stack([suns, suns])
+    cov_nd = brahe.covariance_nsw_to_eci(
+        x_nd, s_nd, covs[0], brahe.OrbitRelativeFrameVariant.ROTATING
+    )
+    assert cov_nd.shape == (2, 3, 6, 6)
+    np.testing.assert_array_equal(
+        cov_nd[1],
+        brahe.covariance_nsw_to_eci(
+            chiefs, suns, covs[0], brahe.OrbitRelativeFrameVariant.ROTATING
+        ),
+    )
+
 
 def test_batch_nsw_length_mismatch_raises(eop):
     """Rust: mirrors the broadcast-rule error checks in test_batch_nsw_match_scalar"""

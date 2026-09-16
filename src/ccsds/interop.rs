@@ -844,13 +844,14 @@ impl AEM {
     ///
     /// A CCSDS message names its frames but not the object they belong to,
     /// so the body endpoint parses unbound and is bound to `name` here. One
-    /// endpoint must resolve to a [`CelestialFrame`] — that becomes the
-    /// parent — and the other must be a body frame, which becomes the
-    /// registered frame. Because `REF_FRAME_A`/`REF_FRAME_B` order is not
-    /// fixed by the standard, the quaternion series is inverted when the
-    /// celestial frame is endpoint B, so the registered provider always
-    /// rotates parent-frame vectors into the body frame as
-    /// [`OrientationProvider`] requires.
+    /// endpoint must resolve to a [`CelestialFrame`] or be an orbit-relative
+    /// frame — that becomes the parent, an orbit-relative parent being
+    /// bound to `name` — and the other must be a body frame, which becomes
+    /// the registered frame. Because `REF_FRAME_A`/`REF_FRAME_B` order is
+    /// not fixed by the standard, the quaternion series is inverted when
+    /// the celestial or orbit-relative frame is endpoint B, so the
+    /// registered provider always rotates parent-frame vectors into the
+    /// body frame as [`OrientationProvider`] requires.
     ///
     /// # Arguments
     ///
@@ -860,7 +861,8 @@ impl AEM {
     ///
     /// * `Result<(), BraheError>` - `Ok(())` on success, or an error if the
     ///   AEM does not have exactly one segment, neither endpoint resolves to
-    ///   a celestial frame, or the remaining endpoint is not a body frame
+    ///   a celestial or orbit-relative frame, or the remaining endpoint is
+    ///   not a body frame
     ///
     /// # Examples
     ///
@@ -880,21 +882,37 @@ impl AEM {
         let traj = AttitudeTrajectory::try_from(self)?;
         let object = name.into();
 
-        // Exactly one endpoint must be celestial: it is the parent the body
-        // frame's orientation is expressed relative to.
+        // Exactly one endpoint must be celestial or orbit-relative: it is
+        // the parent the body frame's orientation is expressed relative to.
         let (parent, body_frame, invert) = match (&traj.frame_a, &traj.frame_b) {
             (ReferenceFrame::Celestial(parent), ReferenceFrame::Body { frame, .. }) => {
-                (*parent, frame.clone(), false)
+                (ReferenceFrame::Celestial(*parent), frame.clone(), false)
             }
             (ReferenceFrame::Body { frame, .. }, ReferenceFrame::Celestial(parent)) => {
-                (*parent, frame.clone(), true)
+                (ReferenceFrame::Celestial(*parent), frame.clone(), true)
             }
+            (
+                ReferenceFrame::OrbitRelative { kind, variant, .. },
+                ReferenceFrame::Body { frame, .. },
+            ) => (
+                ReferenceFrame::orbit_relative(*kind, *variant, Some(object.clone()))?,
+                frame.clone(),
+                false,
+            ),
+            (
+                ReferenceFrame::Body { frame, .. },
+                ReferenceFrame::OrbitRelative { kind, variant, .. },
+            ) => (
+                ReferenceFrame::orbit_relative(*kind, *variant, Some(object.clone()))?,
+                frame.clone(),
+                true,
+            ),
             (a, b) => {
                 return Err(BraheError::Error(format!(
                     "AEM::register_for requires one REF_FRAME endpoint to resolve to a \
-                     celestial frame and the other to be a body frame, but this segment \
-                     relates '{a}' and '{b}'; only a body frame can be bound to an object \
-                     and registered"
+                     celestial frame or an orbit-relative frame and the other to be a body \
+                     frame, but this segment relates '{a}' and '{b}'; only a body frame can \
+                     be bound to an object and registered"
                 )));
             }
         };
@@ -919,11 +937,7 @@ impl AEM {
             metadata.useable_stop_time,
         )?;
 
-        register_frame(
-            ReferenceFrame::body(object, body_frame),
-            ReferenceFrame::Celestial(parent),
-            bounded,
-        )
+        register_frame(ReferenceFrame::body(object, body_frame), parent, bounded)
     }
 }
 
@@ -1614,14 +1628,16 @@ mod tests {
     use crate::ccsds::aem::AEM;
     use crate::ccsds::common::CCSDSFormat;
     use crate::ccsds::oem::OEM;
-    use crate::constants::AngleFormat;
+    use crate::constants::{AngleFormat, R_EARTH};
+    use crate::coordinates::state_koe_to_eci;
     use crate::frames::FnProvider;
     use crate::frames::{
-        CelestialFrame, FrameAxes, OrientationProvider, ReferenceFrame, clear_frame_registry,
-        clear_object_registry, object_state, registered_objects, rotation_frame_to_frame,
-        state_frame_to_frame, state_teme_to_gcrf, state_tod_to_gcrf,
+        CelestialFrame, FrameAxes, OrientationProvider, ReferenceFrame, celestial_root,
+        clear_frame_registry, clear_object_registry, object_state, registered_objects,
+        rotation_frame_to_frame, state_frame_to_frame, state_teme_to_gcrf, state_tod_to_gcrf,
     };
     use crate::math::SVector6;
+    use crate::relative_motion::rotation_eci_to_lvlh;
     use crate::spice::NAIFId;
     use crate::time::TimeSystem;
     use crate::trajectories::traits::{InterpolatableTrajectory, Trajectory};
@@ -3921,6 +3937,93 @@ mod tests {
             .to_matrix();
         assert_abs_diff_eq!(resolved, expected, epsilon = 1e-12);
 
+        clear_frame_registry();
+    }
+
+    /// Registers an orbit state for "SC" so orbit-relative endpoints resolve.
+    fn register_sc_orbit() -> SVector6 {
+        let x = state_koe_to_eci(
+            SVector6::new(R_EARTH + 500e3, 0.001, 97.8, 15.0, 30.0, 45.0),
+            AngleFormat::Degrees,
+        );
+        register_object("SC", FnProvider(move |_| Ok(x)), CelestialFrame::GCRF).unwrap();
+        x
+    }
+
+    #[test]
+    #[serial]
+    fn test_aem_register_for_orbit_relative_parent_as_frame_a() {
+        clear_frame_registry();
+        clear_object_registry();
+        let x = register_sc_orbit();
+
+        let mut aem = g4_single_segment_aem();
+        aem.segments[0].metadata.ref_frame_a = ADMReferenceFrame::parse("LVLH_ROTATING");
+        let traj = AttitudeTrajectory::try_from(&aem).unwrap();
+        let epoch = aem.segments[0].metadata.useable_start_time.unwrap() + 30.0;
+
+        aem.register_for("SC").unwrap();
+
+        // Link rotates LVLH into the body, unchanged from the stored series
+        let link = rotation_frame_to_frame(ReferenceFrame::LVLH("SC"), sc_body_1(), epoch).unwrap();
+        let expected = traj
+            .quaternion(epoch)
+            .unwrap()
+            .to_rotation_matrix()
+            .to_matrix();
+        assert_abs_diff_eq!(link, expected, epsilon = 1e-12);
+
+        // Through the chain: GCRF -> LVLH -> body
+        let full = rotation_frame_to_frame(CelestialFrame::GCRF, sc_body_1(), epoch).unwrap();
+        assert_abs_diff_eq!(full, expected * rotation_eci_to_lvlh(x), epsilon = 1e-12);
+        assert_eq!(celestial_root(&sc_body_1()).unwrap(), CelestialFrame::GCRF);
+
+        clear_frame_registry();
+        clear_object_registry();
+    }
+
+    #[test]
+    #[serial]
+    fn test_aem_register_for_orbit_relative_parent_as_frame_b() {
+        clear_frame_registry();
+        clear_object_registry();
+        register_sc_orbit();
+
+        let mut aem = g4_single_segment_aem();
+        aem.segments[0].metadata.ref_frame_a = ADMReferenceFrame::parse("LVLH_ROTATING");
+        {
+            let metadata = &mut aem.segments[0].metadata;
+            std::mem::swap(&mut metadata.ref_frame_a, &mut metadata.ref_frame_b);
+        }
+        let traj = AttitudeTrajectory::try_from(&aem).unwrap();
+        let epoch = aem.segments[0].metadata.useable_start_time.unwrap() + 30.0;
+
+        aem.register_for("SC").unwrap();
+
+        let link = rotation_frame_to_frame(ReferenceFrame::LVLH("SC"), sc_body_1(), epoch).unwrap();
+        let expected = traj
+            .quaternion(epoch)
+            .unwrap()
+            .conjugate()
+            .to_rotation_matrix()
+            .to_matrix();
+        assert_abs_diff_eq!(link, expected, epsilon = 1e-12);
+
+        clear_frame_registry();
+        clear_object_registry();
+    }
+
+    #[test]
+    #[serial]
+    fn test_aem_register_for_rejects_two_orbit_relative_endpoints() {
+        clear_frame_registry();
+        clear_object_registry();
+        let mut aem = g4_single_segment_aem();
+        aem.segments[0].metadata.ref_frame_a = ADMReferenceFrame::parse("LVLH_ROTATING");
+        aem.segments[0].metadata.ref_frame_b = ADMReferenceFrame::parse("RSW_ROTATING");
+        let err = aem.register_for("SC").unwrap_err().to_string();
+        assert!(err.contains("body frame"), "{err}");
+        assert!(err.contains("LVLH"), "{err}");
         clear_frame_registry();
     }
 

@@ -1,10 +1,5 @@
 # NSW Transformations
 
-Rotation matrices, angular velocity, Jacobians, covariance transforms, and relative-state transforms between ECI and the Nadir, Sun, Normal (NSW) frame.
-
-!!! note
-    For the frame definition and examples, see [Orbit-Relative Frames](../../learn/relative_motion/orbit_relative_frames.md).
-
 ::: brahe.rotation_nsw_to_eci
 
 ::: brahe.rotation_eci_to_nsw
@@ -25,6 +20,4 @@ Rotation matrices, angular velocity, Jacobians, covariance transforms, and relat
 
 ## See Also
 
-- [Orbit-Relative Frames (Learn)](../../learn/relative_motion/orbit_relative_frames.md) - Conceptual explanation and examples
-- [Reference Frame Router](../frames/router.md) - `FrameEphemerisSource` and the frame-graph Sun state
-- [Relative Motion Module](index.md) - Complete API reference for the relative motion module
+- [Learn: Orbit-Relative Frames](../../learn/relative_motion/orbit_relative_frames.md)

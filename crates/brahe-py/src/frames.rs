@@ -6561,6 +6561,13 @@ impl PyReferenceFrame {
     ///
     /// Returns:
     ///     ReferenceFrame: The bound `NSW (rotating)` orbit-relative frame
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     frame = bh.ReferenceFrame.NSW("SC")
+    ///     ```
     #[staticmethod]
     #[allow(non_snake_case)]
     fn NSW(object: String) -> Self {

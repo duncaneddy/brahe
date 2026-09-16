@@ -447,9 +447,12 @@ fn provider_error(frame: &ReferenceFrame, err: BraheError) -> BraheError {
 ///   rate for the rotating variant, zero for the inertial snapshot
 /// - `Err(BraheError)`: If `kind` has no axes derivation, `object` is not
 ///   registered, its state cannot be evaluated at `epc`, or (for `NTW`'s,
-///   `TNW`'s, or `VNC`'s rotating variant, or for `PQW` in either variant)
-///   its declared center has no packaged gravitational parameter — `PQW`
-///   needs it to locate periapsis for its axes, not just for a rate
+///   `TNW`'s, or `VNC`'s rotating variant, or for `PQW`) its declared
+///   center has no packaged gravitational parameter — `PQW` needs it to
+///   locate periapsis for its axes, not just for a rate — or (for `PQW`)
+///   the frame carries the rotating variant, which the validating
+///   constructors reject but the enum's public fields and deserialization
+///   admit
 fn resolve_orbit_relative(
     kind: OrbitRelativeFrameKind,
     variant: OrbitRelativeFrameVariant,
@@ -523,6 +526,12 @@ fn resolve_orbit_relative(
             (rotation_eci_to_vnc(x_root), omega)
         }
         OrbitRelativeFrameKind::PQW => {
+            if variant == OrbitRelativeFrameVariant::Rotating {
+                return Err(BraheError::Error(format!(
+                    "orbit-relative kind PQW exists only as an inertial SANA frame and cannot \
+                     be evaluated with the rotating variant for {object}"
+                )));
+            }
             let gm = body_gm(root.center().naif_id()).map_err(|e| {
                 BraheError::Error(format!(
                     "orbit-relative kind PQW needs the gravitational parameter of {object}'s \
@@ -1562,6 +1571,30 @@ mod tests {
         clear_object_registry();
     }
 
+    #[test]
+    #[serial]
+    fn test_pqw_rotating_variant_is_rejected_by_resolver() {
+        // The validating constructors reject a rotating PQW frame, but the
+        // enum's public fields and deserialization admit one; the resolver
+        // must refuse it rather than silently evaluate it with zero rate.
+        clear_object_registry();
+        let epc = Epoch::from_date(2024, 3, 1, TimeSystem::UTC);
+        let oe = SVector6::new(R_EARTH + 500e3, 0.05, 97.8, 15.0, 30.0, 45.0);
+        let x = state_koe_to_eci(oe, AngleFormat::Degrees);
+        register_object("A", FnProvider(move |_| Ok(x)), CelestialFrame::GCRF).unwrap();
+
+        let rotating = ReferenceFrame::OrbitRelative {
+            kind: OrbitRelativeFrameKind::PQW,
+            variant: OrbitRelativeFrameVariant::Rotating,
+            object: Some("A".into()),
+        };
+        let err = rotation_frame_to_frame(CelestialFrame::GCRF, rotating, epc)
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("PQW"));
+        assert!(err.contains("rotating variant"));
+        clear_object_registry();
+    }
     #[test]
     #[serial]
     fn test_two_object_lvlh_matches_state_eci_to_lvlh() {

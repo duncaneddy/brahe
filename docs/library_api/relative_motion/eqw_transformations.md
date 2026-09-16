@@ -1,10 +1,5 @@
 # EQW Transformations
 
-Rotation matrices, Jacobians, covariance transforms, and relative-state transforms between ECI and the Equinoctial (EQW) frame.
-
-!!! note
-    For the frame definition and examples, see [Orbit-Relative Frames](../../learn/relative_motion/orbit_relative_frames.md).
-
 ::: brahe.rotation_eqw_to_eci
 
 ::: brahe.rotation_eci_to_eqw
@@ -20,3 +15,7 @@ Rotation matrices, Jacobians, covariance transforms, and relative-state transfor
 ::: brahe.state_eci_to_eqw
 
 ::: brahe.state_eqw_to_eci
+
+## See Also
+
+- [Learn: Orbit-Relative Frames](../../learn/relative_motion/orbit_relative_frames.md)

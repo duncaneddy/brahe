@@ -6606,6 +6606,13 @@ impl PyReferenceFrame {
     ///
     /// Returns:
     ///     ReferenceFrame: The bound `EQW (inertial)` orbit-relative frame
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     frame = bh.ReferenceFrame.EQW("SC")
+    ///     ```
     #[staticmethod]
     #[allow(non_snake_case)]
     fn EQW(object: String) -> Self {

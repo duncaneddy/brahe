@@ -40,16 +40,12 @@ fn nsw_axes(x_eci: SVector6, x_sun: SVector6) -> (SMatrix3, Vector3<f64>) {
     let s_hat = d_r / d_norm;
     let s_dot = (d_v - d_v.dot(&s_hat) * s_hat) / d_norm;
 
-    // Projected onto the raw (unnormalized) Sun-direction vector rather than
-    // the unit vector `s_hat`, so the projection avoids cancellation between
-    // nearly equal unit vectors when the Sun lies close to the nadir line.
-    let p_raw = d_r - d_r.dot(&x_hat) * x_hat;
-    let p_raw_norm = p_raw.norm();
-    let p_norm = p_raw_norm / d_norm;
-    let (y_hat, y_dot) = if p_norm > DEGENERATE_TOLERANCE {
+    let p = s_hat - s_hat.dot(&x_hat) * x_hat;
+    let (y_hat, y_dot) = if p.norm() > DEGENERATE_TOLERANCE {
         let p_dot =
             s_dot - (s_dot.dot(&x_hat) + s_hat.dot(&x_dot)) * x_hat - s_hat.dot(&x_hat) * x_dot;
-        let y_hat = p_raw / p_raw_norm;
+        let p_norm = p.norm();
+        let y_hat = p / p_norm;
         let y_dot = (p_dot - p_dot.dot(&y_hat) * y_hat) / p_norm;
         (y_hat, y_dot)
     } else {
@@ -76,9 +72,10 @@ fn nsw_axes(x_eci: SVector6, x_sun: SVector6) -> (SMatrix3, Vector3<f64>) {
 ///   from the spacecraft to the Sun with its X component removed.
 /// - Z: `X × Y`, completing the right-handed set.
 ///
-/// The Sun direction is measured from the spacecraft, so `x_sun` is the Sun's state relative to
-/// the same center as `x_eci`. When the Sun lies along the nadir line (projected norm below
-/// 1e-9) the Y axis is taken along the along-track direction `ĥ × r̂`.
+/// `x_sun` is the Sun's state relative to the same center as `x_eci`. Because X lies along the
+/// position vector, the frame is identical whether the Sun direction is taken from the center or
+/// from the spacecraft. When the Sun lies along the nadir line (projected norm below 1e-9) the Y
+/// axis is taken along the along-track direction `ĥ × r̂`.
 ///
 /// # Arguments:
 /// - `x_eci`: 6D state vector in the ECI frame [x, y, z, vx, vy, vz] (m, m/s)
@@ -507,20 +504,26 @@ mod tests {
 
     #[test]
     #[parallel]
-    fn test_rotation_nsw_sun_direction_is_from_spacecraft_not_center() {
-        // A Sun placed 1 AU away in a direction nearly along nadir: the
-        // spacecraft-to-Sun direction differs measurably from the
-        // center-to-Sun direction, and the frame uses the former.
+    fn test_rotation_nsw_is_invariant_to_sun_offset_along_nadir() {
+        // X lies along the position vector, so passing the Sun state
+        // relative to the spacecraft instead of relative to the center
+        // changes neither the axes nor the rate.
         let x = sc_state(0.0);
-        let r = x.fixed_rows::<3>(0).into_owned();
-        let r_hat = r / r.norm();
-        let lateral = r_hat.cross(&Vector3::z()).normalize();
-        let r_sun = -r_hat * AU + lateral * 1.0e6;
-        let s = SVector6::new(r_sun[0], r_sun[1], r_sun[2], 0.0, 0.0, 0.0);
-        let y: Vector3<f64> = rotation_nsw_to_eci(x, s).column(1).into();
-        let from_sc = r_sun - r;
-        let expected = (from_sc - from_sc.dot(&(-r_hat)) * (-r_hat)).normalize();
-        assert_abs_diff_eq!(y, expected, epsilon = 1e-12);
+        let s_center = sun_state(0.0);
+        let s_shifted = s_center - x;
+
+        assert_abs_diff_eq!(
+            rotation_nsw_to_eci(x, s_center),
+            rotation_nsw_to_eci(x, s_shifted),
+            epsilon = 1e-12
+        );
+        let omega_center = omega_nsw(x, s_center);
+        let omega_shifted = omega_nsw(x, s_shifted);
+        assert_abs_diff_eq!(
+            (omega_center - omega_shifted).norm() / omega_center.norm(),
+            0.0,
+            epsilon = 1e-12
+        );
     }
 
     #[test]

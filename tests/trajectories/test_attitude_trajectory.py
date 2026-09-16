@@ -22,6 +22,15 @@ def body_frames():
     )
 
 
+def small_attitude_trajectory():
+    frame_a, frame_b = body_frames()
+    traj = AttitudeTrajectory(frame_a, frame_b)
+    t0 = bh.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    traj.add(t0, z_axis_quaternion(0.0))
+    traj.add(t0 + 60.0, z_axis_quaternion(0.2))
+    return traj
+
+
 def test_attitude_state_new():
     """Rust: test_attitude_state_new"""
     q = bh.Quaternion(1.0, 0.0, 0.0, 0.0)
@@ -498,3 +507,63 @@ def test_attitude_provider_euler_angle_euler_axis_rotation_matrix():
     np.testing.assert_allclose(
         rot.to_matrix(), q.to_rotation_matrix().to_matrix(), atol=1e-10
     )
+
+
+def test_attitude_provider_quaternion_and_defaults_consistent():
+    """Rust: test_attitude_provider_quaternion_and_defaults_consistent"""
+    traj = small_attitude_trajectory()
+    epoch = traj.start_epoch + 30.0
+
+    q = traj.quaternion(epoch)
+
+    # euler_angle default: EulerAngle::from_quaternion(quaternion, order)
+    euler = traj.euler_angle(epoch, bh.EulerAngleOrder.ZYX)
+    expected_euler = q.to_euler_angle(bh.EulerAngleOrder.ZYX)
+    assert euler.phi == expected_euler.phi
+    assert euler.theta == expected_euler.theta
+    assert euler.psi == expected_euler.psi
+
+    # euler_axis default: ToAttitude::to_euler_axis on the same quaternion
+    axis = traj.euler_axis(epoch)
+    expected_axis = q.to_euler_axis()
+    assert axis.angle == expected_axis.angle
+
+    # rotation_matrix default: ToAttitude::to_rotation_matrix on the same quaternion
+    r = traj.rotation_matrix(epoch)
+    expected_r = q.to_rotation_matrix()
+    np.testing.assert_array_equal(r.to_matrix(), expected_r.to_matrix())
+
+
+def test_attitude_provider_angular_velocity_errors_out_of_coverage_without_rates():
+    """Rust: test_attitude_provider_angular_velocity_errors_out_of_coverage_without_rates"""
+    traj = small_attitude_trajectory()
+    before_start = traj.start_epoch - 10.0
+    after_end = traj.end_epoch + 10.0
+
+    with pytest.raises(Exception, match="before trajectory start"):
+        traj.angular_velocity(before_start)
+    with pytest.raises(Exception, match="after trajectory end"):
+        traj.angular_velocity(after_end)
+
+
+def test_attitude_provider_angular_velocity_errors_for_empty_trajectory():
+    """Rust: test_attitude_provider_angular_velocity_errors_for_empty_trajectory"""
+    frame_a, frame_b = body_frames()
+    traj = AttitudeTrajectory(frame_a, frame_b)
+    epoch = bh.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+
+    with pytest.raises(Exception, match="empty trajectory"):
+        traj.angular_velocity(epoch)
+
+
+def test_attitude_provider_angular_velocity_with_rates():
+    """Rust: test_attitude_provider_angular_velocity_with_rates"""
+    frame_a, frame_b = body_frames()
+    traj = AttitudeTrajectory(frame_a, frame_b)
+    t0 = bh.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    omega = np.array([0.0, 0.0, 0.01])
+    traj.add(t0, z_axis_quaternion(0.0), omega)
+    traj.add(t0 + 60.0, z_axis_quaternion(0.6), omega)
+
+    result = traj.angular_velocity(t0 + 30.0)
+    np.testing.assert_array_equal(result, omega)

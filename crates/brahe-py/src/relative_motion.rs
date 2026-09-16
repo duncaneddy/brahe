@@ -4560,8 +4560,8 @@ fn py_state_pqw_to_inertial_for_body<'py>(
 ///     import brahe as bh
 ///     import numpy as np
 ///
-///     sma = bh.R_EARTH + 700e3
-///     state = np.array([sma, 0.0, 0.0, 0.0, bh.perigee_velocity(sma, 0.0), 0.0])
+///     oe = np.array([bh.R_EARTH + 700e3, 0.01, 97.8, 15.0, 30.0, 45.0])
+///     state = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
 ///
 ///     R = bh.rotation_eqw_to_eci(state)
 ///     print(f"EQW to ECI rotation matrix:\n{R}")
@@ -4618,8 +4618,8 @@ fn py_rotation_eqw_to_eci<'py>(
 ///     import brahe as bh
 ///     import numpy as np
 ///
-///     sma = bh.R_EARTH + 700e3
-///     state = np.array([sma, 0.0, 0.0, 0.0, bh.perigee_velocity(sma, 0.0), 0.0])
+///     oe = np.array([bh.R_EARTH + 700e3, 0.01, 97.8, 15.0, 30.0, 45.0])
+///     state = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
 ///
 ///     R = bh.rotation_eci_to_eqw(state)
 ///     print(f"ECI to EQW rotation matrix:\n{R}")
@@ -4664,8 +4664,8 @@ fn py_rotation_eci_to_eqw<'py>(
 ///     import brahe as bh
 ///     import numpy as np
 ///
-///     sma = bh.R_EARTH + 700e3
-///     x_eci = np.array([sma, 0.0, 0.0, 0.0, bh.perigee_velocity(sma, 0.0), 0.0])
+///     oe = np.array([bh.R_EARTH + 700e3, 0.01, 97.8, 15.0, 30.0, 45.0])
+///     x_eci = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
 ///     j = bh.jacobian_eqw_to_eci(x_eci)
 ///     ```
 #[pyfunction]
@@ -4709,8 +4709,8 @@ fn py_jacobian_eqw_to_eci<'py>(
 ///     import brahe as bh
 ///     import numpy as np
 ///
-///     sma = bh.R_EARTH + 700e3
-///     x_eci = np.array([sma, 0.0, 0.0, 0.0, bh.perigee_velocity(sma, 0.0), 0.0])
+///     oe = np.array([bh.R_EARTH + 700e3, 0.01, 97.8, 15.0, 30.0, 45.0])
+///     x_eci = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
 ///     j = bh.jacobian_eci_to_eqw(x_eci)
 ///     ```
 #[pyfunction]
@@ -4752,8 +4752,8 @@ fn py_jacobian_eci_to_eqw<'py>(
 ///     import brahe as bh
 ///     import numpy as np
 ///
-///     sma = bh.R_EARTH + 700e3
-///     x_eci = np.array([sma, 0.0, 0.0, 0.0, bh.perigee_velocity(sma, 0.0), 0.0])
+///     oe = np.array([bh.R_EARTH + 700e3, 0.01, 97.8, 15.0, 30.0, 45.0])
+///     x_eci = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
 ///     p_eci = bh.covariance_eqw_to_eci(x_eci, np.eye(6) * 100.0)
 ///     ```
 #[pyfunction]
@@ -4797,8 +4797,8 @@ fn py_covariance_eqw_to_eci<'py>(
 ///     import brahe as bh
 ///     import numpy as np
 ///
-///     sma = bh.R_EARTH + 700e3
-///     x_eci = np.array([sma, 0.0, 0.0, 0.0, bh.perigee_velocity(sma, 0.0), 0.0])
+///     oe = np.array([bh.R_EARTH + 700e3, 0.01, 97.8, 15.0, 30.0, 45.0])
+///     x_eci = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
 ///     p_eqw = bh.covariance_eci_to_eqw(x_eci, np.eye(6) * 100.0)
 ///     ```
 #[pyfunction]

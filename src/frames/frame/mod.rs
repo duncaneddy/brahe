@@ -193,7 +193,7 @@ impl ReferenceFrame {
     /// frame (rotating variant).
     ///
     /// Among the orbit-relative kinds only `RTN`, `LVLH`, `NTW`, `TNW`,
-    /// `VNC`, and `PQW` have axes derivations today, so this frame is
+    /// `VNC`, `PQW`, and `EQW` have axes derivations today, so this frame is
     /// constructible but every transform through it errors until issue
     /// #452 adds the remaining derivations.
     ///
@@ -253,7 +253,7 @@ impl ReferenceFrame {
     /// variant).
     ///
     /// Among the orbit-relative kinds only `RTN`, `LVLH`, `NTW`, `TNW`,
-    /// `VNC`, and `PQW` have axes derivations today, so this frame is
+    /// `VNC`, `PQW`, and `EQW` have axes derivations today, so this frame is
     /// constructible but every transform through it errors until issue
     /// #452 adds the remaining derivations.
     ///
@@ -364,7 +364,7 @@ impl ReferenceFrame {
     /// a CCSDS file) and an optional, not-yet-bound object.
     ///
     /// Among the orbit-relative kinds only `RTN`, `LVLH`, `NTW`, `TNW`,
-    /// `VNC`, and `PQW` have axes derivations today; the others construct
+    /// `VNC`, `PQW`, and `EQW` have axes derivations today; the others construct
     /// successfully but every transform through them errors until issue
     /// #452 adds the remaining derivations.
     ///
@@ -792,7 +792,7 @@ impl ReferenceFrame {
     /// frame with a bound object. `true` is necessary but not sufficient
     /// for the frame to actually resolve. An orbit-relative frame also needs
     /// an axes derivation for its `kind` (currently `RTN`, `LVLH`, `NTW`,
-    /// `TNW`, `VNC`, and `PQW`), and a body frame also needs its
+    /// `TNW`, `VNC`, `PQW`, and `EQW`), and a body frame also needs its
     /// orientation chain registered (`register_frame`).
     ///
     /// # Returns

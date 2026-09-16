@@ -22,7 +22,7 @@ use crate::utils::batch::{batch_map, batch_zip};
 /// latitude; the rate is `ω = λ̇ ẑ_ECEF − φ̇ Ê = [−λ̇ cos φ, −φ̇, λ̇ sin φ]`
 /// in SEZ axes, with `λ̇ = (x v_y − y v_x) / (x² + y²)` and
 /// `φ̇ = v_N / (R_M + h)`, `R_M` the WGS84 meridian radius of curvature and
-/// `v_N` the northward velocity, taken as `−S` of the same rotation.
+/// `v_N` the velocity component along the north direction `−S` of the same rotation.
 fn sez_axes(x_ecef: SVector6) -> (SMatrix3, Vector3<f64>) {
     let r = x_ecef.fixed_rows::<3>(0).into_owned();
     let v = x_ecef.fixed_rows::<3>(3).into_owned();
@@ -118,8 +118,8 @@ pub fn rotation_sez_to_ecef(x_ecef: SVector6) -> SMatrix3 {
 /// with `λ̇ = (x v_y − y v_x)/(x² + y²)` and `φ̇ = v_N/(R_M + h)`, `R_M` the WGS84 meridian radius
 /// of curvature. A stationary site has zero rate. The rate relative to an inertial frame is
 /// this vector plus Earth's rotation rate rotated into SEZ, which the frame graph composes.
-/// Longitude, and therefore this rate, is undefined at the poles; the result is not finite
-/// there and is not special-cased.
+/// The site's longitude is undefined at the poles, so there the rate is not finite even for a
+/// stationary site; the poles are not special-cased.
 ///
 /// # Arguments:
 /// - `x_ecef`: 6D state vector of the site in the ECEF frame [x, y, z, vx, vy, vz] (m, m/s)

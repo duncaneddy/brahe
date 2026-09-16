@@ -558,7 +558,11 @@ fn resolve_orbit_relative(
                      requires an Earth-centered object; {object} is declared in {declared}"
                 )));
             }
-            let x_itrf = state_frame_to_frame(root, CelestialFrame::ITRF, epc, x_root)?;
+            let x_itrf = if declared == CelestialFrame::ITRF {
+                x
+            } else {
+                state_frame_to_frame(root, CelestialFrame::ITRF, epc, x_root)?
+            };
             let r_site = rotation_ecef_to_sez(x_itrf);
             let dcm = r_site * rotation_gcrf_to_itrf(epc);
             let omega = r_site * itrf_angular_velocity_at(epc) + omega_sez(x_itrf);

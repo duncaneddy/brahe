@@ -25,7 +25,7 @@ fn main() {
             .unwrap();
     let x_gs = Vector6::new(r_gs[0], r_gs[1], r_gs[2], 0.0, 0.0, 0.0);
 
-    let oe = Vector6::new(bh::R_EARTH + 700e3, 0.01, 97.8, 15.0, 30.0, 45.0);
+    let oe = Vector6::new(bh::R_EARTH + 700e3, 0.01, 97.8, 15.0, 30.0, 105.0);
     let x_eci = bh::state_koe_to_eci(oe, bh::AngleFormat::Degrees);
     let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
     let x_sat = bh::state_gcrf_to_itrf(epc, x_eci);

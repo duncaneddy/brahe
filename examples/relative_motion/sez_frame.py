@@ -16,7 +16,7 @@ r_gs = bh.position_geodetic_to_ecef(
 )
 x_gs = np.concatenate([r_gs, np.zeros(3)])
 
-oe = np.array([bh.R_EARTH + 700e3, 0.01, 97.8, 15.0, 30.0, 45.0])
+oe = np.array([bh.R_EARTH + 700e3, 0.01, 97.8, 15.0, 30.0, 105.0])
 x_eci = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
 epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
 x_sat = bh.state_gcrf_to_itrf(epc, x_eci)

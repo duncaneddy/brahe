@@ -18,6 +18,7 @@ With $\hat{r}$ the unit position, $\hat{v}$ the unit velocity, $\hat{h}$ the uni
 | PQW | $\hat{e}$ | $\hat{h} \times \hat{e}$ | $\hat{h}$ | inertial only |
 | EQW | $\hat{n}$ | $\hat{h} \times \hat{n}$ | $\hat{h}$ | inertial only |
 | NSW | $-\hat{r}$ | $\hat{s}$ projected normal to X | $X \times Y$ | rate from basis derivatives |
+| SEZ | south | east | geodetic up | rate relative to ECEF |
 
 Source: SANA Orbit-Relative Reference Frames registry (<https://sanaregistry.org/r/orbit_relative_reference_frames>) and CCSDS 500.0-G-4, *Navigation Data—Definitions and Conventions*, Section 4.3.7.
 
@@ -34,6 +35,8 @@ Frame rates are exact under two-body motion and are the rates of the osculating 
 PQW and EQW are registered by SANA only as inertial snapshots. On a circular orbit the periapsis direction is undefined and PQW takes P along the ascending node; on an equatorial orbit the node is undefined and P (and EQW's E) is taken along the inertial x axis projected into the orbit plane. These match the zero-angle conventions for the argument of periapsis and the right ascension of the ascending node.
 
 Every NSW function takes the Sun's state as the argument directly after the spacecraft states: after `x_eci` for the rotation, rate, Jacobian, and covariance functions, and after the chief and deputy (or relative) states for `state_eci_to_nsw` and `state_nsw_to_eci`. Because X lies along the position vector, the frame is the same whether the Sun state is given relative to the center or relative to the spacecraft. When the Sun lies along the nadir line the projection used to build Y is degenerate and falls back to the along-track direction $\hat{h} \times \hat{r}$. In the frame graph the Sun state comes from the source selected with `set_frame_ephemeris_source`: `Auto`, the default, uses loaded SPICE kernels if any, otherwise the analytic Sun model for Earth-centered objects, otherwise the default DE kernel; `Analytic` uses the analytic Sun model and is Earth-centered only; `Kernel` always uses the SPICE registry.
+
+SEZ and ENZ are topocentric horizon frames of a site, not orbit-derived frames; they are in the SANA registry because ADM and TDM name them. Brahe builds them from a site's ECEF position on the WGS84 ellipsoid, so they are Earth-only. Their `omega_` functions give the rate relative to ECEF, which is zero for a fixed site; the frame graph adds Earth's rotation for the rate relative to inertial space.
 
 ## LVLH
 
@@ -224,6 +227,33 @@ The nadir/Sun/normal frame places X toward nadir, Y as close to the Sun as possi
         --8<-- "./docs/outputs/relative_motion/nsw_frame.rs.txt"
         ```
 
+## SEZ
+
+The south/east/zenith frame is the topocentric horizon frame of a site: S points due south, E east, and Z along the geodetic vertical. Its functions take ECEF states of the site and of a target. The rate relative to ECEF is the transport rate $[-\dot\lambda \cos\varphi, -\dot\varphi, \dot\lambda \sin\varphi]$ from the site's longitude and geodetic latitude rates, zero for a fixed station. In the frame graph a station registered with an ITRF state resolves to its SEZ frame with Earth's rotation composed in.
+
+=== "Python"
+
+    ``` python
+    --8<-- "./examples/relative_motion/sez_frame.py:8"
+    ```
+
+=== "Rust"
+
+    ``` rust
+    --8<-- "./examples/relative_motion/sez_frame.rs:4"
+    ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/relative_motion/sez_frame.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/relative_motion/sez_frame.rs.txt"
+        ```
+
 ### See Also
 
 - [RTN Transformations](rtn_transformations.md)
@@ -235,3 +265,4 @@ The nadir/Sun/normal frame places X toward nadir, Y as close to the Sun as possi
 - [PQW Transformations API Reference](../../library_api/relative_motion/pqw_transformations.md)
 - [EQW Transformations API Reference](../../library_api/relative_motion/eqw_transformations.md)
 - [NSW Transformations API Reference](../../library_api/relative_motion/nsw_transformations.md)
+- [SEZ Transformations API Reference](../../library_api/relative_motion/sez_transformations.md)

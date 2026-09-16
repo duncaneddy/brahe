@@ -582,6 +582,20 @@ def test_aem_teme_of_epoch_has_no_native_frame(eop):
     with pytest.raises(Exception, match="reference frame epoch"):
         aem.segment_to_attitude_trajectory(0)
 
+    frame_b = bh.ReferenceFrame.body(None, bh.BodyFrame.SC_BODY(None))
+    t0 = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    for celestial_frame in [
+        bh.CelestialFrame.teme_of_epoch(t0),
+        bh.CelestialFrame.tod_of_epoch(t0),
+    ]:
+        frame_a = bh.ReferenceFrame.celestial(celestial_frame)
+        traj = AttitudeTrajectory(frame_a, frame_b)
+        traj.add(t0, bh.Quaternion(1.0, 0.0, 0.0, 0.0))
+        traj.add(t0 + 60.0, bh.Quaternion(0.9998, 0.0, 0.0, 0.0196))
+
+        with pytest.raises(Exception, match="frame epoch"):
+            AEM.from_attitude_trajectory(traj, "SAT1", "2024-001A", "BRAHE", "UTC")
+
 
 def test_aem_enu_ref_frame_writes_back_as_enz(eop):
     """Mirror of test_orbit_relative_frame_enu_aliases_parse_as_enz in Rust."""
@@ -607,20 +621,6 @@ def test_aem_enu_ref_frame_writes_back_as_enz(eop):
         "DATA_STOP\n"
     )
     assert "REF_FRAME_A = ENZ_ROTATING" in aem.to_string("KVN")
-
-    frame_b = bh.ReferenceFrame.body(None, bh.BodyFrame.SC_BODY(None))
-    t0 = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
-    for celestial_frame in [
-        bh.CelestialFrame.teme_of_epoch(t0),
-        bh.CelestialFrame.tod_of_epoch(t0),
-    ]:
-        frame_a = bh.ReferenceFrame.celestial(celestial_frame)
-        traj = AttitudeTrajectory(frame_a, frame_b)
-        traj.add(t0, bh.Quaternion(1.0, 0.0, 0.0, 0.0))
-        traj.add(t0 + 60.0, bh.Quaternion(0.9998, 0.0, 0.0, 0.0196))
-
-        with pytest.raises(Exception, match="frame epoch"):
-            AEM.from_attitude_trajectory(traj, "SAT1", "2024-001A", "BRAHE", "UTC")
 
 
 def test_aem_from_attitude_trajectory_empty_errors():

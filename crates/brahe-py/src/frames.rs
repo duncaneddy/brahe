@@ -6547,6 +6547,13 @@ impl PyReferenceFrame {
     ///
     /// Returns:
     ///     ReferenceFrame: The bound `ENZ (rotating)` orbit-relative frame
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     frame = bh.ReferenceFrame.ENZ("STATION")
+    ///     ```
     #[staticmethod]
     #[allow(non_snake_case)]
     fn ENZ(object: String) -> Self {

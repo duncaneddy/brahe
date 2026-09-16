@@ -18,6 +18,13 @@ AttitudeTrajectory has the same API as [Trajectory](trajectory.md), plus quatern
 
 ---
 
+::: brahe.AttitudeInterpolationMethod
+    options:
+      show_root_heading: true
+      show_root_full_path: false
+
+---
+
 ## See Also
 
 - [AttitudeTrajectory Guide](../../learn/trajectories/attitude_trajectory.md) — Canonical state and interpolation methods

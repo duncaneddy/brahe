@@ -5903,3 +5903,463 @@ fn py_state_sez_to_ecef<'py>(
         relative_motion::states_sez_to_ecef,
     )
 }
+
+/// Computes the rotation matrix transforming a vector in the Earth-Centered Earth-Fixed (ECEF)
+/// frame to the East, North, Zenith (ENZ) topocentric horizon frame of a site.
+///
+/// ENZ is not a SANA orbit-relative frame; it is brahe's `coordinates` topocentric vocabulary
+/// (see `rotation_ellipsoid_to_enz`), extended here to a rotating axis with an angular
+/// velocity. The local horizon is the fundamental plane, E points east, N points due north
+/// from the site, and Z points along the site's WGS84 geodetic vertical. ENZ is a signed
+/// permutation of SEZ: `E = E_SEZ`, `N = -S_SEZ`, `Z = Z_SEZ`. The site is the position part
+/// of `x_ecef`. The E and N axes, and the frame's rate, are undefined at the poles, where
+/// longitude itself is undefined; this is not special-cased.
+///
+/// Args:
+///     x_ecef (numpy.ndarray or list): 6D state vector of the site in the ECEF frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
+///         vectors with the 6 components along `axis` (for example shape (n, 6)); only the position is used
+///     axis (int, optional): The axis along which the 6 components of a single vector
+///         lie; the remaining axes enumerate the batch. For a batch of shape (n, 6)
+///         the components lie along the last axis, so the default `-1` applies; a
+///         (6, n) column layout uses `axis=0`.
+///
+/// Returns:
+///     numpy.ndarray: 3x3 rotation matrix transforming from ECEF to ENZ frame, shape (3, 3), or the batch dimensions
+///         followed by (3, 3) for batched input.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     r_site = bh.position_geodetic_to_ecef(np.array([30.0, 45.0, 500.0]), bh.AngleFormat.DEGREES)
+///     x_site = np.array([r_site[0], r_site[1], r_site[2], 0.0, 0.0, 0.0])
+///
+///     R = bh.rotation_ecef_to_enz(x_site)
+///     print(f"ECEF to ENZ rotation matrix:\n{R}")
+///     ```
+#[pyfunction]
+#[pyo3(signature = (x_ecef, axis=-1))]
+#[pyo3(text_signature = "(x_ecef, axis=-1)")]
+#[pyo3(name = "rotation_ecef_to_enz")]
+fn py_rotation_ecef_to_enz<'py>(
+    py: Python<'py>,
+    x_ecef: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_vec_rotation::<6>(
+        py,
+        x_ecef,
+        axis,
+        relative_motion::rotation_ecef_to_enz,
+        relative_motion::rotations_ecef_to_enz,
+    )
+}
+
+/// Computes the rotation matrix transforming a vector in the East, North, Zenith (ENZ)
+/// topocentric horizon frame of a site to the Earth-Centered Earth-Fixed (ECEF) frame.
+///
+/// This is the transpose (inverse) of the ECEF-to-ENZ rotation matrix.
+///
+/// ENZ is not a SANA orbit-relative frame; it is brahe's `coordinates` topocentric vocabulary
+/// (see `rotation_ellipsoid_to_enz`), extended here to a rotating axis with an angular
+/// velocity. The local horizon is the fundamental plane, E points east, N points due north
+/// from the site, and Z points along the site's WGS84 geodetic vertical. ENZ is a signed
+/// permutation of SEZ: `E = E_SEZ`, `N = -S_SEZ`, `Z = Z_SEZ`. The site is the position part
+/// of `x_ecef`. The E and N axes, and the frame's rate, are undefined at the poles, where
+/// longitude itself is undefined; this is not special-cased.
+///
+/// Args:
+///     x_ecef (numpy.ndarray or list): 6D state vector of the site in the ECEF frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
+///         vectors with the 6 components along `axis` (for example shape (n, 6)); only the position is used
+///     axis (int, optional): The axis along which the 6 components of a single vector
+///         lie; the remaining axes enumerate the batch. For a batch of shape (n, 6)
+///         the components lie along the last axis, so the default `-1` applies; a
+///         (6, n) column layout uses `axis=0`.
+///
+/// Returns:
+///     numpy.ndarray: 3x3 rotation matrix transforming from ENZ to ECEF frame, shape (3, 3), or the batch dimensions
+///         followed by (3, 3) for batched input.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     r_site = bh.position_geodetic_to_ecef(np.array([30.0, 45.0, 500.0]), bh.AngleFormat.DEGREES)
+///     x_site = np.array([r_site[0], r_site[1], r_site[2], 0.0, 0.0, 0.0])
+///
+///     R = bh.rotation_enz_to_ecef(x_site)
+///     print(f"ENZ to ECEF rotation matrix:\n{R}")
+///     ```
+#[pyfunction]
+#[pyo3(signature = (x_ecef, axis=-1))]
+#[pyo3(text_signature = "(x_ecef, axis=-1)")]
+#[pyo3(name = "rotation_enz_to_ecef")]
+fn py_rotation_enz_to_ecef<'py>(
+    py: Python<'py>,
+    x_ecef: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_vec_rotation::<6>(
+        py,
+        x_ecef,
+        axis,
+        relative_motion::rotation_enz_to_ecef,
+        relative_motion::rotations_enz_to_ecef,
+    )
+}
+
+/// Computes the angular velocity of a site's ENZ frame with respect to the ECEF frame,
+/// expressed in ENZ axes.
+///
+/// The ENZ axes depend only on the site's longitude and geodetic latitude, so the frame
+/// turns relative to ECEF only when the site moves: about the polar axis at the longitude rate
+/// and about the east axis at the latitude rate. A stationary site has zero rate. The rate
+/// relative to an inertial frame is this vector plus Earth's rotation rate rotated into ENZ,
+/// which the frame graph composes. This is the same angular velocity as `omega_sez` expressed
+/// in ENZ axes instead of SEZ axes.
+///
+/// Args:
+///     x_ecef (numpy.ndarray or list): 6D state vector of the site in the ECEF frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
+///         vectors with the 6 components along `axis` (for example shape (n, 6)).
+///     axis (int, optional): The axis along which the 6 components of a single vector
+///         lie; the remaining axes enumerate the batch. For a batch of shape (n, 6)
+///         the components lie along the last axis, so the default `-1` applies; a
+///         (6, n) column layout uses `axis=0`.
+///
+/// Returns:
+///     numpy.ndarray: Angular velocity of the ENZ frame relative to ECEF, expressed in ENZ axes (rad/s), shape (3,), or the batch dimensions
+///         with 3 components along `axis` for batched input.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     r_site = bh.position_geodetic_to_ecef(np.array([30.0, 45.0, 500.0]), bh.AngleFormat.DEGREES)
+///     x_site = np.array([r_site[0], r_site[1], r_site[2], 0.0, 0.0, 0.0])
+///     omega = bh.omega_enz(x_site)
+///     ```
+#[pyfunction]
+#[pyo3(signature = (x_ecef, axis=-1))]
+#[pyo3(text_signature = "(x_ecef, axis=-1)")]
+#[pyo3(name = "omega_enz")]
+fn py_omega_enz<'py>(
+    py: Python<'py>,
+    x_ecef: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_vec_map::<6, 3>(
+        py,
+        x_ecef,
+        axis,
+        relative_motion::omega_enz,
+        relative_motion::omegas_enz,
+    )
+}
+
+/// 6x6 Jacobian taking an ENZ state covariance into the Earth-Centered Earth-Fixed (ECEF)
+/// frame.
+///
+/// With `R` the ENZ-to-ECEF rotation and `omega` the ENZ angular velocity from `omega_enz`,
+/// the Jacobian is `[[R, 0], [R @ skew(omega), R]]` for the rotating variant and
+/// `[[R, 0], [0, R]]` for the inertial snapshot, which treats the ENZ axes as fixed relative to
+/// ECEF (a fixed site's axes never rotate, so the two variants then agree).
+///
+/// Args:
+///     x_ecef (numpy.ndarray or list): 6D state vector of the site in the ECEF frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
+///         vectors with the 6 components along `axis` (for example shape (n, 6)).
+///     variant (OrbitRelativeFrameVariant): Whether the ENZ axes rotate with the site or are frozen at the epoch
+///     axis (int, optional): The axis along which the 6 components of a single vector
+///         lie; the remaining axes enumerate the batch. For a batch of shape (n, 6)
+///         the components lie along the last axis, so the default `-1` applies; a
+///         (6, n) column layout uses `axis=0`.
+///
+/// Returns:
+///     numpy.ndarray: 6x6 Jacobian such that `P_ecef = J @ P_enz @ J.T`, shape (6, 6), or the batch dimensions
+///         followed by (6, 6) for batched input.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     r_site = bh.position_geodetic_to_ecef(np.array([30.0, 45.0, 500.0]), bh.AngleFormat.DEGREES)
+///     x_site = np.array([r_site[0], r_site[1], r_site[2], 0.0, 0.0, 0.0])
+///     j = bh.jacobian_enz_to_ecef(x_site, bh.OrbitRelativeFrameVariant.ROTATING)
+///     ```
+#[pyfunction]
+#[pyo3(signature = (x_ecef, variant, axis=-1))]
+#[pyo3(text_signature = "(x_ecef, variant, axis=-1)")]
+#[pyo3(name = "jacobian_enz_to_ecef")]
+fn py_jacobian_enz_to_ecef<'py>(
+    py: Python<'py>,
+    x_ecef: &Bound<'py, PyAny>,
+    variant: &PyOrbitRelativeFrameVariant,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    let variant = variant.variant;
+    dispatch_vec_matrix::<6, 6>(
+        py,
+        x_ecef,
+        axis,
+        |x| relative_motion::jacobian_enz_to_ecef(x, variant),
+        |xs| relative_motion::jacobians_enz_to_ecef(xs, variant),
+    )
+}
+
+/// 6x6 Jacobian taking a state covariance in the Earth-Centered Earth-Fixed (ECEF) frame into
+/// ENZ axes. Exact inverse of `jacobian_enz_to_ecef`.
+///
+/// In the inertial-snapshot variant the ENZ axes are treated as fixed relative to ECEF.
+///
+/// Args:
+///     x_ecef (numpy.ndarray or list): 6D state vector of the site in the ECEF frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
+///         vectors with the 6 components along `axis` (for example shape (n, 6)).
+///     variant (OrbitRelativeFrameVariant): Whether the ENZ axes rotate with the site or are frozen at the epoch
+///     axis (int, optional): The axis along which the 6 components of a single vector
+///         lie; the remaining axes enumerate the batch. For a batch of shape (n, 6)
+///         the components lie along the last axis, so the default `-1` applies; a
+///         (6, n) column layout uses `axis=0`.
+///
+/// Returns:
+///     numpy.ndarray: 6x6 Jacobian such that `P_enz = J @ P_ecef @ J.T`, shape (6, 6), or the batch dimensions
+///         followed by (6, 6) for batched input.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     r_site = bh.position_geodetic_to_ecef(np.array([30.0, 45.0, 500.0]), bh.AngleFormat.DEGREES)
+///     x_site = np.array([r_site[0], r_site[1], r_site[2], 0.0, 0.0, 0.0])
+///     j = bh.jacobian_ecef_to_enz(x_site, bh.OrbitRelativeFrameVariant.ROTATING)
+///     ```
+#[pyfunction]
+#[pyo3(signature = (x_ecef, variant, axis=-1))]
+#[pyo3(text_signature = "(x_ecef, variant, axis=-1)")]
+#[pyo3(name = "jacobian_ecef_to_enz")]
+fn py_jacobian_ecef_to_enz<'py>(
+    py: Python<'py>,
+    x_ecef: &Bound<'py, PyAny>,
+    variant: &PyOrbitRelativeFrameVariant,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    let variant = variant.variant;
+    dispatch_vec_matrix::<6, 6>(
+        py,
+        x_ecef,
+        axis,
+        |x| relative_motion::jacobian_ecef_to_enz(x, variant),
+        |xs| relative_motion::jacobians_ecef_to_enz(xs, variant),
+    )
+}
+
+/// Transforms a 6x6 state covariance from ENZ axes into the Earth-Centered Earth-Fixed (ECEF)
+/// frame.
+///
+/// Applies the congruence `P_ecef = J @ P_enz @ J.T` with `J` from `jacobian_enz_to_ecef`, and
+/// symmetrizes the result. In the inertial-snapshot variant the ENZ axes are treated as fixed
+/// relative to ECEF.
+///
+/// Args:
+///     x_ecef (numpy.ndarray or list): 6D state vector of the site in the ECEF frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
+///         vectors with the 6 components along `axis` (for example shape (n, 6)).
+///     covariance (numpy.ndarray): 6x6 state covariance in ENZ axes (m^2, m^2/s, m^2/s^2), shape (6, 6), or an (n, 6, 6) batch stacked along the leading axis; either argument may be single and broadcasts
+///     variant (OrbitRelativeFrameVariant): Whether the ENZ axes rotate with the site or are frozen at the epoch
+///     axis (int, optional): The axis along which the 6 components of a single vector
+///         lie; the remaining axes enumerate the batch. For a batch of shape (n, 6)
+///         the components lie along the last axis, so the default `-1` applies; a
+///         (6, n) column layout uses `axis=0`.
+///
+/// Returns:
+///     numpy.ndarray: 6x6 state covariance in the ECEF frame (m^2, m^2/s, m^2/s^2), shape (6, 6). For batched input, when `x_ecef` is batched the output is its batch dimensions followed by (6, 6), except a length-1 `x_ecef` batch broadcast against n covariances yields (n, 6, 6); when only `covariance` is batched the output is (n, 6, 6).
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     r_site = bh.position_geodetic_to_ecef(np.array([30.0, 45.0, 500.0]), bh.AngleFormat.DEGREES)
+///     x_site = np.array([r_site[0], r_site[1], r_site[2], 0.0, 0.0, 0.0])
+///     p_ecef = bh.covariance_enz_to_ecef(
+///         x_site, np.eye(6) * 100.0, bh.OrbitRelativeFrameVariant.ROTATING
+///     )
+///     ```
+#[pyfunction]
+#[pyo3(signature = (x_ecef, covariance, variant, axis=-1))]
+#[pyo3(text_signature = "(x_ecef, covariance, variant, axis=-1)")]
+#[pyo3(name = "covariance_enz_to_ecef")]
+fn py_covariance_enz_to_ecef<'py>(
+    py: Python<'py>,
+    x_ecef: &Bound<'py, PyAny>,
+    covariance: &Bound<'py, PyAny>,
+    variant: &PyOrbitRelativeFrameVariant,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    let variant = variant.variant;
+    dispatch_vec_covariance::<6>(
+        py,
+        x_ecef,
+        covariance,
+        axis,
+        |x, p| relative_motion::covariance_enz_to_ecef(x, p, variant),
+        |xs, ps| relative_motion::covariances_enz_to_ecef(xs, ps, variant),
+    )
+}
+
+/// Transforms a 6x6 state covariance from the Earth-Centered Earth-Fixed (ECEF) frame into
+/// ENZ axes.
+///
+/// Applies the congruence `P_enz = J @ P_ecef @ J.T` with `J` from `jacobian_ecef_to_enz`, and
+/// symmetrizes the result. In the inertial-snapshot variant the ENZ axes are treated as fixed
+/// relative to ECEF.
+///
+/// Args:
+///     x_ecef (numpy.ndarray or list): 6D state vector of the site in the ECEF frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
+///         vectors with the 6 components along `axis` (for example shape (n, 6)).
+///     covariance (numpy.ndarray): 6x6 state covariance in the ECEF frame (m^2, m^2/s, m^2/s^2), shape (6, 6), or an (n, 6, 6) batch stacked along the leading axis; either argument may be single and broadcasts
+///     variant (OrbitRelativeFrameVariant): Whether the ENZ axes rotate with the site or are frozen at the epoch
+///     axis (int, optional): The axis along which the 6 components of a single vector
+///         lie; the remaining axes enumerate the batch. For a batch of shape (n, 6)
+///         the components lie along the last axis, so the default `-1` applies; a
+///         (6, n) column layout uses `axis=0`.
+///
+/// Returns:
+///     numpy.ndarray: 6x6 state covariance in ENZ axes (m^2, m^2/s, m^2/s^2), shape (6, 6). For batched input, when `x_ecef` is batched the output is its batch dimensions followed by (6, 6), except a length-1 `x_ecef` batch broadcast against n covariances yields (n, 6, 6); when only `covariance` is batched the output is (n, 6, 6).
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     r_site = bh.position_geodetic_to_ecef(np.array([30.0, 45.0, 500.0]), bh.AngleFormat.DEGREES)
+///     x_site = np.array([r_site[0], r_site[1], r_site[2], 0.0, 0.0, 0.0])
+///     p_enz = bh.covariance_ecef_to_enz(
+///         x_site, np.eye(6) * 100.0, bh.OrbitRelativeFrameVariant.ROTATING
+///     )
+///     ```
+#[pyfunction]
+#[pyo3(signature = (x_ecef, covariance, variant, axis=-1))]
+#[pyo3(text_signature = "(x_ecef, covariance, variant, axis=-1)")]
+#[pyo3(name = "covariance_ecef_to_enz")]
+fn py_covariance_ecef_to_enz<'py>(
+    py: Python<'py>,
+    x_ecef: &Bound<'py, PyAny>,
+    covariance: &Bound<'py, PyAny>,
+    variant: &PyOrbitRelativeFrameVariant,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    let variant = variant.variant;
+    dispatch_vec_covariance::<6>(
+        py,
+        x_ecef,
+        covariance,
+        axis,
+        |x, p| relative_motion::covariance_ecef_to_enz(x, p, variant),
+        |xs, ps| relative_motion::covariances_ecef_to_enz(xs, ps, variant),
+    )
+}
+
+/// Transforms the absolute Earth-Centered Earth-Fixed (ECEF) states of a site and a target
+/// into the relative state of the target with respect to the site in the site's rotating ENZ
+/// frame.
+///
+/// Args:
+///     x_site (numpy.ndarray or list): 6D state vector of the site in the ECEF frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
+///         vectors with the 6 components along `axis` (for example shape (n, 6)).
+///     x_target (numpy.ndarray or list): 6D state vector of the target in the ECEF frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
+///         vectors with the 6 components along `axis` (for example shape (n, 6)).
+///     axis (int, optional): The axis along which the 6 components of a single vector
+///         lie; the remaining axes enumerate the batch. For a batch of shape (n, 6)
+///         the components lie along the last axis, so the default `-1` applies; a
+///         (6, n) column layout uses `axis=0`.
+///         A single vector in one argument is broadcast across a batch in the other.
+///
+/// Returns:
+///     numpy.ndarray: 6D relative state of the target with respect to the site in the ENZ frame [rho_E, rho_N, rho_Z, rho_dot_E, rho_dot_N, rho_dot_Z] (m, m/s), shape (6,), or the layout of the batched
+///         argument for batched input.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     r_site = bh.position_geodetic_to_ecef(np.array([30.0, 45.0, 500.0]), bh.AngleFormat.DEGREES)
+///     x_site = np.array([r_site[0], r_site[1], r_site[2], 0.0, 0.0, 0.0])
+///     x_target = x_site + np.array([200e3, 300e3, 400e3, 0.0, 0.0, 0.0])
+///
+///     x_rel_enz = bh.state_ecef_to_enz(x_site, x_target)
+///     print(f"Relative state in ENZ: {x_rel_enz}")
+///     ```
+#[pyfunction]
+#[pyo3(signature = (x_site, x_target, axis=-1))]
+#[pyo3(text_signature = "(x_site, x_target, axis=-1)")]
+#[pyo3(name = "state_ecef_to_enz")]
+fn py_state_ecef_to_enz<'py>(
+    py: Python<'py>,
+    x_site: &Bound<'py, PyAny>,
+    x_target: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_vec_pair::<6>(
+        py,
+        x_site,
+        x_target,
+        axis,
+        relative_motion::state_ecef_to_enz,
+        relative_motion::states_ecef_to_enz,
+    )
+}
+
+/// Transforms the relative state of a target with respect to a site from the site's rotating
+/// ENZ frame to the absolute state of the target in the Earth-Centered Earth-Fixed (ECEF)
+/// frame.
+///
+/// Args:
+///     x_site (numpy.ndarray or list): 6D state vector of the site in the ECEF frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
+///         vectors with the 6 components along `axis` (for example shape (n, 6)).
+///     x_rel_enz (numpy.ndarray or list): 6D relative state of the target with respect to the site in the ENZ frame [rho_E, rho_N, rho_Z, rho_dot_E, rho_dot_N, rho_dot_Z] (m, m/s), shape (6,), or a batch of
+///         vectors with the 6 components along `axis` (for example shape (n, 6)).
+///     axis (int, optional): The axis along which the 6 components of a single vector
+///         lie; the remaining axes enumerate the batch. For a batch of shape (n, 6)
+///         the components lie along the last axis, so the default `-1` applies; a
+///         (6, n) column layout uses `axis=0`.
+///         A single vector in one argument is broadcast across a batch in the other.
+///
+/// Returns:
+///     numpy.ndarray: 6D state vector of the target in the ECEF frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or the layout of the batched
+///         argument for batched input.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     r_site = bh.position_geodetic_to_ecef(np.array([30.0, 45.0, 500.0]), bh.AngleFormat.DEGREES)
+///     x_site = np.array([r_site[0], r_site[1], r_site[2], 0.0, 0.0, 0.0])
+///     x_rel_enz = np.array([1000.0, 500.0, -300.0, 0.0, 0.0, 0.0])
+///
+///     x_target = bh.state_enz_to_ecef(x_site, x_rel_enz)
+///     print(f"Target state in ECEF: {x_target}")
+///     ```
+#[pyfunction]
+#[pyo3(signature = (x_site, x_rel_enz, axis=-1))]
+#[pyo3(text_signature = "(x_site, x_rel_enz, axis=-1)")]
+#[pyo3(name = "state_enz_to_ecef")]
+fn py_state_enz_to_ecef<'py>(
+    py: Python<'py>,
+    x_site: &Bound<'py, PyAny>,
+    x_rel_enz: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_vec_pair::<6>(
+        py,
+        x_site,
+        x_rel_enz,
+        axis,
+        relative_motion::state_enz_to_ecef,
+        relative_motion::states_enz_to_ecef,
+    )
+}

@@ -834,6 +834,10 @@ def test_sez_requires_earth_centered_object(clear_frame_registries):
     mars_frame = bh.CelestialFrame.Centered(499, bh.FrameAxes.ICRF)
     bh.register_object("M", lambda epc: x, mars_frame)
 
+    with pytest.raises(RuntimeError, match="SEZ"):
+        bh.rotation_frame_to_frame(
+            bh.CelestialFrame.GCRF, bh.ReferenceFrame.SEZ("M"), epc
+        )
     with pytest.raises(RuntimeError, match="Earth"):
         bh.rotation_frame_to_frame(mars_frame, bh.ReferenceFrame.SEZ("M"), epc)
 

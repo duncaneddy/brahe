@@ -6905,9 +6905,9 @@ impl PyReferenceFrame {
     /// Whether the frame carries the object identity resolution requires: a
     /// celestial frame (always), or an orbit-relative/body frame with a
     /// bound object. True is necessary but not sufficient for the frame to
-    /// actually resolve. An orbit-relative frame also needs an axes
-    /// derivation for its kind (currently RTN, LVLH, NTW, TNW, VNC, PQW, EQW, and NSW), and a
-    /// body frame also needs its orientation chain registered (`register_frame`).
+    /// actually resolve. An orbit-relative frame also needs its object
+    /// registered, and a body frame also needs its orientation chain
+    /// registered (`register_frame`).
     ///
     /// Returns:
     ///     bool: True if the frame is bound (celestial frames are always bound)

@@ -1,10 +1,5 @@
 # SEZ Transformations
 
-Rotation matrices, angular velocity, Jacobians, covariance transforms, and relative-state transforms between ECEF and the South, East, Zenith (SEZ) topocentric frame of a site.
-
-!!! note
-    For the frame definition and examples, see [Orbit-Relative Frames](../../learn/relative_motion/orbit_relative_frames.md).
-
 ::: brahe.rotation_ecef_to_sez
 
 ::: brahe.rotation_sez_to_ecef
@@ -25,5 +20,4 @@ Rotation matrices, angular velocity, Jacobians, covariance transforms, and relat
 
 ## See Also
 
-- [Orbit-Relative Frames (Learn)](../../learn/relative_motion/orbit_relative_frames.md) - Conceptual explanation and examples
-- [Relative Motion Module](index.md) - Complete API reference for the relative motion module
+- [Learn: Orbit-Relative Frames](../../learn/relative_motion/orbit_relative_frames.md)

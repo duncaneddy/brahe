@@ -6515,6 +6515,13 @@ impl PyReferenceFrame {
     ///
     /// Returns:
     ///     ReferenceFrame: The bound `SEZ (rotating)` orbit-relative frame
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     frame = bh.ReferenceFrame.SEZ("STATION")
+    ///     ```
     #[staticmethod]
     #[allow(non_snake_case)]
     fn SEZ(object: String) -> Self {

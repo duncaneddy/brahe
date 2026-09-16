@@ -12,6 +12,8 @@ use crate::relative_motion::common::{
     jacobian_from_inertial, jacobian_to_inertial, relative_state_from_frame,
     relative_state_to_frame,
 };
+use crate::utils::BraheError;
+use crate::utils::batch::{batch_map, batch_zip};
 
 /// Geodetic latitude of the site and the rates of its longitude and
 /// geodetic latitude from the ECEF velocity.
@@ -376,6 +378,359 @@ pub fn state_sez_to_ecef(x_site: SVector6, x_rel_sez: SVector6) -> SVector6 {
     )
 }
 
+/// Computes the ECEF-to-SEZ rotation matrix for each site state in `x_ecef`.
+///
+/// Batch form of [`rotation_ecef_to_sez`]. Evaluation runs on the global thread pool for
+/// large inputs.
+///
+/// # Arguments
+/// - `x_ecef`: Site Cartesian ECEF states (position, velocity), only the position is used. Units: (*m*; *m/s*)
+///
+/// # Returns
+/// - Rotation matrices transforming ECEF -> SEZ, one per site, in input order
+///
+/// # References
+/// - SANA Orbit-Relative Reference Frames registry, `SEZ_ROTATING`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
+/// - D. A. Vallado, *Fundamentals of Astrodynamics and Applications*, 4th ed., Section 3.4
+///
+/// # Examples
+/// ```
+/// use brahe::SVector6;
+/// use brahe::constants::AngleFormat;
+/// use brahe::coordinates::position_geodetic_to_ecef;
+/// use brahe::relative_motion::rotations_ecef_to_sez;
+/// use nalgebra::Vector3;
+///
+/// let r = position_geodetic_to_ecef(Vector3::new(30.0, 45.0, 500.0), AngleFormat::Degrees).unwrap();
+/// let x_site = SVector6::new(r[0], r[1], r[2], 0.0, 0.0, 0.0);
+/// let rotations = rotations_ecef_to_sez(&[x_site, x_site]);
+/// assert_eq!(rotations.len(), 2);
+/// ```
+pub fn rotations_ecef_to_sez(x_ecef: &[SVector6]) -> Vec<SMatrix3> {
+    batch_map(|x| rotation_ecef_to_sez(*x), x_ecef)
+}
+
+/// Computes the SEZ-to-ECEF rotation matrix for each site state in `x_ecef`.
+///
+/// Batch form of [`rotation_sez_to_ecef`]. Evaluation runs on the global thread pool for
+/// large inputs.
+///
+/// # Arguments
+/// - `x_ecef`: Site Cartesian ECEF states (position, velocity), only the position is used. Units: (*m*; *m/s*)
+///
+/// # Returns
+/// - Rotation matrices transforming SEZ -> ECEF, one per site, in input order
+///
+/// # References
+/// - SANA Orbit-Relative Reference Frames registry, `SEZ_ROTATING`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
+/// - D. A. Vallado, *Fundamentals of Astrodynamics and Applications*, 4th ed., Section 3.4
+///
+/// # Examples
+/// ```
+/// use brahe::SVector6;
+/// use brahe::constants::AngleFormat;
+/// use brahe::coordinates::position_geodetic_to_ecef;
+/// use brahe::relative_motion::rotations_sez_to_ecef;
+/// use nalgebra::Vector3;
+///
+/// let r = position_geodetic_to_ecef(Vector3::new(30.0, 45.0, 500.0), AngleFormat::Degrees).unwrap();
+/// let x_site = SVector6::new(r[0], r[1], r[2], 0.0, 0.0, 0.0);
+/// let rotations = rotations_sez_to_ecef(&[x_site, x_site]);
+/// assert_eq!(rotations.len(), 2);
+/// ```
+pub fn rotations_sez_to_ecef(x_ecef: &[SVector6]) -> Vec<SMatrix3> {
+    batch_map(|x| rotation_sez_to_ecef(*x), x_ecef)
+}
+
+/// Computes the SEZ frame angular velocity relative to ECEF for each site state in `x_ecef`.
+///
+/// Batch form of [`omega_sez`]. Evaluation runs on the global thread pool for large inputs.
+///
+/// # Arguments
+/// - `x_ecef`: Site Cartesian ECEF states (position, velocity). Units: (*m*; *m/s*)
+///
+/// # Returns
+/// - Angular velocities of the SEZ frame relative to ECEF, expressed in SEZ axes, one per
+///   site, in input order. Units: (*rad/s*)
+///
+/// # References
+/// - P. D. Groves, *Principles of GNSS, Inertial, and Multisensor Integrated Navigation Systems*, 2nd ed., Artech House, 2013, Section 5.4.1
+///
+/// # Examples
+/// ```
+/// use brahe::SVector6;
+/// use brahe::constants::AngleFormat;
+/// use brahe::coordinates::position_geodetic_to_ecef;
+/// use brahe::relative_motion::omegas_sez;
+/// use nalgebra::Vector3;
+///
+/// let r = position_geodetic_to_ecef(Vector3::new(30.0, 45.0, 500.0), AngleFormat::Degrees).unwrap();
+/// let x_site = SVector6::new(r[0], r[1], r[2], 0.0, 0.0, 0.0);
+/// let omegas = omegas_sez(&[x_site, x_site]);
+/// assert_eq!(omegas.len(), 2);
+/// ```
+pub fn omegas_sez(x_ecef: &[SVector6]) -> Vec<Vector3<f64>> {
+    batch_map(|x| omega_sez(*x), x_ecef)
+}
+
+/// Computes the SEZ-to-ECEF covariance Jacobian for each site state in `x_ecef`.
+///
+/// Batch form of [`jacobian_sez_to_ecef`]. Evaluation runs on the global thread pool for
+/// large inputs.
+///
+/// # Arguments
+/// - `x_ecef`: Site Cartesian ECEF states (position, velocity). Units: (*m*; *m/s*)
+/// - `variant`: Whether the SEZ axes rotate with the site or are frozen at the epoch
+///
+/// # Returns
+/// - Jacobians such that `P_ecef = J P_sez Jᵀ`, one per site, in input order
+///
+/// # References
+/// 1. NASA Conjunction Assessment Risk Analysis (CARA),
+///    [*Conjunction Assessment Handbook*, NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13)](https://ntrs.nasa.gov/citations/20205011318)
+/// 2. NASA CARA Analysis Tools,
+///    [`RIC2ECI.m`](https://github.com/nasa/CARA_Analysis_Tools)
+/// 3. D. A. Vallado,
+///    ["Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003](https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf)
+///
+/// # Examples
+/// ```
+/// use brahe::SVector6;
+/// use brahe::constants::AngleFormat;
+/// use brahe::coordinates::position_geodetic_to_ecef;
+/// use brahe::frames::OrbitRelativeFrameVariant;
+/// use brahe::relative_motion::jacobians_sez_to_ecef;
+/// use nalgebra::Vector3;
+///
+/// let r = position_geodetic_to_ecef(Vector3::new(30.0, 45.0, 500.0), AngleFormat::Degrees).unwrap();
+/// let x_site = SVector6::new(r[0], r[1], r[2], 0.0, 0.0, 0.0);
+/// let j = jacobians_sez_to_ecef(&[x_site, x_site], OrbitRelativeFrameVariant::Rotating);
+/// assert_eq!(j.len(), 2);
+/// ```
+pub fn jacobians_sez_to_ecef(
+    x_ecef: &[SVector6],
+    variant: OrbitRelativeFrameVariant,
+) -> Vec<SMatrix6> {
+    batch_map(|x| jacobian_sez_to_ecef(*x, variant), x_ecef)
+}
+
+/// Computes the ECEF-to-SEZ covariance Jacobian for each site state in `x_ecef`.
+///
+/// Batch form of [`jacobian_ecef_to_sez`]. Evaluation runs on the global thread pool for
+/// large inputs.
+///
+/// # Arguments
+/// - `x_ecef`: Site Cartesian ECEF states (position, velocity). Units: (*m*; *m/s*)
+/// - `variant`: Whether the SEZ axes rotate with the site or are frozen at the epoch
+///
+/// # Returns
+/// - Jacobians such that `P_sez = J P_ecef Jᵀ`, one per site, in input order
+///
+/// # References
+/// 1. NASA Conjunction Assessment Risk Analysis (CARA),
+///    [*Conjunction Assessment Handbook*, NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13)](https://ntrs.nasa.gov/citations/20205011318)
+/// 2. NASA CARA Analysis Tools,
+///    [`RIC2ECI.m`](https://github.com/nasa/CARA_Analysis_Tools)
+/// 3. D. A. Vallado,
+///    ["Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003](https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf)
+///
+/// # Examples
+/// ```
+/// use brahe::SVector6;
+/// use brahe::constants::AngleFormat;
+/// use brahe::coordinates::position_geodetic_to_ecef;
+/// use brahe::frames::OrbitRelativeFrameVariant;
+/// use brahe::relative_motion::jacobians_ecef_to_sez;
+/// use nalgebra::Vector3;
+///
+/// let r = position_geodetic_to_ecef(Vector3::new(30.0, 45.0, 500.0), AngleFormat::Degrees).unwrap();
+/// let x_site = SVector6::new(r[0], r[1], r[2], 0.0, 0.0, 0.0);
+/// let j = jacobians_ecef_to_sez(&[x_site, x_site], OrbitRelativeFrameVariant::Rotating);
+/// assert_eq!(j.len(), 2);
+/// ```
+pub fn jacobians_ecef_to_sez(
+    x_ecef: &[SVector6],
+    variant: OrbitRelativeFrameVariant,
+) -> Vec<SMatrix6> {
+    batch_map(|x| jacobian_ecef_to_sez(*x, variant), x_ecef)
+}
+
+/// Transforms each state covariance in `covariances` from SEZ axes into the Earth-Centered
+/// Earth-Fixed (ECEF) frame.
+///
+/// Batch form of [`covariance_sez_to_ecef`]. Evaluation runs on the global thread pool for
+/// large inputs.
+///
+/// The `x_ecef` and `covariances` arguments follow the broadcast rule: each argument has
+/// length 1 or the common batch length.
+///
+/// # Arguments
+/// - `x_ecef`: Site Cartesian ECEF states, length 1 or the batch length. Units: (*m*; *m/s*)
+/// - `covariances`: State covariances in SEZ axes, length 1 or the batch length. Units: (*m²*, *m²/s*, *m²/s²*)
+/// - `variant`: Whether the SEZ axes rotate with the site or are frozen at the epoch
+///
+/// # Returns
+/// - State covariances in the ECEF frame, in input order. Units: (*m²*, *m²/s*, *m²/s²*)
+/// - Error if the lengths do not satisfy the broadcast rule
+///
+/// # Examples
+/// ```
+/// use brahe::{SVector6, SMatrix6};
+/// use brahe::constants::AngleFormat;
+/// use brahe::coordinates::position_geodetic_to_ecef;
+/// use brahe::frames::OrbitRelativeFrameVariant;
+/// use brahe::relative_motion::covariances_sez_to_ecef;
+/// use nalgebra::Vector3;
+///
+/// let r = position_geodetic_to_ecef(Vector3::new(30.0, 45.0, 500.0), AngleFormat::Degrees).unwrap();
+/// let x_site = SVector6::new(r[0], r[1], r[2], 0.0, 0.0, 0.0);
+/// let p = vec![SMatrix6::identity(); 2];
+/// let p_ecef = covariances_sez_to_ecef(&[x_site], &p, OrbitRelativeFrameVariant::Rotating).unwrap();
+/// assert_eq!(p_ecef.len(), 2);
+/// ```
+pub fn covariances_sez_to_ecef(
+    x_ecef: &[SVector6],
+    covariances: &[SMatrix6],
+    variant: OrbitRelativeFrameVariant,
+) -> Result<Vec<SMatrix6>, BraheError> {
+    batch_zip(
+        |x, p| covariance_sez_to_ecef(*x, p, variant),
+        x_ecef,
+        covariances,
+    )
+}
+
+/// Transforms each state covariance in `covariances` from the Earth-Centered Earth-Fixed
+/// (ECEF) frame into SEZ axes.
+///
+/// Batch form of [`covariance_ecef_to_sez`]. Evaluation runs on the global thread pool for
+/// large inputs.
+///
+/// The `x_ecef` and `covariances` arguments follow the broadcast rule: each argument has
+/// length 1 or the common batch length.
+///
+/// # Arguments
+/// - `x_ecef`: Site Cartesian ECEF states, length 1 or the batch length. Units: (*m*; *m/s*)
+/// - `covariances`: State covariances in the ECEF frame, length 1 or the batch length. Units: (*m²*, *m²/s*, *m²/s²*)
+/// - `variant`: Whether the SEZ axes rotate with the site or are frozen at the epoch
+///
+/// # Returns
+/// - State covariances in SEZ axes, in input order. Units: (*m²*, *m²/s*, *m²/s²*)
+/// - Error if the lengths do not satisfy the broadcast rule
+///
+/// # Examples
+/// ```
+/// use brahe::{SVector6, SMatrix6};
+/// use brahe::constants::AngleFormat;
+/// use brahe::coordinates::position_geodetic_to_ecef;
+/// use brahe::frames::OrbitRelativeFrameVariant;
+/// use brahe::relative_motion::covariances_ecef_to_sez;
+/// use nalgebra::Vector3;
+///
+/// let r = position_geodetic_to_ecef(Vector3::new(30.0, 45.0, 500.0), AngleFormat::Degrees).unwrap();
+/// let x_site = SVector6::new(r[0], r[1], r[2], 0.0, 0.0, 0.0);
+/// let p = vec![SMatrix6::identity(); 2];
+/// let p_sez = covariances_ecef_to_sez(&[x_site], &p, OrbitRelativeFrameVariant::Rotating).unwrap();
+/// assert_eq!(p_sez.len(), 2);
+/// ```
+pub fn covariances_ecef_to_sez(
+    x_ecef: &[SVector6],
+    covariances: &[SMatrix6],
+    variant: OrbitRelativeFrameVariant,
+) -> Result<Vec<SMatrix6>, BraheError> {
+    batch_zip(
+        |x, p| covariance_ecef_to_sez(*x, p, variant),
+        x_ecef,
+        covariances,
+    )
+}
+
+/// Computes the SEZ relative state of each target with respect to its site.
+///
+/// Batch form of [`state_ecef_to_sez`]. Evaluation runs on the global thread pool for large
+/// inputs.
+///
+/// The site and target arguments follow the broadcast rule: each has length 1
+/// or the common batch length, so one site may be paired with many targets
+/// and vice versa.
+///
+/// # Arguments
+/// - `x_site`: Site Cartesian ECEF states, length 1 or the batch length. Units: (*m*; *m/s*)
+/// - `x_target`: Target Cartesian ECEF states, length 1 or the batch length. Units: (*m*; *m/s*)
+///
+/// # Returns
+/// - Target relative states in the site SEZ frame, in input order. Units: (*m*; *m/s*)
+/// - Error if the lengths do not satisfy the broadcast rule
+///
+/// # References
+/// - SANA Orbit-Relative Reference Frames registry, `SEZ_ROTATING`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
+///
+/// # Examples
+/// ```
+/// use brahe::SVector6;
+/// use brahe::constants::AngleFormat;
+/// use brahe::coordinates::position_geodetic_to_ecef;
+/// use brahe::relative_motion::states_ecef_to_sez;
+/// use nalgebra::Vector3;
+///
+/// let r_site = position_geodetic_to_ecef(Vector3::new(30.0, 45.0, 500.0), AngleFormat::Degrees).unwrap();
+/// let x_site = SVector6::new(r_site[0], r_site[1], r_site[2], 0.0, 0.0, 0.0);
+///
+/// let r_target = r_site + Vector3::new(200e3, 300e3, 400e3);
+/// let x_target = SVector6::new(r_target[0], r_target[1], r_target[2], 0.0, 0.0, 0.0);
+///
+/// let rel = states_ecef_to_sez(&[x_site], &[x_target, x_target]).unwrap();
+/// assert_eq!(rel.len(), 2);
+/// ```
+pub fn states_ecef_to_sez(
+    x_site: &[SVector6],
+    x_target: &[SVector6],
+) -> Result<Vec<SVector6>, BraheError> {
+    batch_zip(|s, t| state_ecef_to_sez(*s, *t), x_site, x_target)
+}
+
+/// Computes the ECEF state of each target from its SEZ relative state and site.
+///
+/// Batch form of [`state_sez_to_ecef`]. Evaluation runs on the global thread pool for large
+/// inputs.
+///
+/// The site and relative-state arguments follow the broadcast rule: each has length 1
+/// or the common batch length, so one site may be paired with many relative states
+/// and vice versa.
+///
+/// # Arguments
+/// - `x_site`: Site Cartesian ECEF states, length 1 or the batch length. Units: (*m*; *m/s*)
+/// - `x_rel_sez`: Target relative states in the site SEZ frame, length 1 or the batch length. Units: (*m*; *m/s*)
+///
+/// # Returns
+/// - Target Cartesian ECEF states, in input order. Units: (*m*; *m/s*)
+/// - Error if the lengths do not satisfy the broadcast rule
+///
+/// # References
+/// - SANA Orbit-Relative Reference Frames registry, `SEZ_ROTATING`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
+///
+/// # Examples
+/// ```
+/// use brahe::SVector6;
+/// use brahe::constants::AngleFormat;
+/// use brahe::coordinates::position_geodetic_to_ecef;
+/// use brahe::relative_motion::states_sez_to_ecef;
+/// use nalgebra::Vector3;
+///
+/// let r_site = position_geodetic_to_ecef(Vector3::new(30.0, 45.0, 500.0), AngleFormat::Degrees).unwrap();
+/// let x_site = SVector6::new(r_site[0], r_site[1], r_site[2], 0.0, 0.0, 0.0);
+/// let x_rel_sez = SVector6::new(1000.0, 500.0, -300.0, 0.0, 0.0, 0.0);
+///
+/// let targets = states_sez_to_ecef(&[x_site], &[x_rel_sez, x_rel_sez]).unwrap();
+/// assert_eq!(targets.len(), 2);
+/// ```
+pub fn states_sez_to_ecef(
+    x_site: &[SVector6],
+    x_rel_sez: &[SVector6],
+) -> Result<Vec<SVector6>, BraheError> {
+    batch_zip(|s, r| state_sez_to_ecef(*s, *r), x_site, x_rel_sez)
+}
+
 #[cfg(test)]
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
@@ -558,5 +913,65 @@ mod tests {
             let x_target = state_sez_to_ecef(x_site, x_rel);
             assert_abs_diff_eq!(state_ecef_to_sez(x_site, x_target), x_rel, epsilon = 1e-8);
         }
+    }
+
+    #[test]
+    #[parallel]
+    fn test_batch_sez_match_scalar() {
+        let sites: Vec<SVector6> = (0..3).map(|i| moving_site(10.0 * i as f64)).collect();
+        let targets: Vec<SVector6> = sites
+            .iter()
+            .map(|s| s + SVector6::new(100.0, 200.0, 300.0, 0.1, 0.2, 0.3))
+            .collect();
+        let covs: Vec<SMatrix6> = (0..3)
+            .map(|i| SMatrix6::identity() * (i as f64 + 1.0))
+            .collect();
+
+        let rot = rotations_ecef_to_sez(&sites);
+        let rot_inv = rotations_sez_to_ecef(&sites);
+        let omegas = omegas_sez(&sites);
+        let rel = states_ecef_to_sez(&sites, &targets).unwrap();
+        let rel_broadcast = states_ecef_to_sez(&sites[..1], &targets).unwrap();
+        let back = states_sez_to_ecef(&sites, &rel).unwrap();
+
+        for variant in [
+            OrbitRelativeFrameVariant::Inertial,
+            OrbitRelativeFrameVariant::Rotating,
+        ] {
+            let jac = jacobians_sez_to_ecef(&sites, variant);
+            let jac_inv = jacobians_ecef_to_sez(&sites, variant);
+            let cov = covariances_sez_to_ecef(&sites, &covs, variant).unwrap();
+            let cov_broadcast = covariances_sez_to_ecef(&sites, &covs[..1], variant).unwrap();
+            let cov_inv = covariances_ecef_to_sez(&sites, &covs, variant).unwrap();
+            for i in 0..3 {
+                assert_eq!(jac[i], jacobian_sez_to_ecef(sites[i], variant));
+                assert_eq!(jac_inv[i], jacobian_ecef_to_sez(sites[i], variant));
+                assert_eq!(cov[i], covariance_sez_to_ecef(sites[i], &covs[i], variant));
+                assert_eq!(
+                    cov_broadcast[i],
+                    covariance_sez_to_ecef(sites[i], &covs[0], variant)
+                );
+                assert_eq!(
+                    cov_inv[i],
+                    covariance_ecef_to_sez(sites[i], &covs[i], variant)
+                );
+            }
+        }
+
+        for i in 0..3 {
+            assert_eq!(rot[i], rotation_ecef_to_sez(sites[i]));
+            assert_eq!(rot_inv[i], rotation_sez_to_ecef(sites[i]));
+            assert_eq!(omegas[i], omega_sez(sites[i]));
+            assert_eq!(rel[i], state_ecef_to_sez(sites[i], targets[i]));
+            assert_eq!(rel_broadcast[i], state_ecef_to_sez(sites[0], targets[i]));
+            assert_eq!(back[i], state_sez_to_ecef(sites[i], rel[i]));
+        }
+
+        assert!(states_ecef_to_sez(&sites[..2], &targets).is_err());
+        assert!(
+            covariances_sez_to_ecef(&sites[..2], &covs, OrbitRelativeFrameVariant::Rotating)
+                .is_err()
+        );
+        assert!(rotations_ecef_to_sez(&[]).is_empty());
     }
 }

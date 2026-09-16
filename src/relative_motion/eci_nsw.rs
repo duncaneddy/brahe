@@ -10,6 +10,8 @@ use crate::relative_motion::common::{
     jacobian_from_inertial, jacobian_to_inertial, relative_state_from_frame,
     relative_state_to_frame,
 };
+use crate::utils::BraheError;
+use crate::utils::batch::{batch_zip, batch_zip3};
 
 /// Below this norm of the Sun direction projected normal to nadir, the Sun
 /// is along the nadir line and the Y axis falls back to the along-track
@@ -446,6 +448,418 @@ pub fn state_nsw_to_eci(x_chief: SVector6, x_rel_nsw: SVector6, x_sun: SVector6)
     relative_state_from_frame(&r.transpose(), &omega, x_chief, x_rel_nsw)
 }
 
+/// Computes the NSW-to-ECI rotation matrix for each pair of spacecraft and Sun states.
+///
+/// Batch form of [`rotation_nsw_to_eci`]. Evaluation runs on the global thread pool for
+/// large inputs.
+///
+/// The `x_eci` and `x_sun` arguments follow the broadcast rule: each has length 1 or the
+/// common batch length.
+///
+/// # Arguments
+/// - `x_eci`: Cartesian ECI states (position, velocity), length 1 or the batch length. Units: (*m*; *m/s*)
+/// - `x_sun`: Sun states relative to the same center, length 1 or the batch length. Units: (*m*; *m/s*)
+///
+/// # Returns
+/// - Rotation matrices transforming NSW -> ECI, in input order
+/// - Error if the lengths do not satisfy the broadcast rule
+///
+/// # References
+/// - SANA Orbit-Relative Reference Frames registry, `NSW_ROTATING`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
+///
+/// # Examples
+/// ```
+/// use brahe::constants::{R_EARTH, AngleFormat};
+/// use brahe::coordinates::state_koe_to_eci;
+/// use brahe::relative_motion::rotations_nsw_to_eci;
+/// use brahe::vector6_from_array;
+///
+/// let x = state_koe_to_eci(vector6_from_array([R_EARTH + 700e3, 0.001, 97.8, 15.0, 30.0, 45.0]), AngleFormat::Degrees);
+/// let s = vector6_from_array([1.4e11, 0.0, 0.0, 0.0, 0.0, 0.0]);
+/// let r = rotations_nsw_to_eci(&[x, x], &[s]).unwrap();
+/// assert_eq!(r.len(), 2);
+/// ```
+pub fn rotations_nsw_to_eci(
+    x_eci: &[SVector6],
+    x_sun: &[SVector6],
+) -> Result<Vec<SMatrix3>, BraheError> {
+    batch_zip(|x, s| rotation_nsw_to_eci(*x, *s), x_eci, x_sun)
+}
+
+/// Computes the ECI-to-NSW rotation matrix for each pair of spacecraft and Sun states.
+///
+/// Batch form of [`rotation_eci_to_nsw`]. Evaluation runs on the global thread pool for
+/// large inputs.
+///
+/// The `x_eci` and `x_sun` arguments follow the broadcast rule: each has length 1 or the
+/// common batch length.
+///
+/// # Arguments
+/// - `x_eci`: Cartesian ECI states (position, velocity), length 1 or the batch length. Units: (*m*; *m/s*)
+/// - `x_sun`: Sun states relative to the same center, length 1 or the batch length. Units: (*m*; *m/s*)
+///
+/// # Returns
+/// - Rotation matrices transforming ECI -> NSW, in input order
+/// - Error if the lengths do not satisfy the broadcast rule
+///
+/// # References
+/// - SANA Orbit-Relative Reference Frames registry, `NSW_ROTATING`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
+///
+/// # Examples
+/// ```
+/// use brahe::constants::{R_EARTH, AngleFormat};
+/// use brahe::coordinates::state_koe_to_eci;
+/// use brahe::relative_motion::rotations_eci_to_nsw;
+/// use brahe::vector6_from_array;
+///
+/// let x = state_koe_to_eci(vector6_from_array([R_EARTH + 700e3, 0.001, 97.8, 15.0, 30.0, 45.0]), AngleFormat::Degrees);
+/// let s = vector6_from_array([1.4e11, 0.0, 0.0, 0.0, 0.0, 0.0]);
+/// let r = rotations_eci_to_nsw(&[x, x], &[s]).unwrap();
+/// assert_eq!(r.len(), 2);
+/// ```
+pub fn rotations_eci_to_nsw(
+    x_eci: &[SVector6],
+    x_sun: &[SVector6],
+) -> Result<Vec<SMatrix3>, BraheError> {
+    batch_zip(|x, s| rotation_eci_to_nsw(*x, *s), x_eci, x_sun)
+}
+
+/// Computes the NSW frame angular velocity for each pair of spacecraft and Sun states.
+///
+/// Batch form of [`omega_nsw`]. Evaluation runs on the global thread pool for large inputs.
+///
+/// The `x_eci` and `x_sun` arguments follow the broadcast rule: each has length 1 or the
+/// common batch length.
+///
+/// # Arguments
+/// - `x_eci`: Cartesian ECI states (position, velocity), length 1 or the batch length. Units: (*m*; *m/s*)
+/// - `x_sun`: Sun states relative to the same center, length 1 or the batch length. Units: (*m*; *m/s*)
+///
+/// # Returns
+/// - Angular velocities of the NSW frame relative to ECI, expressed in NSW axes, in input
+///   order. Units: (*rad/s*)
+/// - Error if the lengths do not satisfy the broadcast rule
+///
+/// # References
+/// - H. Schaub and J. L. Junkins, *Analytical Mechanics of Space Systems*, 4th ed., AIAA, 2018, Section 3.3
+///
+/// # Examples
+/// ```
+/// use brahe::constants::{R_EARTH, AngleFormat};
+/// use brahe::coordinates::state_koe_to_eci;
+/// use brahe::relative_motion::omegas_nsw;
+/// use brahe::vector6_from_array;
+///
+/// let x = state_koe_to_eci(vector6_from_array([R_EARTH + 700e3, 0.001, 97.8, 15.0, 30.0, 45.0]), AngleFormat::Degrees);
+/// let s = vector6_from_array([1.4e11, 0.0, 0.0, 0.0, 0.0, 0.0]);
+/// let omega = omegas_nsw(&[x, x], &[s]).unwrap();
+/// assert_eq!(omega.len(), 2);
+/// ```
+pub fn omegas_nsw(x_eci: &[SVector6], x_sun: &[SVector6]) -> Result<Vec<Vector3<f64>>, BraheError> {
+    batch_zip(|x, s| omega_nsw(*x, *s), x_eci, x_sun)
+}
+
+/// Computes the NSW-to-ECI covariance Jacobian for each pair of spacecraft and Sun states.
+///
+/// Batch form of [`jacobian_nsw_to_eci`]. Evaluation runs on the global thread pool for
+/// large inputs.
+///
+/// The `x_eci` and `x_sun` arguments follow the broadcast rule: each has length 1 or the
+/// common batch length.
+///
+/// # Arguments
+/// - `x_eci`: Cartesian ECI states of the frame's origin, length 1 or the batch length. Units: (*m*; *m/s*)
+/// - `x_sun`: Sun states relative to the same center, length 1 or the batch length. Units: (*m*; *m/s*)
+/// - `variant`: Whether the NSW axes rotate with the orbit or are frozen at the epoch
+///
+/// # Returns
+/// - Jacobians such that `P_eci = J P_nsw Jᵀ`, in input order
+/// - Error if the lengths do not satisfy the broadcast rule
+///
+/// # References
+/// 1. NASA Conjunction Assessment Risk Analysis (CARA),
+///    [*Conjunction Assessment Handbook*, NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13)](https://ntrs.nasa.gov/citations/20205011318)
+/// 2. NASA CARA Analysis Tools,
+///    [`RIC2ECI.m`](https://github.com/nasa/CARA_Analysis_Tools)
+/// 3. D. A. Vallado,
+///    ["Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003](https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf)
+///
+/// # Examples
+/// ```
+/// use brahe::constants::{R_EARTH, AngleFormat};
+/// use brahe::coordinates::state_koe_to_eci;
+/// use brahe::frames::OrbitRelativeFrameVariant;
+/// use brahe::relative_motion::jacobians_nsw_to_eci;
+/// use brahe::vector6_from_array;
+///
+/// let x = state_koe_to_eci(vector6_from_array([R_EARTH + 700e3, 0.001, 97.8, 15.0, 30.0, 45.0]), AngleFormat::Degrees);
+/// let s = vector6_from_array([1.4e11, 0.0, 0.0, 0.0, 0.0, 0.0]);
+/// let j = jacobians_nsw_to_eci(&[x, x], &[s], OrbitRelativeFrameVariant::Rotating).unwrap();
+/// assert_eq!(j.len(), 2);
+/// ```
+pub fn jacobians_nsw_to_eci(
+    x_eci: &[SVector6],
+    x_sun: &[SVector6],
+    variant: OrbitRelativeFrameVariant,
+) -> Result<Vec<SMatrix6>, BraheError> {
+    batch_zip(|x, s| jacobian_nsw_to_eci(*x, *s, variant), x_eci, x_sun)
+}
+
+/// Computes the ECI-to-NSW covariance Jacobian for each pair of spacecraft and Sun states.
+///
+/// Batch form of [`jacobian_eci_to_nsw`]. Evaluation runs on the global thread pool for
+/// large inputs.
+///
+/// The `x_eci` and `x_sun` arguments follow the broadcast rule: each has length 1 or the
+/// common batch length.
+///
+/// # Arguments
+/// - `x_eci`: Cartesian ECI states of the frame's origin, length 1 or the batch length. Units: (*m*; *m/s*)
+/// - `x_sun`: Sun states relative to the same center, length 1 or the batch length. Units: (*m*; *m/s*)
+/// - `variant`: Whether the NSW axes rotate with the orbit or are frozen at the epoch
+///
+/// # Returns
+/// - Jacobians such that `P_nsw = J P_eci Jᵀ`, in input order
+/// - Error if the lengths do not satisfy the broadcast rule
+///
+/// # References
+/// 1. NASA Conjunction Assessment Risk Analysis (CARA),
+///    [*Conjunction Assessment Handbook*, NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13)](https://ntrs.nasa.gov/citations/20205011318)
+/// 2. NASA CARA Analysis Tools,
+///    [`RIC2ECI.m`](https://github.com/nasa/CARA_Analysis_Tools)
+/// 3. D. A. Vallado,
+///    ["Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003](https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf)
+///
+/// # Examples
+/// ```
+/// use brahe::constants::{R_EARTH, AngleFormat};
+/// use brahe::coordinates::state_koe_to_eci;
+/// use brahe::frames::OrbitRelativeFrameVariant;
+/// use brahe::relative_motion::jacobians_eci_to_nsw;
+/// use brahe::vector6_from_array;
+///
+/// let x = state_koe_to_eci(vector6_from_array([R_EARTH + 700e3, 0.001, 97.8, 15.0, 30.0, 45.0]), AngleFormat::Degrees);
+/// let s = vector6_from_array([1.4e11, 0.0, 0.0, 0.0, 0.0, 0.0]);
+/// let j = jacobians_eci_to_nsw(&[x, x], &[s], OrbitRelativeFrameVariant::Rotating).unwrap();
+/// assert_eq!(j.len(), 2);
+/// ```
+pub fn jacobians_eci_to_nsw(
+    x_eci: &[SVector6],
+    x_sun: &[SVector6],
+    variant: OrbitRelativeFrameVariant,
+) -> Result<Vec<SMatrix6>, BraheError> {
+    batch_zip(|x, s| jacobian_eci_to_nsw(*x, *s, variant), x_eci, x_sun)
+}
+
+/// Transforms each state covariance in `covariances` from NSW axes into the Earth-Centered
+/// Inertial (ECI) frame.
+///
+/// Batch form of [`covariance_nsw_to_eci`]. Evaluation runs on the global thread pool for
+/// large inputs.
+///
+/// The `x_eci`, `x_sun`, and `covariances` arguments follow the broadcast rule: each has
+/// length 1 or the common batch length.
+///
+/// # Arguments
+/// - `x_eci`: Cartesian ECI states of the frame's origin, length 1 or the batch length. Units: (*m*; *m/s*)
+/// - `x_sun`: Sun states relative to the same center, length 1 or the batch length. Units: (*m*; *m/s*)
+/// - `covariances`: State covariances in NSW axes, length 1 or the batch length. Units: (*m²*, *m²/s*, *m²/s²*)
+/// - `variant`: Whether the NSW axes rotate with the orbit or are frozen at the epoch
+///
+/// # Returns
+/// - State covariances in the ECI frame, in input order. Units: (*m²*, *m²/s*, *m²/s²*)
+/// - Error if the lengths do not satisfy the broadcast rule
+///
+/// # References
+/// 1. NASA Conjunction Assessment Risk Analysis (CARA),
+///    [*Conjunction Assessment Handbook*, NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13)](https://ntrs.nasa.gov/citations/20205011318)
+/// 2. NASA CARA Analysis Tools,
+///    [`RIC2ECI.m`](https://github.com/nasa/CARA_Analysis_Tools)
+/// 3. D. A. Vallado,
+///    ["Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003](https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf)
+///
+/// # Examples
+/// ```
+/// use brahe::SMatrix6;
+/// use brahe::constants::{R_EARTH, AngleFormat};
+/// use brahe::coordinates::state_koe_to_eci;
+/// use brahe::frames::OrbitRelativeFrameVariant;
+/// use brahe::relative_motion::covariances_nsw_to_eci;
+/// use brahe::vector6_from_array;
+///
+/// let x = state_koe_to_eci(vector6_from_array([R_EARTH + 700e3, 0.001, 97.8, 15.0, 30.0, 45.0]), AngleFormat::Degrees);
+/// let s = vector6_from_array([1.4e11, 0.0, 0.0, 0.0, 0.0, 0.0]);
+/// let p = vec![SMatrix6::identity(); 2];
+/// let p_eci = covariances_nsw_to_eci(&[x], &[s], &p, OrbitRelativeFrameVariant::Rotating).unwrap();
+/// assert_eq!(p_eci.len(), 2);
+/// ```
+pub fn covariances_nsw_to_eci(
+    x_eci: &[SVector6],
+    x_sun: &[SVector6],
+    covariances: &[SMatrix6],
+    variant: OrbitRelativeFrameVariant,
+) -> Result<Vec<SMatrix6>, BraheError> {
+    batch_zip3(
+        |x, s, p| covariance_nsw_to_eci(*x, *s, p, variant),
+        x_eci,
+        x_sun,
+        covariances,
+    )
+}
+
+/// Transforms each state covariance in `covariances` from the Earth-Centered Inertial (ECI)
+/// frame into NSW axes.
+///
+/// Batch form of [`covariance_eci_to_nsw`]. Evaluation runs on the global thread pool for
+/// large inputs.
+///
+/// The `x_eci`, `x_sun`, and `covariances` arguments follow the broadcast rule: each has
+/// length 1 or the common batch length.
+///
+/// # Arguments
+/// - `x_eci`: Cartesian ECI states of the frame's origin, length 1 or the batch length. Units: (*m*; *m/s*)
+/// - `x_sun`: Sun states relative to the same center, length 1 or the batch length. Units: (*m*; *m/s*)
+/// - `covariances`: State covariances in the ECI frame, length 1 or the batch length. Units: (*m²*, *m²/s*, *m²/s²*)
+/// - `variant`: Whether the NSW axes rotate with the orbit or are frozen at the epoch
+///
+/// # Returns
+/// - State covariances in NSW axes, in input order. Units: (*m²*, *m²/s*, *m²/s²*)
+/// - Error if the lengths do not satisfy the broadcast rule
+///
+/// # References
+/// 1. NASA Conjunction Assessment Risk Analysis (CARA),
+///    [*Conjunction Assessment Handbook*, NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13)](https://ntrs.nasa.gov/citations/20205011318)
+/// 2. NASA CARA Analysis Tools,
+///    [`RIC2ECI.m`](https://github.com/nasa/CARA_Analysis_Tools)
+/// 3. D. A. Vallado,
+///    ["Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003](https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf)
+///
+/// # Examples
+/// ```
+/// use brahe::SMatrix6;
+/// use brahe::constants::{R_EARTH, AngleFormat};
+/// use brahe::coordinates::state_koe_to_eci;
+/// use brahe::frames::OrbitRelativeFrameVariant;
+/// use brahe::relative_motion::covariances_eci_to_nsw;
+/// use brahe::vector6_from_array;
+///
+/// let x = state_koe_to_eci(vector6_from_array([R_EARTH + 700e3, 0.001, 97.8, 15.0, 30.0, 45.0]), AngleFormat::Degrees);
+/// let s = vector6_from_array([1.4e11, 0.0, 0.0, 0.0, 0.0, 0.0]);
+/// let p = vec![SMatrix6::identity(); 2];
+/// let p_nsw = covariances_eci_to_nsw(&[x], &[s], &p, OrbitRelativeFrameVariant::Rotating).unwrap();
+/// assert_eq!(p_nsw.len(), 2);
+/// ```
+pub fn covariances_eci_to_nsw(
+    x_eci: &[SVector6],
+    x_sun: &[SVector6],
+    covariances: &[SMatrix6],
+    variant: OrbitRelativeFrameVariant,
+) -> Result<Vec<SMatrix6>, BraheError> {
+    batch_zip3(
+        |x, s, p| covariance_eci_to_nsw(*x, *s, p, variant),
+        x_eci,
+        x_sun,
+        covariances,
+    )
+}
+
+/// Computes the NSW relative state of each deputy with respect to its chief.
+///
+/// Batch form of [`state_eci_to_nsw`]. Evaluation runs on the global thread pool for large
+/// inputs.
+///
+/// The `x_chief`, `x_deputy`, and `x_sun` arguments follow the broadcast rule: each has
+/// length 1 or the common batch length, so one chief may be paired with many deputies and
+/// vice versa.
+///
+/// # Arguments
+/// - `x_chief`: Chief Cartesian ECI states, length 1 or the batch length. Units: (*m*; *m/s*)
+/// - `x_deputy`: Deputy Cartesian ECI states, length 1 or the batch length. Units: (*m*; *m/s*)
+/// - `x_sun`: Sun states relative to the same center, length 1 or the batch length. Units: (*m*; *m/s*)
+///
+/// # Returns
+/// - Deputy relative states in the chief NSW frame, in input order. Units: (*m*; *m/s*)
+/// - Error if the lengths do not satisfy the broadcast rule
+///
+/// # References
+/// - SANA Orbit-Relative Reference Frames registry, `NSW_ROTATING`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
+///
+/// # Examples
+/// ```
+/// use brahe::constants::{R_EARTH, AngleFormat};
+/// use brahe::coordinates::state_koe_to_eci;
+/// use brahe::relative_motion::states_eci_to_nsw;
+/// use brahe::vector6_from_array;
+///
+/// let chief = state_koe_to_eci(vector6_from_array([R_EARTH + 700e3, 0.001, 97.8, 15.0, 30.0, 45.0]), AngleFormat::Degrees);
+/// let deputies = vec![
+///     state_koe_to_eci(vector6_from_array([R_EARTH + 701e3, 0.0015, 97.85, 15.05, 30.05, 45.05]), AngleFormat::Degrees),
+///     state_koe_to_eci(vector6_from_array([R_EARTH + 702e3, 0.0012, 97.82, 15.02, 30.02, 45.02]), AngleFormat::Degrees),
+/// ];
+/// let s = vector6_from_array([1.4e11, 0.0, 0.0, 0.0, 0.0, 0.0]);
+/// let rel = states_eci_to_nsw(&[chief], &deputies, &[s]).unwrap();
+/// assert_eq!(rel.len(), 2);
+/// ```
+pub fn states_eci_to_nsw(
+    x_chief: &[SVector6],
+    x_deputy: &[SVector6],
+    x_sun: &[SVector6],
+) -> Result<Vec<SVector6>, BraheError> {
+    batch_zip3(
+        |c, d, s| state_eci_to_nsw(*c, *d, *s),
+        x_chief,
+        x_deputy,
+        x_sun,
+    )
+}
+
+/// Computes the ECI state of each deputy from its NSW relative state and chief.
+///
+/// Batch form of [`state_nsw_to_eci`]. Evaluation runs on the global thread pool for large
+/// inputs.
+///
+/// The `x_chief`, `x_rel_nsw`, and `x_sun` arguments follow the broadcast rule: each has
+/// length 1 or the common batch length, so one chief may be paired with many deputies and
+/// vice versa.
+///
+/// # Arguments
+/// - `x_chief`: Chief Cartesian ECI states, length 1 or the batch length. Units: (*m*; *m/s*)
+/// - `x_rel_nsw`: Deputy relative states in the chief NSW frame, length 1 or the batch length. Units: (*m*; *m/s*)
+/// - `x_sun`: Sun states relative to the same center, length 1 or the batch length. Units: (*m*; *m/s*)
+///
+/// # Returns
+/// - Deputy Cartesian ECI states, in input order. Units: (*m*; *m/s*)
+/// - Error if the lengths do not satisfy the broadcast rule
+///
+/// # References
+/// - SANA Orbit-Relative Reference Frames registry, `NSW_ROTATING`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
+///
+/// # Examples
+/// ```
+/// use brahe::constants::{R_EARTH, AngleFormat};
+/// use brahe::coordinates::state_koe_to_eci;
+/// use brahe::relative_motion::states_nsw_to_eci;
+/// use brahe::vector6_from_array;
+///
+/// let chief = state_koe_to_eci(vector6_from_array([R_EARTH + 700e3, 0.001, 97.8, 15.0, 30.0, 45.0]), AngleFormat::Degrees);
+/// let rel = vec![vector6_from_array([1000.0, 500.0, -300.0, 0.0, 0.0, 0.0]); 2];
+/// let s = vector6_from_array([1.4e11, 0.0, 0.0, 0.0, 0.0, 0.0]);
+/// let deputies = states_nsw_to_eci(&[chief], &rel, &[s]).unwrap();
+/// assert_eq!(deputies.len(), 2);
+/// ```
+pub fn states_nsw_to_eci(
+    x_chief: &[SVector6],
+    x_rel_nsw: &[SVector6],
+    x_sun: &[SVector6],
+) -> Result<Vec<SVector6>, BraheError> {
+    batch_zip3(
+        |c, r, s| state_nsw_to_eci(*c, *r, *s),
+        x_chief,
+        x_rel_nsw,
+        x_sun,
+    )
+}
+
 #[cfg(test)]
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
@@ -688,5 +1102,77 @@ mod tests {
             expected_v,
             epsilon = 1e-12
         );
+    }
+
+    #[test]
+    #[parallel]
+    fn test_batch_nsw_match_scalar() {
+        let chiefs: Vec<SVector6> = (0..3).map(|i| sc_state(10.0 * i as f64)).collect();
+        let suns: Vec<SVector6> = (0..3).map(|i| sun_state(10.0 * i as f64)).collect();
+        let deputies: Vec<SVector6> = chiefs
+            .iter()
+            .map(|c| c + SVector6::new(100.0, 200.0, 300.0, 0.1, 0.2, 0.3))
+            .collect();
+        let covs: Vec<SMatrix6> = (0..3)
+            .map(|i| SMatrix6::identity() * (i as f64 + 1.0))
+            .collect();
+
+        let rot = rotations_nsw_to_eci(&chiefs, &suns).unwrap();
+        let rot_inv = rotations_eci_to_nsw(&chiefs, &suns).unwrap();
+        let omegas = omegas_nsw(&chiefs, &suns).unwrap();
+        let rot_bsun = rotations_nsw_to_eci(&chiefs, &suns[..1]).unwrap();
+        let omegas_bsun = omegas_nsw(&chiefs, &suns[..1]).unwrap();
+        let rel = states_eci_to_nsw(&chiefs, &deputies, &suns).unwrap();
+        let back = states_nsw_to_eci(&chiefs, &rel, &suns).unwrap();
+
+        for i in 0..3 {
+            assert_eq!(rot[i], rotation_nsw_to_eci(chiefs[i], suns[i]));
+            assert_eq!(rot_inv[i], rotation_eci_to_nsw(chiefs[i], suns[i]));
+            assert_eq!(omegas[i], omega_nsw(chiefs[i], suns[i]));
+            assert_eq!(rot_bsun[i], rotation_nsw_to_eci(chiefs[i], suns[0]));
+            assert_eq!(omegas_bsun[i], omega_nsw(chiefs[i], suns[0]));
+            assert_eq!(rel[i], state_eci_to_nsw(chiefs[i], deputies[i], suns[i]));
+            assert_eq!(back[i], state_nsw_to_eci(chiefs[i], rel[i], suns[i]));
+        }
+
+        for variant in [
+            OrbitRelativeFrameVariant::Inertial,
+            OrbitRelativeFrameVariant::Rotating,
+        ] {
+            let jac = jacobians_nsw_to_eci(&chiefs, &suns, variant).unwrap();
+            let jac_inv = jacobians_eci_to_nsw(&chiefs, &suns, variant).unwrap();
+            let cov = covariances_nsw_to_eci(&chiefs, &suns, &covs, variant).unwrap();
+            let cov_inv = covariances_eci_to_nsw(&chiefs, &suns, &covs, variant).unwrap();
+            let cov_bcov = covariances_nsw_to_eci(&chiefs, &suns, &covs[..1], variant).unwrap();
+
+            for i in 0..3 {
+                assert_eq!(jac[i], jacobian_nsw_to_eci(chiefs[i], suns[i], variant));
+                assert_eq!(jac_inv[i], jacobian_eci_to_nsw(chiefs[i], suns[i], variant));
+                assert_eq!(
+                    cov[i],
+                    covariance_nsw_to_eci(chiefs[i], suns[i], &covs[i], variant)
+                );
+                assert_eq!(
+                    cov_inv[i],
+                    covariance_eci_to_nsw(chiefs[i], suns[i], &covs[i], variant)
+                );
+                assert_eq!(
+                    cov_bcov[i],
+                    covariance_nsw_to_eci(chiefs[i], suns[i], &covs[0], variant)
+                );
+            }
+        }
+
+        assert!(rotations_nsw_to_eci(&chiefs[..2], &suns).is_err());
+        assert!(
+            covariances_nsw_to_eci(
+                &chiefs[..2],
+                &suns,
+                &covs,
+                OrbitRelativeFrameVariant::Rotating
+            )
+            .is_err()
+        );
+        assert!(rotations_nsw_to_eci(&[], &[]).unwrap().is_empty());
     }
 }

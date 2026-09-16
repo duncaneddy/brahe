@@ -221,7 +221,6 @@ pub(crate) fn batch_zip<A: Sync, B: Sync, U: Send>(
 ///
 /// # Returns
 /// - Outputs in batch order, or an error if the lengths do not broadcast
-#[allow(dead_code)]
 pub(crate) fn batch_zip3<A: Sync, B: Sync, C: Sync, U: Send>(
     f: impl Fn(&A, &B, &C) -> U + Sync,
     a: &[A],

@@ -52,6 +52,16 @@ def test_rotation_eqw_equatorial_orbit_uses_x_axis(eop):
     assert np.linalg.det(m) == approx(1.0, abs=1e-14)
 
 
+def test_rotation_eqw_equatorial_retrograde_is_right_handed(eop):
+    """Rust: test_rotation_eqw_equatorial_retrograde_is_right_handed"""
+    x = _state(0.1, 180.0, 15.0, 30.0, 45.0)
+    m = brahe.rotation_eqw_to_eci(x)
+    np.testing.assert_allclose(m[:, 0], np.array([1.0, 0.0, 0.0]), atol=1e-12)
+    np.testing.assert_allclose(m[:, 1], np.array([0.0, -1.0, 0.0]), atol=1e-12)
+    np.testing.assert_allclose(m[:, 2], np.array([0.0, 0.0, -1.0]), atol=1e-12)
+    assert np.linalg.det(m) == approx(1.0, abs=1e-14)
+
+
 def test_rotation_eqw_near_equatorial_fallback_is_orthonormal(eop):
     """Rust: test_rotation_eqw_near_equatorial_fallback_is_orthonormal"""
     x = _state(0.1, 3e-8, 15.0, 30.0, 45.0)

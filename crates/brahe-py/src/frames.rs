@@ -5979,7 +5979,7 @@ fn py_covariance_frame_to_frame<'py>(
 /// existing RTN vocabulary (`state_eci_to_rtn`, `covariance_rtn`).
 ///
 /// Every kind is a valid frame identity, which is what parsing a data file
-/// needs, but only `RTN`, `LVLH`, `NTW`, `TNW`, `VNC`, and `PQW` have axes
+/// needs, but only `RTN`, `LVLH`, `NTW`, `TNW`, `VNC`, `PQW`, and `EQW` have axes
 /// derivations today. A transform through any other kind raises until issue
 /// #452 adds the remaining derivations.
 ///
@@ -6489,7 +6489,7 @@ impl PyReferenceFrame {
     /// variant).
     ///
     /// Among the orbit-relative kinds only `RTN`, `LVLH`, `NTW`, `TNW`,
-    /// `VNC`, and `PQW` have axes derivations today, so this frame is
+    /// `VNC`, `PQW`, and `EQW` have axes derivations today, so this frame is
     /// constructible but every transform through it raises until issue
     /// #452 adds the remaining derivations.
     ///
@@ -6525,7 +6525,7 @@ impl PyReferenceFrame {
     /// Bound Nadir/Sun/Normal orbit-relative frame (rotating variant).
     ///
     /// Among the orbit-relative kinds only `RTN`, `LVLH`, `NTW`, `TNW`,
-    /// `VNC`, and `PQW` have axes derivations today, so this frame is
+    /// `VNC`, `PQW`, and `EQW` have axes derivations today, so this frame is
     /// constructible but every transform through it raises until issue
     /// #452 adds the remaining derivations.
     ///

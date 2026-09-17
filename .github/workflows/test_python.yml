@@ -64,7 +64,7 @@ jobs:
                     cp test_assets/mar099s.bsp ~/.cache/brahe/naif/
                     cp test_assets/moon_pa_de440_200625.bpc ~/.cache/brahe/naif/
             -   name: Install the latest version of uv
-                uses: astral-sh/setup-uv@v10.0.1
+                uses: astral-sh/setup-uv@v10.1.0
                 with:
                     enable-cache: true
             -   name: Install Python ${{ matrix.python-version }}

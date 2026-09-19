@@ -3,7 +3,11 @@
  */
 
 use crate::frames::{OrbitRelativeFrameVariant, rotate_covariance_6};
-use crate::math::{SMatrix3, SMatrix6, SVector6, block_diagonal, skew_symmetric};
+use crate::math::{SMatrix3, SMatrix6, SVector6};
+use crate::relative_motion::common::{
+    jacobian_from_inertial, jacobian_to_inertial, relative_state_from_frame,
+    relative_state_to_frame, true_anomaly_rate,
+};
 use nalgebra::Vector3;
 
 use crate::utils::BraheError;
@@ -119,13 +123,7 @@ pub fn rotation_eci_to_rtn(x_eci: SVector6) -> SMatrix3 {
 /// let omega = omega_rtn(x_eci);
 /// ```
 pub fn omega_rtn(x_eci: SVector6) -> Vector3<f64> {
-    // Extract position and velocity
-    let rc = x_eci.fixed_rows::<3>(0);
-    let vc = x_eci.fixed_rows::<3>(3);
-
-    // Get angular velocity of RTN frame with respect to ECI frame (Alfriend equation 2.16)
-    let f_dot = (rc.cross(&vc)).norm() / (rc.norm().powi(2));
-    Vector3::new(0.0, 0.0, f_dot)
+    Vector3::new(0.0, 0.0, true_anomaly_rate(x_eci))
 }
 
 /// Transforms the absolute states of a chief and deputy satellite from the Earth-Centered Inertial (ECI)
@@ -156,29 +154,11 @@ pub fn omega_rtn(x_eci: SVector6) -> Vector3<f64> {
 /// let x_rel_rtn = state_eci_to_rtn(x_chief, x_deputy);
 /// ```
 pub fn state_eci_to_rtn(x_chief: SVector6, x_deputy: SVector6) -> SVector6 {
-    // NOTE: This could potentially be more accurately revised based on equations in section 4.7.1 of Alfriend
-
-    // Get RTN rotation matrix
-    let r_eci_to_rtn = rotation_eci_to_rtn(x_chief);
-
-    // Relative position and velocity in ECI frame
-    let rho_eci = x_deputy.fixed_rows::<3>(0) - x_chief.fixed_rows::<3>(0);
-    let rho_dot_eci = x_deputy.fixed_rows::<3>(3) - x_chief.fixed_rows::<3>(3);
-
-    // Get angular velocity of RTN frame with respect to ECI frame
-    let omega = omega_rtn(x_chief);
-
-    // Transform relative position and velocity to RTN frame
-    let rho_rtn = r_eci_to_rtn * rho_eci;
-    let rho_dot_rtn = r_eci_to_rtn * rho_dot_eci - omega.cross(&rho_rtn);
-
-    SVector6::new(
-        rho_rtn[0],
-        rho_rtn[1],
-        rho_rtn[2],
-        rho_dot_rtn[0],
-        rho_dot_rtn[1],
-        rho_dot_rtn[2],
+    relative_state_to_frame(
+        &rotation_eci_to_rtn(x_chief),
+        &omega_rtn(x_chief),
+        x_chief,
+        x_deputy,
     )
 }
 
@@ -211,31 +191,11 @@ pub fn state_eci_to_rtn(x_chief: SVector6, x_deputy: SVector6) -> SVector6 {
 /// let x_deputy_reconstructed = state_rtn_to_eci(x_chief, x_rel_rtn);
 /// ```
 pub fn state_rtn_to_eci(x_chief: SVector6, x_rel_rtn: SVector6) -> SVector6 {
-    // Extract chief position and velocity
-    let rc = x_chief.fixed_rows::<3>(0);
-    let vc = x_chief.fixed_rows::<3>(3);
-
-    // Get RTN rotation matrix
-    let r_rtn_to_eci = rotation_rtn_to_eci(x_chief);
-
-    // Extract relative position and velocity in RTN frame
-    let rho_rtn = x_rel_rtn.fixed_rows::<3>(0);
-    let rho_dot_rtn = x_rel_rtn.fixed_rows::<3>(3);
-
-    // Get angular velocity of RTN frame with respect to ECI frame
-    let omega = omega_rtn(x_chief);
-
-    // Compute deputy absolute state in ECI frame
-    let r_deputy = rc + r_rtn_to_eci * rho_rtn;
-    let v_deputy = r_rtn_to_eci * (rho_dot_rtn + omega.cross(&rho_rtn)) + vc;
-
-    SVector6::new(
-        r_deputy[0],
-        r_deputy[1],
-        r_deputy[2],
-        v_deputy[0],
-        v_deputy[1],
-        v_deputy[2],
+    relative_state_from_frame(
+        &rotation_eci_to_rtn(x_chief),
+        &omega_rtn(x_chief),
+        x_chief,
+        x_rel_rtn,
     )
 }
 
@@ -279,13 +239,7 @@ pub fn state_rtn_to_eci(x_chief: SVector6, x_rel_rtn: SVector6) -> SVector6 {
 /// 3. D. A. Vallado,
 ///    ["Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003](https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf)
 pub fn jacobian_rtn_to_eci(x_eci: SVector6, variant: OrbitRelativeFrameVariant) -> SMatrix6 {
-    let r = rotation_rtn_to_eci(x_eci);
-    let mut j = block_diagonal(&r, &r);
-    if variant == OrbitRelativeFrameVariant::Rotating {
-        let coupling = r * skew_symmetric(&omega_rtn(x_eci));
-        j.fixed_view_mut::<3, 3>(3, 0).copy_from(&coupling);
-    }
-    j
+    jacobian_to_inertial(&rotation_rtn_to_eci(x_eci), &omega_rtn(x_eci), variant)
 }
 
 /// 6x6 Jacobian taking an ECI state covariance into RTN axes.
@@ -325,13 +279,7 @@ pub fn jacobian_rtn_to_eci(x_eci: SVector6, variant: OrbitRelativeFrameVariant) 
 /// 3. D. A. Vallado,
 ///    ["Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003](https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf)
 pub fn jacobian_eci_to_rtn(x_eci: SVector6, variant: OrbitRelativeFrameVariant) -> SMatrix6 {
-    let r = rotation_eci_to_rtn(x_eci);
-    let mut j = block_diagonal(&r, &r);
-    if variant == OrbitRelativeFrameVariant::Rotating {
-        let coupling = -skew_symmetric(&omega_rtn(x_eci)) * r;
-        j.fixed_view_mut::<3, 3>(3, 0).copy_from(&coupling);
-    }
-    j
+    jacobian_from_inertial(&rotation_eci_to_rtn(x_eci), &omega_rtn(x_eci), variant)
 }
 
 /// Transforms a 6x6 state covariance from RTN axes into ECI axes.
@@ -551,6 +499,216 @@ pub fn states_rtn_to_eci(
     batch_zip(|c, r| state_rtn_to_eci(*c, *r), x_chief, x_rel_rtn)
 }
 
+/// Computes the RTN frame angular velocity for each state in `x_eci`.
+///
+/// Batch form of [`omega_rtn`]. Evaluation runs on the global thread pool for
+/// large inputs.
+///
+/// # Arguments
+/// - `x_eci`: Cartesian ECI states (position, velocity). Units: (*m*; *m/s*)
+///
+/// # Returns
+/// - Angular velocities of the RTN frame relative to ECI, expressed in RTN axes, one per
+///   state, in input order. Units: (*rad/s*)
+///
+/// # References
+/// - K. T. Alfriend, S. R. Vadali, P. Gurfil, J. P. How, L. S. Breger, *Spacecraft Formation Flying*, Elsevier, 2010, eq. 2.16
+///
+/// # Examples
+/// ```
+/// use brahe::constants::{R_EARTH, AngleFormat};
+/// use brahe::coordinates::state_koe_to_eci;
+/// use brahe::relative_motion::omegas_rtn;
+/// use brahe::vector6_from_array;
+///
+/// let x = state_koe_to_eci(vector6_from_array([R_EARTH + 700e3, 0.001, 97.8, 15.0, 30.0, 45.0]), AngleFormat::Degrees);
+/// let omega = omegas_rtn(&[x, x]);
+/// assert_eq!(omega.len(), 2);
+/// ```
+pub fn omegas_rtn(x_eci: &[SVector6]) -> Vec<Vector3<f64>> {
+    batch_map(|x| omega_rtn(*x), x_eci)
+}
+
+/// Computes the RTN-to-ECI covariance Jacobian for each state in `x_eci`.
+///
+/// Batch form of [`jacobian_rtn_to_eci`]. Evaluation runs on the global thread pool for
+/// large inputs.
+///
+/// # Arguments
+/// - `x_eci`: Cartesian ECI states of the frame's origin (position, velocity). Units: (*m*; *m/s*)
+/// - `variant`: Whether the RTN axes rotate with the orbit or are frozen at the epoch
+///
+/// # Returns
+/// - Jacobians such that `P_eci = J P_rtn Jᵀ`, one per state, in input order
+///
+/// # References
+/// 1. NASA Conjunction Assessment Risk Analysis (CARA),
+///    [*Conjunction Assessment Handbook*, NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13)](https://ntrs.nasa.gov/citations/20205011318)
+/// 2. NASA CARA Analysis Tools,
+///    [`RIC2ECI.m`](https://github.com/nasa/CARA_Analysis_Tools)
+/// 3. D. A. Vallado,
+///    ["Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003](https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf)
+///
+/// # Examples
+/// ```
+/// use brahe::constants::{R_EARTH, AngleFormat};
+/// use brahe::coordinates::state_koe_to_eci;
+/// use brahe::frames::OrbitRelativeFrameVariant;
+/// use brahe::relative_motion::jacobians_rtn_to_eci;
+/// use brahe::vector6_from_array;
+///
+/// let x = state_koe_to_eci(vector6_from_array([R_EARTH + 700e3, 0.001, 97.8, 15.0, 30.0, 45.0]), AngleFormat::Degrees);
+/// let j = jacobians_rtn_to_eci(&[x, x], OrbitRelativeFrameVariant::Rotating);
+/// assert_eq!(j.len(), 2);
+/// ```
+pub fn jacobians_rtn_to_eci(
+    x_eci: &[SVector6],
+    variant: OrbitRelativeFrameVariant,
+) -> Vec<SMatrix6> {
+    batch_map(|x| jacobian_rtn_to_eci(*x, variant), x_eci)
+}
+
+/// Computes the ECI-to-RTN covariance Jacobian for each state in `x_eci`.
+///
+/// Batch form of [`jacobian_eci_to_rtn`]. Evaluation runs on the global thread pool for
+/// large inputs.
+///
+/// # Arguments
+/// - `x_eci`: Cartesian ECI states of the frame's origin (position, velocity). Units: (*m*; *m/s*)
+/// - `variant`: Whether the RTN axes rotate with the orbit or are frozen at the epoch
+///
+/// # Returns
+/// - Jacobians such that `P_rtn = J P_eci Jᵀ`, one per state, in input order
+///
+/// # References
+/// 1. NASA Conjunction Assessment Risk Analysis (CARA),
+///    [*Conjunction Assessment Handbook*, NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13)](https://ntrs.nasa.gov/citations/20205011318)
+/// 2. NASA CARA Analysis Tools,
+///    [`RIC2ECI.m`](https://github.com/nasa/CARA_Analysis_Tools)
+/// 3. D. A. Vallado,
+///    ["Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003](https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf)
+///
+/// # Examples
+/// ```
+/// use brahe::constants::{R_EARTH, AngleFormat};
+/// use brahe::coordinates::state_koe_to_eci;
+/// use brahe::frames::OrbitRelativeFrameVariant;
+/// use brahe::relative_motion::jacobians_eci_to_rtn;
+/// use brahe::vector6_from_array;
+///
+/// let x = state_koe_to_eci(vector6_from_array([R_EARTH + 700e3, 0.001, 97.8, 15.0, 30.0, 45.0]), AngleFormat::Degrees);
+/// let j = jacobians_eci_to_rtn(&[x, x], OrbitRelativeFrameVariant::Rotating);
+/// assert_eq!(j.len(), 2);
+/// ```
+pub fn jacobians_eci_to_rtn(
+    x_eci: &[SVector6],
+    variant: OrbitRelativeFrameVariant,
+) -> Vec<SMatrix6> {
+    batch_map(|x| jacobian_eci_to_rtn(*x, variant), x_eci)
+}
+
+/// Transforms each state covariance in `covariances` from RTN axes into ECI axes.
+///
+/// Batch form of [`covariance_rtn_to_eci`]. Evaluation runs on the global thread pool for
+/// large inputs.
+///
+/// The `x_eci` and `covariances` arguments follow the broadcast rule: each argument has
+/// length 1 or the common batch length.
+///
+/// # Arguments
+/// - `x_eci`: Cartesian ECI states of the frame's origin, length 1 or the batch length. Units: (*m*; *m/s*)
+/// - `covariances`: State covariances in RTN axes, length 1 or the batch length. Units: (*m²*, *m²/s*, *m²/s²*)
+/// - `variant`: Whether the RTN axes rotate with the orbit or are frozen at the epoch
+///
+/// # Returns
+/// - State covariances in ECI axes, in input order. Units: (*m²*, *m²/s*, *m²/s²*)
+/// - Error if the lengths do not satisfy the broadcast rule
+///
+/// # References
+/// 1. NASA Conjunction Assessment Risk Analysis (CARA),
+///    [*Conjunction Assessment Handbook*, NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13)](https://ntrs.nasa.gov/citations/20205011318)
+/// 2. NASA CARA Analysis Tools,
+///    [`RIC2ECI.m`](https://github.com/nasa/CARA_Analysis_Tools)
+/// 3. D. A. Vallado,
+///    ["Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003](https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf)
+///
+/// # Examples
+/// ```
+/// use brahe::{SMatrix6};
+/// use brahe::constants::{R_EARTH, AngleFormat};
+/// use brahe::coordinates::state_koe_to_eci;
+/// use brahe::frames::OrbitRelativeFrameVariant;
+/// use brahe::relative_motion::covariances_rtn_to_eci;
+/// use brahe::vector6_from_array;
+///
+/// let x = state_koe_to_eci(vector6_from_array([R_EARTH + 700e3, 0.001, 97.8, 15.0, 30.0, 45.0]), AngleFormat::Degrees);
+/// let p = vec![SMatrix6::identity(); 2];
+/// let p_eci = covariances_rtn_to_eci(&[x], &p, OrbitRelativeFrameVariant::Rotating).unwrap();
+/// assert_eq!(p_eci.len(), 2);
+/// ```
+pub fn covariances_rtn_to_eci(
+    x_eci: &[SVector6],
+    covariances: &[SMatrix6],
+    variant: OrbitRelativeFrameVariant,
+) -> Result<Vec<SMatrix6>, BraheError> {
+    batch_zip(
+        |x, p| covariance_rtn_to_eci(*x, p, variant),
+        x_eci,
+        covariances,
+    )
+}
+
+/// Transforms each state covariance in `covariances` from ECI axes into RTN axes.
+///
+/// Batch form of [`covariance_eci_to_rtn`]. Evaluation runs on the global thread pool for
+/// large inputs.
+///
+/// The `x_eci` and `covariances` arguments follow the broadcast rule: each argument has
+/// length 1 or the common batch length.
+///
+/// # Arguments
+/// - `x_eci`: Cartesian ECI states of the frame's origin, length 1 or the batch length. Units: (*m*; *m/s*)
+/// - `covariances`: State covariances in ECI axes, length 1 or the batch length. Units: (*m²*, *m²/s*, *m²/s²*)
+/// - `variant`: Whether the RTN axes rotate with the orbit or are frozen at the epoch
+///
+/// # Returns
+/// - State covariances in RTN axes, in input order. Units: (*m²*, *m²/s*, *m²/s²*)
+/// - Error if the lengths do not satisfy the broadcast rule
+///
+/// # References
+/// 1. NASA Conjunction Assessment Risk Analysis (CARA),
+///    [*Conjunction Assessment Handbook*, NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13)](https://ntrs.nasa.gov/citations/20205011318)
+/// 2. NASA CARA Analysis Tools,
+///    [`RIC2ECI.m`](https://github.com/nasa/CARA_Analysis_Tools)
+/// 3. D. A. Vallado,
+///    ["Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003](https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf)
+///
+/// # Examples
+/// ```
+/// use brahe::{SMatrix6};
+/// use brahe::constants::{R_EARTH, AngleFormat};
+/// use brahe::coordinates::state_koe_to_eci;
+/// use brahe::frames::OrbitRelativeFrameVariant;
+/// use brahe::relative_motion::covariances_eci_to_rtn;
+/// use brahe::vector6_from_array;
+///
+/// let x = state_koe_to_eci(vector6_from_array([R_EARTH + 700e3, 0.001, 97.8, 15.0, 30.0, 45.0]), AngleFormat::Degrees);
+/// let p = vec![SMatrix6::identity(); 2];
+/// let p_rtn = covariances_eci_to_rtn(&[x], &p, OrbitRelativeFrameVariant::Rotating).unwrap();
+/// assert_eq!(p_rtn.len(), 2);
+/// ```
+pub fn covariances_eci_to_rtn(
+    x_eci: &[SVector6],
+    covariances: &[SMatrix6],
+    variant: OrbitRelativeFrameVariant,
+) -> Result<Vec<SMatrix6>, BraheError> {
+    batch_zip(
+        |x, p| covariance_eci_to_rtn(*x, p, variant),
+        x_eci,
+        covariances,
+    )
+}
+
 #[cfg(test)]
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
@@ -559,6 +717,7 @@ mod tests {
     use crate::R_EARTH;
     use crate::coordinates::state_koe_to_eci;
     use crate::math::vector6_from_array;
+    use crate::math::{block_diagonal, skew_symmetric};
     use crate::orbits::{mean_motion, perigee_velocity};
     use crate::utils::testing::setup_global_test_eop;
     use approx::assert_abs_diff_eq;
@@ -845,5 +1004,42 @@ mod tests {
         // The rotating variant shears velocity against position, so it is not.
         let p_rot = covariance_eci_to_rtn(x, &p, OrbitRelativeFrameVariant::Rotating);
         assert!((p_rot - p).norm() > 1e-6);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_batch_rtn_rates_jacobians_covariances_match_scalar() {
+        let states: Vec<SVector6> = (0..3)
+            .map(|i| {
+                state_koe_to_eci(
+                    vector6_from_array([R_EARTH + 700e3, 0.01, 97.8, 15.0, 30.0, 45.0 + i as f64]),
+                    AngleFormat::Degrees,
+                )
+            })
+            .collect();
+        let covs: Vec<SMatrix6> = (0..3)
+            .map(|i| SMatrix6::identity() * (i as f64 + 1.0))
+            .collect();
+        let variant = OrbitRelativeFrameVariant::Rotating;
+
+        let omegas = omegas_rtn(&states);
+        let jac = jacobians_rtn_to_eci(&states, variant);
+        let jac_inv = jacobians_eci_to_rtn(&states, variant);
+        let cov_eci = covariances_rtn_to_eci(&states, &covs, variant).unwrap();
+        let cov_rtn = covariances_eci_to_rtn(&states[..1], &covs, variant).unwrap();
+        for i in 0..3 {
+            assert_eq!(omegas[i], omega_rtn(states[i]));
+            assert_eq!(jac[i], jacobian_rtn_to_eci(states[i], variant));
+            assert_eq!(jac_inv[i], jacobian_eci_to_rtn(states[i], variant));
+            assert_eq!(
+                cov_eci[i],
+                covariance_rtn_to_eci(states[i], &covs[i], variant)
+            );
+            assert_eq!(
+                cov_rtn[i],
+                covariance_eci_to_rtn(states[0], &covs[i], variant)
+            );
+        }
+        assert!(covariances_rtn_to_eci(&states[..2], &covs, variant).is_err());
     }
 }

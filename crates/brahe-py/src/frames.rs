@@ -5979,8 +5979,9 @@ fn py_covariance_frame_to_frame<'py>(
 /// existing RTN vocabulary (`state_eci_to_rtn`, `covariance_rtn`).
 ///
 /// Every kind is a valid frame identity, which is what parsing a data file
-/// needs, but only `RTN` has an axes derivation today. A transform through
-/// any other kind raises until issue #452 adds the remaining derivations.
+/// needs, but only `RTN` and `LVLH` have axes derivations today. A
+/// transform through any other kind raises until issue #452 adds the
+/// remaining derivations.
 ///
 /// Example:
 ///     ```python
@@ -6434,15 +6435,21 @@ impl PyReferenceFrame {
     /// Bound Local-Vertical Local-Horizontal orbit-relative frame (rotating
     /// variant).
     ///
-    /// Among the orbit-relative kinds only `RTN` has an axes derivation
-    /// today, so this frame is constructible but every transform through
-    /// it raises until issue #452 adds the remaining derivations.
+    /// Axes follow the CCSDS/SANA definition: Z toward nadir, Y opposite
+    /// the orbit normal, X = Y × Z.
     ///
     /// Args:
     ///     object (str): The object the frame is defined relative to
     ///
     /// Returns:
     ///     ReferenceFrame: The bound `LVLH (rotating)` orbit-relative frame
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     frame = bh.ReferenceFrame.LVLH("SC")
+    ///     ```
     #[staticmethod]
     #[allow(non_snake_case)]
     fn LVLH(object: String) -> Self {
@@ -6452,9 +6459,10 @@ impl PyReferenceFrame {
     /// Bound Normal/Tangential/cross-track orbit-relative frame (rotating
     /// variant).
     ///
-    /// Among the orbit-relative kinds only `RTN` has an axes derivation
-    /// today, so this frame is constructible but every transform through
-    /// it raises until issue #452 adds the remaining derivations.
+    /// Among the orbit-relative kinds only `RTN` and `LVLH` have axes
+    /// derivations today, so this frame is constructible but every
+    /// transform through it raises until issue #452 adds the remaining
+    /// derivations.
     ///
     /// Args:
     ///     object (str): The object the frame is defined relative to
@@ -6470,9 +6478,10 @@ impl PyReferenceFrame {
     /// Bound Tangential/Normal/cross-track orbit-relative frame (rotating
     /// variant).
     ///
-    /// Among the orbit-relative kinds only `RTN` has an axes derivation
-    /// today, so this frame is constructible but every transform through
-    /// it raises until issue #452 adds the remaining derivations.
+    /// Among the orbit-relative kinds only `RTN` and `LVLH` have axes
+    /// derivations today, so this frame is constructible but every
+    /// transform through it raises until issue #452 adds the remaining
+    /// derivations.
     ///
     /// Args:
     ///     object (str): The object the frame is defined relative to
@@ -6488,9 +6497,10 @@ impl PyReferenceFrame {
     /// Bound topocentric South/East/Zenith orbit-relative frame (rotating
     /// variant).
     ///
-    /// Among the orbit-relative kinds only `RTN` has an axes derivation
-    /// today, so this frame is constructible but every transform through
-    /// it raises until issue #452 adds the remaining derivations.
+    /// Among the orbit-relative kinds only `RTN` and `LVLH` have axes
+    /// derivations today, so this frame is constructible but every
+    /// transform through it raises until issue #452 adds the remaining
+    /// derivations.
     ///
     /// Args:
     ///     object (str): The object the frame is defined relative to
@@ -6506,9 +6516,10 @@ impl PyReferenceFrame {
     /// Bound Velocity/Normal/Co-normal orbit-relative frame (rotating
     /// variant).
     ///
-    /// Among the orbit-relative kinds only `RTN` has an axes derivation
-    /// today, so this frame is constructible but every transform through
-    /// it raises until issue #452 adds the remaining derivations.
+    /// Among the orbit-relative kinds only `RTN` and `LVLH` have axes
+    /// derivations today, so this frame is constructible but every
+    /// transform through it raises until issue #452 adds the remaining
+    /// derivations.
     ///
     /// Args:
     ///     object (str): The object the frame is defined relative to
@@ -6523,9 +6534,10 @@ impl PyReferenceFrame {
 
     /// Bound Nadir/Sun/Normal orbit-relative frame (rotating variant).
     ///
-    /// Among the orbit-relative kinds only `RTN` has an axes derivation
-    /// today, so this frame is constructible but every transform through
-    /// it raises until issue #452 adds the remaining derivations.
+    /// Among the orbit-relative kinds only `RTN` and `LVLH` have axes
+    /// derivations today, so this frame is constructible but every
+    /// transform through it raises until issue #452 adds the remaining
+    /// derivations.
     ///
     /// Args:
     ///     object (str): The object the frame is defined relative to
@@ -6541,9 +6553,10 @@ impl PyReferenceFrame {
     /// Bound Perifocal orbit-relative frame (inertial-snapshot variant;
     /// `PQW` is SANA-registered only as inertial).
     ///
-    /// Among the orbit-relative kinds only `RTN` has an axes derivation
-    /// today, so this frame is constructible but every transform through
-    /// it raises until issue #452 adds the remaining derivations.
+    /// Among the orbit-relative kinds only `RTN` and `LVLH` have axes
+    /// derivations today, so this frame is constructible but every
+    /// transform through it raises until issue #452 adds the remaining
+    /// derivations.
     ///
     /// Args:
     ///     object (str): The object the frame is defined relative to
@@ -6559,9 +6572,10 @@ impl PyReferenceFrame {
     /// Bound Equinoctial orbit-relative frame (inertial-snapshot variant;
     /// `EQW` is SANA-registered only as inertial).
     ///
-    /// Among the orbit-relative kinds only `RTN` has an axes derivation
-    /// today, so this frame is constructible but every transform through
-    /// it raises until issue #452 adds the remaining derivations.
+    /// Among the orbit-relative kinds only `RTN` and `LVLH` have axes
+    /// derivations today, so this frame is constructible but every
+    /// transform through it raises until issue #452 adds the remaining
+    /// derivations.
     ///
     /// Args:
     ///     object (str): The object the frame is defined relative to
@@ -6830,9 +6844,10 @@ impl PyReferenceFrame {
     /// ...), for callers that hold a runtime kind/variant pair and an
     /// optional, not-yet-bound object.
     ///
-    /// Among the orbit-relative kinds only `RTN` has an axes derivation
-    /// today; the others construct successfully but every transform through
-    /// them raises until issue #452 adds the remaining derivations.
+    /// Among the orbit-relative kinds only `RTN` and `LVLH` have axes
+    /// derivations today; the others construct successfully but every
+    /// transform through them raises until issue #452 adds the remaining
+    /// derivations.
     ///
     /// Args:
     ///     kind (OrbitRelativeFrameKind): Frame construction (axes definition)
@@ -6859,8 +6874,12 @@ impl PyReferenceFrame {
         Ok(PyReferenceFrame { frame })
     }
 
-    /// Whether the frame is evaluable: a celestial frame, or an
-    /// orbit-relative/body frame with a bound object.
+    /// Whether the frame carries the object identity resolution requires: a
+    /// celestial frame (always), or an orbit-relative/body frame with a
+    /// bound object. True is necessary but not sufficient for the frame to
+    /// actually resolve. An orbit-relative frame also needs an axes
+    /// derivation for its kind (currently RTN and LVLH), and a body frame
+    /// also needs its orientation chain registered (`register_frame`).
     ///
     /// Returns:
     ///     bool: True if the frame is bound (celestial frames are always bound)

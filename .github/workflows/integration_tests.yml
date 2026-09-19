@@ -147,7 +147,7 @@ jobs:
                     rustup update ${{ matrix.rust-toolchain }}
                     rustup default ${{ matrix.rust-toolchain }}
             -   name: Install the latest version of uv
-                uses: astral-sh/setup-uv@v10.0.1
+                uses: astral-sh/setup-uv@v10.1.0
                 with:
                     enable-cache: true
             -   name: Install Python ${{ matrix.python-version }}

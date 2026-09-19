@@ -5979,9 +5979,9 @@ fn py_covariance_frame_to_frame<'py>(
 /// existing RTN vocabulary (`state_eci_to_rtn`, `covariance_rtn`).
 ///
 /// Every kind is a valid frame identity, which is what parsing a data file
-/// needs, but only `RTN`, `LVLH`, `NTW`, `TNW`, `VNC`, `PQW`, and `EQW` have axes
-/// derivations today. A transform through any other kind raises until issue
-/// #452 adds the remaining derivations.
+/// needs, but only `RTN`, `LVLH`, `NTW`, `TNW`, `VNC`, `PQW`, `EQW`, and
+/// `NSW` have axes derivations today. A transform through any other kind
+/// raises until issue #452 adds the remaining derivation.
 ///
 /// Example:
 ///     ```python
@@ -6510,9 +6510,9 @@ impl PyReferenceFrame {
     /// variant).
     ///
     /// Among the orbit-relative kinds only `RTN`, `LVLH`, `NTW`, `TNW`,
-    /// `VNC`, `PQW`, and `EQW` have axes derivations today, so this frame is
-    /// constructible but every transform through it raises until issue
-    /// #452 adds the remaining derivations.
+    /// `VNC`, `PQW`, `EQW`, and `NSW` have axes derivations today, so this
+    /// frame is constructible but every transform through it raises until
+    /// issue #452 adds the remaining derivation.
     ///
     /// Args:
     ///     object (str): The object the frame is defined relative to
@@ -6552,16 +6552,22 @@ impl PyReferenceFrame {
 
     /// Bound Nadir/Sun/Normal orbit-relative frame (rotating variant).
     ///
-    /// Among the orbit-relative kinds only `RTN`, `LVLH`, `NTW`, `TNW`,
-    /// `VNC`, `PQW`, and `EQW` have axes derivations today, so this frame is
-    /// constructible but every transform through it raises until issue
-    /// #452 adds the remaining derivations.
+    /// Axes: X toward nadir, Y as close to the Sun as possible while normal
+    /// to X, Z = X × Y. The Sun state comes from the global
+    /// `FrameEphemerisSource` setting.
     ///
     /// Args:
     ///     object (str): The object the frame is defined relative to
     ///
     /// Returns:
     ///     ReferenceFrame: The bound `NSW (rotating)` orbit-relative frame
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     frame = bh.ReferenceFrame.NSW("SC")
+    ///     ```
     #[staticmethod]
     #[allow(non_snake_case)]
     fn NSW(object: String) -> Self {
@@ -6876,9 +6882,9 @@ impl PyReferenceFrame {
     /// optional, not-yet-bound object.
     ///
     /// Among the orbit-relative kinds only `RTN`, `LVLH`, `NTW`, `TNW`,
-    /// `VNC`, `PQW`, and `EQW` have axes derivations today; the others
-    /// construct successfully but every transform through them raises
-    /// until issue #452 adds the remaining derivations.
+    /// `VNC`, `PQW`, `EQW`, and `NSW` have axes derivations today; the
+    /// others construct successfully but every transform through them
+    /// raises until issue #452 adds the remaining derivation.
     ///
     /// Args:
     ///     kind (OrbitRelativeFrameKind): Frame construction (axes definition)
@@ -6909,7 +6915,7 @@ impl PyReferenceFrame {
     /// celestial frame (always), or an orbit-relative/body frame with a
     /// bound object. True is necessary but not sufficient for the frame to
     /// actually resolve. An orbit-relative frame also needs an axes
-    /// derivation for its kind (currently RTN, LVLH, NTW, TNW, VNC, PQW, and EQW), and a
+    /// derivation for its kind (currently RTN, LVLH, NTW, TNW, VNC, PQW, EQW, and NSW), and a
     /// body frame also needs its orientation chain registered (`register_frame`).
     ///
     /// Returns:
@@ -7330,4 +7336,96 @@ fn py_registered_objects() -> Vec<String> {
 fn py_register_object_from_naif(name: String, naif_id: i32) -> PyResult<()> {
     frames::register_object_from_naif(name, naif_id)?;
     Ok(())
+}
+
+/// Source of the Sun's state consulted by frame-graph evaluations that need
+/// it (the NSW frame), selected by `set_frame_ephemeris_source`.
+///
+/// Attributes:
+///     AUTO: The SPICE registry when any kernel is already loaded, otherwise the analytic model for an Earth-centered evaluation, otherwise the registry, which auto-loads the default `de440s` ephemeris rather than erroring. The default.
+///     ANALYTIC: Low-precision analytic Sun model, Earth-centered only; the SPICE registry is never consulted.
+///     KERNEL: The SPICE registry, using whatever kernels are loaded (auto-loading `de440s` if none are).
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     bh.set_frame_ephemeris_source(bh.FrameEphemerisSource.ANALYTIC)
+///     ```
+#[pyclass(module = "brahe._brahe", eq, from_py_object)]
+#[pyo3(name = "FrameEphemerisSource")]
+#[derive(Clone, Copy, PartialEq)]
+pub struct PyFrameEphemerisSource {
+    pub(crate) source: frames::FrameEphemerisSource,
+}
+
+#[pymethods]
+#[allow(non_snake_case)]
+impl PyFrameEphemerisSource {
+    /// SPICE registry when a kernel is already loaded, otherwise the
+    /// analytic model for Earth, otherwise the registry.
+    #[classattr]
+    fn AUTO() -> Self {
+        PyFrameEphemerisSource { source: frames::FrameEphemerisSource::Auto }
+    }
+
+    /// Low-precision analytic Sun model, Earth-centered only.
+    #[classattr]
+    fn ANALYTIC() -> Self {
+        PyFrameEphemerisSource { source: frames::FrameEphemerisSource::Analytic }
+    }
+
+    /// SPICE registry, using whatever kernels are loaded.
+    #[classattr]
+    fn KERNEL() -> Self {
+        PyFrameEphemerisSource { source: frames::FrameEphemerisSource::Kernel }
+    }
+
+    fn __str__(&self) -> String {
+        self.source.to_string()
+    }
+
+    fn __repr__(&self) -> String {
+        format!("FrameEphemerisSource.{}", self.source)
+    }
+}
+
+/// Sets the global source the frame graph uses for the Sun's state.
+///
+/// Args:
+///     source (FrameEphemerisSource): Frame ephemeris source to select.
+///
+/// Returns:
+///     None: The global setting is replaced.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     bh.set_frame_ephemeris_source(bh.FrameEphemerisSource.KERNEL)
+///     bh.set_frame_ephemeris_source(bh.FrameEphemerisSource.AUTO)
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(source)")]
+#[pyo3(name = "set_frame_ephemeris_source")]
+fn py_set_frame_ephemeris_source(source: &PyFrameEphemerisSource) {
+    frames::set_frame_ephemeris_source(source.source);
+}
+
+/// Gets the global source the frame graph uses for the Sun's state.
+///
+/// Returns:
+///     FrameEphemerisSource: Frame ephemeris source currently selected. `AUTO` unless `set_frame_ephemeris_source` has been called.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     source = bh.get_frame_ephemeris_source()
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "()")]
+#[pyo3(name = "get_frame_ephemeris_source")]
+fn py_get_frame_ephemeris_source() -> PyFrameEphemerisSource {
+    PyFrameEphemerisSource { source: frames::get_frame_ephemeris_source() }
 }

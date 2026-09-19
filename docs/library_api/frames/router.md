@@ -25,6 +25,14 @@
 
 ::: brahe.state_frame_to_frame
 
+## Frame Ephemeris Source
+
+::: brahe.FrameEphemerisSource
+
+::: brahe.set_frame_ephemeris_source
+
+::: brahe.get_frame_ephemeris_source
+
 ## Generic IAU/WGCCRE Body-Fixed Rotations
 
 ::: brahe.rotation_icrf_to_body_fixed_iau

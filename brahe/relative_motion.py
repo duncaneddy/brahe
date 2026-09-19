@@ -4,7 +4,7 @@ Relative Motion Module
 Satellite relative motion and orbital reference frames.
 
 This module provides transformations between inertial frames and orbital
-reference frames such as RTN, LVLH, NTW, TNW, VNC, PQW, and EQW.
+reference frames such as RTN, LVLH, NTW, TNW, VNC, PQW, EQW, and NSW.
 
 The RTN frame is an orbital reference frame defined as:
 - R (Radial): Points from Earth's center to satellite position
@@ -29,6 +29,9 @@ Q = W × P; it is an inertial snapshot with no rate.
 The EQW equinoctial frame has E along the ascending node, W along the orbit
 normal, and Q = W × E; it is an inertial snapshot with no rate.
 
+The NSW frame has X toward nadir, Y as close to the Sun as possible while
+normal to X, and Z = X × Y; its functions take the Sun state as an argument.
+
 Functions are provided for:
 - Rotation matrices between ECI and RTN frames
 - Rotation matrices between ECI and LVLH frames
@@ -37,12 +40,14 @@ Functions are provided for:
 - Rotation matrices between ECI and VNC frames
 - Rotation matrices between ECI and PQW frames
 - Rotation matrices between ECI and EQW frames
+- Rotation matrices between ECI and NSW frames
 - (Future) Relative motion dynamics (Clohessy-Wiltshire equations, etc.)
 """
 
 from brahe._brahe import (
     covariance_eci_to_eqw,
     covariance_eci_to_lvlh,
+    covariance_eci_to_nsw,
     covariance_eci_to_ntw,
     covariance_eci_to_pqw,
     covariance_eci_to_rtn,
@@ -54,6 +59,7 @@ from brahe._brahe import (
     covariance_inertial_to_tnw_for_body,
     covariance_inertial_to_vnc_for_body,
     covariance_lvlh_to_eci,
+    covariance_nsw_to_eci,
     covariance_ntw_to_eci,
     covariance_ntw_to_inertial_for_body,
     covariance_pqw_to_eci,
@@ -65,6 +71,7 @@ from brahe._brahe import (
     covariance_vnc_to_inertial_for_body,
     jacobian_eci_to_eqw,
     jacobian_eci_to_lvlh,
+    jacobian_eci_to_nsw,
     jacobian_eci_to_ntw,
     jacobian_eci_to_pqw,
     jacobian_eci_to_rtn,
@@ -76,6 +83,7 @@ from brahe._brahe import (
     jacobian_inertial_to_tnw_for_body,
     jacobian_inertial_to_vnc_for_body,
     jacobian_lvlh_to_eci,
+    jacobian_nsw_to_eci,
     jacobian_ntw_to_eci,
     jacobian_ntw_to_inertial_for_body,
     jacobian_pqw_to_eci,
@@ -86,6 +94,7 @@ from brahe._brahe import (
     jacobian_vnc_to_eci,
     jacobian_vnc_to_inertial_for_body,
     omega_lvlh,
+    omega_nsw,
     omega_ntw,
     omega_ntw_for_body,
     omega_rtn,
@@ -95,6 +104,7 @@ from brahe._brahe import (
     omega_vnc_for_body,
     rotation_eci_to_eqw,
     rotation_eci_to_lvlh,
+    rotation_eci_to_nsw,
     rotation_eci_to_ntw,
     rotation_eci_to_pqw,
     rotation_eci_to_rtn,
@@ -103,6 +113,7 @@ from brahe._brahe import (
     rotation_eqw_to_eci,
     rotation_inertial_to_pqw_for_body,
     rotation_lvlh_to_eci,
+    rotation_nsw_to_eci,
     rotation_ntw_to_eci,
     rotation_pqw_to_eci,
     rotation_pqw_to_inertial_for_body,
@@ -111,6 +122,7 @@ from brahe._brahe import (
     rotation_vnc_to_eci,
     state_eci_to_eqw,
     state_eci_to_lvlh,
+    state_eci_to_nsw,
     state_eci_to_ntw,
     state_eci_to_pqw,
     state_eci_to_roe,
@@ -123,6 +135,7 @@ from brahe._brahe import (
     state_inertial_to_tnw_for_body,
     state_inertial_to_vnc_for_body,
     state_lvlh_to_eci,
+    state_nsw_to_eci,
     state_ntw_to_eci,
     state_ntw_to_inertial_for_body,
     state_oe_to_roe,
@@ -140,6 +153,7 @@ from brahe._brahe import (
 __all__ = [
     "covariance_eci_to_eqw",
     "covariance_eci_to_lvlh",
+    "covariance_eci_to_nsw",
     "covariance_eci_to_ntw",
     "covariance_eci_to_pqw",
     "covariance_eci_to_rtn",
@@ -151,6 +165,7 @@ __all__ = [
     "covariance_inertial_to_tnw_for_body",
     "covariance_inertial_to_vnc_for_body",
     "covariance_lvlh_to_eci",
+    "covariance_nsw_to_eci",
     "covariance_ntw_to_eci",
     "covariance_ntw_to_inertial_for_body",
     "covariance_pqw_to_eci",
@@ -162,6 +177,7 @@ __all__ = [
     "covariance_vnc_to_inertial_for_body",
     "jacobian_eci_to_eqw",
     "jacobian_eci_to_lvlh",
+    "jacobian_eci_to_nsw",
     "jacobian_eci_to_ntw",
     "jacobian_eci_to_pqw",
     "jacobian_eci_to_rtn",
@@ -173,6 +189,7 @@ __all__ = [
     "jacobian_inertial_to_tnw_for_body",
     "jacobian_inertial_to_vnc_for_body",
     "jacobian_lvlh_to_eci",
+    "jacobian_nsw_to_eci",
     "jacobian_ntw_to_eci",
     "jacobian_ntw_to_inertial_for_body",
     "jacobian_pqw_to_eci",
@@ -183,6 +200,7 @@ __all__ = [
     "jacobian_vnc_to_eci",
     "jacobian_vnc_to_inertial_for_body",
     "omega_lvlh",
+    "omega_nsw",
     "omega_ntw",
     "omega_ntw_for_body",
     "omega_rtn",
@@ -192,6 +210,7 @@ __all__ = [
     "omega_vnc_for_body",
     "rotation_eci_to_eqw",
     "rotation_eci_to_lvlh",
+    "rotation_eci_to_nsw",
     "rotation_eci_to_ntw",
     "rotation_eci_to_pqw",
     "rotation_eci_to_rtn",
@@ -200,6 +219,7 @@ __all__ = [
     "rotation_eqw_to_eci",
     "rotation_inertial_to_pqw_for_body",
     "rotation_lvlh_to_eci",
+    "rotation_nsw_to_eci",
     "rotation_ntw_to_eci",
     "rotation_pqw_to_eci",
     "rotation_pqw_to_inertial_for_body",
@@ -208,6 +228,7 @@ __all__ = [
     "rotation_vnc_to_eci",
     "state_eci_to_eqw",
     "state_eci_to_lvlh",
+    "state_eci_to_nsw",
     "state_eci_to_ntw",
     "state_eci_to_pqw",
     "state_eci_to_roe",
@@ -220,6 +241,7 @@ __all__ = [
     "state_inertial_to_tnw_for_body",
     "state_inertial_to_vnc_for_body",
     "state_lvlh_to_eci",
+    "state_nsw_to_eci",
     "state_ntw_to_eci",
     "state_ntw_to_inertial_for_body",
     "state_oe_to_roe",

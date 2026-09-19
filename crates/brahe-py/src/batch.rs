@@ -771,6 +771,96 @@ fn dispatch_vec_covariance<'py, const N: usize>(
     }
 }
 
+/// Dispatch a two-vector-to-square-matrix map (for example a rotation or
+/// Jacobian that also depends on a second state, such as the Sun) on scalar
+/// or batched arguments, following the broadcast rule of `parse_vec_args`.
+/// The output is the batch dimensions followed by `(R, R)`.
+fn dispatch_vec_pair_matrix<'py, const N: usize, const R: usize>(
+    py: Python<'py>,
+    a: &Bound<'py, PyAny>,
+    b: &Bound<'py, PyAny>,
+    axis: isize,
+    scalar: impl Fn(SVector<f64, N>, SVector<f64, N>) -> na::SMatrix<f64, R, R>,
+    batch: impl Fn(&[SVector<f64, N>], &[SVector<f64, N>]) -> Result<Vec<na::SMatrix<f64, R, R>>, RustBraheError>
+    + Sync,
+) -> PyResult<Bound<'py, PyAny>> {
+    let (vecs, layout) = parse_vec_args::<N>(&[a, b], axis)?;
+    let layout = match layout {
+        None => {
+            let mat = scalar(vecs[0][0], vecs[1][0]);
+            return Ok(matrix_to_numpy!(py, mat, R, R, f64).into_any());
+        }
+        Some(layout) => layout,
+    };
+    let out = py.detach(|| batch(&vecs[0], &vecs[1]))?;
+    matrix_batch_to_numpy::<R>(py, &layout, out)
+}
+
+/// Dispatch a three-vector map (for example a chief, a deputy or relative
+/// state, and a Sun state) on scalar or batched arguments, following the
+/// broadcast rule of `parse_vec_args`.
+fn dispatch_vec_triple<'py, const N: usize>(
+    py: Python<'py>,
+    a: &Bound<'py, PyAny>,
+    b: &Bound<'py, PyAny>,
+    c: &Bound<'py, PyAny>,
+    axis: isize,
+    scalar: impl Fn(SVector<f64, N>, SVector<f64, N>, SVector<f64, N>) -> SVector<f64, N>,
+    batch: impl Fn(&[SVector<f64, N>], &[SVector<f64, N>], &[SVector<f64, N>]) -> Result<Vec<SVector<f64, N>>, RustBraheError>
+    + Sync,
+) -> PyResult<Bound<'py, PyAny>> {
+    let (vecs, layout) = parse_vec_args::<N>(&[a, b, c], axis)?;
+    let layout = match layout {
+        None => {
+            let out = scalar(vecs[0][0], vecs[1][0], vecs[2][0]);
+            return Ok(vector_to_numpy!(py, out, N, f64).into_any());
+        }
+        Some(layout) => layout,
+    };
+    let out = py.detach(|| batch(&vecs[0], &vecs[1], &vecs[2]))?;
+    vecs_to_numpy::<N>(py, &layout, axis, out)
+}
+
+/// Dispatch a two-vector-plus-covariance map (a covariance rotation that also
+/// depends on a second state, such as the Sun) on scalar or batched
+/// arguments. `a` and `b` follow the broadcast rule of `parse_vec_args`; the
+/// combined vector batch length and the covariance batch length must be
+/// equal or one of them must be 1. Output shapes follow
+/// [`dispatch_vec_covariance`]: the vectors' batch dimensions followed by
+/// `(6, 6)` when a vector is batched (a length-1 vector batch against `n`
+/// covariances yields `(n, 6, 6)`), and `(n, 6, 6)` when only the covariance
+/// is batched.
+fn dispatch_vec_pair_covariance<'py, const N: usize>(
+    py: Python<'py>,
+    a: &Bound<'py, PyAny>,
+    b: &Bound<'py, PyAny>,
+    covariance: &Bound<'py, PyAny>,
+    axis: isize,
+    scalar: impl Fn(SVector<f64, N>, SVector<f64, N>, &SMatrix6) -> SMatrix6,
+    batch: impl Fn(&[SVector<f64, N>], &[SVector<f64, N>], &[SMatrix6]) -> Result<Vec<SMatrix6>, RustBraheError>
+    + Sync,
+) -> PyResult<Bound<'py, PyAny>> {
+    let (vecs, layout) = parse_vec_args::<N>(&[a, b], axis)?;
+    let (covs, is_cov_batch) = parse_covariance_arg(covariance)?;
+    if layout.is_none() && !is_cov_batch {
+        let rotated = scalar(vecs[0][0], vecs[1][0], &covs[0]);
+        return Ok(matrix_to_numpy!(py, rotated, 6, 6, f64).into_any());
+    }
+    let vec_len = layout.as_ref().map(BatchLayout::batch_len).unwrap_or(1);
+    let (a, b) = (vec_len, covs.len());
+    if a != b && a != 1 && b != 1 {
+        return Err(exceptions::PyValueError::new_err(format!(
+            "Batch lengths {} and {} do not match; expected equal lengths or a single vector",
+            a, b
+        )));
+    }
+    let out = py.detach(|| batch(&vecs[0], &vecs[1], &covs))?;
+    match layout {
+        Some(layout) => matrix_batch_to_numpy::<6>(py, &layout, out),
+        None => Ok(matrices_to_numpy::<6>(py, out)),
+    }
+}
+
 /// A numeric argument parsed from Python: a scalar or an array of any shape.
 enum NumArg {
     Scalar(f64),

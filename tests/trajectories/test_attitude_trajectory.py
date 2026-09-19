@@ -22,6 +22,108 @@ def body_frames():
     )
 
 
+def small_attitude_trajectory():
+    frame_a, frame_b = body_frames()
+    traj = AttitudeTrajectory(frame_a, frame_b)
+    t0 = bh.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    traj.add(t0, z_axis_quaternion(0.0))
+    traj.add(t0 + 60.0, z_axis_quaternion(0.2))
+    return traj
+
+
+def test_attitude_state_new():
+    """Rust: test_attitude_state_new"""
+    q = bh.Quaternion(1.0, 0.0, 0.0, 0.0)
+    state = AttitudeState(q)
+    assert state.quaternion == q
+    assert state.angular_velocity is None
+
+
+def test_attitude_state_with_angular_velocity():
+    """Rust: test_attitude_state_with_angular_velocity"""
+    omega = np.array([0.1, 0.2, 0.3])
+    state = AttitudeState(bh.Quaternion(1.0, 0.0, 0.0, 0.0), omega)
+    np.testing.assert_array_equal(state.angular_velocity, omega)
+
+
+def test_attitude_interpolation_method_default():
+    """Rust: test_attitude_interpolation_method_default"""
+    frame_a, frame_b = body_frames()
+    traj = AttitudeTrajectory(frame_a, frame_b)
+    assert traj.interpolation_method == "SLERP"
+
+
+def test_attitude_trajectory_new():
+    """Rust: test_attitude_trajectory_new"""
+    frame_a, frame_b = body_frames()
+    traj = AttitudeTrajectory(frame_a, frame_b)
+    assert len(traj) == 0
+    assert traj.interpolation_method == "SLERP"
+    assert not traj.has_rates
+
+
+def test_attitude_trajectory_add_sorts_out_of_order_epochs():
+    """Rust: test_attitude_trajectory_add_sorts_out_of_order_epochs"""
+    frame_a, frame_b = body_frames()
+    traj = AttitudeTrajectory(frame_a, frame_b)
+    t0 = bh.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+
+    traj.add(t0 + 60.0, z_axis_quaternion(0.1))
+    traj.add(t0, z_axis_quaternion(0.0))
+    traj.add(t0 + 30.0, z_axis_quaternion(0.05))
+
+    assert len(traj) == 3
+    assert traj.start_epoch == t0
+    assert traj.end_epoch == t0 + 60.0
+    np.testing.assert_array_equal(
+        traj.quaternion(t0).to_vector(scalar_first=True),
+        z_axis_quaternion(0.0).to_vector(scalar_first=True),
+    )
+    np.testing.assert_array_equal(
+        traj.quaternion(t0 + 30.0).to_vector(scalar_first=True),
+        z_axis_quaternion(0.05).to_vector(scalar_first=True),
+    )
+    np.testing.assert_array_equal(
+        traj.quaternion(t0 + 60.0).to_vector(scalar_first=True),
+        z_axis_quaternion(0.1).to_vector(scalar_first=True),
+    )
+
+
+def test_attitude_trajectory_add_rate_mixing_error():
+    """Rust: test_attitude_trajectory_add_rate_mixing_error"""
+    frame_a, frame_b = body_frames()
+    traj = AttitudeTrajectory(frame_a, frame_b)
+    t0 = bh.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    traj.add(t0, z_axis_quaternion(0.0))
+
+    with pytest.raises(Exception, match="angular velocity"):
+        traj.add(t0 + 60.0, z_axis_quaternion(0.1), np.array([0.0, 0.0, 0.01]))
+
+
+def test_attitude_trajectory_add_rate_mixing_error_reverse_direction():
+    """Rust: test_attitude_trajectory_add_rate_mixing_error_reverse_direction"""
+    frame_a, frame_b = body_frames()
+    traj = AttitudeTrajectory(frame_a, frame_b)
+    t0 = bh.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    traj.add(t0, z_axis_quaternion(0.0), np.array([0.0, 0.0, 0.01]))
+
+    with pytest.raises(Exception, match="does not carry angular velocity"):
+        traj.add(t0 + 60.0, z_axis_quaternion(0.1))
+
+
+def test_attitude_trajectory_has_rates():
+    """Rust: test_attitude_trajectory_has_rates"""
+    frame_a, frame_b = body_frames()
+    traj = AttitudeTrajectory(frame_a, frame_b)
+    t0 = bh.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+
+    assert not traj.has_rates
+
+    traj.add(t0, z_axis_quaternion(0.0), np.array([0.0, 0.0, 0.01]))
+
+    assert traj.has_rates
+
+
 def test_attitude_state_construction():
     q = bh.Quaternion(1.0, 0.0, 0.0, 0.0)
     state = AttitudeState(q)
@@ -189,6 +291,192 @@ def test_attitude_trajectory_interpolate_lagrange_degree_zero_errors():
         traj.quaternion(t0 + 30.0)
 
 
+def test_attitude_trajectory_interpolate_exact_node_returns_stored_state():
+    """Rust: test_attitude_trajectory_interpolate_exact_node_returns_stored_state"""
+    frame_a, frame_b = body_frames()
+    traj = AttitudeTrajectory(frame_a, frame_b)
+    t0 = bh.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    traj.add(t0, z_axis_quaternion(0.0))
+    traj.add(t0 + 60.0, z_axis_quaternion(0.2))
+
+    q = traj.quaternion(t0)
+    np.testing.assert_array_equal(
+        q.to_vector(scalar_first=True),
+        z_axis_quaternion(0.0).to_vector(scalar_first=True),
+    )
+
+    q = traj.quaternion(t0 + 60.0)
+    np.testing.assert_array_equal(
+        q.to_vector(scalar_first=True),
+        z_axis_quaternion(0.2).to_vector(scalar_first=True),
+    )
+
+
+def test_attitude_trajectory_interpolate_out_of_range():
+    """Rust: test_attitude_trajectory_interpolate_out_of_range"""
+    frame_a, frame_b = body_frames()
+    traj = AttitudeTrajectory(frame_a, frame_b)
+    t0 = bh.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    traj.add(t0, z_axis_quaternion(0.0))
+    traj.add(t0 + 60.0, z_axis_quaternion(0.2))
+
+    with pytest.raises(Exception, match="before trajectory start"):
+        traj.quaternion(t0 - 10.0)
+    with pytest.raises(Exception, match="after trajectory end"):
+        traj.quaternion(t0 + 70.0)
+
+
+def test_attitude_trajectory_interpolate_lagrange_min_points_error():
+    """Rust: test_attitude_trajectory_interpolate_lagrange_min_points_error"""
+    frame_a, frame_b = body_frames()
+    traj = AttitudeTrajectory(frame_a, frame_b)
+    traj.set_interpolation_method("LAGRANGE", degree=3)
+    t0 = bh.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    traj.add(t0, z_axis_quaternion(0.0))
+    traj.add(t0 + 60.0, z_axis_quaternion(0.2))
+
+    # Only 2 points but degree 3 requires 4
+    with pytest.raises(Exception, match="requires"):
+        traj.quaternion(t0 + 30.0)
+
+
+def test_attitude_trajectory_interpolate_lagrange_tolerance():
+    """Rust: test_attitude_trajectory_interpolate_lagrange_tolerance"""
+    frame_a, frame_b = body_frames()
+    traj = AttitudeTrajectory(frame_a, frame_b)
+    traj.set_interpolation_method("LAGRANGE", degree=3)
+    t0 = bh.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+
+    # Smooth, non-constant-rate rotation profile about the z-axis.
+    def theta(t):
+        return 0.3 * t + 0.05 * math.sin(t)
+
+    for i in range(6):
+        t = float(i)
+        traj.add(t0 + t, z_axis_quaternion(theta(t)))
+
+    query_t = 2.5
+    q = traj.quaternion(t0 + query_t)
+    analytic = z_axis_quaternion(theta(query_t))
+
+    dot = np.dot(q.to_vector(scalar_first=True), analytic.to_vector(scalar_first=True))
+    angular_error = 2.0 * np.arccos(np.clip(dot, -1.0, 1.0))
+
+    assert angular_error < 5e-3, f"angular_error = {angular_error}"
+
+
+def test_attitude_trajectory_interpolate_lagrange_centered_window_tight_tolerance():
+    """Rust: test_attitude_trajectory_interpolate_lagrange_centered_window_tight_tolerance"""
+    frame_a, frame_b = body_frames()
+    traj = AttitudeTrajectory(frame_a, frame_b)
+    traj.set_interpolation_method("LAGRANGE", degree=3)
+    t0 = bh.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+
+    # Same smooth, non-constant-rate rotation profile as the edge-window case
+    # above, but sampled ten times finer (0.1s spacing instead of 1s).
+    def theta(t):
+        return 0.3 * t + 0.05 * math.sin(t)
+
+    for i in range(6):
+        t = 0.1 * i
+        traj.add(t0 + t, z_axis_quaternion(theta(t)))
+
+    # At query_t = 0.15, the selected Lagrange window is exactly centered on
+    # the query, unlike the t = 2.5 case above.
+    query_t = 0.15
+    q = traj.quaternion(t0 + query_t)
+    analytic = z_axis_quaternion(theta(query_t))
+
+    dot = np.dot(q.to_vector(scalar_first=True), analytic.to_vector(scalar_first=True))
+    angular_error = 2.0 * np.arccos(np.clip(dot, -1.0, 1.0))
+
+    assert angular_error < 1e-6, f"angular_error = {angular_error}"
+
+
+def test_attitude_trajectory_interpolate_lagrange_wide_span_sequential_alignment():
+    """Rust: test_attitude_trajectory_interpolate_lagrange_wide_span_sequential_alignment"""
+    frame_a, frame_b = body_frames()
+    traj = AttitudeTrajectory(frame_a, frame_b)
+    traj.set_interpolation_method("LAGRANGE", degree=3)
+
+    omega = 1.5  # rad/s
+    t0 = bh.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+
+    for i in range(4):
+        t = float(i)
+        traj.add(t0 + t, z_axis_quaternion(omega * t))
+
+    # Query at the midpoint of the (only, entire-trajectory) window.
+    query_t = 1.5
+    q = traj.quaternion(t0 + query_t)
+    analytic = z_axis_quaternion(omega * query_t)
+
+    dot = np.dot(q.to_vector(scalar_first=True), analytic.to_vector(scalar_first=True))
+    assert dot > 0.99, f"dot = {dot}"
+
+
+def test_lagrange_window_does_not_span_a_discontinuity():
+    """Rust: test_lagrange_window_does_not_span_a_discontinuity"""
+    frame_a, frame_b = body_frames()
+    traj = AttitudeTrajectory(frame_a, frame_b)
+    traj.set_interpolation_method("LAGRANGE", degree=3)
+
+    t0 = bh.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    # Continuous run, then an impulsive slew at t0 + 20 whose post-state
+    # jumps, then a second continuous run.
+    for offset, angle in [(0.0, 0.0), (10.0, 0.2), (20.0, 0.4)]:
+        traj.add(t0 + offset, z_axis_quaternion(angle))
+    for offset, angle in [(20.0, 2.0), (30.0, 2.2), (40.0, 2.4)]:
+        traj.add(t0 + offset, z_axis_quaternion(angle))
+
+    # A query inside the first run fits only that run's samples. Fitting
+    # across the repeated epoch would divide by a zero-length abscissa
+    # difference and return NaN.
+    v = traj.quaternion(t0 + 5.0).to_vector(scalar_first=True)
+    assert np.all(np.isfinite(v)), v
+    assert np.linalg.norm(v) == pytest.approx(1.0, abs=1e-12)
+
+    # The same holds for a query inside the second run.
+    v = traj.quaternion(t0 + 35.0).to_vector(scalar_first=True)
+    assert np.all(np.isfinite(v)), v
+    assert np.linalg.norm(v) == pytest.approx(1.0, abs=1e-12)
+
+
+def test_attitude_trajectory_interpolate_lagrange_with_angular_velocity():
+    """Rust: test_attitude_trajectory_interpolate_lagrange_with_angular_velocity"""
+    frame_a, frame_b = body_frames()
+    traj = AttitudeTrajectory(frame_a, frame_b)
+    traj.set_interpolation_method("LAGRANGE", degree=3)
+
+    omega = np.array([0.0, 0.0, 0.02])
+    t0 = bh.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+
+    for i in range(4):
+        t = float(i)
+        traj.add(t0 + t, z_axis_quaternion(omega[2] * t), omega)
+
+    interpolated_omega = traj.angular_velocity(t0 + 1.5)
+    assert interpolated_omega[2] == pytest.approx(omega[2], abs=1e-12)
+
+
+def test_attitude_trajectory_interpolate_lagrange_in_window_hemisphere_flip():
+    """Rust: test_attitude_trajectory_interpolate_lagrange_in_window_hemisphere_flip"""
+    frame_a, frame_b = body_frames()
+    traj = AttitudeTrajectory(frame_a, frame_b)
+    traj.set_interpolation_method("LAGRANGE", degree=3)
+
+    omega = 4.0  # rad/s
+    t0 = bh.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+
+    for i in range(4):
+        t = float(i)
+        traj.add(t0 + t, z_axis_quaternion(omega * t))
+
+    q = traj.quaternion(t0 + 1.5)
+    norm = np.linalg.norm(q.to_vector(scalar_first=True))
+    assert norm == pytest.approx(1.0, abs=1e-9)
+
+
 def test_attitude_provider_angular_velocity_none_without_rates():
     """Mirror of test_attitude_provider_angular_velocity_none_without_rates in Rust."""
     frame_a, frame_b = body_frames()
@@ -219,3 +507,63 @@ def test_attitude_provider_euler_angle_euler_axis_rotation_matrix():
     np.testing.assert_allclose(
         rot.to_matrix(), q.to_rotation_matrix().to_matrix(), atol=1e-10
     )
+
+
+def test_attitude_provider_quaternion_and_defaults_consistent():
+    """Rust: test_attitude_provider_quaternion_and_defaults_consistent"""
+    traj = small_attitude_trajectory()
+    epoch = traj.start_epoch + 30.0
+
+    q = traj.quaternion(epoch)
+
+    # euler_angle default: EulerAngle::from_quaternion(quaternion, order)
+    euler = traj.euler_angle(epoch, bh.EulerAngleOrder.ZYX)
+    expected_euler = q.to_euler_angle(bh.EulerAngleOrder.ZYX)
+    assert euler.phi == expected_euler.phi
+    assert euler.theta == expected_euler.theta
+    assert euler.psi == expected_euler.psi
+
+    # euler_axis default: ToAttitude::to_euler_axis on the same quaternion
+    axis = traj.euler_axis(epoch)
+    expected_axis = q.to_euler_axis()
+    assert axis.angle == expected_axis.angle
+
+    # rotation_matrix default: ToAttitude::to_rotation_matrix on the same quaternion
+    r = traj.rotation_matrix(epoch)
+    expected_r = q.to_rotation_matrix()
+    np.testing.assert_array_equal(r.to_matrix(), expected_r.to_matrix())
+
+
+def test_attitude_provider_angular_velocity_errors_out_of_coverage_without_rates():
+    """Rust: test_attitude_provider_angular_velocity_errors_out_of_coverage_without_rates"""
+    traj = small_attitude_trajectory()
+    before_start = traj.start_epoch - 10.0
+    after_end = traj.end_epoch + 10.0
+
+    with pytest.raises(Exception, match="before trajectory start"):
+        traj.angular_velocity(before_start)
+    with pytest.raises(Exception, match="after trajectory end"):
+        traj.angular_velocity(after_end)
+
+
+def test_attitude_provider_angular_velocity_errors_for_empty_trajectory():
+    """Rust: test_attitude_provider_angular_velocity_errors_for_empty_trajectory"""
+    frame_a, frame_b = body_frames()
+    traj = AttitudeTrajectory(frame_a, frame_b)
+    epoch = bh.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+
+    with pytest.raises(Exception, match="empty trajectory"):
+        traj.angular_velocity(epoch)
+
+
+def test_attitude_provider_angular_velocity_with_rates():
+    """Rust: test_attitude_provider_angular_velocity_with_rates"""
+    frame_a, frame_b = body_frames()
+    traj = AttitudeTrajectory(frame_a, frame_b)
+    t0 = bh.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    omega = np.array([0.0, 0.0, 0.01])
+    traj.add(t0, z_axis_quaternion(0.0), omega)
+    traj.add(t0 + 60.0, z_axis_quaternion(0.6), omega)
+
+    result = traj.angular_velocity(t0 + 30.0)
+    np.testing.assert_array_equal(result, omega)

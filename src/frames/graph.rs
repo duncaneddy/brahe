@@ -37,10 +37,10 @@ use crate::frames::{
 };
 use crate::math::{SMatrix3, SVector6};
 use crate::relative_motion::{
-    omega_lvlh, omega_nsw, omega_ntw_for_body, omega_rtn, omega_sez, omega_tnw_for_body,
-    omega_vnc_for_body, rotation_ecef_to_sez, rotation_eci_to_eqw, rotation_eci_to_lvlh,
-    rotation_eci_to_nsw, rotation_eci_to_ntw, rotation_eci_to_rtn, rotation_eci_to_tnw,
-    rotation_eci_to_vnc, rotation_inertial_to_pqw_for_body,
+    omega_enz, omega_lvlh, omega_nsw, omega_ntw_for_body, omega_rtn, omega_sez, omega_tnw_for_body,
+    omega_vnc_for_body, rotation_ecef_to_enz, rotation_ecef_to_sez, rotation_eci_to_eqw,
+    rotation_eci_to_lvlh, rotation_eci_to_nsw, rotation_eci_to_ntw, rotation_eci_to_rtn,
+    rotation_eci_to_tnw, rotation_eci_to_vnc, rotation_inertial_to_pqw_for_body,
 };
 use crate::spice::NAIFId;
 use crate::time::Epoch;
@@ -431,6 +431,49 @@ fn provider_error(frame: &ReferenceFrame, err: BraheError) -> BraheError {
     BraheError::Error(format!("orientation for {frame}: {err}"))
 }
 
+/// Resolves a topocentric orbit-relative kind's site state in ITRF, guarding
+/// that the object is Earth-centered.
+///
+/// `SEZ` and `ENZ` are defined only for Earth-centered objects, since their
+/// axes come from the WGS84 geodetic vertical. When the object's state is
+/// already declared in ITRF, `x` is used directly rather than round-tripping
+/// `x_root` back through `state_frame_to_frame`.
+///
+/// # Arguments
+/// - `kind`: The topocentric orbit-relative kind being resolved (used to
+///   name the frame in the error message)
+/// - `object`: The object the frame is bound to
+/// - `declared`: The celestial frame the object's state is declared in
+/// - `root`: The ICRF-aligned inertial frame sharing `declared`'s center
+/// - `x`: The object's state as declared, in `declared` axes
+/// - `x_root`: The object's state converted into `root` axes
+/// - `epc`: Epoch instant for evaluation
+///
+/// # Returns
+/// - `Ok(SVector6)`: The object's state in ITRF
+/// - `Err(BraheError)`: If `root`'s center is not Earth
+fn earth_site_state(
+    kind: OrbitRelativeFrameKind,
+    object: &ObjectId,
+    declared: CelestialFrame,
+    root: CelestialFrame,
+    x: SVector6,
+    x_root: SVector6,
+    epc: Epoch,
+) -> Result<SVector6, BraheError> {
+    if root.center() != FrameCenter::Body(NAIFId::Earth) {
+        return Err(BraheError::Error(format!(
+            "orbit-relative kind {kind} is a topocentric frame on the WGS84 ellipsoid and \
+             requires an Earth-centered object; {object} is declared in {declared}"
+        )));
+    }
+    if declared == CelestialFrame::ITRF {
+        Ok(x)
+    } else {
+        state_frame_to_frame(root, CelestialFrame::ITRF, epc, x_root)
+    }
+}
+
 /// Builds a bound orbit-relative frame's axes from its object's registered
 /// state.
 ///
@@ -457,7 +500,7 @@ fn provider_error(frame: &ReferenceFrame, err: BraheError) -> BraheError {
 ///   enum's public fields and deserialization admit, or (for `NSW`) the Sun
 ///   state cannot be obtained from the configured
 ///   [`FrameEphemerisSource`](crate::frames::FrameEphemerisSource), or (for
-///   `SEZ`) `object`'s declared center is not Earth
+///   `SEZ` or `ENZ`) `object`'s declared center is not Earth
 fn resolve_orbit_relative(
     kind: OrbitRelativeFrameKind,
     variant: OrbitRelativeFrameVariant,
@@ -552,20 +595,17 @@ fn resolve_orbit_relative(
             (rotation_eci_to_nsw(x_root, x_sun), omega_nsw(x_root, x_sun))
         }
         OrbitRelativeFrameKind::SEZ => {
-            if root.center() != FrameCenter::Body(NAIFId::Earth) {
-                return Err(BraheError::Error(format!(
-                    "orbit-relative kind SEZ is a topocentric frame on the WGS84 ellipsoid and \
-                     requires an Earth-centered object; {object} is declared in {declared}"
-                )));
-            }
-            let x_itrf = if declared == CelestialFrame::ITRF {
-                x
-            } else {
-                state_frame_to_frame(root, CelestialFrame::ITRF, epc, x_root)?
-            };
+            let x_itrf = earth_site_state(kind, object, declared, root, x, x_root, epc)?;
             let r_site = rotation_ecef_to_sez(x_itrf);
             let dcm = r_site * rotation_gcrf_to_itrf(epc);
             let omega = r_site * itrf_angular_velocity_at(epc) + omega_sez(x_itrf);
+            (dcm, omega)
+        }
+        OrbitRelativeFrameKind::ENZ => {
+            let x_itrf = earth_site_state(kind, object, declared, root, x, x_root, epc)?;
+            let r_site = rotation_ecef_to_enz(x_itrf);
+            let dcm = r_site * rotation_gcrf_to_itrf(epc);
+            let omega = r_site * itrf_angular_velocity_at(epc) + omega_enz(x_itrf);
             (dcm, omega)
         }
     };
@@ -766,7 +806,7 @@ mod tests {
         CallbackOrientation, FrameCenter, FrameEphemerisSource, OrientationProvider,
         clear_frame_registry, clear_object_registry, covariance_frame_to_frame,
         position_frame_to_frame, register_frame, register_object, rotation_frame_to_frame,
-        set_frame_ephemeris_source, unregister_frame,
+        set_frame_ephemeris_source, state_itrf_to_gcrf, unregister_frame,
     };
     use crate::math::{SMatrix6, SVector6};
     use crate::orbit_dynamics::ephemerides::sun_position;
@@ -775,8 +815,8 @@ mod tests {
         covariance_eci_to_lvlh, omega_lvlh, omega_nsw, omega_ntw, omega_ntw_for_body, omega_tnw,
         omega_vnc, rotation_eci_to_eqw, rotation_eci_to_lvlh, rotation_eci_to_nsw,
         rotation_eci_to_ntw, rotation_eci_to_pqw, rotation_eci_to_tnw,
-        rotation_inertial_to_pqw_for_body, state_ecef_to_sez, state_eci_to_eqw, state_eci_to_lvlh,
-        state_eci_to_pqw, state_eci_to_rtn,
+        rotation_inertial_to_pqw_for_body, state_ecef_to_enz, state_ecef_to_sez, state_eci_to_eqw,
+        state_eci_to_lvlh, state_eci_to_pqw, state_eci_to_rtn,
     };
     use crate::spice::{NAIFId, spk_state};
     use crate::time::TimeSystem;
@@ -1910,6 +1950,116 @@ mod tests {
             .unwrap_err()
             .to_string();
         assert!(err.contains("SEZ"), "{err}");
+        assert!(err.contains("Earth"), "{err}");
+        clear_object_registry();
+    }
+
+    #[test]
+    #[serial]
+    fn test_enz_gcrf_declared_station_matches_itrf_site() {
+        setup_global_test_eop();
+        clear_object_registry();
+        let epc = Epoch::from_date(2024, 3, 1, TimeSystem::UTC);
+        let r = position_geodetic_to_ecef(Vector3::new(30.0, 45.0, 500.0), AngleFormat::Degrees)
+            .unwrap();
+        let x_gs = SVector6::new(r[0], r[1], r[2], 0.0, 0.0, 0.0);
+        let x_gcrf = state_itrf_to_gcrf(epc, x_gs);
+        register_object("GS", FnProvider(move |_| Ok(x_gcrf)), CelestialFrame::GCRF).unwrap();
+
+        let got =
+            rotation_frame_to_frame(CelestialFrame::ITRF, ReferenceFrame::ENZ("GS"), epc).unwrap();
+        assert_abs_diff_eq!(got, rotation_ecef_to_enz(x_gs), epsilon = 1e-9);
+        clear_object_registry();
+    }
+
+    #[test]
+    #[serial]
+    fn test_enz_station_rotation_matches_relative_motion() {
+        setup_global_test_eop();
+        clear_object_registry();
+        let epc = Epoch::from_date(2024, 3, 1, TimeSystem::UTC);
+        let r = position_geodetic_to_ecef(Vector3::new(30.0, 45.0, 500.0), AngleFormat::Degrees)
+            .unwrap();
+        let x_gs = SVector6::new(r[0], r[1], r[2], 0.0, 0.0, 0.0);
+        register_object("GS", FnProvider(move |_| Ok(x_gs)), CelestialFrame::ITRF).unwrap();
+
+        let got =
+            rotation_frame_to_frame(CelestialFrame::ITRF, ReferenceFrame::ENZ("GS"), epc).unwrap();
+        assert_abs_diff_eq!(got, rotation_ecef_to_enz(x_gs), epsilon = 1e-12);
+
+        // Rotating variant: rate relative to GCRF is Earth's rotation in ENZ axes
+        let resolved = resolve_orientation(&ReferenceFrame::ENZ("GS"), epc, true).unwrap();
+        assert_eq!(resolved.root, CelestialFrame::GCRF);
+        let expected = rotation_ecef_to_enz(x_gs) * itrf_angular_velocity_at(epc);
+        assert_abs_diff_eq!(resolved.omega.unwrap(), expected, epsilon = 1e-15);
+        clear_object_registry();
+    }
+
+    #[test]
+    #[serial]
+    fn test_enz_moving_site_rate_composes_site_and_earth_rotation() {
+        setup_global_test_eop();
+        clear_object_registry();
+        let epc = Epoch::from_date(2024, 3, 1, TimeSystem::UTC);
+        let r_gs = position_geodetic_to_ecef(Vector3::new(30.0, 45.0, 10e3), AngleFormat::Degrees)
+            .unwrap();
+        let x_gs = SVector6::new(r_gs[0], r_gs[1], r_gs[2], -120.0, 180.0, 90.0);
+        register_object("GS", FnProvider(move |_| Ok(x_gs)), CelestialFrame::ITRF).unwrap();
+
+        // Rate relative to GCRF: Earth's rotation in ENZ axes plus the site's
+        // own transport rate, which is nonzero for a moving site.
+        let resolved = resolve_orientation(&ReferenceFrame::ENZ("GS"), epc, true).unwrap();
+        let r_site = rotation_ecef_to_enz(x_gs);
+        let expected = r_site * itrf_angular_velocity_at(epc) + omega_enz(x_gs);
+        assert!(omega_enz(x_gs).norm() > 1e-6);
+        assert_abs_diff_eq!(resolved.omega.unwrap(), expected, epsilon = 1e-15);
+
+        // A target's relative state through the graph matches the ECEF-side
+        // transform, which carries the same site rate.
+        let r_t = r_gs + Vector3::new(200e3, 300e3, 400e3);
+        let x_t = SVector6::new(r_t[0], r_t[1], r_t[2], 0.0, 0.0, 0.0);
+        let rel = state_frame_to_frame(CelestialFrame::ITRF, ReferenceFrame::ENZ("GS"), epc, x_t)
+            .unwrap();
+        assert_abs_diff_eq!(rel, state_ecef_to_enz(x_gs, x_t), epsilon = 1e-6);
+        clear_object_registry();
+    }
+
+    #[test]
+    #[serial]
+    fn test_enz_pole_site_rotation_matches_relative_motion() {
+        setup_global_test_eop();
+        clear_object_registry();
+        let epc = Epoch::from_date(2024, 3, 1, TimeSystem::UTC);
+        let r_gs =
+            position_geodetic_to_ecef(Vector3::new(0.0, 90.0, 0.0), AngleFormat::Degrees).unwrap();
+        let x_gs = SVector6::new(r_gs[0], r_gs[1], r_gs[2], 0.0, 0.0, 0.0);
+        register_object("GS", FnProvider(move |_| Ok(x_gs)), CelestialFrame::ITRF).unwrap();
+
+        let got =
+            rotation_frame_to_frame(CelestialFrame::ITRF, ReferenceFrame::ENZ("GS"), epc).unwrap();
+        assert_abs_diff_eq!(got, rotation_ecef_to_enz(x_gs), epsilon = 1e-12);
+        assert_abs_diff_eq!(got * got.transpose(), SMatrix3::identity(), epsilon = 1e-12);
+        // Zenith at the pole is the polar axis
+        assert_abs_diff_eq!(got.row(2).transpose(), Vector3::z(), epsilon = 1e-9);
+        clear_object_registry();
+    }
+
+    #[test]
+    #[serial]
+    fn test_enz_requires_earth_centered_object() {
+        clear_object_registry();
+        let epc = Epoch::from_date(2024, 3, 1, TimeSystem::UTC);
+        let x = SVector6::new(R_MARS + 400e3, 0.0, 0.0, 0.0, 3.4e3, 0.0);
+        register_object(
+            "M",
+            FnProvider(move |_| Ok(x)),
+            CelestialFrame::centered(499, FrameAxes::ICRF),
+        )
+        .unwrap();
+        let err = rotation_frame_to_frame(CelestialFrame::GCRF, ReferenceFrame::ENZ("M"), epc)
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("ENZ"), "{err}");
         assert!(err.contains("Earth"), "{err}");
         clear_object_registry();
     }

@@ -219,6 +219,36 @@ impl ReferenceFrame {
         )
     }
 
+    /// Constructs a bound east/north/zenith topocentric frame (rotating
+    /// variant).
+    ///
+    /// Axes: E east, N north, Z along the WGS84 geodetic vertical at the
+    /// object's position (see
+    /// [`crate::relative_motion::rotation_ecef_to_enz`]). Not a SANA frame;
+    /// evaluable only for Earth-centered objects.
+    ///
+    /// # Arguments
+    /// * `object` - The object the frame is defined relative to
+    ///
+    /// # Returns
+    /// `ReferenceFrame`: The bound `ENZ (rotating)` orbit-relative frame
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use brahe::frames::ReferenceFrame;
+    ///
+    /// assert_eq!(ReferenceFrame::ENZ("GS").to_string(), "ENZ (rotating)@GS");
+    /// ```
+    #[allow(non_snake_case)]
+    pub fn ENZ(object: impl Into<ObjectId>) -> ReferenceFrame {
+        ReferenceFrame::orbit_relative_unchecked(
+            OrbitRelativeFrameKind::ENZ,
+            OrbitRelativeFrameVariant::Rotating,
+            object,
+        )
+    }
+
     /// Constructs a bound Velocity/Normal/Co-normal orbit-relative frame
     /// (rotating variant).
     ///
@@ -995,6 +1025,7 @@ mod tests {
             (ReferenceFrame::VNC("SC"), "VNC (rotating)@SC"),
             (ReferenceFrame::NSW("SC"), "NSW (rotating)@SC"),
             (ReferenceFrame::EQW("SC"), "EQW (inertial)@SC"),
+            (ReferenceFrame::ENZ("GS"), "ENZ (rotating)@GS"),
         ];
         for (frame, expected) in cases {
             assert_eq!(frame.to_string(), expected);

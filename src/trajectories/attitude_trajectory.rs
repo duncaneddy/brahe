@@ -1893,6 +1893,33 @@ mod tests {
         assert_eq!(traj.index_after_epoch(&(t0 + 10.0)).unwrap(), 1);
     }
 
+    #[test]
+    #[serial_test::parallel]
+    fn test_attitude_trajectory_state_before_after_epoch() {
+        let (a, b) = body_frames();
+        let mut traj = AttitudeTrajectory::new(a, b);
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        traj.add(t0, AttitudeState::new(z_axis_quaternion(0.0)))
+            .unwrap();
+        traj.add(t0 + 10.0, AttitudeState::new(z_axis_quaternion(0.1)))
+            .unwrap();
+
+        let (epoch, state) = traj.state_before_epoch(&(t0 + 3.0)).unwrap();
+        assert_eq!(epoch, t0);
+        assert_eq!(state.quaternion, z_axis_quaternion(0.0));
+
+        let (epoch, state) = traj.state_after_epoch(&(t0 + 3.0)).unwrap();
+        assert_eq!(epoch, t0 + 10.0);
+        assert_eq!(state.quaternion, z_axis_quaternion(0.1));
+
+        // An exact node is returned by both accessors
+        assert_eq!(traj.state_before_epoch(&(t0 + 10.0)).unwrap().0, t0 + 10.0);
+        assert_eq!(traj.state_after_epoch(&t0).unwrap().0, t0);
+
+        assert!(traj.state_before_epoch(&(t0 - 1.0)).is_err());
+        assert!(traj.state_after_epoch(&(t0 + 11.0)).is_err());
+    }
+
     // =========================================================================
     // Trajectory trait: timespan / first / last / clear / remove(_epoch)
     // =========================================================================

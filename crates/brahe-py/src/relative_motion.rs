@@ -4527,3 +4527,411 @@ fn py_state_pqw_to_inertial_for_body<'py>(
         |cs, rs| relative_motion::states_pqw_to_inertial_for_body(cs, rs, gm),
     )
 }
+
+/// Computes the rotation matrix transforming a vector in the equinoctial (EQW) frame to the
+/// Earth-Centered Inertial (ECI) frame.
+///
+/// The EQW frame follows the SANA definition:
+/// - E: Unit vector along the ascending node, z x h normalized, where z is the inertial
+///   pole and h the orbit normal.
+/// - W: Unit vector along the orbital angular momentum (r x v).
+/// - Q: W x E, completing the right-handed set.
+///
+/// SANA registers EQW only as a quasi-inertial snapshot: the axes are taken from the state at
+/// the evaluation epoch and treated as fixed, so there is no rate and the Jacobians are block
+/// diagonal. On an equatorial orbit the node is undefined (node vector norm below 1e-9) and E
+/// is taken along the inertial x axis projected into the orbit plane, matching the zero
+/// right-ascension convention while keeping the matrix orthonormal.
+///
+/// Args:
+///     x_eci (numpy.ndarray or list): 6D state vector in the ECI frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
+///         vectors with the 6 components along `axis` (for example shape (n, 6)).
+///     axis (int, optional): The axis along which the 6 components of a single vector
+///         lie; the remaining axes enumerate the batch. For a batch of shape (n, 6)
+///         the components lie along the last axis, so the default `-1` applies; a
+///         (6, n) column layout uses `axis=0`.
+///
+/// Returns:
+///     numpy.ndarray: 3x3 rotation matrix transforming from EQW to ECI frame, shape (3, 3), or the batch dimensions
+///         followed by (3, 3) for batched input.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     oe = np.array([bh.R_EARTH + 700e3, 0.01, 97.8, 15.0, 30.0, 45.0])
+///     state = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
+///
+///     R = bh.rotation_eqw_to_eci(state)
+///     print(f"EQW to ECI rotation matrix:\n{R}")
+///     ```
+#[pyfunction]
+#[pyo3(signature = (x_eci, axis=-1))]
+#[pyo3(text_signature = "(x_eci, axis=-1)")]
+#[pyo3(name = "rotation_eqw_to_eci")]
+fn py_rotation_eqw_to_eci<'py>(
+    py: Python<'py>,
+    x_eci: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_vec_rotation::<6>(
+        py,
+        x_eci,
+        axis,
+        relative_motion::rotation_eqw_to_eci,
+        relative_motion::rotations_eqw_to_eci,
+    )
+}
+
+/// Computes the rotation matrix transforming a vector in the Earth-Centered Inertial (ECI)
+/// frame to the equinoctial (EQW) frame.
+///
+/// This is the transpose (inverse) of the EQW-to-ECI rotation matrix.
+///
+/// The EQW frame follows the SANA definition:
+/// - E: Unit vector along the ascending node, z x h normalized, where z is the inertial
+///   pole and h the orbit normal.
+/// - W: Unit vector along the orbital angular momentum (r x v).
+/// - Q: W x E, completing the right-handed set.
+///
+/// SANA registers EQW only as a quasi-inertial snapshot: the axes are taken from the state at
+/// the evaluation epoch and treated as fixed, so there is no rate and the Jacobians are block
+/// diagonal. On an equatorial orbit the node is undefined (node vector norm below 1e-9) and E
+/// is taken along the inertial x axis projected into the orbit plane, matching the zero
+/// right-ascension convention while keeping the matrix orthonormal.
+///
+/// Args:
+///     x_eci (numpy.ndarray or list): 6D state vector in the ECI frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
+///         vectors with the 6 components along `axis` (for example shape (n, 6)).
+///     axis (int, optional): The axis along which the 6 components of a single vector
+///         lie; the remaining axes enumerate the batch. For a batch of shape (n, 6)
+///         the components lie along the last axis, so the default `-1` applies; a
+///         (6, n) column layout uses `axis=0`.
+///
+/// Returns:
+///     numpy.ndarray: 3x3 rotation matrix transforming from ECI to EQW frame, shape (3, 3), or the batch dimensions
+///         followed by (3, 3) for batched input.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     oe = np.array([bh.R_EARTH + 700e3, 0.01, 97.8, 15.0, 30.0, 45.0])
+///     state = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
+///
+///     R = bh.rotation_eci_to_eqw(state)
+///     print(f"ECI to EQW rotation matrix:\n{R}")
+///     ```
+#[pyfunction]
+#[pyo3(signature = (x_eci, axis=-1))]
+#[pyo3(text_signature = "(x_eci, axis=-1)")]
+#[pyo3(name = "rotation_eci_to_eqw")]
+fn py_rotation_eci_to_eqw<'py>(
+    py: Python<'py>,
+    x_eci: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_vec_rotation::<6>(
+        py,
+        x_eci,
+        axis,
+        relative_motion::rotation_eci_to_eqw,
+        relative_motion::rotations_eci_to_eqw,
+    )
+}
+
+/// 6x6 Jacobian taking an EQW state covariance into ECI axes.
+///
+/// EQW is a quasi-inertial snapshot with no angular rate, so the Jacobian is the block diagonal
+/// `[[R, 0], [0, R]]` with `R` the EQW-to-ECI rotation.
+///
+/// Args:
+///     x_eci (numpy.ndarray or list): 6D state vector of the frame's origin in the ECI frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
+///         vectors with the 6 components along `axis` (for example shape (n, 6)).
+///     axis (int, optional): The axis along which the 6 components of a single vector
+///         lie; the remaining axes enumerate the batch. For a batch of shape (n, 6)
+///         the components lie along the last axis, so the default `-1` applies; a
+///         (6, n) column layout uses `axis=0`.
+///
+/// Returns:
+///     numpy.ndarray: 6x6 Jacobian such that `P_eci = J @ P_eqw @ J.T`, shape (6, 6), or the batch dimensions
+///         followed by (6, 6) for batched input.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     oe = np.array([bh.R_EARTH + 700e3, 0.01, 97.8, 15.0, 30.0, 45.0])
+///     x_eci = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
+///     j = bh.jacobian_eqw_to_eci(x_eci)
+///     ```
+#[pyfunction]
+#[pyo3(signature = (x_eci, axis=-1))]
+#[pyo3(text_signature = "(x_eci, axis=-1)")]
+#[pyo3(name = "jacobian_eqw_to_eci")]
+fn py_jacobian_eqw_to_eci<'py>(
+    py: Python<'py>,
+    x_eci: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_vec_matrix::<6, 6>(
+        py,
+        x_eci,
+        axis,
+        relative_motion::jacobian_eqw_to_eci,
+        relative_motion::jacobians_eqw_to_eci,
+    )
+}
+
+/// 6x6 Jacobian taking an ECI state covariance into EQW axes. Exact inverse of
+/// `jacobian_eqw_to_eci`.
+///
+/// EQW is a quasi-inertial snapshot with no angular rate, so the Jacobian is the block diagonal
+/// `[[R.T, 0], [0, R.T]]` with `R` the EQW-to-ECI rotation.
+///
+/// Args:
+///     x_eci (numpy.ndarray or list): 6D state vector of the frame's origin in the ECI frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
+///         vectors with the 6 components along `axis` (for example shape (n, 6)).
+///     axis (int, optional): The axis along which the 6 components of a single vector
+///         lie; the remaining axes enumerate the batch. For a batch of shape (n, 6)
+///         the components lie along the last axis, so the default `-1` applies; a
+///         (6, n) column layout uses `axis=0`.
+///
+/// Returns:
+///     numpy.ndarray: 6x6 Jacobian such that `P_eqw = J @ P_eci @ J.T`, shape (6, 6), or the batch dimensions
+///         followed by (6, 6) for batched input.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     oe = np.array([bh.R_EARTH + 700e3, 0.01, 97.8, 15.0, 30.0, 45.0])
+///     x_eci = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
+///     j = bh.jacobian_eci_to_eqw(x_eci)
+///     ```
+#[pyfunction]
+#[pyo3(signature = (x_eci, axis=-1))]
+#[pyo3(text_signature = "(x_eci, axis=-1)")]
+#[pyo3(name = "jacobian_eci_to_eqw")]
+fn py_jacobian_eci_to_eqw<'py>(
+    py: Python<'py>,
+    x_eci: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_vec_matrix::<6, 6>(
+        py,
+        x_eci,
+        axis,
+        relative_motion::jacobian_eci_to_eqw,
+        relative_motion::jacobians_eci_to_eqw,
+    )
+}
+
+/// Transforms a 6x6 state covariance from EQW axes into ECI axes.
+///
+/// Applies the congruence `P_eci = J @ P_eqw @ J.T` with `J` from `jacobian_eqw_to_eci`.
+///
+/// Args:
+///     x_eci (numpy.ndarray or list): 6D state vector of the frame's origin in the ECI frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
+///         vectors with the 6 components along `axis` (for example shape (n, 6)).
+///     covariance (numpy.ndarray): 6x6 state covariance in EQW axes, shape (6, 6), or an (n, 6, 6) batch stacked along the leading axis; either argument may be single and broadcasts
+///     axis (int, optional): The axis along which the 6 components of a single vector
+///         lie; the remaining axes enumerate the batch. For a batch of shape (n, 6)
+///         the components lie along the last axis, so the default `-1` applies; a
+///         (6, n) column layout uses `axis=0`.
+///
+/// Returns:
+///     numpy.ndarray: 6x6 state covariance in ECI axes, shape (6, 6). For batched input, when `x_eci` is batched the output is its batch dimensions followed by (6, 6), except a length-1 `x_eci` batch broadcast against n covariances yields (n, 6, 6); when only `covariance` is batched the output is (n, 6, 6).
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     oe = np.array([bh.R_EARTH + 700e3, 0.01, 97.8, 15.0, 30.0, 45.0])
+///     x_eci = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
+///     p_eci = bh.covariance_eqw_to_eci(x_eci, np.eye(6) * 100.0)
+///     ```
+#[pyfunction]
+#[pyo3(signature = (x_eci, covariance, axis=-1))]
+#[pyo3(text_signature = "(x_eci, covariance, axis=-1)")]
+#[pyo3(name = "covariance_eqw_to_eci")]
+fn py_covariance_eqw_to_eci<'py>(
+    py: Python<'py>,
+    x_eci: &Bound<'py, PyAny>,
+    covariance: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_vec_covariance::<6>(
+        py,
+        x_eci,
+        covariance,
+        axis,
+        relative_motion::covariance_eqw_to_eci,
+        relative_motion::covariances_eqw_to_eci,
+    )
+}
+
+/// Transforms a 6x6 state covariance from ECI axes into EQW axes.
+///
+/// Applies the congruence `P_eqw = J @ P_eci @ J.T` with `J` from `jacobian_eci_to_eqw`.
+///
+/// Args:
+///     x_eci (numpy.ndarray or list): 6D state vector of the frame's origin in the ECI frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
+///         vectors with the 6 components along `axis` (for example shape (n, 6)).
+///     covariance (numpy.ndarray): 6x6 state covariance in ECI axes, shape (6, 6), or an (n, 6, 6) batch stacked along the leading axis; either argument may be single and broadcasts
+///     axis (int, optional): The axis along which the 6 components of a single vector
+///         lie; the remaining axes enumerate the batch. For a batch of shape (n, 6)
+///         the components lie along the last axis, so the default `-1` applies; a
+///         (6, n) column layout uses `axis=0`.
+///
+/// Returns:
+///     numpy.ndarray: 6x6 state covariance in EQW axes, shape (6, 6). For batched input, when `x_eci` is batched the output is its batch dimensions followed by (6, 6), except a length-1 `x_eci` batch broadcast against n covariances yields (n, 6, 6); when only `covariance` is batched the output is (n, 6, 6).
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     oe = np.array([bh.R_EARTH + 700e3, 0.01, 97.8, 15.0, 30.0, 45.0])
+///     x_eci = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
+///     p_eqw = bh.covariance_eci_to_eqw(x_eci, np.eye(6) * 100.0)
+///     ```
+#[pyfunction]
+#[pyo3(signature = (x_eci, covariance, axis=-1))]
+#[pyo3(text_signature = "(x_eci, covariance, axis=-1)")]
+#[pyo3(name = "covariance_eci_to_eqw")]
+fn py_covariance_eci_to_eqw<'py>(
+    py: Python<'py>,
+    x_eci: &Bound<'py, PyAny>,
+    covariance: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_vec_covariance::<6>(
+        py,
+        x_eci,
+        covariance,
+        axis,
+        relative_motion::covariance_eci_to_eqw,
+        relative_motion::covariances_eci_to_eqw,
+    )
+}
+
+/// Transforms the absolute states of a chief and deputy satellite from the Earth-Centered
+/// Inertial (ECI) frame to the relative state of the deputy with respect to the chief in the
+/// equinoctial (EQW) frame.
+///
+/// EQW is a quasi-inertial snapshot, so the relative velocity is a pure rotation of the ECI
+/// relative velocity with no transport term.
+///
+/// Args:
+///     x_chief (numpy.ndarray or list): 6D state vector of the chief satellite in the ECI frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
+///         vectors with the 6 components along `axis` (for example shape (n, 6)).
+///     x_deputy (numpy.ndarray or list): 6D state vector of the deputy satellite in the ECI frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
+///         vectors with the 6 components along `axis` (for example shape (n, 6)).
+///     axis (int, optional): The axis along which the 6 components of a single vector
+///         lie; the remaining axes enumerate the batch. For a batch of shape (n, 6)
+///         the components lie along the last axis, so the default `-1` applies; a
+///         (6, n) column layout uses `axis=0`.
+///         A single vector in one argument is broadcast across a batch in the other.
+///
+/// Returns:
+///     numpy.ndarray: 6D relative state of the deputy with respect to the chief in the EQW frame [rho_E, rho_Q, rho_W, rho_dot_E, rho_dot_Q, rho_dot_W] (m, m/s), shape (6,), or the layout of the batched
+///         argument for batched input.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     bh.initialize_eop()
+///
+///     oe_chief = np.array([bh.R_EARTH + 700e3, 0.001, 97.8, 15.0, 30.0, 45.0])
+///     oe_deputy = np.array([bh.R_EARTH + 701e3, 0.0015, 97.85, 15.05, 30.05, 45.05])
+///
+///     x_chief = bh.state_koe_to_eci(oe_chief, bh.AngleFormat.DEGREES)
+///     x_deputy = bh.state_koe_to_eci(oe_deputy, bh.AngleFormat.DEGREES)
+///
+///     x_rel_eqw = bh.state_eci_to_eqw(x_chief, x_deputy)
+///     print(f"Relative state in EQW: {x_rel_eqw}")
+///     ```
+#[pyfunction]
+#[pyo3(signature = (x_chief, x_deputy, axis=-1))]
+#[pyo3(text_signature = "(x_chief, x_deputy, axis=-1)")]
+#[pyo3(name = "state_eci_to_eqw")]
+fn py_state_eci_to_eqw<'py>(
+    py: Python<'py>,
+    x_chief: &Bound<'py, PyAny>,
+    x_deputy: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_vec_pair::<6>(
+        py,
+        x_chief,
+        x_deputy,
+        axis,
+        relative_motion::state_eci_to_eqw,
+        relative_motion::states_eci_to_eqw,
+    )
+}
+
+/// Transforms the relative state of a deputy satellite with respect to a chief satellite from
+/// the equinoctial (EQW) frame to the absolute state of the deputy in the Earth-Centered
+/// Inertial (ECI) frame.
+///
+/// EQW is a quasi-inertial snapshot, so the deputy's ECI relative velocity is a pure rotation of
+/// the EQW relative velocity with no transport term.
+///
+/// Args:
+///     x_chief (numpy.ndarray or list): 6D state vector of the chief satellite in the ECI frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
+///         vectors with the 6 components along `axis` (for example shape (n, 6)).
+///     x_rel_eqw (numpy.ndarray or list): 6D relative state of the deputy with respect to the chief in the EQW frame [rho_E, rho_Q, rho_W, rho_dot_E, rho_dot_Q, rho_dot_W] (m, m/s), shape (6,), or a batch of
+///         vectors with the 6 components along `axis` (for example shape (n, 6)).
+///     axis (int, optional): The axis along which the 6 components of a single vector
+///         lie; the remaining axes enumerate the batch. For a batch of shape (n, 6)
+///         the components lie along the last axis, so the default `-1` applies; a
+///         (6, n) column layout uses `axis=0`.
+///         A single vector in one argument is broadcast across a batch in the other.
+///
+/// Returns:
+///     numpy.ndarray: 6D state vector of the deputy satellite in the ECI frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or the layout of the batched
+///         argument for batched input.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     bh.initialize_eop()
+///
+///     oe_chief = np.array([bh.R_EARTH + 700e3, 0.001, 97.8, 15.0, 30.0, 45.0])
+///     x_chief = bh.state_koe_to_eci(oe_chief, bh.AngleFormat.DEGREES)
+///
+///     x_rel_eqw = np.array([1000.0, 500.0, -300.0, 0.0, 0.0, 0.0])
+///
+///     x_deputy = bh.state_eqw_to_eci(x_chief, x_rel_eqw)
+///     print(f"Deputy state in ECI: {x_deputy}")
+///     ```
+#[pyfunction]
+#[pyo3(signature = (x_chief, x_rel_eqw, axis=-1))]
+#[pyo3(text_signature = "(x_chief, x_rel_eqw, axis=-1)")]
+#[pyo3(name = "state_eqw_to_eci")]
+fn py_state_eqw_to_eci<'py>(
+    py: Python<'py>,
+    x_chief: &Bound<'py, PyAny>,
+    x_rel_eqw: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_vec_pair::<6>(
+        py,
+        x_chief,
+        x_rel_eqw,
+        axis,
+        relative_motion::state_eqw_to_eci,
+        relative_motion::states_eqw_to_eci,
+    )
+}

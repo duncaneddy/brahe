@@ -1280,6 +1280,40 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_state_inertial_to_vnc_for_body, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_vnc_to_eci, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_vnc_to_inertial_for_body, module)?)?;
+    module.add_function(wrap_pyfunction!(py_rotation_pqw_to_eci, module)?)?;
+    module.add_function(wrap_pyfunction!(
+        py_rotation_pqw_to_inertial_for_body,
+        module
+    )?)?;
+    module.add_function(wrap_pyfunction!(py_rotation_eci_to_pqw, module)?)?;
+    module.add_function(wrap_pyfunction!(
+        py_rotation_inertial_to_pqw_for_body,
+        module
+    )?)?;
+    module.add_function(wrap_pyfunction!(py_jacobian_pqw_to_eci, module)?)?;
+    module.add_function(wrap_pyfunction!(
+        py_jacobian_pqw_to_inertial_for_body,
+        module
+    )?)?;
+    module.add_function(wrap_pyfunction!(py_jacobian_eci_to_pqw, module)?)?;
+    module.add_function(wrap_pyfunction!(
+        py_jacobian_inertial_to_pqw_for_body,
+        module
+    )?)?;
+    module.add_function(wrap_pyfunction!(py_covariance_pqw_to_eci, module)?)?;
+    module.add_function(wrap_pyfunction!(
+        py_covariance_pqw_to_inertial_for_body,
+        module
+    )?)?;
+    module.add_function(wrap_pyfunction!(py_covariance_eci_to_pqw, module)?)?;
+    module.add_function(wrap_pyfunction!(
+        py_covariance_inertial_to_pqw_for_body,
+        module
+    )?)?;
+    module.add_function(wrap_pyfunction!(py_state_eci_to_pqw, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_inertial_to_pqw_for_body, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_pqw_to_eci, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_pqw_to_inertial_for_body, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_oe_to_roe, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_roe_to_oe, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_eci_to_roe, module)?)?;

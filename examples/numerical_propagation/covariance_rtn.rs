@@ -1,4 +1,4 @@
-//! Covariance propagation in RTN (Radial-Tangential-Normal) frame.
+//! Covariance propagation in RTN (Radial-Transverse-Normal) frame.
 //! Demonstrates frame-specific covariance retrieval and physical interpretation.
 
 use brahe as bh;
@@ -63,7 +63,7 @@ fn main() {
         p_rtn[(0, 0)].sqrt()
     );
     println!(
-        "  Tangential (T): {:.1} m  <- Along-track timing",
+        "  Transverse (T): {:.1} m  <- Along-track timing",
         p_rtn[(1, 1)].sqrt()
     );
     println!(
@@ -75,7 +75,7 @@ fn main() {
     println!("\n--- Physical Interpretation ---");
     println!("RTN frame aligns with the orbit:");
     println!("  R (Radial): Points from Earth center to satellite");
-    println!("  T (Tangential): Points along velocity direction");
+    println!("  T (Transverse): In-plane, perpendicular to R (along-track)");
     println!("  N (Normal): Completes right-hand system (cross-track)");
     println!();
     println!("Key insight: Along-track (T) uncertainty grows fastest because");

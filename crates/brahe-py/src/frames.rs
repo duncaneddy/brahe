@@ -7058,9 +7058,11 @@ impl SStateProvider for PyCallableStateProvider {
 ///
 /// `frame` must be a bound `Body` frame (e.g. `ReferenceFrame.SC_BODY("SC")`,
 /// `ReferenceFrame.CSS("SC", "1")`); `parent` must resolve to a celestial root by
-/// walking the registry — either `parent` is itself a `CelestialFrame`, or
-/// it is a bound `Body` frame that is already registered and whose own
-/// parent chain terminates at one. `provider` is either a constant
+/// walking the registry: `parent` is itself a `CelestialFrame`, a bound
+/// orbit-relative frame such as `ReferenceFrame.LVLH("SC")`, or a bound `Body`
+/// frame that is already registered and whose own parent chain terminates at
+/// one of those. An orbit-relative parent's object is not checked here; an
+/// unregistered object surfaces at the first transform. `provider` is either a constant
 /// attitude (`Quaternion`, `RotationMatrix`, `EulerAngle`, or `EulerAxis`)
 /// or a callable `Epoch -> 3x3 ndarray` returning the parent -> frame
 /// rotation matrix. `omega` and `numerical_rates_step` are meaningful only
@@ -7082,7 +7084,8 @@ impl SStateProvider for PyCallableStateProvider {
 ///
 /// Raises:
 ///     BraheError: If `frame` is not a bound `Body` frame, if the parent chain does not
-///         terminate at a celestial frame, or if it cycles back through `frame`
+///         terminate at a celestial frame or a bound orbit-relative frame, or if
+///         it cycles back through `frame`
 ///     TypeError: If `provider` is not a constant attitude or a callable, or if `omega` is given
 ///         and is not callable
 ///     ValueError: If `omega` or `numerical_rates_step` is given for a constant-attitude

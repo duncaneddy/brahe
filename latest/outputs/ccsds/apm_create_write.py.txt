@@ -1,8 +1,8 @@
 Created APM with 1 quaternion block, 1 angular velocity block
 
-KVN output (479 chars):
+KVN output (480 chars):
 CCSDS_APM_VERS = 2.0
-CREATION_DATE = 2026-09-19T07:10:36.778907859
+CREATION_DATE = 2026-09-20T21:22:09.4286061849
 ORIGINATOR = BRAHE_EXAMPLE
 MESSAGE_ID = APM-2024-001
 

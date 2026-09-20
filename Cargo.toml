@@ -30,6 +30,7 @@ exclude = [# We need to keep the size down for crates.io these don't need to be 
     "/brahe",
     "/crates",
     ".github",
+    ".cargo",
     "/examples",
     "/plots",
     "/joss",

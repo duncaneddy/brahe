@@ -102,15 +102,16 @@ jobs:
           name: doc-outputs
           path: docs/outputs/
 
-      # Shared with pr_tests.yml's "build-docs" job. This job runs on every
-      # push to main (via unit_tests.yml) and on release tags, so it is what
-      # actually saves the "docs-build" cache; the PR job only restores it.
+      # Restore-only against test_examples.yml's Linux cache, which holds the
+      # dependency build behind the editable extension install this job
+      # repeats. pr_tests.yml's build-docs and docs_only.yml restore the same
+      # entry.
       - name: Set up Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v2.0.0
         with:
           toolchain: ${{ env.RUST_TOOLCHAIN }}
-          cache-shared-key: docs-build
-          cache-save-if: ${{ github.ref == 'refs/heads/main' }}
+          cache-shared-key: test-examples
+          cache-save-if: false
 
       - name: Set default Rust toolchain
         run: |

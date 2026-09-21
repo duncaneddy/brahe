@@ -35,10 +35,15 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v7.0.1
 
+      # No cargo cache: the release-profile wheel build shares nothing with
+      # the dev-profile caches the test workflows save, and a saved entry per
+      # platform here would cost a sizable share of the repository's cache
+      # budget for a workflow that gates nothing.
       - name: Set up Rust
         uses: actions-rust-lang/setup-rust-toolchain@v2.0.0
         with:
           toolchain: ${{ matrix.rust-toolchain }}
+          cache: false
 
       - name: Set default Rust toolchain
         run: |
@@ -78,10 +83,13 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v7.0.1
 
+      # No cargo cache: the sdist build compiles nothing in the workspace's
+      # target directory, so an entry here would hold only the registry.
       - name: Set up Rust
         uses: actions-rust-lang/setup-rust-toolchain@v2.0.0
         with:
           toolchain: ${{ env.RUST_TOOLCHAIN }}
+          cache: false
 
       - name: Set default Rust toolchain
         run: |

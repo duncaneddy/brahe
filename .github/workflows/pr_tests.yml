@@ -103,15 +103,16 @@ jobs:
     steps:
       - uses: actions/checkout@v7.0.1
 
-      # This job only ever runs on PRs, so it never sees a main-branch save.
-      # warm_data_cache.yml runs the equivalent build weekly on main under the
-      # same shared-key to keep a restorable cache warm for PRs.
+      # Restore-only against test_examples.yml's Linux cache. The packaged
+      # crate is compiled in a temporary directory, so only the registry
+      # portion of the cache is reused; a saved entry of this job's own would
+      # hold nothing more.
       - name: Set up Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v2.0.0
         with:
           toolchain: ${{ env.RUST_TOOLCHAIN }}
-          cache-shared-key: validate-rust-package
-          cache-save-if: ${{ github.ref == 'refs/heads/main' }}
+          cache-shared-key: test-examples
+          cache-save-if: false
 
       - name: Set default Rust toolchain
         run: |
@@ -146,15 +147,14 @@ jobs:
     steps:
       - uses: actions/checkout@v7.0.1
 
-      # This job only ever runs on PRs, so it never sees a main-branch save.
-      # warm_data_cache.yml runs the equivalent build weekly on main under the
-      # same shared-key to keep a restorable cache warm for PRs.
+      # Restore-only against test_examples.yml's Linux cache, whose dev-profile
+      # workspace build covers the wheel this job builds.
       - name: Set up Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v2.0.0
         with:
           toolchain: ${{ env.RUST_TOOLCHAIN }}
-          cache-shared-key: validate-python-package
-          cache-save-if: ${{ github.ref == 'refs/heads/main' }}
+          cache-shared-key: test-examples
+          cache-save-if: false
 
       - name: Set default Rust toolchain
         run: |
@@ -190,15 +190,15 @@ jobs:
     steps:
       - uses: actions/checkout@v7.0.1
 
-      # Shared with update_docs.yml/docs_only.yml's doc-build jobs, which both
-      # run on pushes to main and so are the ones that actually save this
-      # cache; this PR job only ever restores it.
+      # Restore-only against test_examples.yml's Linux cache, which holds the
+      # dependency build behind the editable extension install this job
+      # repeats. update_docs.yml and docs_only.yml restore the same entry.
       - name: Set up Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v2.0.0
         with:
           toolchain: ${{ env.RUST_TOOLCHAIN }}
-          cache-shared-key: docs-build
-          cache-save-if: ${{ github.ref == 'refs/heads/main' }}
+          cache-shared-key: test-examples
+          cache-save-if: false
 
       - name: Set default Rust toolchain
         run: |

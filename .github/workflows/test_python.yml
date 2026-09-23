@@ -122,7 +122,7 @@ jobs:
 
             -   name: Upload Python coverage to Codecov
                 if: matrix.os == 'ubuntu-latest' && matrix.python-version == inputs.coverage-python-version
-                uses: codecov/codecov-action@v7.1.0
+                uses: codecov/codecov-action@v7.1.1
                 env:
                     CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
                 with:
@@ -134,7 +134,7 @@ jobs:
 
             -   name: Upload Python-Rust coverage to Codecov
                 if: matrix.os == 'ubuntu-latest' && matrix.python-version == inputs.coverage-python-version
-                uses: codecov/codecov-action@v7.1.0
+                uses: codecov/codecov-action@v7.1.1
                 env:
                     CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
                 with:

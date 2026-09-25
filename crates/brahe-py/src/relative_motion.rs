@@ -3687,3 +3687,843 @@ fn py_state_vnc_to_inertial_for_body<'py>(
         |cs, rs| relative_motion::states_vnc_to_inertial_for_body(cs, rs, gm),
     )
 }
+
+/// Computes the rotation matrix transforming a vector in the perifocal (PQW) frame to the
+/// Earth-Centered Inertial (ECI) frame. Equal to `rotation_pqw_to_inertial_for_body` with
+/// `GM_EARTH`.
+///
+/// The PQW frame follows the SANA definition:
+/// - P: Unit vector toward periapsis, along the eccentricity vector.
+/// - W: Unit vector along the orbital angular momentum (r x v).
+/// - Q: W x P, completing the right-handed set.
+///
+/// SANA registers PQW only as an inertial snapshot: the axes are taken from the state at the
+/// evaluation epoch and treated as fixed, so there is no rate and the Jacobians are block
+/// diagonal.
+///
+/// Degenerate orbits use the zero-angle conventions: when the eccentricity vector norm is
+/// below 1e-9 (circular orbit) P is taken along the ascending node, and when the node vector
+/// norm is also below 1e-9 (equatorial orbit) P is taken along the inertial x axis projected
+/// into the orbit plane.
+///
+/// Args:
+///     x_eci (numpy.ndarray or list): 6D state vector in the ECI frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
+///         vectors with the 6 components along `axis` (for example shape (n, 6)).
+///     axis (int, optional): The axis along which the 6 components of a single vector
+///         lie; the remaining axes enumerate the batch. For a batch of shape (n, 6)
+///         the components lie along the last axis, so the default `-1` applies; a
+///         (6, n) column layout uses `axis=0`.
+///
+/// Returns:
+///     numpy.ndarray: 3x3 rotation matrix transforming from PQW to ECI frame, shape (3, 3), or the batch dimensions
+///         followed by (3, 3) for batched input.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     sma = bh.R_EARTH + 700e3
+///     state = np.array([sma, 0.0, 0.0, 0.0, bh.perigee_velocity(sma, 0.0), 0.0])
+///
+///     R = bh.rotation_pqw_to_eci(state)
+///     print(f"PQW to ECI rotation matrix:\n{R}")
+///     ```
+#[pyfunction]
+#[pyo3(signature = (x_eci, axis=-1))]
+#[pyo3(text_signature = "(x_eci, axis=-1)")]
+#[pyo3(name = "rotation_pqw_to_eci")]
+fn py_rotation_pqw_to_eci<'py>(
+    py: Python<'py>,
+    x_eci: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_vec_rotation::<6>(
+        py,
+        x_eci,
+        axis,
+        relative_motion::rotation_pqw_to_eci,
+        relative_motion::rotations_pqw_to_eci,
+    )
+}
+
+/// Computes the rotation matrix transforming a vector in the perifocal (PQW) frame to an
+/// inertial frame centered on a body with gravitational parameter `gm`.
+///
+/// The PQW frame follows the SANA definition:
+/// - P: Unit vector toward periapsis, along the eccentricity vector.
+/// - W: Unit vector along the orbital angular momentum (r x v).
+/// - Q: W x P, completing the right-handed set.
+///
+/// SANA registers PQW only as an inertial snapshot: the axes are taken from the state at the
+/// evaluation epoch and treated as fixed, so there is no rate and the Jacobians are block
+/// diagonal.
+///
+/// Degenerate orbits use the zero-angle conventions: when the eccentricity vector norm is
+/// below 1e-9 (circular orbit) P is taken along the ascending node, and when the node vector
+/// norm is also below 1e-9 (equatorial orbit) P is taken along the inertial x axis projected
+/// into the orbit plane.
+///
+/// Args:
+///     x_inertial (numpy.ndarray or list): 6D state vector in the inertial frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
+///         vectors with the 6 components along `axis` (for example shape (n, 6)).
+///     gm (float): Gravitational parameter of the central body (m^3/s^2)
+///     axis (int, optional): The axis along which the 6 components of a single vector
+///         lie; the remaining axes enumerate the batch. For a batch of shape (n, 6)
+///         the components lie along the last axis, so the default `-1` applies; a
+///         (6, n) column layout uses `axis=0`.
+///
+/// Returns:
+///     numpy.ndarray: 3x3 rotation matrix transforming from PQW to the inertial frame, shape (3, 3), or the batch dimensions
+///         followed by (3, 3) for batched input.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     sma = bh.R_MARS + 400e3
+///     x = np.array([sma, 0.0, 0.0, 0.0, 1.05 * np.sqrt(bh.GM_MARS / sma), 0.0])
+///
+///     R = bh.rotation_pqw_to_inertial_for_body(x, bh.GM_MARS)
+///     ```
+#[pyfunction]
+#[pyo3(signature = (x_inertial, gm, axis=-1))]
+#[pyo3(text_signature = "(x_inertial, gm, axis=-1)")]
+#[pyo3(name = "rotation_pqw_to_inertial_for_body")]
+fn py_rotation_pqw_to_inertial_for_body<'py>(
+    py: Python<'py>,
+    x_inertial: &Bound<'py, PyAny>,
+    gm: f64,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_vec_rotation::<6>(
+        py,
+        x_inertial,
+        axis,
+        |x| relative_motion::rotation_pqw_to_inertial_for_body(x, gm),
+        |xs| relative_motion::rotations_pqw_to_inertial_for_body(xs, gm),
+    )
+}
+
+/// Computes the rotation matrix transforming a vector in the Earth-Centered Inertial (ECI)
+/// frame to the perifocal (PQW) frame.
+///
+/// This is the transpose (inverse) of the PQW-to-ECI rotation matrix.
+///
+/// The PQW frame follows the SANA definition:
+/// - P: Unit vector toward periapsis, along the eccentricity vector.
+/// - W: Unit vector along the orbital angular momentum (r x v).
+/// - Q: W x P, completing the right-handed set.
+///
+/// SANA registers PQW only as an inertial snapshot: the axes are taken from the state at the
+/// evaluation epoch and treated as fixed, so there is no rate and the Jacobians are block
+/// diagonal.
+///
+/// Degenerate orbits use the zero-angle conventions: when the eccentricity vector norm is
+/// below 1e-9 (circular orbit) P is taken along the ascending node, and when the node vector
+/// norm is also below 1e-9 (equatorial orbit) P is taken along the inertial x axis projected
+/// into the orbit plane.
+///
+/// Args:
+///     x_eci (numpy.ndarray or list): 6D state vector in the ECI frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
+///         vectors with the 6 components along `axis` (for example shape (n, 6)).
+///     axis (int, optional): The axis along which the 6 components of a single vector
+///         lie; the remaining axes enumerate the batch. For a batch of shape (n, 6)
+///         the components lie along the last axis, so the default `-1` applies; a
+///         (6, n) column layout uses `axis=0`.
+///
+/// Returns:
+///     numpy.ndarray: 3x3 rotation matrix transforming from ECI to PQW frame, shape (3, 3), or the batch dimensions
+///         followed by (3, 3) for batched input.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     sma = bh.R_EARTH + 700e3
+///     state = np.array([sma, 0.0, 0.0, 0.0, bh.perigee_velocity(sma, 0.0), 0.0])
+///
+///     R = bh.rotation_eci_to_pqw(state)
+///     print(f"ECI to PQW rotation matrix:\n{R}")
+///     ```
+#[pyfunction]
+#[pyo3(signature = (x_eci, axis=-1))]
+#[pyo3(text_signature = "(x_eci, axis=-1)")]
+#[pyo3(name = "rotation_eci_to_pqw")]
+fn py_rotation_eci_to_pqw<'py>(
+    py: Python<'py>,
+    x_eci: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_vec_rotation::<6>(
+        py,
+        x_eci,
+        axis,
+        relative_motion::rotation_eci_to_pqw,
+        relative_motion::rotations_eci_to_pqw,
+    )
+}
+
+/// Computes the rotation matrix transforming a vector in an inertial frame centered on a body
+/// with gravitational parameter `gm` to the perifocal (PQW) frame.
+///
+/// This is the transpose (inverse) of the PQW-to-inertial rotation matrix.
+///
+/// The PQW frame follows the SANA definition:
+/// - P: Unit vector toward periapsis, along the eccentricity vector.
+/// - W: Unit vector along the orbital angular momentum (r x v).
+/// - Q: W x P, completing the right-handed set.
+///
+/// SANA registers PQW only as an inertial snapshot: the axes are taken from the state at the
+/// evaluation epoch and treated as fixed, so there is no rate and the Jacobians are block
+/// diagonal.
+///
+/// Degenerate orbits use the zero-angle conventions: when the eccentricity vector norm is
+/// below 1e-9 (circular orbit) P is taken along the ascending node, and when the node vector
+/// norm is also below 1e-9 (equatorial orbit) P is taken along the inertial x axis projected
+/// into the orbit plane.
+///
+/// Args:
+///     x_inertial (numpy.ndarray or list): 6D state vector in the inertial frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
+///         vectors with the 6 components along `axis` (for example shape (n, 6)).
+///     gm (float): Gravitational parameter of the central body (m^3/s^2)
+///     axis (int, optional): The axis along which the 6 components of a single vector
+///         lie; the remaining axes enumerate the batch. For a batch of shape (n, 6)
+///         the components lie along the last axis, so the default `-1` applies; a
+///         (6, n) column layout uses `axis=0`.
+///
+/// Returns:
+///     numpy.ndarray: 3x3 rotation matrix transforming from the inertial frame to PQW, shape (3, 3), or the batch dimensions
+///         followed by (3, 3) for batched input.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     sma = bh.R_MARS + 400e3
+///     x = np.array([sma, 0.0, 0.0, 0.0, 1.05 * np.sqrt(bh.GM_MARS / sma), 0.0])
+///
+///     R = bh.rotation_inertial_to_pqw_for_body(x, bh.GM_MARS)
+///     ```
+#[pyfunction]
+#[pyo3(signature = (x_inertial, gm, axis=-1))]
+#[pyo3(text_signature = "(x_inertial, gm, axis=-1)")]
+#[pyo3(name = "rotation_inertial_to_pqw_for_body")]
+fn py_rotation_inertial_to_pqw_for_body<'py>(
+    py: Python<'py>,
+    x_inertial: &Bound<'py, PyAny>,
+    gm: f64,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_vec_rotation::<6>(
+        py,
+        x_inertial,
+        axis,
+        |x| relative_motion::rotation_inertial_to_pqw_for_body(x, gm),
+        |xs| relative_motion::rotations_inertial_to_pqw_for_body(xs, gm),
+    )
+}
+
+/// 6x6 Jacobian taking a PQW state covariance into ECI axes. Equal to
+/// `jacobian_pqw_to_inertial_for_body` with `GM_EARTH`.
+///
+/// PQW is an inertial snapshot with no angular rate, so the Jacobian is the block diagonal
+/// `[[R, 0], [0, R]]` with `R` the PQW-to-ECI rotation.
+///
+/// Args:
+///     x_eci (numpy.ndarray or list): 6D state vector of the frame's origin in the ECI frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
+///         vectors with the 6 components along `axis` (for example shape (n, 6)).
+///     axis (int, optional): The axis along which the 6 components of a single vector
+///         lie; the remaining axes enumerate the batch. For a batch of shape (n, 6)
+///         the components lie along the last axis, so the default `-1` applies; a
+///         (6, n) column layout uses `axis=0`.
+///
+/// Returns:
+///     numpy.ndarray: 6x6 Jacobian such that `P_eci = J @ P_pqw @ J.T`, shape (6, 6), or the batch dimensions
+///         followed by (6, 6) for batched input.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     sma = bh.R_EARTH + 700e3
+///     x_eci = np.array([sma, 0.0, 0.0, 0.0, bh.perigee_velocity(sma, 0.0), 0.0])
+///     j = bh.jacobian_pqw_to_eci(x_eci)
+///     ```
+#[pyfunction]
+#[pyo3(signature = (x_eci, axis=-1))]
+#[pyo3(text_signature = "(x_eci, axis=-1)")]
+#[pyo3(name = "jacobian_pqw_to_eci")]
+fn py_jacobian_pqw_to_eci<'py>(
+    py: Python<'py>,
+    x_eci: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_vec_matrix::<6, 6>(
+        py,
+        x_eci,
+        axis,
+        relative_motion::jacobian_pqw_to_eci,
+        relative_motion::jacobians_pqw_to_eci,
+    )
+}
+
+/// 6x6 Jacobian taking a PQW state covariance into an inertial frame centered on a body with
+/// gravitational parameter `gm`.
+///
+/// PQW is an inertial snapshot with no angular rate, so the Jacobian is the block diagonal
+/// `[[R, 0], [0, R]]` with `R` the PQW-to-inertial rotation.
+///
+/// Args:
+///     x_inertial (numpy.ndarray or list): 6D state vector of the frame's origin in the inertial frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
+///         vectors with the 6 components along `axis` (for example shape (n, 6)).
+///     gm (float): Gravitational parameter of the central body (m^3/s^2)
+///     axis (int, optional): The axis along which the 6 components of a single vector
+///         lie; the remaining axes enumerate the batch. For a batch of shape (n, 6)
+///         the components lie along the last axis, so the default `-1` applies; a
+///         (6, n) column layout uses `axis=0`.
+///
+/// Returns:
+///     numpy.ndarray: 6x6 Jacobian such that `P_inertial = J @ P_pqw @ J.T`, shape (6, 6), or the batch dimensions
+///         followed by (6, 6) for batched input.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     sma = bh.R_MARS + 400e3
+///     x = np.array([sma, 0.0, 0.0, 0.0, np.sqrt(bh.GM_MARS / sma), 0.0])
+///     j = bh.jacobian_pqw_to_inertial_for_body(x, bh.GM_MARS)
+///     ```
+#[pyfunction]
+#[pyo3(signature = (x_inertial, gm, axis=-1))]
+#[pyo3(text_signature = "(x_inertial, gm, axis=-1)")]
+#[pyo3(name = "jacobian_pqw_to_inertial_for_body")]
+fn py_jacobian_pqw_to_inertial_for_body<'py>(
+    py: Python<'py>,
+    x_inertial: &Bound<'py, PyAny>,
+    gm: f64,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_vec_matrix::<6, 6>(
+        py,
+        x_inertial,
+        axis,
+        |x| relative_motion::jacobian_pqw_to_inertial_for_body(x, gm),
+        |xs| relative_motion::jacobians_pqw_to_inertial_for_body(xs, gm),
+    )
+}
+
+/// 6x6 Jacobian taking an ECI state covariance into PQW axes. Equal to
+/// `jacobian_inertial_to_pqw_for_body` with `GM_EARTH`.
+///
+/// Exact inverse of `jacobian_pqw_to_eci`: with `R.T` the ECI-to-PQW rotation, the Jacobian
+/// is the block diagonal `[[R.T, 0], [0, R.T]]`.
+///
+/// Args:
+///     x_eci (numpy.ndarray or list): 6D state vector of the frame's origin in the ECI frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
+///         vectors with the 6 components along `axis` (for example shape (n, 6)).
+///     axis (int, optional): The axis along which the 6 components of a single vector
+///         lie; the remaining axes enumerate the batch. For a batch of shape (n, 6)
+///         the components lie along the last axis, so the default `-1` applies; a
+///         (6, n) column layout uses `axis=0`.
+///
+/// Returns:
+///     numpy.ndarray: 6x6 Jacobian such that `P_pqw = J @ P_eci @ J.T`, shape (6, 6), or the batch dimensions
+///         followed by (6, 6) for batched input.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     sma = bh.R_EARTH + 700e3
+///     x_eci = np.array([sma, 0.0, 0.0, 0.0, bh.perigee_velocity(sma, 0.0), 0.0])
+///     j = bh.jacobian_eci_to_pqw(x_eci)
+///     ```
+#[pyfunction]
+#[pyo3(signature = (x_eci, axis=-1))]
+#[pyo3(text_signature = "(x_eci, axis=-1)")]
+#[pyo3(name = "jacobian_eci_to_pqw")]
+fn py_jacobian_eci_to_pqw<'py>(
+    py: Python<'py>,
+    x_eci: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_vec_matrix::<6, 6>(
+        py,
+        x_eci,
+        axis,
+        relative_motion::jacobian_eci_to_pqw,
+        relative_motion::jacobians_eci_to_pqw,
+    )
+}
+
+/// 6x6 Jacobian taking a state covariance in an inertial frame centered on a body with
+/// gravitational parameter `gm` into PQW axes.
+///
+/// Exact inverse of `jacobian_pqw_to_inertial_for_body`: with `R.T` the inertial-to-PQW
+/// rotation, the Jacobian is the block diagonal `[[R.T, 0], [0, R.T]]`.
+///
+/// Args:
+///     x_inertial (numpy.ndarray or list): 6D state vector of the frame's origin in the inertial frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
+///         vectors with the 6 components along `axis` (for example shape (n, 6)).
+///     gm (float): Gravitational parameter of the central body (m^3/s^2)
+///     axis (int, optional): The axis along which the 6 components of a single vector
+///         lie; the remaining axes enumerate the batch. For a batch of shape (n, 6)
+///         the components lie along the last axis, so the default `-1` applies; a
+///         (6, n) column layout uses `axis=0`.
+///
+/// Returns:
+///     numpy.ndarray: 6x6 Jacobian such that `P_pqw = J @ P_inertial @ J.T`, shape (6, 6), or the batch dimensions
+///         followed by (6, 6) for batched input.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     sma = bh.R_MARS + 400e3
+///     x = np.array([sma, 0.0, 0.0, 0.0, np.sqrt(bh.GM_MARS / sma), 0.0])
+///     j = bh.jacobian_inertial_to_pqw_for_body(x, bh.GM_MARS)
+///     ```
+#[pyfunction]
+#[pyo3(signature = (x_inertial, gm, axis=-1))]
+#[pyo3(text_signature = "(x_inertial, gm, axis=-1)")]
+#[pyo3(name = "jacobian_inertial_to_pqw_for_body")]
+fn py_jacobian_inertial_to_pqw_for_body<'py>(
+    py: Python<'py>,
+    x_inertial: &Bound<'py, PyAny>,
+    gm: f64,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_vec_matrix::<6, 6>(
+        py,
+        x_inertial,
+        axis,
+        |x| relative_motion::jacobian_inertial_to_pqw_for_body(x, gm),
+        |xs| relative_motion::jacobians_inertial_to_pqw_for_body(xs, gm),
+    )
+}
+
+/// Transforms a 6x6 state covariance from PQW axes into ECI axes. Equal to
+/// `covariance_pqw_to_inertial_for_body` with `GM_EARTH`.
+///
+/// Applies the congruence `P_eci = J @ P_pqw @ J.T` with `J` from `jacobian_pqw_to_eci`.
+///
+/// Args:
+///     x_eci (numpy.ndarray or list): 6D state vector of the frame's origin in the ECI frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
+///         vectors with the 6 components along `axis` (for example shape (n, 6)).
+///     covariance (numpy.ndarray): 6x6 state covariance in PQW axes, shape (6, 6), or an (n, 6, 6) batch stacked along the leading axis; either argument may be single and broadcasts
+///     axis (int, optional): The axis along which the 6 components of a single vector
+///         lie; the remaining axes enumerate the batch. For a batch of shape (n, 6)
+///         the components lie along the last axis, so the default `-1` applies; a
+///         (6, n) column layout uses `axis=0`.
+///
+/// Returns:
+///     numpy.ndarray: 6x6 state covariance in ECI axes, shape (6, 6). For batched input, when `x_eci` is batched the output is its batch dimensions followed by (6, 6), except a length-1 `x_eci` batch broadcast against n covariances yields (n, 6, 6); when only `covariance` is batched the output is (n, 6, 6).
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     sma = bh.R_EARTH + 700e3
+///     x_eci = np.array([sma, 0.0, 0.0, 0.0, bh.perigee_velocity(sma, 0.0), 0.0])
+///     p_eci = bh.covariance_pqw_to_eci(x_eci, np.eye(6) * 100.0)
+///     ```
+#[pyfunction]
+#[pyo3(signature = (x_eci, covariance, axis=-1))]
+#[pyo3(text_signature = "(x_eci, covariance, axis=-1)")]
+#[pyo3(name = "covariance_pqw_to_eci")]
+fn py_covariance_pqw_to_eci<'py>(
+    py: Python<'py>,
+    x_eci: &Bound<'py, PyAny>,
+    covariance: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_vec_covariance::<6>(
+        py,
+        x_eci,
+        covariance,
+        axis,
+        relative_motion::covariance_pqw_to_eci,
+        relative_motion::covariances_pqw_to_eci,
+    )
+}
+
+/// Transforms a 6x6 state covariance from PQW axes into an inertial frame centered on a body
+/// with gravitational parameter `gm`.
+///
+/// Applies the congruence `P_inertial = J @ P_pqw @ J.T` with `J` from
+/// `jacobian_pqw_to_inertial_for_body`.
+///
+/// Args:
+///     x_inertial (numpy.ndarray or list): 6D state vector of the frame's origin in the inertial frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
+///         vectors with the 6 components along `axis` (for example shape (n, 6)).
+///     covariance (numpy.ndarray): 6x6 state covariance in PQW axes, shape (6, 6), or an (n, 6, 6) batch stacked along the leading axis; either argument may be single and broadcasts
+///     gm (float): Gravitational parameter of the central body (m^3/s^2)
+///     axis (int, optional): The axis along which the 6 components of a single vector
+///         lie; the remaining axes enumerate the batch. For a batch of shape (n, 6)
+///         the components lie along the last axis, so the default `-1` applies; a
+///         (6, n) column layout uses `axis=0`.
+///
+/// Returns:
+///     numpy.ndarray: 6x6 state covariance in the inertial frame, shape (6, 6). For batched input, when `x_inertial` is batched the output is its batch dimensions followed by (6, 6), except a length-1 `x_inertial` batch broadcast against n covariances yields (n, 6, 6); when only `covariance` is batched the output is (n, 6, 6).
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     sma = bh.R_MARS + 400e3
+///     x = np.array([sma, 0.0, 0.0, 0.0, np.sqrt(bh.GM_MARS / sma), 0.0])
+///     p_inertial = bh.covariance_pqw_to_inertial_for_body(x, np.eye(6), bh.GM_MARS)
+///     ```
+#[pyfunction]
+#[pyo3(signature = (x_inertial, covariance, gm, axis=-1))]
+#[pyo3(text_signature = "(x_inertial, covariance, gm, axis=-1)")]
+#[pyo3(name = "covariance_pqw_to_inertial_for_body")]
+fn py_covariance_pqw_to_inertial_for_body<'py>(
+    py: Python<'py>,
+    x_inertial: &Bound<'py, PyAny>,
+    covariance: &Bound<'py, PyAny>,
+    gm: f64,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_vec_covariance::<6>(
+        py,
+        x_inertial,
+        covariance,
+        axis,
+        |x, p| relative_motion::covariance_pqw_to_inertial_for_body(x, p, gm),
+        |xs, ps| relative_motion::covariances_pqw_to_inertial_for_body(xs, ps, gm),
+    )
+}
+
+/// Transforms a 6x6 state covariance from ECI axes into PQW axes. Equal to
+/// `covariance_inertial_to_pqw_for_body` with `GM_EARTH`.
+///
+/// Applies the congruence `P_pqw = J @ P_eci @ J.T` with `J` from `jacobian_eci_to_pqw`.
+///
+/// Args:
+///     x_eci (numpy.ndarray or list): 6D state vector of the frame's origin in the ECI frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
+///         vectors with the 6 components along `axis` (for example shape (n, 6)).
+///     covariance (numpy.ndarray): 6x6 state covariance in ECI axes, shape (6, 6), or an (n, 6, 6) batch stacked along the leading axis; either argument may be single and broadcasts
+///     axis (int, optional): The axis along which the 6 components of a single vector
+///         lie; the remaining axes enumerate the batch. For a batch of shape (n, 6)
+///         the components lie along the last axis, so the default `-1` applies; a
+///         (6, n) column layout uses `axis=0`.
+///
+/// Returns:
+///     numpy.ndarray: 6x6 state covariance in PQW axes, shape (6, 6). For batched input, when `x_eci` is batched the output is its batch dimensions followed by (6, 6), except a length-1 `x_eci` batch broadcast against n covariances yields (n, 6, 6); when only `covariance` is batched the output is (n, 6, 6).
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     sma = bh.R_EARTH + 700e3
+///     x_eci = np.array([sma, 0.0, 0.0, 0.0, bh.perigee_velocity(sma, 0.0), 0.0])
+///     p_pqw = bh.covariance_eci_to_pqw(x_eci, np.eye(6) * 100.0)
+///     ```
+#[pyfunction]
+#[pyo3(signature = (x_eci, covariance, axis=-1))]
+#[pyo3(text_signature = "(x_eci, covariance, axis=-1)")]
+#[pyo3(name = "covariance_eci_to_pqw")]
+fn py_covariance_eci_to_pqw<'py>(
+    py: Python<'py>,
+    x_eci: &Bound<'py, PyAny>,
+    covariance: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_vec_covariance::<6>(
+        py,
+        x_eci,
+        covariance,
+        axis,
+        relative_motion::covariance_eci_to_pqw,
+        relative_motion::covariances_eci_to_pqw,
+    )
+}
+
+/// Transforms a 6x6 state covariance from an inertial frame centered on a body with
+/// gravitational parameter `gm` into PQW axes.
+///
+/// Applies the congruence `P_pqw = J @ P_inertial @ J.T` with `J` from
+/// `jacobian_inertial_to_pqw_for_body`.
+///
+/// Args:
+///     x_inertial (numpy.ndarray or list): 6D state vector of the frame's origin in the inertial frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
+///         vectors with the 6 components along `axis` (for example shape (n, 6)).
+///     covariance (numpy.ndarray): 6x6 state covariance in the inertial frame, shape (6, 6), or an (n, 6, 6) batch stacked along the leading axis; either argument may be single and broadcasts
+///     gm (float): Gravitational parameter of the central body (m^3/s^2)
+///     axis (int, optional): The axis along which the 6 components of a single vector
+///         lie; the remaining axes enumerate the batch. For a batch of shape (n, 6)
+///         the components lie along the last axis, so the default `-1` applies; a
+///         (6, n) column layout uses `axis=0`.
+///
+/// Returns:
+///     numpy.ndarray: 6x6 state covariance in PQW axes, shape (6, 6). For batched input, when `x_inertial` is batched the output is its batch dimensions followed by (6, 6), except a length-1 `x_inertial` batch broadcast against n covariances yields (n, 6, 6); when only `covariance` is batched the output is (n, 6, 6).
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     sma = bh.R_MARS + 400e3
+///     x = np.array([sma, 0.0, 0.0, 0.0, np.sqrt(bh.GM_MARS / sma), 0.0])
+///     p_pqw = bh.covariance_inertial_to_pqw_for_body(x, np.eye(6), bh.GM_MARS)
+///     ```
+#[pyfunction]
+#[pyo3(signature = (x_inertial, covariance, gm, axis=-1))]
+#[pyo3(text_signature = "(x_inertial, covariance, gm, axis=-1)")]
+#[pyo3(name = "covariance_inertial_to_pqw_for_body")]
+fn py_covariance_inertial_to_pqw_for_body<'py>(
+    py: Python<'py>,
+    x_inertial: &Bound<'py, PyAny>,
+    covariance: &Bound<'py, PyAny>,
+    gm: f64,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_vec_covariance::<6>(
+        py,
+        x_inertial,
+        covariance,
+        axis,
+        |x, p| relative_motion::covariance_inertial_to_pqw_for_body(x, p, gm),
+        |xs, ps| relative_motion::covariances_inertial_to_pqw_for_body(xs, ps, gm),
+    )
+}
+
+/// Transforms the absolute states of a chief and deputy satellite from the Earth-Centered
+/// Inertial (ECI) frame to the relative state of the deputy with respect to the chief in the
+/// perifocal (PQW) frame.
+///
+/// PQW is an inertial snapshot, so the relative velocity is a pure rotation of the ECI
+/// relative velocity with no transport term.
+///
+/// Args:
+///     x_chief (numpy.ndarray or list): 6D state vector of the chief satellite in the ECI frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
+///         vectors with the 6 components along `axis` (for example shape (n, 6)).
+///     x_deputy (numpy.ndarray or list): 6D state vector of the deputy satellite in the ECI frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
+///         vectors with the 6 components along `axis` (for example shape (n, 6)).
+///     axis (int, optional): The axis along which the 6 components of a single vector
+///         lie; the remaining axes enumerate the batch. For a batch of shape (n, 6)
+///         the components lie along the last axis, so the default `-1` applies; a
+///         (6, n) column layout uses `axis=0`.
+///         A single vector in one argument is broadcast across a batch in the other.
+///
+/// Returns:
+///     numpy.ndarray: 6D relative state of the deputy with respect to the chief in the PQW frame [rho_P, rho_Q, rho_W, rho_dot_P, rho_dot_Q, rho_dot_W] (m, m/s), shape (6,), or the layout of the batched
+///         argument for batched input.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     bh.initialize_eop()
+///
+///     oe_chief = np.array([bh.R_EARTH + 700e3, 0.001, 97.8, 15.0, 30.0, 45.0])
+///     oe_deputy = np.array([bh.R_EARTH + 701e3, 0.0015, 97.85, 15.05, 30.05, 45.05])
+///
+///     x_chief = bh.state_koe_to_eci(oe_chief, bh.AngleFormat.DEGREES)
+///     x_deputy = bh.state_koe_to_eci(oe_deputy, bh.AngleFormat.DEGREES)
+///
+///     x_rel_pqw = bh.state_eci_to_pqw(x_chief, x_deputy)
+///     print(f"Relative state in PQW: {x_rel_pqw}")
+///     ```
+#[pyfunction]
+#[pyo3(signature = (x_chief, x_deputy, axis=-1))]
+#[pyo3(text_signature = "(x_chief, x_deputy, axis=-1)")]
+#[pyo3(name = "state_eci_to_pqw")]
+fn py_state_eci_to_pqw<'py>(
+    py: Python<'py>,
+    x_chief: &Bound<'py, PyAny>,
+    x_deputy: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_vec_pair::<6>(
+        py,
+        x_chief,
+        x_deputy,
+        axis,
+        relative_motion::state_eci_to_pqw,
+        relative_motion::states_eci_to_pqw,
+    )
+}
+
+/// Transforms the absolute states of a chief and deputy satellite from an inertial frame
+/// centered on a body with gravitational parameter `gm` to the relative state of the deputy
+/// with respect to the chief in the perifocal (PQW) frame.
+///
+/// PQW is an inertial snapshot, so the relative velocity is a pure rotation of the inertial
+/// relative velocity with no transport term.
+///
+/// Args:
+///     x_chief (numpy.ndarray or list): 6D state vector of the chief satellite in the inertial frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
+///         vectors with the 6 components along `axis` (for example shape (n, 6)).
+///     x_deputy (numpy.ndarray or list): 6D state vector of the deputy satellite in the inertial frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
+///         vectors with the 6 components along `axis` (for example shape (n, 6)).
+///     gm (float): Gravitational parameter of the central body (m^3/s^2)
+///     axis (int, optional): The axis along which the 6 components of a single vector
+///         lie; the remaining axes enumerate the batch. For a batch of shape (n, 6)
+///         the components lie along the last axis, so the default `-1` applies; a
+///         (6, n) column layout uses `axis=0`.
+///         A single vector in one argument is broadcast across a batch in the other.
+///
+/// Returns:
+///     numpy.ndarray: 6D relative state of the deputy with respect to the chief in the PQW frame [rho_P, rho_Q, rho_W, rho_dot_P, rho_dot_Q, rho_dot_W] (m, m/s), shape (6,), or the layout of the batched
+///         argument for batched input.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     oe_chief = np.array([bh.R_MARS + 400e3, 0.05, 92.6, 45.0, 270.0, 10.0])
+///     oe_deputy = np.array([bh.R_MARS + 401e3, 0.0515, 92.65, 45.05, 270.05, 10.05])
+///
+///     x_chief = bh.state_koe_to_inertial_for_body(oe_chief, bh.CentralBody.Mars, bh.AngleFormat.DEGREES)
+///     x_deputy = bh.state_koe_to_inertial_for_body(oe_deputy, bh.CentralBody.Mars, bh.AngleFormat.DEGREES)
+///
+///     x_rel_pqw = bh.state_inertial_to_pqw_for_body(x_chief, x_deputy, bh.GM_MARS)
+///     ```
+#[pyfunction]
+#[pyo3(signature = (x_chief, x_deputy, gm, axis=-1))]
+#[pyo3(text_signature = "(x_chief, x_deputy, gm, axis=-1)")]
+#[pyo3(name = "state_inertial_to_pqw_for_body")]
+fn py_state_inertial_to_pqw_for_body<'py>(
+    py: Python<'py>,
+    x_chief: &Bound<'py, PyAny>,
+    x_deputy: &Bound<'py, PyAny>,
+    gm: f64,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_vec_pair::<6>(
+        py,
+        x_chief,
+        x_deputy,
+        axis,
+        |c, d| relative_motion::state_inertial_to_pqw_for_body(c, d, gm),
+        |cs, ds| relative_motion::states_inertial_to_pqw_for_body(cs, ds, gm),
+    )
+}
+
+/// Transforms the relative state of a deputy satellite with respect to a chief satellite from
+/// the perifocal (PQW) frame to the absolute state of the deputy in the Earth-Centered
+/// Inertial (ECI) frame.
+///
+/// PQW is an inertial snapshot, so the deputy's ECI relative velocity is a pure rotation of
+/// the PQW relative velocity with no transport term.
+///
+/// Args:
+///     x_chief (numpy.ndarray or list): 6D state vector of the chief satellite in the ECI frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
+///         vectors with the 6 components along `axis` (for example shape (n, 6)).
+///     x_rel_pqw (numpy.ndarray or list): 6D relative state of the deputy with respect to the chief in the PQW frame [rho_P, rho_Q, rho_W, rho_dot_P, rho_dot_Q, rho_dot_W] (m, m/s), shape (6,), or a batch of
+///         vectors with the 6 components along `axis` (for example shape (n, 6)).
+///     axis (int, optional): The axis along which the 6 components of a single vector
+///         lie; the remaining axes enumerate the batch. For a batch of shape (n, 6)
+///         the components lie along the last axis, so the default `-1` applies; a
+///         (6, n) column layout uses `axis=0`.
+///         A single vector in one argument is broadcast across a batch in the other.
+///
+/// Returns:
+///     numpy.ndarray: 6D state vector of the deputy satellite in the ECI frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or the layout of the batched
+///         argument for batched input.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     bh.initialize_eop()
+///
+///     oe_chief = np.array([bh.R_EARTH + 700e3, 0.001, 97.8, 15.0, 30.0, 45.0])
+///     x_chief = bh.state_koe_to_eci(oe_chief, bh.AngleFormat.DEGREES)
+///
+///     x_rel_pqw = np.array([1000.0, 500.0, -300.0, 0.0, 0.0, 0.0])
+///
+///     x_deputy = bh.state_pqw_to_eci(x_chief, x_rel_pqw)
+///     print(f"Deputy state in ECI: {x_deputy}")
+///     ```
+#[pyfunction]
+#[pyo3(signature = (x_chief, x_rel_pqw, axis=-1))]
+#[pyo3(text_signature = "(x_chief, x_rel_pqw, axis=-1)")]
+#[pyo3(name = "state_pqw_to_eci")]
+fn py_state_pqw_to_eci<'py>(
+    py: Python<'py>,
+    x_chief: &Bound<'py, PyAny>,
+    x_rel_pqw: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_vec_pair::<6>(
+        py,
+        x_chief,
+        x_rel_pqw,
+        axis,
+        relative_motion::state_pqw_to_eci,
+        relative_motion::states_pqw_to_eci,
+    )
+}
+
+/// Transforms the relative state of a deputy satellite with respect to a chief satellite from
+/// the perifocal (PQW) frame to the absolute state of the deputy in an inertial frame
+/// centered on a body with gravitational parameter `gm`.
+///
+/// PQW is an inertial snapshot, so the deputy's inertial relative velocity is a pure rotation
+/// of the PQW relative velocity with no transport term.
+///
+/// Args:
+///     x_chief (numpy.ndarray or list): 6D state vector of the chief satellite in the inertial frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
+///         vectors with the 6 components along `axis` (for example shape (n, 6)).
+///     x_rel_pqw (numpy.ndarray or list): 6D relative state of the deputy with respect to the chief in the PQW frame [rho_P, rho_Q, rho_W, rho_dot_P, rho_dot_Q, rho_dot_W] (m, m/s), shape (6,), or a batch of
+///         vectors with the 6 components along `axis` (for example shape (n, 6)).
+///     gm (float): Gravitational parameter of the central body (m^3/s^2)
+///     axis (int, optional): The axis along which the 6 components of a single vector
+///         lie; the remaining axes enumerate the batch. For a batch of shape (n, 6)
+///         the components lie along the last axis, so the default `-1` applies; a
+///         (6, n) column layout uses `axis=0`.
+///         A single vector in one argument is broadcast across a batch in the other.
+///
+/// Returns:
+///     numpy.ndarray: 6D state vector of the deputy satellite in the inertial frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or the layout of the batched
+///         argument for batched input.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     oe_chief = np.array([bh.R_MARS + 400e3, 0.05, 92.6, 45.0, 270.0, 10.0])
+///     x_chief = bh.state_koe_to_inertial_for_body(oe_chief, bh.CentralBody.Mars, bh.AngleFormat.DEGREES)
+///     x_rel_pqw = np.array([1000.0, 500.0, -300.0, 0.0, 0.0, 0.0])
+///
+///     x_deputy = bh.state_pqw_to_inertial_for_body(x_chief, x_rel_pqw, bh.GM_MARS)
+///     ```
+#[pyfunction]
+#[pyo3(signature = (x_chief, x_rel_pqw, gm, axis=-1))]
+#[pyo3(text_signature = "(x_chief, x_rel_pqw, gm, axis=-1)")]
+#[pyo3(name = "state_pqw_to_inertial_for_body")]
+fn py_state_pqw_to_inertial_for_body<'py>(
+    py: Python<'py>,
+    x_chief: &Bound<'py, PyAny>,
+    x_rel_pqw: &Bound<'py, PyAny>,
+    gm: f64,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_vec_pair::<6>(
+        py,
+        x_chief,
+        x_rel_pqw,
+        axis,
+        |c, r| relative_motion::state_pqw_to_inertial_for_body(c, r, gm),
+        |cs, rs| relative_motion::states_pqw_to_inertial_for_body(cs, rs, gm),
+    )
+}

@@ -5978,10 +5978,8 @@ fn py_covariance_frame_to_frame<'py>(
 /// `RTN` is the frame the SANA registries call `RSW`; brahe uses its
 /// existing RTN vocabulary (`state_eci_to_rtn`, `covariance_rtn`).
 ///
-/// Every kind is a valid frame identity, which is what parsing a data file
-/// needs, but only `RTN`, `LVLH`, `NTW`, `TNW`, `VNC`, `PQW`, `EQW`, and
-/// `NSW` have axes derivations today. A transform through any other kind
-/// raises until issue #452 adds the remaining derivation.
+/// Every kind has an axes derivation; `SEZ` is evaluable only for
+/// Earth-centered objects.
 ///
 /// Example:
 ///     ```python
@@ -6509,16 +6507,21 @@ impl PyReferenceFrame {
     /// Bound topocentric South/East/Zenith orbit-relative frame (rotating
     /// variant).
     ///
-    /// Among the orbit-relative kinds only `RTN`, `LVLH`, `NTW`, `TNW`,
-    /// `VNC`, `PQW`, `EQW`, and `NSW` have axes derivations today, so this
-    /// frame is constructible but every transform through it raises until
-    /// issue #452 adds the remaining derivation.
+    /// Axes: S due south, E east, Z along the WGS84 geodetic vertical at
+    /// the object's position. Evaluable only for Earth-centered objects.
     ///
     /// Args:
     ///     object (str): The object the frame is defined relative to
     ///
     /// Returns:
     ///     ReferenceFrame: The bound `SEZ (rotating)` orbit-relative frame
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     frame = bh.ReferenceFrame.SEZ("STATION")
+    ///     ```
     #[staticmethod]
     #[allow(non_snake_case)]
     fn SEZ(object: String) -> Self {
@@ -6881,11 +6884,6 @@ impl PyReferenceFrame {
     /// ...), for callers that hold a runtime kind/variant pair and an
     /// optional, not-yet-bound object.
     ///
-    /// Among the orbit-relative kinds only `RTN`, `LVLH`, `NTW`, `TNW`,
-    /// `VNC`, `PQW`, `EQW`, and `NSW` have axes derivations today; the
-    /// others construct successfully but every transform through them
-    /// raises until issue #452 adds the remaining derivation.
-    ///
     /// Args:
     ///     kind (OrbitRelativeFrameKind): Frame construction (axes definition)
     ///     variant (OrbitRelativeFrameVariant): Rotating (true local orbital frame) or
@@ -6914,9 +6912,9 @@ impl PyReferenceFrame {
     /// Whether the frame carries the object identity resolution requires: a
     /// celestial frame (always), or an orbit-relative/body frame with a
     /// bound object. True is necessary but not sufficient for the frame to
-    /// actually resolve. An orbit-relative frame also needs an axes
-    /// derivation for its kind (currently RTN, LVLH, NTW, TNW, VNC, PQW, EQW, and NSW), and a
-    /// body frame also needs its orientation chain registered (`register_frame`).
+    /// actually resolve. An orbit-relative frame also needs its object
+    /// registered, and a body frame also needs its orientation chain
+    /// registered (`register_frame`).
     ///
     /// Returns:
     ///     bool: True if the frame is bound (celestial frames are always bound)

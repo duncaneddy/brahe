@@ -470,6 +470,7 @@ nav:
           - PQW Transformations: library_api/relative_motion/pqw_transformations.md
           - EQW Transformations: library_api/relative_motion/eqw_transformations.md
           - NSW Transformations: library_api/relative_motion/nsw_transformations.md
+          - SEZ Transformations: library_api/relative_motion/sez_transformations.md
           - ROE Transformations: library_api/relative_motion/roe_transformations.md
           - ECI-ROE Transformations: library_api/relative_motion/eci_roe_transformations.md
       - Access Computation:

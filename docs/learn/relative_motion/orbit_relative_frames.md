@@ -1,6 +1,6 @@
 # Orbit-Relative Frames
 
-Brahe implements the local orbital frames of the SANA orbit-relative reference frame registry, which CCSDS orbit and attitude messages use for `REF_FRAME` keywords. Each frame is built from an object's position and velocity (and, for some frames, additional inputs) and exists in two variants: a rotating frame, which carries the orbital angular velocity, and an inertial snapshot, which takes the same axes at the evaluation epoch and treats them as fixed. The functions on this page take Cartesian states in an inertial frame centered on the orbited body, except the SEZ functions, which take ECEF states of a site; the frame graph evaluates the same frames for registered objects through `ReferenceFrame`.
+Brahe implements the local orbital frames of the SANA orbit-relative reference frame registry, which CCSDS orbit and attitude messages use for `REF_FRAME` keywords. Each frame is built from an object's position and velocity (and, for some frames, additional inputs) and exists in two variants: a rotating frame, which carries the orbital angular velocity, and an inertial snapshot, which takes the same axes at the evaluation epoch and treats them as fixed. The functions on this page take Cartesian states in an inertial frame centered on the orbited body, except the SEZ and ENZ functions, which take ECEF states of a site; the frame graph evaluates the same frames for registered objects through `ReferenceFrame`.
 
 Every function accepts batches: an `(n, 6)` array of states transforms each row, and the `axis` keyword names the component axis as described in [Vectorized Transformations](../frames/vectorized.md).
 
@@ -19,8 +19,11 @@ With $\hat{r}$ the unit position, $\hat{v}$ the unit velocity, $\hat{h}$ the uni
 | EQW | $\hat{n}$ | $\hat{h} \times \hat{n}$ | $\hat{h}$ | inertial only |
 | NSW | $-\hat{r}$ | $\hat{s}$ projected normal to X | $X \times Y$ | rate from basis derivatives |
 | SEZ | south | east | geodetic up | rate relative to ECEF |
+| ENZ | east | north | geodetic up | rate relative to ECEF |
 
 Source: SANA Orbit-Relative Reference Frames registry (<https://sanaregistry.org/r/orbit_relative_reference_frames>) and CCSDS 500.0-G-4, *Navigation Data—Definitions and Conventions*, Section 4.3.7.
+
+ENZ is a brahe extension and is not in the SANA registry.
 
 ## Variants
 
@@ -36,7 +39,7 @@ PQW and EQW are registered by SANA only as inertial snapshots. On a circular orb
 
 Every NSW function takes the Sun's state as the argument directly after the spacecraft states: after `x_eci` for the rotation, rate, Jacobian, and covariance functions, and after the chief and deputy (or relative) states for `state_eci_to_nsw` and `state_nsw_to_eci`. Because X lies along the position vector, the frame is the same whether the Sun state is given relative to the center or relative to the spacecraft. When the Sun lies along the nadir line the projection used to build Y is degenerate and falls back to the along-track direction $\hat{h} \times \hat{r}$. In the frame graph the Sun state comes from the source selected with `set_frame_ephemeris_source`: `Auto`, the default, uses loaded SPICE kernels if any, otherwise the analytic Sun model for Earth-centered objects, otherwise the default DE kernel; `Analytic` uses the analytic Sun model and is Earth-centered only; `Kernel` always uses the SPICE registry.
 
-SEZ is a topocentric horizon frame of a site, not an orbit-derived frame; it is in the SANA registry because ADM and TDM name it. Brahe builds it from a site's ECEF position on the WGS84 ellipsoid, so it is Earth-only. Its `omega_` functions give the rate relative to ECEF, which is zero for a fixed site; the frame graph adds Earth's rotation for the rate relative to inertial space.
+SEZ and ENZ are topocentric horizon frames of a site, not orbit-derived frames. SEZ is in the SANA registry because ADM and TDM name it; ENZ is a brahe extension. Brahe builds them from a site's ECEF position on the WGS84 ellipsoid, so they are Earth-only. Their `omega_` functions give the rate relative to ECEF, which is zero for a fixed site; the frame graph adds Earth's rotation for the rate relative to inertial space.
 
 ## LVLH
 
@@ -254,6 +257,33 @@ The south/east/zenith frame is the topocentric horizon frame of a site: S points
         --8<-- "./docs/outputs/relative_motion/sez_frame.rs.txt"
         ```
 
+## ENZ
+
+The east/north/zenith frame is the SEZ horizon frame with its horizontal axes reordered ($E_\mathrm{ENZ} = E_\mathrm{SEZ}$, $N_\mathrm{ENZ} = -S_\mathrm{SEZ}$). It is not in the SANA registry; brahe adds it because its `coordinates` module already uses ENZ for topocentric work, and brahe's CCSDS reader and writer accept the tokens `ENZ_ROTATING` and `ENZ_INERTIAL` (with `ENU_*` accepted on input) as an extension; the tokens are not in the SANA registry, so other tools may not recognize them.
+
+=== "Python"
+
+    ``` python
+    --8<-- "./examples/relative_motion/enz_frame.py:8"
+    ```
+
+=== "Rust"
+
+    ``` rust
+    --8<-- "./examples/relative_motion/enz_frame.rs:4"
+    ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/relative_motion/enz_frame.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/relative_motion/enz_frame.rs.txt"
+        ```
+
 ### See Also
 
 - [RTN Transformations](rtn_transformations.md)
@@ -266,3 +296,4 @@ The south/east/zenith frame is the topocentric horizon frame of a site: S points
 - [EQW Transformations API Reference](../../library_api/relative_motion/eqw_transformations.md)
 - [NSW Transformations API Reference](../../library_api/relative_motion/nsw_transformations.md)
 - [SEZ Transformations API Reference](../../library_api/relative_motion/sez_transformations.md)
+- [ENZ Transformations API Reference](../../library_api/relative_motion/enz_transformations.md)

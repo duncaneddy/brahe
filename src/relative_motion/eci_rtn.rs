@@ -56,7 +56,7 @@ pub fn rotation_rtn_to_eci(x_eci: SVector6) -> SMatrix3 {
 
     // RTN frame:
     // R (Radial): Along position vector (away from Earth)
-    // T (Along-track): Completes right-handed system (C × R)
+    // T (Along-track): Completes right-handed system (N × R)
     // N (Normal): Along angular momentum (perpendicular to orbital plane)
     let r_hat = r / r_norm;
     let n_hat = h / h_norm;

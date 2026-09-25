@@ -8448,7 +8448,7 @@ impl PyNumericalOrbitPropagator {
         Ok(flat.into_pyarray(py).reshape([n, n]).unwrap())
     }
 
-    /// Get covariance at a specific epoch in RTN (Radial-Tangential-Normal) frame.
+    /// Get covariance at a specific epoch in RTN (Radial-Transverse-Normal) frame.
     ///
     /// Args:
     ///     epoch (Epoch): Target epoch.

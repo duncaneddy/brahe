@@ -1,0 +1,4 @@
+NAIF ID: 20000001
+Full name: 1 Ceres (A801 AA)
+GM: 6.262840e+10 m^3/s^2
+Radius: 469700.0 m

@@ -4210,6 +4210,125 @@ impl PyAttitudeState {
     }
 }
 
+/// Interpolation method for attitude trajectory state estimation.
+///
+/// Specifies how `AttitudeTrajectory` estimates the attitude at epochs between stored
+/// samples. Slerp and linear interpolation use the two bracketing samples; Lagrange
+/// interpolation of degree `d` fits a window of `d + 1` samples balanced around the bracketing
+/// pair, shrunk at a discontinuity, and renormalizes the result.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     slerp = bh.AttitudeInterpolationMethod.SLERP
+///     cubic = bh.AttitudeInterpolationMethod.lagrange(3)
+///     ```
+#[pyclass(module = "brahe._brahe", from_py_object)]
+#[pyo3(name = "AttitudeInterpolationMethod")]
+#[derive(Clone)]
+pub struct PyAttitudeInterpolationMethod {
+    pub(crate) method: trajectories::AttitudeInterpolationMethod,
+}
+
+#[pymethods]
+impl PyAttitudeInterpolationMethod {
+    /// Spherical linear interpolation between the two bracketing quaternions.
+    ///
+    /// Returns:
+    ///     AttitudeInterpolationMethod: Slerp interpolation constant
+    #[classattr]
+    #[pyo3(name = "SLERP")]
+    fn slerp() -> Self {
+        PyAttitudeInterpolationMethod { method: trajectories::AttitudeInterpolationMethod::Slerp }
+    }
+
+    /// Component-wise linear interpolation of the two bracketing quaternions, renormalized.
+    ///
+    /// Returns:
+    ///     AttitudeInterpolationMethod: Linear interpolation constant
+    #[classattr]
+    #[pyo3(name = "LINEAR")]
+    fn linear() -> Self {
+        PyAttitudeInterpolationMethod { method: trajectories::AttitudeInterpolationMethod::Linear }
+    }
+
+    /// Create a Lagrange polynomial interpolation method.
+    ///
+    /// Args:
+    ///     degree (int): Polynomial degree (must be >= 1); the fit window holds `degree + 1`
+    ///         samples
+    ///
+    /// Returns:
+    ///     AttitudeInterpolationMethod: Lagrange interpolation method with the given degree
+    ///
+    /// Raises:
+    ///     ValueError: If degree is less than 1
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     method = bh.AttitudeInterpolationMethod.lagrange(3)
+    ///     ```
+    #[staticmethod]
+    fn lagrange(degree: usize) -> PyResult<Self> {
+        if degree < 1 {
+            return Err(exceptions::PyValueError::new_err("degree must be >= 1"));
+        }
+        Ok(PyAttitudeInterpolationMethod {
+            method: trajectories::AttitudeInterpolationMethod::Lagrange { degree },
+        })
+    }
+
+    /// int | None: The degree if this is a Lagrange method, None otherwise
+    #[getter]
+    fn degree(&self) -> Option<usize> {
+        match self.method {
+            trajectories::AttitudeInterpolationMethod::Lagrange { degree } => Some(degree),
+            _ => None,
+        }
+    }
+
+    /// int: Minimum number of samples the method needs
+    #[getter]
+    fn min_points_required(&self) -> usize {
+        self.method.min_points_required()
+    }
+
+    fn __str__(&self) -> String {
+        match self.method {
+            trajectories::AttitudeInterpolationMethod::Slerp => "SLERP".to_string(),
+            trajectories::AttitudeInterpolationMethod::Linear => "LINEAR".to_string(),
+            trajectories::AttitudeInterpolationMethod::Lagrange { .. } => "LAGRANGE".to_string(),
+        }
+    }
+
+    fn __repr__(&self) -> String {
+        match self.method {
+            trajectories::AttitudeInterpolationMethod::Slerp => {
+                "AttitudeInterpolationMethod.SLERP".to_string()
+            }
+            trajectories::AttitudeInterpolationMethod::Linear => {
+                "AttitudeInterpolationMethod.LINEAR".to_string()
+            }
+            trajectories::AttitudeInterpolationMethod::Lagrange { degree } => {
+                format!("AttitudeInterpolationMethod.lagrange({})", degree)
+            }
+        }
+    }
+
+    fn __richcmp__(&self, other: &Self, op: CompareOp) -> PyResult<bool> {
+        match op {
+            CompareOp::Eq => Ok(self.method == other.method),
+            CompareOp::Ne => Ok(self.method != other.method),
+            _ => Err(exceptions::PyNotImplementedError::new_err(
+                "Comparison not supported",
+            )),
+        }
+    }
+}
+
 /// Parse an `AttitudeInterpolationMethod` token ("SLERP", "LINEAR", or "LAGRANGE",
 /// case-insensitive).
 fn parse_attitude_interpolation_method(
@@ -4309,18 +4428,636 @@ impl PyAttitudeTrajectory {
         self.trajectory.len()
     }
 
+    /// Create a trajectory from epochs and attitude states.
+    ///
+    /// The input need not be sorted. Epochs are sorted stably, so states sharing an epoch
+    /// keep their input order and the last one given is the state returned at that
+    /// discontinuity.
+    ///
+    /// Args:
+    ///     epochs (list[Epoch]): Epoch of each state
+    ///     states (list[AttitudeState]): One state per epoch, uniformly with or without
+    ///         angular velocity
+    ///     frame_a (ReferenceFrame): Frame endpoint A
+    ///     frame_b (ReferenceFrame): Frame endpoint B (stored quaternions rotate from frame_a
+    ///         to frame_b)
+    ///
+    /// Returns:
+    ///     AttitudeTrajectory: Trajectory holding the sorted samples
+    ///
+    /// Raises:
+    ///     BraheError: If the lists differ in length, are empty, or mix states with and
+    ///         without angular velocity
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     from brahe.trajectories import AttitudeState, AttitudeTrajectory
+    ///
+    ///     t0 = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     traj = AttitudeTrajectory.from_data(
+    ///         [t0, t0 + 60.0],
+    ///         [
+    ///             AttitudeState(bh.Quaternion(1.0, 0.0, 0.0, 0.0)),
+    ///             AttitudeState(bh.Quaternion(0.9997, 0.0, 0.0, 0.0245)),
+    ///         ],
+    ///         bh.ReferenceFrame.celestial(bh.CelestialFrame.GCRF),
+    ///         bh.ReferenceFrame.body(None, bh.BodyFrame.SC_BODY("1")),
+    ///     )
+    ///     ```
+    #[classmethod]
+    fn from_data(
+        _cls: &Bound<'_, PyType>,
+        epochs: Vec<PyRef<PyEpoch>>,
+        states: Vec<PyRef<PyAttitudeState>>,
+        frame_a: &PyReferenceFrame,
+        frame_b: &PyReferenceFrame,
+    ) -> PyResult<Self> {
+        let trajectory = trajectories::AttitudeTrajectory::from_data(
+            epochs.iter().map(|e| e.obj).collect(),
+            states.iter().map(|s| s.state.clone()).collect(),
+            frame_a.frame.clone(),
+            frame_b.frame.clone(),
+        )?;
+        Ok(Self { trajectory })
+    }
+
+    /// Epoch of the state at an index.
+    ///
+    /// Args:
+    ///     index (int): Index of the state
+    ///
+    /// Returns:
+    ///     Epoch: Epoch at the index
+    ///
+    /// Raises:
+    ///     BraheError: If index is out of range
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     from brahe.trajectories import AttitudeTrajectory
+    ///
+    ///     traj = AttitudeTrajectory(
+    ///         bh.ReferenceFrame.celestial(bh.CelestialFrame.GCRF),
+    ///         bh.ReferenceFrame.body(None, bh.BodyFrame.SC_BODY("1")),
+    ///     )
+    ///     t0 = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     traj.add(t0, bh.Quaternion(1.0, 0.0, 0.0, 0.0))
+    ///     traj.add(t0 + 60.0, bh.Quaternion(0.9997, 0.0, 0.0, 0.0245))
+    ///     first_epoch = traj.epoch_at_idx(0)
+    ///     ```
+    fn epoch_at_idx(&self, index: usize) -> PyResult<PyEpoch> {
+        Ok(PyEpoch { obj: self.trajectory.epoch_at_idx(index)? })
+    }
+
+    /// Attitude state at an index.
+    ///
+    /// Args:
+    ///     index (int): Index of the state
+    ///
+    /// Returns:
+    ///     AttitudeState: State at the index
+    ///
+    /// Raises:
+    ///     BraheError: If index is out of range
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     from brahe.trajectories import AttitudeTrajectory
+    ///
+    ///     traj = AttitudeTrajectory(
+    ///         bh.ReferenceFrame.celestial(bh.CelestialFrame.GCRF),
+    ///         bh.ReferenceFrame.body(None, bh.BodyFrame.SC_BODY("1")),
+    ///     )
+    ///     t0 = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     traj.add(t0, bh.Quaternion(1.0, 0.0, 0.0, 0.0))
+    ///     traj.add(t0 + 60.0, bh.Quaternion(0.9997, 0.0, 0.0, 0.0245))
+    ///     first_state = traj.state_at_idx(0)
+    ///     ```
+    fn state_at_idx(&self, index: usize) -> PyResult<PyAttitudeState> {
+        Ok(PyAttitudeState { state: self.trajectory.state_at_idx(index)? })
+    }
+
+    /// Epoch and attitude state at an index.
+    ///
+    /// Args:
+    ///     index (int): Index of the state
+    ///
+    /// Returns:
+    ///     tuple[Epoch, AttitudeState]: Epoch and state at the index
+    ///
+    /// Raises:
+    ///     BraheError: If index is out of range
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     from brahe.trajectories import AttitudeTrajectory
+    ///
+    ///     traj = AttitudeTrajectory(
+    ///         bh.ReferenceFrame.celestial(bh.CelestialFrame.GCRF),
+    ///         bh.ReferenceFrame.body(None, bh.BodyFrame.SC_BODY("1")),
+    ///     )
+    ///     t0 = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     traj.add(t0, bh.Quaternion(1.0, 0.0, 0.0, 0.0))
+    ///     traj.add(t0 + 60.0, bh.Quaternion(0.9997, 0.0, 0.0, 0.0245))
+    ///     epoch, state = traj.get(1)
+    ///     ```
+    fn get(&self, index: usize) -> PyResult<(PyEpoch, PyAttitudeState)> {
+        let (epoch, state) = self.trajectory.get(index)?;
+        Ok((PyEpoch { obj: epoch }, PyAttitudeState { state }))
+    }
+
+    /// Stored sample nearest in time to an epoch, without interpolation.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Target epoch
+    ///
+    /// Returns:
+    ///     tuple[Epoch, AttitudeState]: Epoch and state of the nearest sample
+    ///
+    /// Raises:
+    ///     BraheError: If the trajectory is empty
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     from brahe.trajectories import AttitudeTrajectory
+    ///
+    ///     traj = AttitudeTrajectory(
+    ///         bh.ReferenceFrame.celestial(bh.CelestialFrame.GCRF),
+    ///         bh.ReferenceFrame.body(None, bh.BodyFrame.SC_BODY("1")),
+    ///     )
+    ///     t0 = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     traj.add(t0, bh.Quaternion(1.0, 0.0, 0.0, 0.0))
+    ///     traj.add(t0 + 60.0, bh.Quaternion(0.9997, 0.0, 0.0, 0.0245))
+    ///     epoch, state = traj.nearest_state(t0 + 50.0)  # the sample at t0 + 60
+    ///     ```
+    fn nearest_state(&self, epoch: PyEpoch) -> PyResult<(PyEpoch, PyAttitudeState)> {
+        let (nearest, state) = self.trajectory.nearest_state(&epoch.obj)?;
+        Ok((PyEpoch { obj: nearest }, PyAttitudeState { state }))
+    }
+
+    /// Index of the last sample at or before an epoch.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Target epoch
+    ///
+    /// Returns:
+    ///     int: Index of the sample at or before the epoch
+    ///
+    /// Raises:
+    ///     BraheError: If the trajectory is empty or the epoch precedes its first sample
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     from brahe.trajectories import AttitudeTrajectory
+    ///
+    ///     traj = AttitudeTrajectory(
+    ///         bh.ReferenceFrame.celestial(bh.CelestialFrame.GCRF),
+    ///         bh.ReferenceFrame.body(None, bh.BodyFrame.SC_BODY("1")),
+    ///     )
+    ///     t0 = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     traj.add(t0, bh.Quaternion(1.0, 0.0, 0.0, 0.0))
+    ///     traj.add(t0 + 60.0, bh.Quaternion(0.9997, 0.0, 0.0, 0.0245))
+    ///     index = traj.index_before_epoch(t0 + 30.0)  # 0
+    ///     ```
+    fn index_before_epoch(&self, epoch: PyEpoch) -> PyResult<usize> {
+        Ok(self.trajectory.index_before_epoch(&epoch.obj)?)
+    }
+
+    /// Index of the first sample at or after an epoch.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Target epoch
+    ///
+    /// Returns:
+    ///     int: Index of the sample at or after the epoch
+    ///
+    /// Raises:
+    ///     BraheError: If the trajectory is empty or the epoch follows its last sample
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     from brahe.trajectories import AttitudeTrajectory
+    ///
+    ///     traj = AttitudeTrajectory(
+    ///         bh.ReferenceFrame.celestial(bh.CelestialFrame.GCRF),
+    ///         bh.ReferenceFrame.body(None, bh.BodyFrame.SC_BODY("1")),
+    ///     )
+    ///     t0 = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     traj.add(t0, bh.Quaternion(1.0, 0.0, 0.0, 0.0))
+    ///     traj.add(t0 + 60.0, bh.Quaternion(0.9997, 0.0, 0.0, 0.0245))
+    ///     index = traj.index_after_epoch(t0 + 30.0)  # 1
+    ///     ```
+    fn index_after_epoch(&self, epoch: PyEpoch) -> PyResult<usize> {
+        Ok(self.trajectory.index_after_epoch(&epoch.obj)?)
+    }
+
+    /// Last sample at or before an epoch.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Target epoch
+    ///
+    /// Returns:
+    ///     tuple[Epoch, AttitudeState]: Epoch and state of the sample at or before the epoch
+    ///
+    /// Raises:
+    ///     BraheError: If the trajectory is empty or the epoch precedes its first sample
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     from brahe.trajectories import AttitudeTrajectory
+    ///
+    ///     traj = AttitudeTrajectory(
+    ///         bh.ReferenceFrame.celestial(bh.CelestialFrame.GCRF),
+    ///         bh.ReferenceFrame.body(None, bh.BodyFrame.SC_BODY("1")),
+    ///     )
+    ///     t0 = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     traj.add(t0, bh.Quaternion(1.0, 0.0, 0.0, 0.0))
+    ///     traj.add(t0 + 60.0, bh.Quaternion(0.9997, 0.0, 0.0, 0.0245))
+    ///     epoch, state = traj.state_before_epoch(t0 + 30.0)  # the sample at t0
+    ///     ```
+    fn state_before_epoch(&self, epoch: PyEpoch) -> PyResult<(PyEpoch, PyAttitudeState)> {
+        let (found, state) = self.trajectory.state_before_epoch(&epoch.obj)?;
+        Ok((PyEpoch { obj: found }, PyAttitudeState { state }))
+    }
+
+    /// First sample at or after an epoch.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Target epoch
+    ///
+    /// Returns:
+    ///     tuple[Epoch, AttitudeState]: Epoch and state of the sample at or after the epoch
+    ///
+    /// Raises:
+    ///     BraheError: If the trajectory is empty or the epoch follows its last sample
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     from brahe.trajectories import AttitudeTrajectory
+    ///
+    ///     traj = AttitudeTrajectory(
+    ///         bh.ReferenceFrame.celestial(bh.CelestialFrame.GCRF),
+    ///         bh.ReferenceFrame.body(None, bh.BodyFrame.SC_BODY("1")),
+    ///     )
+    ///     t0 = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     traj.add(t0, bh.Quaternion(1.0, 0.0, 0.0, 0.0))
+    ///     traj.add(t0 + 60.0, bh.Quaternion(0.9997, 0.0, 0.0, 0.0245))
+    ///     epoch, state = traj.state_after_epoch(t0 + 30.0)  # the sample at t0 + 60
+    ///     ```
+    fn state_after_epoch(&self, epoch: PyEpoch) -> PyResult<(PyEpoch, PyAttitudeState)> {
+        let (found, state) = self.trajectory.state_after_epoch(&epoch.obj)?;
+        Ok((PyEpoch { obj: found }, PyAttitudeState { state }))
+    }
+
+    /// Duration between the first and last samples.
+    ///
+    /// Returns:
+    ///     float | None: Timespan in seconds, or None with fewer than two samples
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     from brahe.trajectories import AttitudeTrajectory
+    ///
+    ///     traj = AttitudeTrajectory(
+    ///         bh.ReferenceFrame.celestial(bh.CelestialFrame.GCRF),
+    ///         bh.ReferenceFrame.body(None, bh.BodyFrame.SC_BODY("1")),
+    ///     )
+    ///     t0 = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     traj.add(t0, bh.Quaternion(1.0, 0.0, 0.0, 0.0))
+    ///     traj.add(t0 + 60.0, bh.Quaternion(0.9997, 0.0, 0.0, 0.0245))
+    ///     seconds = traj.timespan()  # 60.0
+    ///     ```
+    fn timespan(&self) -> Option<f64> {
+        self.trajectory.timespan()
+    }
+
+    /// First sample.
+    ///
+    /// Returns:
+    ///     tuple[Epoch, AttitudeState] | None: First epoch and state, or None if empty
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     from brahe.trajectories import AttitudeTrajectory
+    ///
+    ///     traj = AttitudeTrajectory(
+    ///         bh.ReferenceFrame.celestial(bh.CelestialFrame.GCRF),
+    ///         bh.ReferenceFrame.body(None, bh.BodyFrame.SC_BODY("1")),
+    ///     )
+    ///     t0 = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     traj.add(t0, bh.Quaternion(1.0, 0.0, 0.0, 0.0))
+    ///     traj.add(t0 + 60.0, bh.Quaternion(0.9997, 0.0, 0.0, 0.0245))
+    ///     epoch, state = traj.first()
+    ///     ```
+    fn first(&self) -> Option<(PyEpoch, PyAttitudeState)> {
+        self.trajectory
+            .first()
+            .map(|(epoch, state)| (PyEpoch { obj: epoch }, PyAttitudeState { state }))
+    }
+
+    /// Last sample.
+    ///
+    /// Returns:
+    ///     tuple[Epoch, AttitudeState] | None: Last epoch and state, or None if empty
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     from brahe.trajectories import AttitudeTrajectory
+    ///
+    ///     traj = AttitudeTrajectory(
+    ///         bh.ReferenceFrame.celestial(bh.CelestialFrame.GCRF),
+    ///         bh.ReferenceFrame.body(None, bh.BodyFrame.SC_BODY("1")),
+    ///     )
+    ///     t0 = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     traj.add(t0, bh.Quaternion(1.0, 0.0, 0.0, 0.0))
+    ///     traj.add(t0 + 60.0, bh.Quaternion(0.9997, 0.0, 0.0, 0.0245))
+    ///     epoch, state = traj.last()
+    ///     ```
+    fn last(&self) -> Option<(PyEpoch, PyAttitudeState)> {
+        self.trajectory
+            .last()
+            .map(|(epoch, state)| (PyEpoch { obj: epoch }, PyAttitudeState { state }))
+    }
+
+    /// Remove every sample.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     from brahe.trajectories import AttitudeTrajectory
+    ///
+    ///     traj = AttitudeTrajectory(
+    ///         bh.ReferenceFrame.celestial(bh.CelestialFrame.GCRF),
+    ///         bh.ReferenceFrame.body(None, bh.BodyFrame.SC_BODY("1")),
+    ///     )
+    ///     t0 = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     traj.add(t0, bh.Quaternion(1.0, 0.0, 0.0, 0.0))
+    ///     traj.add(t0 + 60.0, bh.Quaternion(0.9997, 0.0, 0.0, 0.0245))
+    ///     traj.clear()
+    ///     ```
+    fn clear(&mut self) {
+        self.trajectory.clear();
+    }
+
+    /// Remove the sample at an exact epoch.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Epoch of the sample to remove
+    ///
+    /// Returns:
+    ///     AttitudeState: The removed state
+    ///
+    /// Raises:
+    ///     BraheError: If no sample is stored at the epoch
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     from brahe.trajectories import AttitudeTrajectory
+    ///
+    ///     traj = AttitudeTrajectory(
+    ///         bh.ReferenceFrame.celestial(bh.CelestialFrame.GCRF),
+    ///         bh.ReferenceFrame.body(None, bh.BodyFrame.SC_BODY("1")),
+    ///     )
+    ///     t0 = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     traj.add(t0, bh.Quaternion(1.0, 0.0, 0.0, 0.0))
+    ///     traj.add(t0 + 60.0, bh.Quaternion(0.9997, 0.0, 0.0, 0.0245))
+    ///     removed = traj.remove_epoch(t0)
+    ///     ```
+    fn remove_epoch(&mut self, epoch: PyEpoch) -> PyResult<PyAttitudeState> {
+        Ok(PyAttitudeState { state: self.trajectory.remove_epoch(&epoch.obj)? })
+    }
+
+    /// Remove the sample at an index.
+    ///
+    /// Args:
+    ///     index (int): Index of the sample to remove
+    ///
+    /// Returns:
+    ///     tuple[Epoch, AttitudeState]: The removed epoch and state
+    ///
+    /// Raises:
+    ///     BraheError: If index is out of range
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     from brahe.trajectories import AttitudeTrajectory
+    ///
+    ///     traj = AttitudeTrajectory(
+    ///         bh.ReferenceFrame.celestial(bh.CelestialFrame.GCRF),
+    ///         bh.ReferenceFrame.body(None, bh.BodyFrame.SC_BODY("1")),
+    ///     )
+    ///     t0 = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     traj.add(t0, bh.Quaternion(1.0, 0.0, 0.0, 0.0))
+    ///     traj.add(t0 + 60.0, bh.Quaternion(0.9997, 0.0, 0.0, 0.0245))
+    ///     epoch, state = traj.remove(0)
+    ///     ```
+    fn remove(&mut self, index: usize) -> PyResult<(PyEpoch, PyAttitudeState)> {
+        let (epoch, state) = self.trajectory.remove(index)?;
+        Ok((PyEpoch { obj: epoch }, PyAttitudeState { state }))
+    }
+
+    /// Keep at most `max_size` samples, evicting the oldest as new ones are added.
+    ///
+    /// Args:
+    ///     max_size (int): Maximum number of samples (must be >= 1)
+    ///
+    /// Raises:
+    ///     BraheError: If max_size is 0
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     from brahe.trajectories import AttitudeTrajectory
+    ///
+    ///     traj = AttitudeTrajectory(
+    ///         bh.ReferenceFrame.celestial(bh.CelestialFrame.GCRF),
+    ///         bh.ReferenceFrame.body(None, bh.BodyFrame.SC_BODY("1")),
+    ///     )
+    ///     t0 = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     traj.add(t0, bh.Quaternion(1.0, 0.0, 0.0, 0.0))
+    ///     traj.add(t0 + 60.0, bh.Quaternion(0.9997, 0.0, 0.0, 0.0245))
+    ///     traj.set_eviction_policy_max_size(1000)
+    ///     ```
+    fn set_eviction_policy_max_size(&mut self, max_size: usize) -> PyResult<()> {
+        Ok(self.trajectory.set_eviction_policy_max_size(max_size)?)
+    }
+
+    /// Keep only samples within `max_age` seconds of the most recent one.
+    ///
+    /// Args:
+    ///     max_age (float): Maximum age in seconds relative to the last sample (must be > 0)
+    ///
+    /// Raises:
+    ///     BraheError: If max_age is not positive
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     from brahe.trajectories import AttitudeTrajectory
+    ///
+    ///     traj = AttitudeTrajectory(
+    ///         bh.ReferenceFrame.celestial(bh.CelestialFrame.GCRF),
+    ///         bh.ReferenceFrame.body(None, bh.BodyFrame.SC_BODY("1")),
+    ///     )
+    ///     t0 = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     traj.add(t0, bh.Quaternion(1.0, 0.0, 0.0, 0.0))
+    ///     traj.add(t0 + 60.0, bh.Quaternion(0.9997, 0.0, 0.0, 0.0245))
+    ///     traj.set_eviction_policy_max_age(3600.0)
+    ///     ```
+    fn set_eviction_policy_max_age(&mut self, max_age: f64) -> PyResult<()> {
+        Ok(self.trajectory.set_eviction_policy_max_age(max_age)?)
+    }
+
+    /// Current eviction policy.
+    ///
+    /// Returns:
+    ///     str: "None", "KeepCount", or "KeepWithinDuration"
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     from brahe.trajectories import AttitudeTrajectory
+    ///
+    ///     traj = AttitudeTrajectory(
+    ///         bh.ReferenceFrame.celestial(bh.CelestialFrame.GCRF),
+    ///         bh.ReferenceFrame.body(None, bh.BodyFrame.SC_BODY("1")),
+    ///     )
+    ///     t0 = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     traj.add(t0, bh.Quaternion(1.0, 0.0, 0.0, 0.0))
+    ///     traj.add(t0 + 60.0, bh.Quaternion(0.9997, 0.0, 0.0, 0.0245))
+    ///     policy = traj.get_eviction_policy()  # "None"
+    ///     ```
+    fn get_eviction_policy(&self) -> String {
+        format!("{:?}", self.trajectory.get_eviction_policy())
+    }
+
+    /// Interpolated attitude quaternions at each epoch.
+    ///
+    /// Args:
+    ///     epochs (list[Epoch]): Epochs to evaluate the attitude at
+    ///
+    /// Returns:
+    ///     list[Quaternion]: Unit quaternion attitude, frame A to frame B, at each epoch
+    ///
+    /// Raises:
+    ///     BraheError: If any epoch lies outside the trajectory's coverage, the trajectory is
+    ///         empty, or it holds fewer samples than the interpolation method needs
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     from brahe.trajectories import AttitudeTrajectory
+    ///
+    ///     traj = AttitudeTrajectory(
+    ///         bh.ReferenceFrame.celestial(bh.CelestialFrame.GCRF),
+    ///         bh.ReferenceFrame.body(None, bh.BodyFrame.SC_BODY("1")),
+    ///     )
+    ///     t0 = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     traj.add(t0, bh.Quaternion(1.0, 0.0, 0.0, 0.0))
+    ///     traj.add(t0 + 60.0, bh.Quaternion(0.9997, 0.0, 0.0, 0.0245))
+    ///     quaternions = traj.quaternions([t0, t0 + 30.0, t0 + 60.0])
+    ///     ```
+    fn quaternions(&self, epochs: Vec<PyRef<PyEpoch>>) -> PyResult<Vec<PyQuaternion>> {
+        let epochs: Vec<_> = epochs.iter().map(|e| e.obj).collect();
+        Ok(self
+            .trajectory
+            .quaternions(&epochs)?
+            .into_iter()
+            .map(|obj| PyQuaternion { obj })
+            .collect())
+    }
+
+    /// Interpolated body angular velocities at each epoch.
+    ///
+    /// Rate data is uniform across a trajectory (see `has_rates`), so this returns None for
+    /// a trajectory without rates rather than a per-epoch mixture.
+    ///
+    /// Args:
+    ///     epochs (list[Epoch]): Epochs to evaluate the angular velocity at
+    ///
+    /// Returns:
+    ///     numpy.ndarray | None: Array of shape (len(epochs), 3) with the angular velocity of
+    ///     frame B relative to frame A, expressed in frame B, in rad/s at each epoch, or None
+    ///     if the trajectory carries no rate data
+    ///
+    /// Raises:
+    ///     BraheError: If any epoch lies outside the trajectory's coverage, the trajectory is
+    ///         empty, or it holds fewer samples than the interpolation method needs
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     from brahe.trajectories import AttitudeTrajectory
+    ///
+    ///     traj = AttitudeTrajectory(
+    ///         bh.ReferenceFrame.celestial(bh.CelestialFrame.GCRF),
+    ///         bh.ReferenceFrame.body(None, bh.BodyFrame.SC_BODY("1")),
+    ///     )
+    ///     t0 = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     traj.add(t0, bh.Quaternion(1.0, 0.0, 0.0, 0.0))
+    ///     traj.add(t0 + 60.0, bh.Quaternion(0.9997, 0.0, 0.0, 0.0245))
+    ///     rates = traj.angular_velocities([t0, t0 + 30.0])  # None: no rate data
+    ///     ```
+    fn angular_velocities<'py>(
+        &self,
+        py: Python<'py>,
+        epochs: Vec<PyRef<PyEpoch>>,
+    ) -> PyResult<Option<Bound<'py, PyArray<f64, Ix2>>>> {
+        let epochs: Vec<_> = epochs.iter().map(|e| e.obj).collect();
+        match self.trajectory.angular_velocities(&epochs)? {
+            Some(rates) => {
+                let rows: Vec<Vec<f64>> = rates.iter().map(|w| vec![w[0], w[1], w[2]]).collect();
+                if rows.is_empty() {
+                    return Ok(Some(PyArray::<f64, Ix2>::zeros(py, [0, 3], false)));
+                }
+                Ok(Some(PyArray::from_vec2(py, &rows).map_err(|e| {
+                    exceptions::PyValueError::new_err(e.to_string())
+                })?))
+            }
+            None => Ok(None),
+        }
+    }
+
     /// Set the interpolation method used for state retrieval at arbitrary epochs.
     ///
     /// Args:
-    ///     method (str): Interpolation method - "SLERP" (default), "LINEAR", or "LAGRANGE"
-    ///         (case-insensitive)
-    ///     degree (int | None): Polynomial degree, required iff method is "LAGRANGE"
+    ///     method (AttitudeInterpolationMethod | str): Interpolation method, or its name -
+    ///         "SLERP" (default), "LINEAR", or "LAGRANGE" (case-insensitive)
+    ///     degree (int | None): Polynomial degree, required iff method is the name "LAGRANGE"
     ///
     /// Raises:
-    ///     ValueError: If method is not recognized, or degree is missing for "LAGRANGE"
+    ///     ValueError: If a method name is not recognized, or degree is missing for "LAGRANGE"
+    ///     TypeError: If method is neither an AttitudeInterpolationMethod nor a str
     #[pyo3(signature = (method, degree=None))]
-    fn set_interpolation_method(&mut self, method: &str, degree: Option<usize>) -> PyResult<()> {
-        let parsed = parse_attitude_interpolation_method(method, degree)?;
+    fn set_interpolation_method(
+        &mut self,
+        method: &Bound<'_, PyAny>,
+        degree: Option<usize>,
+    ) -> PyResult<()> {
+        let parsed = if let Ok(m) = method.extract::<PyAttitudeInterpolationMethod>() {
+            m.method
+        } else {
+            let name: String = method.extract().map_err(|_| {
+                exceptions::PyTypeError::new_err(
+                    "method must be an AttitudeInterpolationMethod or a str",
+                )
+            })?;
+            parse_attitude_interpolation_method(&name, degree)?
+        };
         self.trajectory.set_interpolation_method(parsed);
         Ok(())
     }

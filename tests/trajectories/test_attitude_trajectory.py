@@ -567,3 +567,336 @@ def test_attitude_provider_angular_velocity_with_rates():
 
     result = traj.angular_velocity(t0 + 30.0)
     np.testing.assert_array_equal(result, omega)
+
+
+def test_attitude_interpolation_method_min_points_required():
+    """Rust: test_attitude_interpolation_method_min_points_required"""
+    assert bh.AttitudeInterpolationMethod.SLERP.min_points_required == 2
+    assert bh.AttitudeInterpolationMethod.LINEAR.min_points_required == 2
+    assert bh.AttitudeInterpolationMethod.lagrange(3).min_points_required == 4
+
+
+def test_attitude_interpolation_method_sets_trajectory_method():
+    """The enum and its name select the same interpolation method."""
+    frame_a, frame_b = body_frames()
+    traj = AttitudeTrajectory(frame_a, frame_b)
+    traj.set_interpolation_method(bh.AttitudeInterpolationMethod.lagrange(3))
+    assert traj.interpolation_method == "LAGRANGE"
+    assert traj.interpolation_degree == 3
+    traj.set_interpolation_method(bh.AttitudeInterpolationMethod.LINEAR)
+    assert traj.interpolation_method == "LINEAR"
+    assert traj.interpolation_degree is None
+    assert str(bh.AttitudeInterpolationMethod.SLERP) == "SLERP"
+    assert repr(bh.AttitudeInterpolationMethod.lagrange(2)) == (
+        "AttitudeInterpolationMethod.lagrange(2)"
+    )
+    assert bh.AttitudeInterpolationMethod.lagrange(2).degree == 2
+    assert bh.AttitudeInterpolationMethod.SLERP.degree is None
+    assert bh.AttitudeInterpolationMethod.SLERP != bh.AttitudeInterpolationMethod.LINEAR
+    with pytest.raises(ValueError):
+        bh.AttitudeInterpolationMethod.lagrange(0)
+    with pytest.raises(TypeError):
+        traj.set_interpolation_method(3)
+
+
+def test_attitude_trajectory_from_data_rate_mixing_error():
+    """Rust: test_attitude_trajectory_from_data_rate_mixing_error"""
+    frame_a, frame_b = body_frames()
+    t0 = bh.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    epochs = [t0, t0 + 60.0]
+    states = [
+        AttitudeState(z_axis_quaternion(0.0)),
+        AttitudeState(z_axis_quaternion(0.1), np.array([0.0, 0.0, 0.01])),
+    ]
+    with pytest.raises(bh.BraheError):
+        AttitudeTrajectory.from_data(epochs, states, frame_a, frame_b)
+
+
+def test_attitude_trajectory_from_data_rate_mixing_error_reverse_direction():
+    """Rust: test_attitude_trajectory_from_data_rate_mixing_error_reverse_direction"""
+    frame_a, frame_b = body_frames()
+    t0 = bh.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    epochs = [t0, t0 + 60.0]
+    states = [
+        AttitudeState(z_axis_quaternion(0.0), np.array([0.0, 0.0, 0.01])),
+        AttitudeState(z_axis_quaternion(0.1)),
+    ]
+    with pytest.raises(Exception, match="not carry it"):
+        AttitudeTrajectory.from_data(epochs, states, frame_a, frame_b)
+
+
+def test_attitude_trajectory_from_data_length_mismatch_errors():
+    """Rust: test_attitude_trajectory_from_data_length_mismatch_errors"""
+    frame_a, frame_b = body_frames()
+    t0 = bh.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    with pytest.raises(Exception, match="same length"):
+        AttitudeTrajectory.from_data(
+            [t0, t0 + 60.0], [AttitudeState(z_axis_quaternion(0.0))], frame_a, frame_b
+        )
+
+
+def test_attitude_trajectory_from_data_empty_errors():
+    """Rust: test_attitude_trajectory_from_data_empty_errors"""
+    frame_a, frame_b = body_frames()
+    with pytest.raises(Exception, match="empty"):
+        AttitudeTrajectory.from_data([], [], frame_a, frame_b)
+
+
+def test_attitude_trajectory_from_data_repeated_epoch_is_discontinuity():
+    """Rust: test_attitude_trajectory_from_data_repeated_epoch_is_discontinuity"""
+    frame_a, frame_b = body_frames()
+    t0 = bh.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    # Repeated epoch present even though the input is not pre-sorted.
+    epochs = [t0 + 60.0, t0, t0]
+    states = [
+        AttitudeState(z_axis_quaternion(0.1)),
+        AttitudeState(z_axis_quaternion(0.0)),
+        AttitudeState(z_axis_quaternion(0.2)),
+    ]
+    traj = AttitudeTrajectory.from_data(epochs, states, frame_a, frame_b)
+
+    # The sort is stable, so the two states at t0 keep their input order.
+    assert len(traj) == 3
+    assert traj.state_at_idx(0).quaternion == z_axis_quaternion(0.0)
+    assert traj.state_at_idx(1).quaternion == z_axis_quaternion(0.2)
+
+    # Right-continuous at the discontinuity, and finite rather than NaN.
+    assert traj.quaternion(t0) == z_axis_quaternion(0.2)
+
+
+def test_attitude_trajectory_eviction_max_size():
+    """Rust: test_attitude_trajectory_eviction_max_size"""
+    frame_a, frame_b = body_frames()
+    traj = AttitudeTrajectory(frame_a, frame_b)
+    traj.set_eviction_policy_max_size(3)
+    assert traj.get_eviction_policy() == "KeepCount"
+
+    t0 = bh.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    for i in range(5):
+        traj.add(t0 + float(i), z_axis_quaternion(0.01 * i))
+
+    assert len(traj) == 3
+    assert traj.epoch_at_idx(0) == t0 + 2.0
+    assert traj.epoch_at_idx(2) == t0 + 4.0
+
+
+def test_attitude_trajectory_eviction_max_age():
+    """Rust: test_attitude_trajectory_eviction_max_age"""
+    frame_a, frame_b = body_frames()
+    traj = AttitudeTrajectory(frame_a, frame_b)
+    traj.set_eviction_policy_max_age(2.5)
+    assert traj.get_eviction_policy() == "KeepWithinDuration"
+
+    t0 = bh.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    for i in range(5):
+        traj.add(t0 + float(i), z_axis_quaternion(0.01 * i))
+
+    # Last epoch is t0 + 4.0; only states within 2.5s of it survive.
+    assert len(traj) == 3
+    assert traj.epoch_at_idx(0) == t0 + 2.0
+    assert traj.epoch_at_idx(2) == t0 + 4.0
+
+
+def test_attitude_trajectory_eviction_policy_setter_errors():
+    """Rust: test_attitude_trajectory_eviction_policy_setter_errors"""
+    frame_a, frame_b = body_frames()
+    traj = AttitudeTrajectory(frame_a, frame_b)
+    with pytest.raises(bh.BraheError):
+        traj.set_eviction_policy_max_size(0)
+    with pytest.raises(bh.BraheError):
+        traj.set_eviction_policy_max_age(0.0)
+    with pytest.raises(bh.BraheError):
+        traj.set_eviction_policy_max_age(-1.0)
+    assert traj.get_eviction_policy() == "None"
+
+
+def test_attitude_trajectory_epoch_state_at_idx_out_of_bounds_errors():
+    """Rust: test_attitude_trajectory_epoch_state_at_idx_out_of_bounds_errors"""
+    frame_a, frame_b = body_frames()
+    traj = AttitudeTrajectory(frame_a, frame_b)
+    t0 = bh.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    traj.add(t0, z_axis_quaternion(0.0))
+
+    with pytest.raises(bh.BraheError):
+        traj.epoch_at_idx(1)
+    with pytest.raises(bh.BraheError):
+        traj.state_at_idx(1)
+    with pytest.raises(bh.BraheError):
+        traj.get(1)
+    with pytest.raises(bh.BraheError):
+        traj.remove(1)
+
+
+def test_attitude_trajectory_nearest_state():
+    """Rust: test_attitude_trajectory_nearest_state"""
+    frame_a, frame_b = body_frames()
+    traj = AttitudeTrajectory(frame_a, frame_b)
+    t0 = bh.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    traj.add(t0, z_axis_quaternion(0.0))
+    traj.add(t0 + 10.0, z_axis_quaternion(0.1))
+    traj.add(t0 + 20.0, z_axis_quaternion(0.2))
+
+    epoch, state = traj.nearest_state(t0 + 3.0)
+    assert epoch == t0
+    assert state.quaternion == z_axis_quaternion(0.0)
+
+    epoch, _ = traj.nearest_state(t0 + 17.0)
+    assert epoch == t0 + 20.0
+
+
+def test_attitude_trajectory_nearest_state_empty_errors():
+    """Rust: test_attitude_trajectory_nearest_state_empty_errors"""
+    frame_a, frame_b = body_frames()
+    traj = AttitudeTrajectory(frame_a, frame_b)
+    with pytest.raises(bh.BraheError):
+        traj.nearest_state(bh.Epoch.now())
+
+
+def test_attitude_trajectory_index_before_after_epoch_errors_on_empty():
+    """Rust: test_attitude_trajectory_index_before_after_epoch_errors_on_empty"""
+    frame_a, frame_b = body_frames()
+    traj = AttitudeTrajectory(frame_a, frame_b)
+    with pytest.raises(bh.BraheError):
+        traj.index_before_epoch(bh.Epoch.now())
+    with pytest.raises(bh.BraheError):
+        traj.index_after_epoch(bh.Epoch.now())
+
+
+def test_attitude_trajectory_index_before_after_epoch_errors_outside_range():
+    """Rust: test_attitude_trajectory_index_before_after_epoch_errors_outside_range"""
+    frame_a, frame_b = body_frames()
+    traj = AttitudeTrajectory(frame_a, frame_b)
+    t0 = bh.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    traj.add(t0, z_axis_quaternion(0.0))
+    traj.add(t0 + 10.0, z_axis_quaternion(0.1))
+
+    with pytest.raises(bh.BraheError):
+        traj.index_before_epoch(t0 - 1.0)
+    with pytest.raises(bh.BraheError):
+        traj.index_after_epoch(t0 + 11.0)
+    assert traj.index_before_epoch(t0) == 0
+    assert traj.index_after_epoch(t0 + 10.0) == 1
+
+
+def test_attitude_trajectory_state_before_after_epoch():
+    """Rust: test_attitude_trajectory_state_before_after_epoch"""
+    frame_a, frame_b = body_frames()
+    traj = AttitudeTrajectory(frame_a, frame_b)
+    t0 = bh.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    traj.add(t0, z_axis_quaternion(0.0))
+    traj.add(t0 + 10.0, z_axis_quaternion(0.1))
+
+    epoch, state = traj.state_before_epoch(t0 + 3.0)
+    assert epoch == t0
+    assert state.quaternion == z_axis_quaternion(0.0)
+
+    epoch, state = traj.state_after_epoch(t0 + 3.0)
+    assert epoch == t0 + 10.0
+    assert state.quaternion == z_axis_quaternion(0.1)
+
+    # An exact node is returned by both accessors
+    assert traj.state_before_epoch(t0 + 10.0)[0] == t0 + 10.0
+    assert traj.state_after_epoch(t0)[0] == t0
+
+    with pytest.raises(bh.BraheError):
+        traj.state_before_epoch(t0 - 1.0)
+    with pytest.raises(bh.BraheError):
+        traj.state_after_epoch(t0 + 11.0)
+
+
+def test_attitude_trajectory_timespan_first_last_empty():
+    """Rust: test_attitude_trajectory_timespan_first_last_empty"""
+    frame_a, frame_b = body_frames()
+    traj = AttitudeTrajectory(frame_a, frame_b)
+    assert traj.timespan() is None
+    assert traj.first() is None
+    assert traj.last() is None
+
+
+def test_attitude_trajectory_timespan_first_last_populated():
+    """Rust: test_attitude_trajectory_timespan_first_last_populated"""
+    frame_a, frame_b = body_frames()
+    traj = AttitudeTrajectory(frame_a, frame_b)
+    t0 = bh.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    traj.add(t0, z_axis_quaternion(0.0))
+    # A single-state trajectory has no timespan.
+    assert traj.timespan() is None
+
+    traj.add(t0 + 30.0, z_axis_quaternion(0.1))
+
+    assert traj.timespan() == 30.0
+    assert traj.first()[0] == t0
+    assert traj.last()[0] == t0 + 30.0
+
+
+def test_attitude_trajectory_clear():
+    """Rust: test_attitude_trajectory_clear"""
+    frame_a, frame_b = body_frames()
+    traj = AttitudeTrajectory(frame_a, frame_b)
+    t0 = bh.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    traj.add(t0, z_axis_quaternion(0.0))
+    assert len(traj) == 1
+
+    traj.clear()
+    assert len(traj) == 0
+
+
+def test_attitude_trajectory_remove_epoch():
+    """Rust: test_attitude_trajectory_remove_epoch"""
+    frame_a, frame_b = body_frames()
+    traj = AttitudeTrajectory(frame_a, frame_b)
+    t0 = bh.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    traj.add(t0, z_axis_quaternion(0.0))
+    traj.add(t0 + 10.0, z_axis_quaternion(0.1))
+
+    removed = traj.remove_epoch(t0)
+    assert removed.quaternion == z_axis_quaternion(0.0)
+    assert len(traj) == 1
+
+    with pytest.raises(bh.BraheError):
+        traj.remove_epoch(t0)
+
+
+def test_attitude_trajectory_remove_by_index():
+    """Rust: test_attitude_trajectory_remove_by_index"""
+    frame_a, frame_b = body_frames()
+    traj = AttitudeTrajectory(frame_a, frame_b)
+    t0 = bh.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    traj.add(t0, z_axis_quaternion(0.0))
+    traj.add(t0 + 10.0, z_axis_quaternion(0.1))
+
+    epoch, state = traj.remove(0)
+    assert epoch == t0
+    assert state.quaternion == z_axis_quaternion(0.0)
+    assert len(traj) == 1
+    assert traj.epoch_at_idx(0) == t0 + 10.0
+    got_epoch, got_state = traj.get(0)
+    assert got_epoch == t0 + 10.0
+    assert got_state.quaternion == z_axis_quaternion(0.1)
+
+
+def test_attitude_provider_plural_batch_methods():
+    """Rust: test_attitude_provider_plural_batch_methods"""
+    frame_a, frame_b = body_frames()
+    traj = AttitudeTrajectory(frame_a, frame_b)
+    t0 = bh.Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    omega = np.array([0.0, 0.0, 0.01])
+    traj.add(t0, z_axis_quaternion(0.0), omega)
+    traj.add(t0 + 60.0, z_axis_quaternion(0.6), omega)
+
+    epochs = [t0, t0 + 15.0, t0 + 30.0, t0 + 60.0]
+
+    quaternions = traj.quaternions(epochs)
+    assert len(quaternions) == len(epochs)
+    for q, epoch in zip(quaternions, epochs):
+        assert q == traj.quaternion(epoch)
+
+    omegas = traj.angular_velocities(epochs)
+    assert omegas.shape == (len(epochs), 3)
+    for row, epoch in zip(omegas, epochs):
+        np.testing.assert_array_equal(row, traj.angular_velocity(epoch))
+
+    assert traj.angular_velocities([]).shape == (0, 3)
+    assert small_attitude_trajectory().angular_velocities(epochs[:1]) is None
+    with pytest.raises(Exception, match="after trajectory end"):
+        traj.quaternions([t0 + 61.0])

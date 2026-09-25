@@ -1364,6 +1364,7 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyCovarianceInterpolationMethod>()?;
     module.add_class::<PyOrbitalTrajectory>()?;
     module.add_class::<PyTrajectory>()?;
+    module.add_class::<PyAttitudeInterpolationMethod>()?;
     module.add_class::<PyAttitudeState>()?;
     module.add_class::<PyAttitudeTrajectory>()?;
 

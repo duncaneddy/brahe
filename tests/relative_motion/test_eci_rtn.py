@@ -366,3 +366,38 @@ def test_covariance_eci_to_rtn_inertial_is_pure_rotation(eop):
 
     p_rot = brahe.covariance_eci_to_rtn(x, p, brahe.OrbitRelativeFrameVariant.ROTATING)
     assert np.linalg.norm(p_rot - p) > 1e-6
+
+
+def test_batch_rtn_rates_jacobians_covariances_match_scalar(eop):
+    """Rust: test_batch_rtn_rates_jacobians_covariances_match_scalar"""
+    states = np.array(
+        [
+            brahe.state_koe_to_eci(
+                np.array([brahe.R_EARTH + 700e3, 0.01, 97.8, 15.0, 30.0, 45.0 + i]),
+                brahe.AngleFormat.DEGREES,
+            )
+            for i in range(3)
+        ]
+    )
+    covs = np.array([np.eye(6) * (i + 1.0) for i in range(3)])
+    variant = brahe.OrbitRelativeFrameVariant.ROTATING
+
+    omegas = brahe.omega_rtn(states)
+    jac = brahe.jacobian_rtn_to_eci(states, variant)
+    jac_inv = brahe.jacobian_eci_to_rtn(states, variant)
+    cov_eci = brahe.covariance_rtn_to_eci(states, covs, variant)
+    cov_rtn = brahe.covariance_eci_to_rtn(states[0], covs, variant)
+    for i in range(3):
+        np.testing.assert_array_equal(omegas[i], brahe.omega_rtn(states[i]))
+        np.testing.assert_array_equal(
+            jac[i], brahe.jacobian_rtn_to_eci(states[i], variant)
+        )
+        np.testing.assert_array_equal(
+            jac_inv[i], brahe.jacobian_eci_to_rtn(states[i], variant)
+        )
+        np.testing.assert_array_equal(
+            cov_eci[i], brahe.covariance_rtn_to_eci(states[i], covs[i], variant)
+        )
+        np.testing.assert_array_equal(
+            cov_rtn[i], brahe.covariance_eci_to_rtn(states[0], covs[i], variant)
+        )

@@ -5979,7 +5979,7 @@ fn py_covariance_frame_to_frame<'py>(
 /// existing RTN vocabulary (`state_eci_to_rtn`, `covariance_rtn`).
 ///
 /// Every kind is a valid frame identity, which is what parsing a data file
-/// needs, but only `RTN`, `LVLH`, `NTW`, `TNW`, `VNC`, and `PQW` have axes
+/// needs, but only `RTN`, `LVLH`, `NTW`, `TNW`, `VNC`, `PQW`, and `EQW` have axes
 /// derivations today. A transform through any other kind raises until issue
 /// #452 adds the remaining derivations.
 ///
@@ -6510,7 +6510,7 @@ impl PyReferenceFrame {
     /// variant).
     ///
     /// Among the orbit-relative kinds only `RTN`, `LVLH`, `NTW`, `TNW`,
-    /// `VNC`, and `PQW` have axes derivations today, so this frame is
+    /// `VNC`, `PQW`, and `EQW` have axes derivations today, so this frame is
     /// constructible but every transform through it raises until issue
     /// #452 adds the remaining derivations.
     ///
@@ -6553,7 +6553,7 @@ impl PyReferenceFrame {
     /// Bound Nadir/Sun/Normal orbit-relative frame (rotating variant).
     ///
     /// Among the orbit-relative kinds only `RTN`, `LVLH`, `NTW`, `TNW`,
-    /// `VNC`, and `PQW` have axes derivations today, so this frame is
+    /// `VNC`, `PQW`, and `EQW` have axes derivations today, so this frame is
     /// constructible but every transform through it raises until issue
     /// #452 adds the remaining derivations.
     ///
@@ -6597,16 +6597,22 @@ impl PyReferenceFrame {
     /// Bound Equinoctial orbit-relative frame (inertial-snapshot variant;
     /// `EQW` is SANA-registered only as inertial).
     ///
-    /// Among the orbit-relative kinds only `RTN`, `LVLH`, `NTW`, `TNW`,
-    /// `VNC`, and `PQW` have axes derivations today, so this frame is
-    /// constructible but every transform through it raises until issue
-    /// #452 adds the remaining derivations.
+    /// Axes: E along the ascending node, W along the orbit normal, Q = W ×
+    /// E. SANA registers EQW only as an inertial snapshot, so its rate is
+    /// zero.
     ///
     /// Args:
     ///     object (str): The object the frame is defined relative to
     ///
     /// Returns:
     ///     ReferenceFrame: The bound `EQW (inertial)` orbit-relative frame
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     frame = bh.ReferenceFrame.EQW("SC")
+    ///     ```
     #[staticmethod]
     #[allow(non_snake_case)]
     fn EQW(object: String) -> Self {
@@ -6870,9 +6876,9 @@ impl PyReferenceFrame {
     /// optional, not-yet-bound object.
     ///
     /// Among the orbit-relative kinds only `RTN`, `LVLH`, `NTW`, `TNW`,
-    /// `VNC`, and `PQW` have axes derivations today; the others construct
-    /// successfully but every transform through them raises until issue
-    /// #452 adds the remaining derivations.
+    /// `VNC`, `PQW`, and `EQW` have axes derivations today; the others
+    /// construct successfully but every transform through them raises
+    /// until issue #452 adds the remaining derivations.
     ///
     /// Args:
     ///     kind (OrbitRelativeFrameKind): Frame construction (axes definition)
@@ -6903,7 +6909,7 @@ impl PyReferenceFrame {
     /// celestial frame (always), or an orbit-relative/body frame with a
     /// bound object. True is necessary but not sufficient for the frame to
     /// actually resolve. An orbit-relative frame also needs an axes
-    /// derivation for its kind (currently RTN, LVLH, NTW, TNW, VNC, and PQW), and a
+    /// derivation for its kind (currently RTN, LVLH, NTW, TNW, VNC, PQW, and EQW), and a
     /// body frame also needs its orientation chain registered (`register_frame`).
     ///
     /// Returns:

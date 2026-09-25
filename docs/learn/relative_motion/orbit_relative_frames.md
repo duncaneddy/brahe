@@ -16,6 +16,7 @@ With $\hat{r}$ the unit position, $\hat{v}$ the unit velocity, $\hat{h}$ the uni
 | TNW | $\hat{v}$ | $\hat{h} \times \hat{v}$ | $\hat{h}$ | $+Z$ |
 | VNC | $\hat{v}$ | $\hat{h}$ | $\hat{v} \times \hat{h}$ | $+Y$ |
 | PQW | $\hat{e}$ | $\hat{h} \times \hat{e}$ | $\hat{h}$ | inertial only |
+| EQW | $\hat{n}$ | $\hat{h} \times \hat{n}$ | $\hat{h}$ | inertial only |
 
 Source: SANA Orbit-Relative Reference Frames registry (<https://sanaregistry.org/r/orbit_relative_reference_frames>) and CCSDS 500.0-G-4, *Navigation Data—Definitions and Conventions*, Section 4.3.7.
 
@@ -166,6 +167,33 @@ The perifocal frame places P toward periapsis, W along the orbit normal, and Q =
         --8<-- "./docs/outputs/relative_motion/pqw_frame.rs.txt"
         ```
 
+## EQW
+
+The equinoctial frame places E along the ascending node, W along the orbit normal, and Q = W × E, so a satellite's own position is $r[\cos u, \sin u, 0]$ with $u$ the argument of latitude. It needs no gravitational parameter. On an equatorial orbit the node is undefined and E is taken along the inertial x axis projected into the orbit plane. There is no rate: the frame is an inertial snapshot.
+
+=== "Python"
+
+    ``` python
+    --8<-- "./examples/relative_motion/eqw_frame.py:8"
+    ```
+
+=== "Rust"
+
+    ``` rust
+    --8<-- "./examples/relative_motion/eqw_frame.rs:4"
+    ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/relative_motion/eqw_frame.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/relative_motion/eqw_frame.rs.txt"
+        ```
+
 ### See Also
 
 - [RTN Transformations](rtn_transformations.md)
@@ -175,3 +203,4 @@ The perifocal frame places P toward periapsis, W along the orbit normal, and Q =
 - [TNW Transformations API Reference](../../library_api/relative_motion/tnw_transformations.md)
 - [VNC Transformations API Reference](../../library_api/relative_motion/vnc_transformations.md)
 - [PQW Transformations API Reference](../../library_api/relative_motion/pqw_transformations.md)
+- [EQW Transformations API Reference](../../library_api/relative_motion/eqw_transformations.md)

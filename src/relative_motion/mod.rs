@@ -6,12 +6,13 @@
  * reference frames such as RTN (Radial-Tangential-Normal), LVLH
  * (Local-Vertical Local-Horizontal), NTW (Normal-Tangential-Cross-track),
  * TNW (Tangential-Normal-Cross-track), VNC (Velocity-Normal-Co-normal),
- * PQW (Perifocal), and EQW (Equinoctial).
+ * PQW (Perifocal), EQW (Equinoctial), and NSW (Nadir-Sun-Normal).
  */
 
 pub(crate) mod common;
 pub mod eci_eqw;
 pub mod eci_lvlh;
+pub mod eci_nsw;
 pub mod eci_ntw;
 pub mod eci_pqw;
 pub mod eci_roe;
@@ -22,6 +23,7 @@ pub mod oe_roe;
 
 pub use eci_eqw::*;
 pub use eci_lvlh::*;
+pub use eci_nsw::*;
 pub use eci_ntw::*;
 pub use eci_pqw::*;
 pub use eci_roe::*;

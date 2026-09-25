@@ -17,6 +17,7 @@ With $\hat{r}$ the unit position, $\hat{v}$ the unit velocity, $\hat{h}$ the uni
 | VNC | $\hat{v}$ | $\hat{h}$ | $\hat{v} \times \hat{h}$ | $+Y$ |
 | PQW | $\hat{e}$ | $\hat{h} \times \hat{e}$ | $\hat{h}$ | inertial only |
 | EQW | $\hat{n}$ | $\hat{h} \times \hat{n}$ | $\hat{h}$ | inertial only |
+| NSW | $-\hat{r}$ | $\hat{s}$ projected normal to X | $X \times Y$ | rate from basis derivatives |
 
 Source: SANA Orbit-Relative Reference Frames registry (<https://sanaregistry.org/r/orbit_relative_reference_frames>) and CCSDS 500.0-G-4, *Navigation Data—Definitions and Conventions*, Section 4.3.7.
 
@@ -28,9 +29,11 @@ Every frame exists as a rotating frame, which carries the orbital angular veloci
 
 LVLH has two incompatible definitions in the literature. Vallado and STK use the name for the RTN axes. CCSDS, SANA, and this library put Z toward nadir and Y opposite the orbit normal, so that X is along-track for a circular orbit. The two are related by $X_\mathrm{LVLH} = T$, $Y_\mathrm{LVLH} = -N$, $Z_\mathrm{LVLH} = -R$.
 
-Frame rates are exact under two-body motion and are the rates of the osculating frame otherwise. The RTN and LVLH rates depend only on the state. The NTW, TNW, and VNC rates need the central body's gravitational parameter, so their `omega_`, `jacobian_`, `covariance_`, and `state_` functions have an Earth form and a `_for_body` form taking `gm`. The frame graph uses the declared center's value.
+Frame rates are exact under two-body motion and are the rates of the osculating frame otherwise. The RTN and LVLH rates depend only on the state. The NTW, TNW, and VNC rates need the central body's gravitational parameter, so their `omega_`, `jacobian_`, `covariance_`, and `state_` functions have an Earth form and a `_for_body` form taking `gm`. The frame graph uses the declared center's value. NSW is neither: its rate follows from the time derivatives of its axes and needs the Sun's velocity rather than the gravitational parameter.
 
 PQW and EQW are registered by SANA only as inertial snapshots. On a circular orbit the periapsis direction is undefined and PQW takes P along the ascending node; on an equatorial orbit the node is undefined and P (and EQW's E) is taken along the inertial x axis projected into the orbit plane. These match the zero-angle conventions for the argument of periapsis and the right ascension of the ascending node.
+
+Every NSW function takes the Sun's state as the argument directly after the spacecraft states: after `x_eci` for the rotation, rate, Jacobian, and covariance functions, and after the chief and deputy (or relative) states for `state_eci_to_nsw` and `state_nsw_to_eci`. Because X lies along the position vector, the frame is the same whether the Sun state is given relative to the center or relative to the spacecraft. When the Sun lies along the nadir line the projection used to build Y is degenerate and falls back to the along-track direction $\hat{h} \times \hat{r}$. In the frame graph the Sun state comes from the source selected with `set_frame_ephemeris_source`: `Auto`, the default, uses loaded SPICE kernels if any, otherwise the analytic Sun model for Earth-centered objects, otherwise the default DE kernel; `Analytic` uses the analytic Sun model and is Earth-centered only; `Kernel` always uses the SPICE registry.
 
 ## LVLH
 
@@ -194,6 +197,33 @@ The equinoctial frame places E along the ascending node, W along the orbit norma
         --8<-- "./docs/outputs/relative_motion/eqw_frame.rs.txt"
         ```
 
+## NSW
+
+The nadir/Sun/normal frame places X toward nadir, Y as close to the Sun as possible while normal to X, and Z = X × Y. Its functions take the Sun's state relative to the same center as the spacecraft state; the direction to the Sun is measured from the spacecraft. The rate follows from the time derivatives of the axes and includes the Sun's motion when the Sun state carries a velocity. In the frame graph the Sun state comes from the source selected with `set_frame_ephemeris_source`.
+
+=== "Python"
+
+    ``` python
+    --8<-- "./examples/relative_motion/nsw_frame.py:8"
+    ```
+
+=== "Rust"
+
+    ``` rust
+    --8<-- "./examples/relative_motion/nsw_frame.rs:4"
+    ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/relative_motion/nsw_frame.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/relative_motion/nsw_frame.rs.txt"
+        ```
+
 ### See Also
 
 - [RTN Transformations](rtn_transformations.md)
@@ -204,3 +234,4 @@ The equinoctial frame places E along the ascending node, W along the orbit norma
 - [VNC Transformations API Reference](../../library_api/relative_motion/vnc_transformations.md)
 - [PQW Transformations API Reference](../../library_api/relative_motion/pqw_transformations.md)
 - [EQW Transformations API Reference](../../library_api/relative_motion/eqw_transformations.md)
+- [NSW Transformations API Reference](../../library_api/relative_motion/nsw_transformations.md)

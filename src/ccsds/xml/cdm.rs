@@ -85,7 +85,7 @@ pub fn parse_cdm_xml(content: &str) -> Result<crate::ccsds::cdm::CDM, BraheError
     loop {
         match reader.read_event() {
             Ok(Event::Start(e)) => {
-                let name = String::from_utf8_lossy(e.name().as_ref()).to_string();
+                let name = e.name().as_ref().to_string();
                 tag_stack.push(name.clone());
                 current_tag = name.clone();
                 text_buf.clear();
@@ -93,9 +93,9 @@ pub fn parse_cdm_xml(content: &str) -> Result<crate::ccsds::cdm::CDM, BraheError
                 // Handle cdm root element version attribute
                 if name == "cdm" {
                     for attr in e.attributes().flatten() {
-                        let attr_name = String::from_utf8_lossy(attr.key.as_ref()).to_string();
+                        let attr_name = attr.key.as_ref().to_string();
                         if attr_name == "version" {
-                            let val = String::from_utf8_lossy(&attr.value).to_string();
+                            let val = attr.value.to_string();
                             kvn_lines.push(format!("CCSDS_CDM_VERS = {}", val));
                         }
                     }
@@ -109,13 +109,13 @@ pub fn parse_cdm_xml(content: &str) -> Result<crate::ccsds::cdm::CDM, BraheError
             }
             Ok(Event::Empty(e)) => {
                 // Handle self-closing elements like <FIELD nil="true"/>
-                let name = String::from_utf8_lossy(e.name().as_ref()).to_string();
+                let name = e.name().as_ref().to_string();
                 // Check for nil="true" — skip these
                 let mut is_nil = false;
                 for attr in e.attributes().flatten() {
-                    let attr_name = String::from_utf8_lossy(attr.key.as_ref()).to_string();
+                    let attr_name = attr.key.as_ref().to_string();
                     if attr_name == "nil" {
-                        let val = String::from_utf8_lossy(&attr.value).to_string();
+                        let val = attr.value.to_string();
                         if val == "true" {
                             is_nil = true;
                         }
@@ -126,7 +126,7 @@ pub fn parse_cdm_xml(content: &str) -> Result<crate::ccsds::cdm::CDM, BraheError
                     if name.starts_with("USER_DEFINED_") {
                         let mut val = String::new();
                         for attr in e.attributes().flatten() {
-                            let attr_name = String::from_utf8_lossy(attr.key.as_ref()).to_string();
+                            let attr_name = attr.key.as_ref().to_string();
                             if attr_name == "value" {
                                 val = attr
                                     .normalized_value(quick_xml::XmlVersion::Explicit1_0)
@@ -147,24 +147,15 @@ pub fn parse_cdm_xml(content: &str) -> Result<crate::ccsds::cdm::CDM, BraheError
                 }
             }
             Ok(Event::Text(e)) => {
-                let decoded = e.decode().map_err(|err| {
-                    ccsds_parse_error("CDM", &format!("XML text decode error: {}", err))
-                })?;
-                text_buf.push_str(&decoded);
+                text_buf.push_str(&e);
             }
             Ok(Event::CData(e)) => {
                 // A CDATA section is character data too, and carries markup
                 // characters without escaping them.
-                let decoded = e.decode().map_err(|err| {
-                    ccsds_parse_error("CDM", &format!("XML text decode error: {}", err))
-                })?;
-                text_buf.push_str(&decoded);
+                text_buf.push_str(&e);
             }
             Ok(Event::GeneralRef(e)) => {
-                let name = e.decode().map_err(|err| {
-                    ccsds_parse_error("CDM", &format!("XML text decode error: {}", err))
-                })?;
-                let reference = format!("&{};", name);
+                let reference = format!("&{};", &*e);
                 let resolved = quick_xml::escape::unescape(&reference).map_err(|err| {
                     ccsds_parse_error("CDM", &format!("XML entity decode error: {}", err))
                 })?;

@@ -280,12 +280,12 @@ pub(super) fn extract_xml_user_defined(content: &str) -> Option<CCSDSUserDefined
     loop {
         match reader.read_event() {
             Ok(Event::Start(e)) | Ok(Event::Empty(e)) => {
-                let name = String::from_utf8_lossy(e.name().as_ref()).to_string();
+                let name = e.name().as_ref().to_string();
                 if name == "userDefinedParameters" {
                     in_user_defined = true;
                 } else if in_user_defined && let Some(key) = name.strip_prefix("USER_DEFINED_") {
                     for attr in e.attributes().flatten() {
-                        let attr_name = String::from_utf8_lossy(attr.key.as_ref()).to_string();
+                        let attr_name = attr.key.as_ref().to_string();
                         if attr_name == "value"
                             && let Ok(val) =
                                 attr.normalized_value(quick_xml::XmlVersion::Explicit1_0)
@@ -296,7 +296,7 @@ pub(super) fn extract_xml_user_defined(content: &str) -> Option<CCSDSUserDefined
                 }
             }
             Ok(Event::End(e)) => {
-                let name = String::from_utf8_lossy(e.name().as_ref()).to_string();
+                let name = e.name().as_ref().to_string();
                 if name == "userDefinedParameters" {
                     in_user_defined = false;
                 }

@@ -18,7 +18,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 brahe = { path = "../..", features = ["python"] }
-pyo3 = "0.29"
+pyo3 = "0.29.3"
 numpy = "0.29"
 nalgebra = ">=0.34.1, <0.36"
 rayon = "1.12"

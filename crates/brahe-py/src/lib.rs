@@ -1019,6 +1019,8 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_position_frame_to_frame, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_frame_to_frame, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_transform_jacobian, module)?)?;
+    module.add_function(wrap_pyfunction!(py_jacobian_inertial_to_rotating, module)?)?;
+    module.add_function(wrap_pyfunction!(py_jacobian_rotating_to_inertial, module)?)?;
     module.add_function(wrap_pyfunction!(py_rotate_covariance, module)?)?;
     module.add_function(wrap_pyfunction!(py_covariance_frame_to_frame, module)?)?;
 
@@ -1193,36 +1195,12 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_rotation_lvlh_to_eci, module)?)?;
     module.add_function(wrap_pyfunction!(py_rotation_eci_to_lvlh, module)?)?;
     module.add_function(wrap_pyfunction!(py_omega_lvlh, module)?)?;
-    module.add_function(wrap_pyfunction!(py_jacobian_lvlh_to_eci, module)?)?;
-    module.add_function(wrap_pyfunction!(py_jacobian_eci_to_lvlh, module)?)?;
-    module.add_function(wrap_pyfunction!(py_covariance_lvlh_to_eci, module)?)?;
-    module.add_function(wrap_pyfunction!(py_covariance_eci_to_lvlh, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_eci_to_lvlh, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_lvlh_to_eci, module)?)?;
     module.add_function(wrap_pyfunction!(py_rotation_ntw_to_eci, module)?)?;
     module.add_function(wrap_pyfunction!(py_rotation_eci_to_ntw, module)?)?;
     module.add_function(wrap_pyfunction!(py_omega_ntw, module)?)?;
     module.add_function(wrap_pyfunction!(py_omega_ntw_for_body, module)?)?;
-    module.add_function(wrap_pyfunction!(py_jacobian_ntw_to_eci, module)?)?;
-    module.add_function(wrap_pyfunction!(
-        py_jacobian_ntw_to_inertial_for_body,
-        module
-    )?)?;
-    module.add_function(wrap_pyfunction!(py_jacobian_eci_to_ntw, module)?)?;
-    module.add_function(wrap_pyfunction!(
-        py_jacobian_inertial_to_ntw_for_body,
-        module
-    )?)?;
-    module.add_function(wrap_pyfunction!(py_covariance_ntw_to_eci, module)?)?;
-    module.add_function(wrap_pyfunction!(
-        py_covariance_ntw_to_inertial_for_body,
-        module
-    )?)?;
-    module.add_function(wrap_pyfunction!(py_covariance_eci_to_ntw, module)?)?;
-    module.add_function(wrap_pyfunction!(
-        py_covariance_inertial_to_ntw_for_body,
-        module
-    )?)?;
     module.add_function(wrap_pyfunction!(py_state_eci_to_ntw, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_inertial_to_ntw_for_body, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_ntw_to_eci, module)?)?;
@@ -1231,26 +1209,6 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_rotation_eci_to_tnw, module)?)?;
     module.add_function(wrap_pyfunction!(py_omega_tnw, module)?)?;
     module.add_function(wrap_pyfunction!(py_omega_tnw_for_body, module)?)?;
-    module.add_function(wrap_pyfunction!(py_jacobian_tnw_to_eci, module)?)?;
-    module.add_function(wrap_pyfunction!(
-        py_jacobian_tnw_to_inertial_for_body,
-        module
-    )?)?;
-    module.add_function(wrap_pyfunction!(py_jacobian_eci_to_tnw, module)?)?;
-    module.add_function(wrap_pyfunction!(
-        py_jacobian_inertial_to_tnw_for_body,
-        module
-    )?)?;
-    module.add_function(wrap_pyfunction!(py_covariance_tnw_to_eci, module)?)?;
-    module.add_function(wrap_pyfunction!(
-        py_covariance_tnw_to_inertial_for_body,
-        module
-    )?)?;
-    module.add_function(wrap_pyfunction!(py_covariance_eci_to_tnw, module)?)?;
-    module.add_function(wrap_pyfunction!(
-        py_covariance_inertial_to_tnw_for_body,
-        module
-    )?)?;
     module.add_function(wrap_pyfunction!(py_state_eci_to_tnw, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_inertial_to_tnw_for_body, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_tnw_to_eci, module)?)?;
@@ -1259,26 +1217,6 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_rotation_eci_to_vnc, module)?)?;
     module.add_function(wrap_pyfunction!(py_omega_vnc, module)?)?;
     module.add_function(wrap_pyfunction!(py_omega_vnc_for_body, module)?)?;
-    module.add_function(wrap_pyfunction!(py_jacobian_vnc_to_eci, module)?)?;
-    module.add_function(wrap_pyfunction!(
-        py_jacobian_vnc_to_inertial_for_body,
-        module
-    )?)?;
-    module.add_function(wrap_pyfunction!(py_jacobian_eci_to_vnc, module)?)?;
-    module.add_function(wrap_pyfunction!(
-        py_jacobian_inertial_to_vnc_for_body,
-        module
-    )?)?;
-    module.add_function(wrap_pyfunction!(py_covariance_vnc_to_eci, module)?)?;
-    module.add_function(wrap_pyfunction!(
-        py_covariance_vnc_to_inertial_for_body,
-        module
-    )?)?;
-    module.add_function(wrap_pyfunction!(py_covariance_eci_to_vnc, module)?)?;
-    module.add_function(wrap_pyfunction!(
-        py_covariance_inertial_to_vnc_for_body,
-        module
-    )?)?;
     module.add_function(wrap_pyfunction!(py_state_eci_to_vnc, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_inertial_to_vnc_for_body, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_vnc_to_eci, module)?)?;
@@ -1293,45 +1231,17 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
         py_rotation_inertial_to_pqw_for_body,
         module
     )?)?;
-    module.add_function(wrap_pyfunction!(py_jacobian_pqw_to_eci, module)?)?;
-    module.add_function(wrap_pyfunction!(
-        py_jacobian_pqw_to_inertial_for_body,
-        module
-    )?)?;
-    module.add_function(wrap_pyfunction!(py_jacobian_eci_to_pqw, module)?)?;
-    module.add_function(wrap_pyfunction!(
-        py_jacobian_inertial_to_pqw_for_body,
-        module
-    )?)?;
-    module.add_function(wrap_pyfunction!(py_covariance_pqw_to_eci, module)?)?;
-    module.add_function(wrap_pyfunction!(
-        py_covariance_pqw_to_inertial_for_body,
-        module
-    )?)?;
-    module.add_function(wrap_pyfunction!(py_covariance_eci_to_pqw, module)?)?;
-    module.add_function(wrap_pyfunction!(
-        py_covariance_inertial_to_pqw_for_body,
-        module
-    )?)?;
     module.add_function(wrap_pyfunction!(py_state_eci_to_pqw, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_inertial_to_pqw_for_body, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_pqw_to_eci, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_pqw_to_inertial_for_body, module)?)?;
     module.add_function(wrap_pyfunction!(py_rotation_eqw_to_eci, module)?)?;
     module.add_function(wrap_pyfunction!(py_rotation_eci_to_eqw, module)?)?;
-    module.add_function(wrap_pyfunction!(py_jacobian_eqw_to_eci, module)?)?;
-    module.add_function(wrap_pyfunction!(py_jacobian_eci_to_eqw, module)?)?;
-    module.add_function(wrap_pyfunction!(py_covariance_eqw_to_eci, module)?)?;
-    module.add_function(wrap_pyfunction!(py_covariance_eci_to_eqw, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_eci_to_eqw, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_eqw_to_eci, module)?)?;
     module.add_function(wrap_pyfunction!(py_rotation_nsw_to_eci, module)?)?;
     module.add_function(wrap_pyfunction!(py_rotation_eci_to_nsw, module)?)?;
     module.add_function(wrap_pyfunction!(py_omega_nsw, module)?)?;
-    module.add_function(wrap_pyfunction!(py_jacobian_nsw_to_eci, module)?)?;
-    module.add_function(wrap_pyfunction!(py_jacobian_eci_to_nsw, module)?)?;
-    module.add_function(wrap_pyfunction!(py_covariance_nsw_to_eci, module)?)?;
-    module.add_function(wrap_pyfunction!(py_covariance_eci_to_nsw, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_eci_to_nsw, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_nsw_to_eci, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_oe_to_roe, module)?)?;

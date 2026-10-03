@@ -23,17 +23,54 @@ Source: SANA Orbit-Relative Reference Frames registry (<https://sanaregistry.org
 
 ## Variants
 
-Every frame exists as a rotating frame, which carries the orbital angular velocity, and as an inertial snapshot, whose rate is zero. The `state_*` relative-state functions always use the rotating transport term. The `jacobian_*` and `covariance_*` functions take an `OrbitRelativeFrameVariant` selecting which. PQW and EQW are the exception: SANA registers them only as inertial snapshots, so they have no `omega_*` functions, their `jacobian_*` and `covariance_*` functions take no variant and are always block diagonal, and their `state_*` functions apply no transport term.
+Every frame exists as a rotating frame, which carries the orbital angular velocity, and as an inertial snapshot, whose rate is zero. The `state_*` relative-state functions always use the rotating transport term. A covariance transformation selects the variant through the rate it applies, as described under [Covariance](#covariance), and the frame graph selects it through the `OrbitRelativeFrameVariant` of the `ReferenceFrame`. PQW and EQW are the exception: SANA registers them only as inertial snapshots, so they have no `omega_*` functions, their covariance transformation uses $\omega = 0$, and their `state_*` functions apply no transport term.
 
 ## Conventions
 
 LVLH has two incompatible definitions in the literature. Vallado and STK use the name for the RTN axes. CCSDS, SANA, and this library put Z toward nadir and Y opposite the orbit normal, so that X is along-track for a circular orbit. The two are related by $X_\mathrm{LVLH} = T$, $Y_\mathrm{LVLH} = -N$, $Z_\mathrm{LVLH} = -R$.
 
-Frame rates are exact under two-body motion and are the rates of the osculating frame otherwise. The RTN and LVLH rates depend only on the state. The NTW, TNW, and VNC rates need the central body's gravitational parameter, so their `omega_`, `jacobian_`, `covariance_`, and `state_` functions have an Earth form and a `_for_body` form taking `gm`. The frame graph uses the declared center's value. NSW is neither: its rate follows from the time derivatives of its axes and needs the Sun's velocity rather than the gravitational parameter.
+Frame rates are exact under two-body motion and are the rates of the osculating frame otherwise. The RTN and LVLH rates depend only on the state. The NTW, TNW, and VNC rates need the central body's gravitational parameter, so their `omega_` and `state_` functions have an Earth form and a `_for_body` form taking `gm`. The frame graph uses the declared center's value. NSW is neither: its rate follows from the time derivatives of its axes and needs the Sun's velocity rather than the gravitational parameter.
+
+## Covariance
+
+A covariance transforms into any of these frames with the 6x6 Jacobian of the frame's state map. With $R$ the rotation from the inertial axes into the frame and $\omega$ the frame's angular velocity expressed in the frame, a state relative to the frame origin maps as $\rho = R\,\Delta\mathbf{r}$ and $\dot{\rho} = R\,\Delta\mathbf{v} - \omega \times \rho$, so
+
+$$
+J = \begin{bmatrix} R & 0 \\ -[\omega]_\times R & R \end{bmatrix}, \qquad P_\mathrm{frame} = J \, P_\mathrm{inertial} \, J^T
+$$
+
+`jacobian_inertial_to_rotating` builds $J$ from a frame's `rotation_eci_to_*` and `omega_*` outputs, `jacobian_rotating_to_inertial` builds its inverse, and `rotate_covariance` applies either one. The rotating variant uses the frame's rate. The inertial snapshot uses $\omega = 0$, which reduces $J$ to $\mathrm{blockdiag}(R, R)$. RTN also provides `covariance_eci_to_rtn` and `covariance_rtn_to_eci`, which take the variant directly. For an object registered with the frame graph, `covariance_frame_to_frame` performs the same transformation from the object's registered state and agrees with $J$ to rounding.
+
+$J$ holds the frame origin fixed, so it applies to a covariance referenced to the origin, such as a satellite's own covariance expressed in its own local frame. A deputy's relative state also depends on the chief's state through the frame axes, by an amount that grows with separation, so a relative-state covariance that includes chief uncertainty requires the Jacobian of `state_eci_to_*` with respect to both states.
+
+The example transforms a covariance into rotating and snapshot LVLH, back to ECI, and through the frame graph.
+
+=== "Python"
+
+    ``` python
+    --8<-- "./examples/relative_motion/orbit_relative_covariance.py:8"
+    ```
+
+=== "Rust"
+
+    ``` rust
+    --8<-- "./examples/relative_motion/orbit_relative_covariance.rs:4"
+    ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/relative_motion/orbit_relative_covariance.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/relative_motion/orbit_relative_covariance.rs.txt"
+        ```
 
 PQW and EQW are registered by SANA only as inertial snapshots. On a circular orbit the periapsis direction is undefined and PQW takes P along the ascending node; on an equatorial orbit the node is undefined and P (and EQW's E) is taken along the inertial x axis projected into the orbit plane. These match the zero-angle conventions for the argument of periapsis and the right ascension of the ascending node.
 
-Every NSW function takes the Sun's state as the argument directly after the spacecraft states: after `x_eci` for the rotation, rate, Jacobian, and covariance functions, and after the chief and deputy (or relative) states for `state_eci_to_nsw` and `state_nsw_to_eci`. Because X lies along the position vector, the frame is the same whether the Sun state is given relative to the center or relative to the spacecraft. When the Sun lies along the nadir line the projection used to build Y is degenerate and falls back to the along-track direction $\hat{h} \times \hat{r}$. In the frame graph the Sun state comes from the source selected with `set_frame_ephemeris_source`: `Auto`, the default, uses loaded SPICE kernels if any, otherwise the analytic Sun model for Earth-centered objects, otherwise the default DE kernel; `Analytic` uses the analytic Sun model and is Earth-centered only; `Kernel` always uses the SPICE registry.
+Every NSW function takes the Sun's state as the argument directly after the spacecraft states: after `x_eci` for the rotation and rate functions, and after the chief and deputy (or relative) states for `state_eci_to_nsw` and `state_nsw_to_eci`. Because X lies along the position vector, the frame is the same whether the Sun state is given relative to the center or relative to the spacecraft. When the Sun lies along the nadir line the projection used to build Y is degenerate and falls back to the along-track direction $\hat{h} \times \hat{r}$. In the frame graph the Sun state comes from the source selected with `set_frame_ephemeris_source`: `Auto`, the default, uses loaded SPICE kernels if any, otherwise the analytic Sun model for Earth-centered objects, otherwise the default DE kernel; `Analytic` uses the analytic Sun model and is Earth-centered only; `Kernel` always uses the SPICE registry.
 
 ## LVLH
 

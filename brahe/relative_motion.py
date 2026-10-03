@@ -25,21 +25,9 @@ Functions are provided for:
 """
 
 from brahe._brahe import (
-    covariance_eci_to_lvlh,
-    covariance_eci_to_ntw,
     covariance_eci_to_rtn,
-    covariance_inertial_to_ntw_for_body,
-    covariance_lvlh_to_eci,
-    covariance_ntw_to_eci,
-    covariance_ntw_to_inertial_for_body,
     covariance_rtn_to_eci,
-    jacobian_eci_to_lvlh,
-    jacobian_eci_to_ntw,
     jacobian_eci_to_rtn,
-    jacobian_inertial_to_ntw_for_body,
-    jacobian_lvlh_to_eci,
-    jacobian_ntw_to_eci,
-    jacobian_ntw_to_inertial_for_body,
     jacobian_rtn_to_eci,
     omega_lvlh,
     omega_ntw,
@@ -66,21 +54,9 @@ from brahe._brahe import (
 )
 
 __all__ = [
-    "covariance_eci_to_lvlh",
-    "covariance_eci_to_ntw",
     "covariance_eci_to_rtn",
-    "covariance_inertial_to_ntw_for_body",
-    "covariance_lvlh_to_eci",
-    "covariance_ntw_to_eci",
-    "covariance_ntw_to_inertial_for_body",
     "covariance_rtn_to_eci",
-    "jacobian_eci_to_lvlh",
-    "jacobian_eci_to_ntw",
     "jacobian_eci_to_rtn",
-    "jacobian_inertial_to_ntw_for_body",
-    "jacobian_lvlh_to_eci",
-    "jacobian_ntw_to_eci",
-    "jacobian_ntw_to_inertial_for_body",
     "jacobian_rtn_to_eci",
     "omega_lvlh",
     "omega_ntw",

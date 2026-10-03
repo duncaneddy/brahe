@@ -441,14 +441,14 @@ def test_lvlh_covariance_route_matches_relative_motion(clear_frame_registries):
 
     p = np.diag([10.0, 20.0, 30.0, 40.0, 50.0, 60.0])
 
-    # covariance_frame_to_frame routes through a numerically differenced
-    # Jacobian, so the comparison uses a looser relative tolerance than the
-    # analytic transform below.
+    # covariance_frame_to_frame probes the router's state map, which is affine
+    # for a fixed origin, so it reproduces the analytic Jacobian to rounding.
     p_graph = bh.covariance_frame_to_frame(
         bh.CelestialFrame.GCRF, bh.ReferenceFrame.LVLH("A"), epc, p
     )
-    p_expected = bh.covariance_eci_to_lvlh(x, p, bh.OrbitRelativeFrameVariant.ROTATING)
-    np.testing.assert_allclose(p_graph, p_expected, rtol=1e-6, atol=1e-6)
+    j = bh.jacobian_inertial_to_rotating(bh.rotation_eci_to_lvlh(x), bh.omega_lvlh(x))
+    p_expected = bh.rotate_covariance(p, j)
+    assert np.linalg.norm(p_graph - p_expected) / np.linalg.norm(p_expected) < 1e-12
 
 
 def test_two_object_lvlh_matches_state_eci_to_lvlh(clear_frame_registries):

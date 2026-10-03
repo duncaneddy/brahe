@@ -19,7 +19,7 @@ use crate::utils::batch::{batch_map, batch_zip};
 /// in SEZ axes, with `λ̇ = (x v_y − y v_x) / (x² + y²)` and
 /// `φ̇ = v_N / (R_M + h)`, `R_M` the WGS84 meridian radius of curvature and
 /// `v_N` the velocity component along the north direction `−S` of the same rotation.
-fn sez_axes(x_ecef: SVector6) -> (SMatrix3, Vector3<f64>) {
+pub(crate) fn sez_axes(x_ecef: SVector6) -> (SMatrix3, Vector3<f64>) {
     let r = x_ecef.fixed_rows::<3>(0).into_owned();
     let v = x_ecef.fixed_rows::<3>(3).into_owned();
     let lla = position_ecef_to_geodetic(r, AngleFormat::Radians);

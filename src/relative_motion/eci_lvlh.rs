@@ -4,11 +4,9 @@
 
 use nalgebra::Vector3;
 
-use crate::frames::{OrbitRelativeFrameVariant, rotate_covariance_6};
-use crate::math::{SMatrix3, SMatrix6, SVector6};
+use crate::math::{SMatrix3, SVector6};
 use crate::relative_motion::common::{
-    jacobian_from_inertial, jacobian_to_inertial, relative_state_from_frame,
-    relative_state_to_frame, true_anomaly_rate,
+    relative_state_from_frame, relative_state_to_frame, true_anomaly_rate,
 };
 use crate::relative_motion::rotation_rtn_to_eci;
 use crate::utils::BraheError;
@@ -121,165 +119,6 @@ pub fn rotation_eci_to_lvlh(x_eci: SVector6) -> SMatrix3 {
 /// ```
 pub fn omega_lvlh(x_eci: SVector6) -> Vector3<f64> {
     Vector3::new(0.0, -true_anomaly_rate(x_eci), 0.0)
-}
-
-/// 6x6 Jacobian taking an LVLH state covariance into ECI axes.
-///
-/// With `R` the LVLH-to-ECI rotation and `ω` the LVLH angular velocity, the Jacobian is
-/// `[[R, 0], [R [ω]×, R]]` for the rotating variant and `[[R, 0], [0, R]]` for the inertial
-/// snapshot.
-///
-/// # Arguments:
-/// - `x_eci`: 6D state vector of the frame's origin in the ECI frame [x, y, z, vx, vy, vz] (m, m/s)
-/// - `variant`: Whether the LVLH axes rotate with the orbit or are frozen at the epoch
-///
-/// # Returns:
-/// - `j`: 6x6 Jacobian such that `P_eci = J P_lvlh Jᵀ`
-///
-/// # Examples:
-/// ```
-/// use brahe::SVector6;
-/// use brahe::R_EARTH;
-/// use brahe::frames::OrbitRelativeFrameVariant;
-/// use brahe::orbits::*;
-/// use brahe::relative_motion::*;
-///
-/// let sma = R_EARTH + 700e3;
-/// let x_eci = SVector6::new(sma, 0.0, 0.0, 0.0, perigee_velocity(sma, 0.0), 0.0);
-///
-/// let j = jacobian_lvlh_to_eci(x_eci, OrbitRelativeFrameVariant::Rotating);
-/// ```
-///
-/// # References:
-/// 1. NASA Conjunction Assessment Risk Analysis (CARA),
-///    [*Conjunction Assessment Handbook*, NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13)](https://ntrs.nasa.gov/citations/20205011318)
-/// 2. NASA CARA Analysis Tools,
-///    [`RIC2ECI.m`](https://github.com/nasa/CARA_Analysis_Tools)
-/// 3. D. A. Vallado,
-///    ["Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003](https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf)
-pub fn jacobian_lvlh_to_eci(x_eci: SVector6, variant: OrbitRelativeFrameVariant) -> SMatrix6 {
-    jacobian_to_inertial(&rotation_lvlh_to_eci(x_eci), &omega_lvlh(x_eci), variant)
-}
-
-/// 6x6 Jacobian taking an ECI state covariance into LVLH axes. Exact inverse of
-/// [`jacobian_lvlh_to_eci`].
-///
-/// # Arguments:
-/// - `x_eci`: 6D state vector of the frame's origin in the ECI frame [x, y, z, vx, vy, vz] (m, m/s)
-/// - `variant`: Whether the LVLH axes rotate with the orbit or are frozen at the epoch
-///
-/// # Returns:
-/// - `j`: 6x6 Jacobian such that `P_lvlh = J P_eci Jᵀ`
-///
-/// # Examples:
-/// ```
-/// use brahe::SVector6;
-/// use brahe::R_EARTH;
-/// use brahe::frames::OrbitRelativeFrameVariant;
-/// use brahe::orbits::*;
-/// use brahe::relative_motion::*;
-///
-/// let sma = R_EARTH + 700e3;
-/// let x_eci = SVector6::new(sma, 0.0, 0.0, 0.0, perigee_velocity(sma, 0.0), 0.0);
-///
-/// let j = jacobian_eci_to_lvlh(x_eci, OrbitRelativeFrameVariant::Rotating);
-/// ```
-///
-/// # References:
-/// 1. NASA Conjunction Assessment Risk Analysis (CARA),
-///    [*Conjunction Assessment Handbook*, NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13)](https://ntrs.nasa.gov/citations/20205011318)
-/// 2. NASA CARA Analysis Tools,
-///    [`RIC2ECI.m`](https://github.com/nasa/CARA_Analysis_Tools)
-/// 3. D. A. Vallado,
-///    ["Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003](https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf)
-pub fn jacobian_eci_to_lvlh(x_eci: SVector6, variant: OrbitRelativeFrameVariant) -> SMatrix6 {
-    jacobian_from_inertial(&rotation_eci_to_lvlh(x_eci), &omega_lvlh(x_eci), variant)
-}
-
-/// Transforms a 6x6 state covariance from LVLH axes into ECI axes.
-///
-/// Applies the congruence `P_eci = J P_lvlh Jᵀ` with `J` from [`jacobian_lvlh_to_eci`], and
-/// symmetrizes the result.
-///
-/// # Arguments:
-/// - `x_eci`: 6D state vector of the frame's origin in the ECI frame [x, y, z, vx, vy, vz] (m, m/s)
-/// - `covariance`: 6x6 state covariance in LVLH axes (m², m²/s, m²/s²)
-/// - `variant`: Whether the LVLH axes rotate with the orbit or are frozen at the epoch
-///
-/// # Returns:
-/// - `p_eci`: 6x6 state covariance in ECI axes (m², m²/s, m²/s²)
-///
-/// # Examples:
-/// ```
-/// use brahe::{SVector6, SMatrix6};
-/// use brahe::R_EARTH;
-/// use brahe::frames::OrbitRelativeFrameVariant;
-/// use brahe::orbits::*;
-/// use brahe::relative_motion::*;
-///
-/// let sma = R_EARTH + 700e3;
-/// let x_eci = SVector6::new(sma, 0.0, 0.0, 0.0, perigee_velocity(sma, 0.0), 0.0);
-/// let p_lvlh = SMatrix6::identity();
-///
-/// let p_eci = covariance_lvlh_to_eci(x_eci, &p_lvlh, OrbitRelativeFrameVariant::Rotating);
-/// ```
-///
-/// # References:
-/// 1. NASA Conjunction Assessment Risk Analysis (CARA),
-///    [*Conjunction Assessment Handbook*, NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13)](https://ntrs.nasa.gov/citations/20205011318)
-/// 2. NASA CARA Analysis Tools,
-///    [`RIC2ECI.m`](https://github.com/nasa/CARA_Analysis_Tools)
-/// 3. D. A. Vallado,
-///    ["Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003](https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf)
-pub fn covariance_lvlh_to_eci(
-    x_eci: SVector6,
-    covariance: &SMatrix6,
-    variant: OrbitRelativeFrameVariant,
-) -> SMatrix6 {
-    rotate_covariance_6(covariance, &jacobian_lvlh_to_eci(x_eci, variant))
-}
-
-/// Transforms a 6x6 state covariance from ECI axes into LVLH axes.
-///
-/// Applies the congruence `P_lvlh = J P_eci Jᵀ` with `J` from [`jacobian_eci_to_lvlh`], and
-/// symmetrizes the result.
-///
-/// # Arguments:
-/// - `x_eci`: 6D state vector of the frame's origin in the ECI frame [x, y, z, vx, vy, vz] (m, m/s)
-/// - `covariance`: 6x6 state covariance in ECI axes (m², m²/s, m²/s²)
-/// - `variant`: Whether the LVLH axes rotate with the orbit or are frozen at the epoch
-///
-/// # Returns:
-/// - `p_lvlh`: 6x6 state covariance in LVLH axes (m², m²/s, m²/s²)
-///
-/// # Examples:
-/// ```
-/// use brahe::{SVector6, SMatrix6};
-/// use brahe::R_EARTH;
-/// use brahe::frames::OrbitRelativeFrameVariant;
-/// use brahe::orbits::*;
-/// use brahe::relative_motion::*;
-///
-/// let sma = R_EARTH + 700e3;
-/// let x_eci = SVector6::new(sma, 0.0, 0.0, 0.0, perigee_velocity(sma, 0.0), 0.0);
-/// let p_eci = SMatrix6::identity();
-///
-/// let p_lvlh = covariance_eci_to_lvlh(x_eci, &p_eci, OrbitRelativeFrameVariant::Rotating);
-/// ```
-///
-/// # References:
-/// 1. NASA Conjunction Assessment Risk Analysis (CARA),
-///    [*Conjunction Assessment Handbook*, NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13)](https://ntrs.nasa.gov/citations/20205011318)
-/// 2. NASA CARA Analysis Tools,
-///    [`RIC2ECI.m`](https://github.com/nasa/CARA_Analysis_Tools)
-/// 3. D. A. Vallado,
-///    ["Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003](https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf)
-pub fn covariance_eci_to_lvlh(
-    x_eci: SVector6,
-    covariance: &SMatrix6,
-    variant: OrbitRelativeFrameVariant,
-) -> SMatrix6 {
-    rotate_covariance_6(covariance, &jacobian_eci_to_lvlh(x_eci, variant))
 }
 
 /// Transforms the absolute states of a chief and deputy satellite from the Earth-Centered
@@ -449,170 +288,6 @@ pub fn omegas_lvlh(x_eci: &[SVector6]) -> Vec<Vector3<f64>> {
     batch_map(|x| omega_lvlh(*x), x_eci)
 }
 
-/// Computes the LVLH-to-ECI covariance Jacobian for each state in `x_eci`.
-///
-/// Batch form of [`jacobian_lvlh_to_eci`]. Evaluation runs on the global thread pool for
-/// large inputs.
-///
-/// # Arguments
-/// - `x_eci`: Cartesian ECI states of the frame's origin (position, velocity). Units: (*m*; *m/s*)
-/// - `variant`: Whether the LVLH axes rotate with the orbit or are frozen at the epoch
-///
-/// # Returns
-/// - Jacobians such that `P_eci = J P_lvlh Jᵀ`, one per state, in input order
-///
-/// # References
-/// - SANA Orbit-Relative Reference Frames registry, `LVLH_ROTATING`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
-/// - CCSDS 500.0-G-4, *Navigation Data—Definitions and Conventions*, Section 4.3.7.2, p. 4-7, November 2019
-///
-/// # Examples
-/// ```
-/// use brahe::constants::{R_EARTH, AngleFormat};
-/// use brahe::coordinates::state_koe_to_eci;
-/// use brahe::frames::OrbitRelativeFrameVariant;
-/// use brahe::relative_motion::jacobians_lvlh_to_eci;
-/// use brahe::vector6_from_array;
-///
-/// let x = state_koe_to_eci(vector6_from_array([R_EARTH + 700e3, 0.001, 97.8, 15.0, 30.0, 45.0]), AngleFormat::Degrees);
-/// let j = jacobians_lvlh_to_eci(&[x, x], OrbitRelativeFrameVariant::Rotating);
-/// assert_eq!(j.len(), 2);
-/// ```
-pub fn jacobians_lvlh_to_eci(
-    x_eci: &[SVector6],
-    variant: OrbitRelativeFrameVariant,
-) -> Vec<SMatrix6> {
-    batch_map(|x| jacobian_lvlh_to_eci(*x, variant), x_eci)
-}
-
-/// Computes the ECI-to-LVLH covariance Jacobian for each state in `x_eci`.
-///
-/// Batch form of [`jacobian_eci_to_lvlh`]. Evaluation runs on the global thread pool for
-/// large inputs.
-///
-/// # Arguments
-/// - `x_eci`: Cartesian ECI states of the frame's origin (position, velocity). Units: (*m*; *m/s*)
-/// - `variant`: Whether the LVLH axes rotate with the orbit or are frozen at the epoch
-///
-/// # Returns
-/// - Jacobians such that `P_lvlh = J P_eci Jᵀ`, one per state, in input order
-///
-/// # References
-/// - SANA Orbit-Relative Reference Frames registry, `LVLH_ROTATING`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
-/// - CCSDS 500.0-G-4, *Navigation Data—Definitions and Conventions*, Section 4.3.7.2, p. 4-7, November 2019
-///
-/// # Examples
-/// ```
-/// use brahe::constants::{R_EARTH, AngleFormat};
-/// use brahe::coordinates::state_koe_to_eci;
-/// use brahe::frames::OrbitRelativeFrameVariant;
-/// use brahe::relative_motion::jacobians_eci_to_lvlh;
-/// use brahe::vector6_from_array;
-///
-/// let x = state_koe_to_eci(vector6_from_array([R_EARTH + 700e3, 0.001, 97.8, 15.0, 30.0, 45.0]), AngleFormat::Degrees);
-/// let j = jacobians_eci_to_lvlh(&[x, x], OrbitRelativeFrameVariant::Rotating);
-/// assert_eq!(j.len(), 2);
-/// ```
-pub fn jacobians_eci_to_lvlh(
-    x_eci: &[SVector6],
-    variant: OrbitRelativeFrameVariant,
-) -> Vec<SMatrix6> {
-    batch_map(|x| jacobian_eci_to_lvlh(*x, variant), x_eci)
-}
-
-/// Transforms each state covariance in `covariances` from LVLH axes into ECI axes.
-///
-/// Batch form of [`covariance_lvlh_to_eci`]. Evaluation runs on the global thread pool for
-/// large inputs.
-///
-/// The `x_eci` and `covariances` arguments follow the broadcast rule: each argument has
-/// length 1 or the common batch length.
-///
-/// # Arguments
-/// - `x_eci`: Cartesian ECI states of the frame's origin, length 1 or the batch length. Units: (*m*; *m/s*)
-/// - `covariances`: State covariances in LVLH axes, length 1 or the batch length. Units: (*m²*, *m²/s*, *m²/s²*)
-/// - `variant`: Whether the LVLH axes rotate with the orbit or are frozen at the epoch
-///
-/// # Returns
-/// - State covariances in ECI axes, in input order. Units: (*m²*, *m²/s*, *m²/s²*)
-/// - Error if the lengths do not satisfy the broadcast rule
-///
-/// # References
-/// - SANA Orbit-Relative Reference Frames registry, `LVLH_ROTATING`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
-/// - CCSDS 500.0-G-4, *Navigation Data—Definitions and Conventions*, Section 4.3.7.2, p. 4-7, November 2019
-///
-/// # Examples
-/// ```
-/// use brahe::{SMatrix6};
-/// use brahe::constants::{R_EARTH, AngleFormat};
-/// use brahe::coordinates::state_koe_to_eci;
-/// use brahe::frames::OrbitRelativeFrameVariant;
-/// use brahe::relative_motion::covariances_lvlh_to_eci;
-/// use brahe::vector6_from_array;
-///
-/// let x = state_koe_to_eci(vector6_from_array([R_EARTH + 700e3, 0.001, 97.8, 15.0, 30.0, 45.0]), AngleFormat::Degrees);
-/// let p = vec![SMatrix6::identity(); 2];
-/// let p_eci = covariances_lvlh_to_eci(&[x], &p, OrbitRelativeFrameVariant::Rotating).unwrap();
-/// assert_eq!(p_eci.len(), 2);
-/// ```
-pub fn covariances_lvlh_to_eci(
-    x_eci: &[SVector6],
-    covariances: &[SMatrix6],
-    variant: OrbitRelativeFrameVariant,
-) -> Result<Vec<SMatrix6>, BraheError> {
-    batch_zip(
-        |x, p| covariance_lvlh_to_eci(*x, p, variant),
-        x_eci,
-        covariances,
-    )
-}
-
-/// Transforms each state covariance in `covariances` from ECI axes into LVLH axes.
-///
-/// Batch form of [`covariance_eci_to_lvlh`]. Evaluation runs on the global thread pool for
-/// large inputs.
-///
-/// The `x_eci` and `covariances` arguments follow the broadcast rule: each argument has
-/// length 1 or the common batch length.
-///
-/// # Arguments
-/// - `x_eci`: Cartesian ECI states of the frame's origin, length 1 or the batch length. Units: (*m*; *m/s*)
-/// - `covariances`: State covariances in ECI axes, length 1 or the batch length. Units: (*m²*, *m²/s*, *m²/s²*)
-/// - `variant`: Whether the LVLH axes rotate with the orbit or are frozen at the epoch
-///
-/// # Returns
-/// - State covariances in LVLH axes, in input order. Units: (*m²*, *m²/s*, *m²/s²*)
-/// - Error if the lengths do not satisfy the broadcast rule
-///
-/// # References
-/// - SANA Orbit-Relative Reference Frames registry, `LVLH_ROTATING`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
-/// - CCSDS 500.0-G-4, *Navigation Data—Definitions and Conventions*, Section 4.3.7.2, p. 4-7, November 2019
-///
-/// # Examples
-/// ```
-/// use brahe::{SMatrix6};
-/// use brahe::constants::{R_EARTH, AngleFormat};
-/// use brahe::coordinates::state_koe_to_eci;
-/// use brahe::frames::OrbitRelativeFrameVariant;
-/// use brahe::relative_motion::covariances_eci_to_lvlh;
-/// use brahe::vector6_from_array;
-///
-/// let x = state_koe_to_eci(vector6_from_array([R_EARTH + 700e3, 0.001, 97.8, 15.0, 30.0, 45.0]), AngleFormat::Degrees);
-/// let p = vec![SMatrix6::identity(); 2];
-/// let p_lvlh = covariances_eci_to_lvlh(&[x], &p, OrbitRelativeFrameVariant::Rotating).unwrap();
-/// assert_eq!(p_lvlh.len(), 2);
-/// ```
-pub fn covariances_eci_to_lvlh(
-    x_eci: &[SVector6],
-    covariances: &[SMatrix6],
-    variant: OrbitRelativeFrameVariant,
-) -> Result<Vec<SMatrix6>, BraheError> {
-    batch_zip(
-        |x, p| covariance_eci_to_lvlh(*x, p, variant),
-        x_eci,
-        covariances,
-    )
-}
-
 /// Computes the LVLH relative state of each deputy with respect to its chief.
 ///
 /// Batch form of [`state_eci_to_lvlh`]. Evaluation runs on the global thread pool for
@@ -704,7 +379,7 @@ mod tests {
     use crate::R_EARTH;
     use crate::coordinates::state_koe_to_eci;
     use crate::frames::angular_velocity_from_rotation_rate;
-    use crate::math::{block_diagonal, skew_symmetric, vector6_from_array};
+    use crate::math::vector6_from_array;
     use crate::orbits::mean_motion;
     use crate::relative_motion::{omega_rtn, rotation_rtn_to_eci, state_eci_to_rtn};
     use approx::assert_abs_diff_eq;
@@ -798,66 +473,6 @@ mod tests {
 
     #[test]
     #[parallel]
-    fn test_jacobian_lvlh_to_eci_inertial_is_block_diagonal() {
-        let x = inclined_test_state();
-        let j = jacobian_lvlh_to_eci(x, OrbitRelativeFrameVariant::Inertial);
-        let r = rotation_lvlh_to_eci(x);
-        assert_abs_diff_eq!((j - block_diagonal(&r, &r)).norm(), 0.0, epsilon = 1e-15);
-    }
-
-    #[test]
-    #[parallel]
-    fn test_jacobian_lvlh_to_eci_rotating_coupling() {
-        let x = inclined_test_state();
-        let j = jacobian_lvlh_to_eci(x, OrbitRelativeFrameVariant::Rotating);
-        let expected = rotation_lvlh_to_eci(x) * skew_symmetric(&omega_lvlh(x));
-        let coupling: SMatrix3 = j.fixed_view::<3, 3>(3, 0).into();
-        assert_abs_diff_eq!((coupling - expected).norm(), 0.0, epsilon = 1e-18);
-        assert!(coupling.norm() > 0.0);
-    }
-
-    #[test]
-    #[parallel]
-    fn test_jacobian_lvlh_eci_inverse_identity() {
-        let x = inclined_test_state();
-        for variant in [
-            OrbitRelativeFrameVariant::Inertial,
-            OrbitRelativeFrameVariant::Rotating,
-        ] {
-            let forward = jacobian_lvlh_to_eci(x, variant);
-            let inverse = jacobian_eci_to_lvlh(x, variant);
-            assert_abs_diff_eq!(
-                (inverse * forward - SMatrix6::identity()).norm(),
-                0.0,
-                epsilon = 1e-12
-            );
-        }
-    }
-
-    #[test]
-    #[parallel]
-    fn test_covariance_lvlh_eci_round_trip() {
-        let x = inclined_test_state();
-        let mut p = SMatrix6::zeros();
-        for i in 0..3 {
-            p[(i, i)] = 100.0;
-            p[(3 + i, 3 + i)] = 0.01;
-        }
-        p[(0, 1)] = 25.0;
-        p[(1, 0)] = 25.0;
-        for variant in [
-            OrbitRelativeFrameVariant::Inertial,
-            OrbitRelativeFrameVariant::Rotating,
-        ] {
-            let p_eci = covariance_lvlh_to_eci(x, &p, variant);
-            let p_back = covariance_eci_to_lvlh(x, &p_eci, variant);
-            assert_abs_diff_eq!((p_back - p).norm() / p.norm(), 0.0, epsilon = 1e-12);
-            assert_abs_diff_eq!((p_eci - p_eci.transpose()).norm(), 0.0, epsilon = 1e-18);
-        }
-    }
-
-    #[test]
-    #[parallel]
     fn test_state_eci_to_lvlh_matches_permuted_rtn() {
         let x_chief = inclined_test_state();
         let x_deputy = state_koe_to_eci(
@@ -914,18 +529,10 @@ mod tests {
                 )
             })
             .collect();
-        let covs: Vec<SMatrix6> = (0..3)
-            .map(|i| SMatrix6::identity() * (i as f64 + 1.0))
-            .collect();
-        let variant = OrbitRelativeFrameVariant::Rotating;
 
         let rot = rotations_lvlh_to_eci(&chiefs);
         let rot_inv = rotations_eci_to_lvlh(&chiefs);
         let omegas = omegas_lvlh(&chiefs);
-        let jac = jacobians_lvlh_to_eci(&chiefs, variant);
-        let jac_inv = jacobians_eci_to_lvlh(&chiefs, variant);
-        let cov_eci = covariances_lvlh_to_eci(&chiefs, &covs, variant).unwrap();
-        let cov_lvlh = covariances_eci_to_lvlh(&chiefs, &covs[..1], variant).unwrap();
         let rel = states_eci_to_lvlh(&chiefs, &deputies).unwrap();
         let rel_one_chief = states_eci_to_lvlh(&chiefs[..1], &deputies).unwrap();
         let back = states_lvlh_to_eci(&chiefs, &rel).unwrap();
@@ -933,22 +540,11 @@ mod tests {
             assert_eq!(rot[i], rotation_lvlh_to_eci(chiefs[i]));
             assert_eq!(rot_inv[i], rotation_eci_to_lvlh(chiefs[i]));
             assert_eq!(omegas[i], omega_lvlh(chiefs[i]));
-            assert_eq!(jac[i], jacobian_lvlh_to_eci(chiefs[i], variant));
-            assert_eq!(jac_inv[i], jacobian_eci_to_lvlh(chiefs[i], variant));
-            assert_eq!(
-                cov_eci[i],
-                covariance_lvlh_to_eci(chiefs[i], &covs[i], variant)
-            );
-            assert_eq!(
-                cov_lvlh[i],
-                covariance_eci_to_lvlh(chiefs[i], &covs[0], variant)
-            );
             assert_eq!(rel[i], state_eci_to_lvlh(chiefs[i], deputies[i]));
             assert_eq!(rel_one_chief[i], state_eci_to_lvlh(chiefs[0], deputies[i]));
             assert_eq!(back[i], state_lvlh_to_eci(chiefs[i], rel[i]));
         }
         assert!(states_eci_to_lvlh(&chiefs[..2], &deputies).is_err());
-        assert!(covariances_lvlh_to_eci(&chiefs[..2], &covs, variant).is_err());
         assert!(rotations_lvlh_to_eci(&[]).is_empty());
     }
 }

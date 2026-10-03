@@ -4,12 +4,8 @@
 
 use nalgebra::Vector3;
 
-use crate::frames::{OrbitRelativeFrameVariant, rotate_covariance_6};
-use crate::math::{SMatrix3, SMatrix6, SVector6};
-use crate::relative_motion::common::{
-    jacobian_from_inertial, jacobian_to_inertial, relative_state_from_frame,
-    relative_state_to_frame,
-};
+use crate::math::{SMatrix3, SVector6};
+use crate::relative_motion::common::{relative_state_from_frame, relative_state_to_frame};
 use crate::utils::BraheError;
 use crate::utils::batch::{batch_map, batch_zip};
 
@@ -100,155 +96,6 @@ pub fn rotation_eqw_to_eci(x_eci: SVector6) -> SMatrix3 {
 /// ```
 pub fn rotation_eci_to_eqw(x_eci: SVector6) -> SMatrix3 {
     rotation_eqw_to_eci(x_eci).transpose()
-}
-
-/// 6x6 Jacobian taking an EQW state covariance into ECI axes.
-///
-/// EQW is a quasi-inertial snapshot with no angular rate, so the Jacobian is the block diagonal
-/// `[[R, 0], [0, R]]` with `R` the EQW-to-ECI rotation.
-///
-/// # Arguments:
-/// - `x_eci`: 6D state vector of the frame's origin in the ECI frame [x, y, z, vx, vy, vz] (m, m/s)
-///
-/// # Returns:
-/// - `j`: 6x6 Jacobian such that `P_eci = J P_eqw Jᵀ`
-///
-/// # Examples:
-/// ```
-/// use brahe::SVector6;
-/// use brahe::{R_EARTH, AngleFormat};
-/// use brahe::coordinates::state_koe_to_eci;
-/// use brahe::relative_motion::*;
-///
-/// let x_eci = state_koe_to_eci(SVector6::new(R_EARTH + 700e3, 0.01, 97.8, 15.0, 30.0, 45.0), AngleFormat::Degrees);
-///
-/// let j = jacobian_eqw_to_eci(x_eci);
-/// ```
-///
-/// # References:
-/// 1. NASA Conjunction Assessment Risk Analysis (CARA),
-///    [*Conjunction Assessment Handbook*, NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13)](https://ntrs.nasa.gov/citations/20205011318)
-/// 2. NASA CARA Analysis Tools,
-///    [`RIC2ECI.m`](https://github.com/nasa/CARA_Analysis_Tools)
-/// 3. D. A. Vallado,
-///    ["Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003](https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf)
-pub fn jacobian_eqw_to_eci(x_eci: SVector6) -> SMatrix6 {
-    jacobian_to_inertial(
-        &rotation_eqw_to_eci(x_eci),
-        &Vector3::zeros(),
-        OrbitRelativeFrameVariant::Inertial,
-    )
-}
-
-/// 6x6 Jacobian taking an ECI state covariance into EQW axes. Exact inverse of
-/// [`jacobian_eqw_to_eci`].
-///
-/// EQW is a quasi-inertial snapshot with no angular rate, so the Jacobian is the block diagonal
-/// `[[Rᵀ, 0], [0, Rᵀ]]` with `R` the EQW-to-ECI rotation.
-///
-/// # Arguments:
-/// - `x_eci`: 6D state vector of the frame's origin in the ECI frame [x, y, z, vx, vy, vz] (m, m/s)
-///
-/// # Returns:
-/// - `j`: 6x6 Jacobian such that `P_eqw = J P_eci Jᵀ`
-///
-/// # Examples:
-/// ```
-/// use brahe::SVector6;
-/// use brahe::{R_EARTH, AngleFormat};
-/// use brahe::coordinates::state_koe_to_eci;
-/// use brahe::relative_motion::*;
-///
-/// let x_eci = state_koe_to_eci(SVector6::new(R_EARTH + 700e3, 0.01, 97.8, 15.0, 30.0, 45.0), AngleFormat::Degrees);
-///
-/// let j = jacobian_eci_to_eqw(x_eci);
-/// ```
-///
-/// # References:
-/// 1. NASA Conjunction Assessment Risk Analysis (CARA),
-///    [*Conjunction Assessment Handbook*, NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13)](https://ntrs.nasa.gov/citations/20205011318)
-/// 2. NASA CARA Analysis Tools,
-///    [`RIC2ECI.m`](https://github.com/nasa/CARA_Analysis_Tools)
-/// 3. D. A. Vallado,
-///    ["Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003](https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf)
-pub fn jacobian_eci_to_eqw(x_eci: SVector6) -> SMatrix6 {
-    jacobian_from_inertial(
-        &rotation_eci_to_eqw(x_eci),
-        &Vector3::zeros(),
-        OrbitRelativeFrameVariant::Inertial,
-    )
-}
-
-/// Transforms a 6x6 state covariance from EQW axes into ECI axes.
-///
-/// Applies the congruence `P_eci = J P_eqw Jᵀ` with `J` from [`jacobian_eqw_to_eci`], and
-/// symmetrizes the result.
-///
-/// # Arguments:
-/// - `x_eci`: 6D state vector of the frame's origin in the ECI frame [x, y, z, vx, vy, vz] (m, m/s)
-/// - `covariance`: 6x6 state covariance in EQW axes (m², m²/s, m²/s²)
-///
-/// # Returns:
-/// - `p_eci`: 6x6 state covariance in ECI axes (m², m²/s, m²/s²)
-///
-/// # Examples:
-/// ```
-/// use brahe::{SVector6, SMatrix6};
-/// use brahe::{R_EARTH, AngleFormat};
-/// use brahe::coordinates::state_koe_to_eci;
-/// use brahe::relative_motion::*;
-///
-/// let x_eci = state_koe_to_eci(SVector6::new(R_EARTH + 700e3, 0.01, 97.8, 15.0, 30.0, 45.0), AngleFormat::Degrees);
-/// let p_eqw = SMatrix6::identity();
-///
-/// let p_eci = covariance_eqw_to_eci(x_eci, &p_eqw);
-/// ```
-///
-/// # References:
-/// 1. NASA Conjunction Assessment Risk Analysis (CARA),
-///    [*Conjunction Assessment Handbook*, NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13)](https://ntrs.nasa.gov/citations/20205011318)
-/// 2. NASA CARA Analysis Tools,
-///    [`RIC2ECI.m`](https://github.com/nasa/CARA_Analysis_Tools)
-/// 3. D. A. Vallado,
-///    ["Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003](https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf)
-pub fn covariance_eqw_to_eci(x_eci: SVector6, covariance: &SMatrix6) -> SMatrix6 {
-    rotate_covariance_6(covariance, &jacobian_eqw_to_eci(x_eci))
-}
-
-/// Transforms a 6x6 state covariance from ECI axes into EQW axes.
-///
-/// Applies the congruence `P_eqw = J P_eci Jᵀ` with `J` from [`jacobian_eci_to_eqw`], and
-/// symmetrizes the result.
-///
-/// # Arguments:
-/// - `x_eci`: 6D state vector of the frame's origin in the ECI frame [x, y, z, vx, vy, vz] (m, m/s)
-/// - `covariance`: 6x6 state covariance in ECI axes (m², m²/s, m²/s²)
-///
-/// # Returns:
-/// - `p_eqw`: 6x6 state covariance in EQW axes (m², m²/s, m²/s²)
-///
-/// # Examples:
-/// ```
-/// use brahe::{SVector6, SMatrix6};
-/// use brahe::{R_EARTH, AngleFormat};
-/// use brahe::coordinates::state_koe_to_eci;
-/// use brahe::relative_motion::*;
-///
-/// let x_eci = state_koe_to_eci(SVector6::new(R_EARTH + 700e3, 0.01, 97.8, 15.0, 30.0, 45.0), AngleFormat::Degrees);
-/// let p_eci = SMatrix6::identity();
-///
-/// let p_eqw = covariance_eci_to_eqw(x_eci, &p_eci);
-/// ```
-///
-/// # References:
-/// 1. NASA Conjunction Assessment Risk Analysis (CARA),
-///    [*Conjunction Assessment Handbook*, NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13)](https://ntrs.nasa.gov/citations/20205011318)
-/// 2. NASA CARA Analysis Tools,
-///    [`RIC2ECI.m`](https://github.com/nasa/CARA_Analysis_Tools)
-/// 3. D. A. Vallado,
-///    ["Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003](https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf)
-pub fn covariance_eci_to_eqw(x_eci: SVector6, covariance: &SMatrix6) -> SMatrix6 {
-    rotate_covariance_6(covariance, &jacobian_eci_to_eqw(x_eci))
 }
 
 /// Transforms the absolute states of a chief and deputy satellite from the Earth-Centered
@@ -393,162 +240,6 @@ pub fn rotations_eci_to_eqw(x_eci: &[SVector6]) -> Vec<SMatrix3> {
     batch_map(|x| rotation_eci_to_eqw(*x), x_eci)
 }
 
-/// Computes the EQW-to-ECI covariance Jacobian for each state in `x_eci`.
-///
-/// Batch form of [`jacobian_eqw_to_eci`]. Evaluation runs on the global thread pool for
-/// large inputs.
-///
-/// # Arguments
-/// - `x_eci`: Cartesian ECI states of the frame's origin (position, velocity). Units: (*m*; *m/s*)
-///
-/// # Returns
-/// - Jacobians such that `P_eci = J P_eqw Jᵀ`, one per state, in input order
-///
-/// # References
-/// 1. NASA Conjunction Assessment Risk Analysis (CARA),
-///    [*Conjunction Assessment Handbook*, NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13)](https://ntrs.nasa.gov/citations/20205011318)
-/// 2. NASA CARA Analysis Tools,
-///    [`RIC2ECI.m`](https://github.com/nasa/CARA_Analysis_Tools)
-/// 3. D. A. Vallado,
-///    ["Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003](https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf)
-///
-/// # Examples
-/// ```
-/// use brahe::constants::{R_EARTH, AngleFormat};
-/// use brahe::coordinates::state_koe_to_eci;
-/// use brahe::relative_motion::jacobians_eqw_to_eci;
-/// use brahe::vector6_from_array;
-///
-/// let x = state_koe_to_eci(vector6_from_array([R_EARTH + 700e3, 0.001, 97.8, 15.0, 30.0, 45.0]), AngleFormat::Degrees);
-/// let j = jacobians_eqw_to_eci(&[x, x]);
-/// assert_eq!(j.len(), 2);
-/// ```
-pub fn jacobians_eqw_to_eci(x_eci: &[SVector6]) -> Vec<SMatrix6> {
-    batch_map(|x| jacobian_eqw_to_eci(*x), x_eci)
-}
-
-/// Computes the ECI-to-EQW covariance Jacobian for each state in `x_eci`.
-///
-/// Batch form of [`jacobian_eci_to_eqw`]. Evaluation runs on the global thread pool for
-/// large inputs.
-///
-/// # Arguments
-/// - `x_eci`: Cartesian ECI states of the frame's origin (position, velocity). Units: (*m*; *m/s*)
-///
-/// # Returns
-/// - Jacobians such that `P_eqw = J P_eci Jᵀ`, one per state, in input order
-///
-/// # References
-/// 1. NASA Conjunction Assessment Risk Analysis (CARA),
-///    [*Conjunction Assessment Handbook*, NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13)](https://ntrs.nasa.gov/citations/20205011318)
-/// 2. NASA CARA Analysis Tools,
-///    [`RIC2ECI.m`](https://github.com/nasa/CARA_Analysis_Tools)
-/// 3. D. A. Vallado,
-///    ["Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003](https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf)
-///
-/// # Examples
-/// ```
-/// use brahe::constants::{R_EARTH, AngleFormat};
-/// use brahe::coordinates::state_koe_to_eci;
-/// use brahe::relative_motion::jacobians_eci_to_eqw;
-/// use brahe::vector6_from_array;
-///
-/// let x = state_koe_to_eci(vector6_from_array([R_EARTH + 700e3, 0.001, 97.8, 15.0, 30.0, 45.0]), AngleFormat::Degrees);
-/// let j = jacobians_eci_to_eqw(&[x, x]);
-/// assert_eq!(j.len(), 2);
-/// ```
-pub fn jacobians_eci_to_eqw(x_eci: &[SVector6]) -> Vec<SMatrix6> {
-    batch_map(|x| jacobian_eci_to_eqw(*x), x_eci)
-}
-
-/// Transforms each state covariance in `covariances` from EQW axes into ECI axes.
-///
-/// Batch form of [`covariance_eqw_to_eci`]. Evaluation runs on the global thread pool for
-/// large inputs.
-///
-/// The `x_eci` and `covariances` arguments follow the broadcast rule: each argument has
-/// length 1 or the common batch length.
-///
-/// # Arguments
-/// - `x_eci`: Cartesian ECI states of the frame's origin, length 1 or the batch length. Units: (*m*; *m/s*)
-/// - `covariances`: State covariances in EQW axes, length 1 or the batch length. Units: (*m²*, *m²/s*, *m²/s²*)
-///
-/// # Returns
-/// - State covariances in ECI axes, in input order. Units: (*m²*, *m²/s*, *m²/s²*)
-/// - Error if the lengths do not satisfy the broadcast rule
-///
-/// # References
-/// 1. NASA Conjunction Assessment Risk Analysis (CARA),
-///    [*Conjunction Assessment Handbook*, NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13)](https://ntrs.nasa.gov/citations/20205011318)
-/// 2. NASA CARA Analysis Tools,
-///    [`RIC2ECI.m`](https://github.com/nasa/CARA_Analysis_Tools)
-/// 3. D. A. Vallado,
-///    ["Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003](https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf)
-///
-/// # Examples
-/// ```
-/// use brahe::SMatrix6;
-/// use brahe::constants::{R_EARTH, AngleFormat};
-/// use brahe::coordinates::state_koe_to_eci;
-/// use brahe::relative_motion::covariances_eqw_to_eci;
-/// use brahe::vector6_from_array;
-///
-/// let x = state_koe_to_eci(vector6_from_array([R_EARTH + 700e3, 0.001, 97.8, 15.0, 30.0, 45.0]), AngleFormat::Degrees);
-/// let p = vec![SMatrix6::identity(); 2];
-/// let p_eci = covariances_eqw_to_eci(&[x], &p).unwrap();
-/// assert_eq!(p_eci.len(), 2);
-/// ```
-pub fn covariances_eqw_to_eci(
-    x_eci: &[SVector6],
-    covariances: &[SMatrix6],
-) -> Result<Vec<SMatrix6>, BraheError> {
-    batch_zip(|x, p| covariance_eqw_to_eci(*x, p), x_eci, covariances)
-}
-
-/// Transforms each state covariance in `covariances` from ECI axes into EQW axes.
-///
-/// Batch form of [`covariance_eci_to_eqw`]. Evaluation runs on the global thread pool for
-/// large inputs.
-///
-/// The `x_eci` and `covariances` arguments follow the broadcast rule: each argument has
-/// length 1 or the common batch length.
-///
-/// # Arguments
-/// - `x_eci`: Cartesian ECI states of the frame's origin, length 1 or the batch length. Units: (*m*; *m/s*)
-/// - `covariances`: State covariances in ECI axes, length 1 or the batch length. Units: (*m²*, *m²/s*, *m²/s²*)
-///
-/// # Returns
-/// - State covariances in EQW axes, in input order. Units: (*m²*, *m²/s*, *m²/s²*)
-/// - Error if the lengths do not satisfy the broadcast rule
-///
-/// # References
-/// 1. NASA Conjunction Assessment Risk Analysis (CARA),
-///    [*Conjunction Assessment Handbook*, NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13)](https://ntrs.nasa.gov/citations/20205011318)
-/// 2. NASA CARA Analysis Tools,
-///    [`RIC2ECI.m`](https://github.com/nasa/CARA_Analysis_Tools)
-/// 3. D. A. Vallado,
-///    ["Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003](https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf)
-///
-/// # Examples
-/// ```
-/// use brahe::SMatrix6;
-/// use brahe::constants::{R_EARTH, AngleFormat};
-/// use brahe::coordinates::state_koe_to_eci;
-/// use brahe::relative_motion::covariances_eci_to_eqw;
-/// use brahe::vector6_from_array;
-///
-/// let x = state_koe_to_eci(vector6_from_array([R_EARTH + 700e3, 0.001, 97.8, 15.0, 30.0, 45.0]), AngleFormat::Degrees);
-/// let p = vec![SMatrix6::identity(); 2];
-/// let p_eqw = covariances_eci_to_eqw(&[x], &p).unwrap();
-/// assert_eq!(p_eqw.len(), 2);
-/// ```
-pub fn covariances_eci_to_eqw(
-    x_eci: &[SVector6],
-    covariances: &[SMatrix6],
-) -> Result<Vec<SMatrix6>, BraheError> {
-    batch_zip(|x, p| covariance_eci_to_eqw(*x, p), x_eci, covariances)
-}
-
 /// Computes the EQW relative state of each deputy with respect to its chief.
 ///
 /// Batch form of [`state_eci_to_eqw`]. Evaluation runs on the global thread pool for
@@ -639,7 +330,7 @@ mod tests {
     use crate::AngleFormat;
     use crate::constants::{DEG2RAD, R_EARTH};
     use crate::coordinates::state_koe_to_eci;
-    use crate::math::block_diagonal;
+
     use approx::assert_abs_diff_eq;
     use serial_test::parallel;
 
@@ -724,36 +415,6 @@ mod tests {
 
     #[test]
     #[parallel]
-    fn test_jacobian_eqw_is_block_diagonal_and_invertible() {
-        let x = state(0.1, 97.8, 15.0, 30.0, 45.0);
-        let j = jacobian_eqw_to_eci(x);
-        let r = rotation_eqw_to_eci(x);
-        assert_abs_diff_eq!((j - block_diagonal(&r, &r)).norm(), 0.0, epsilon = 1e-15);
-        assert_abs_diff_eq!(
-            (jacobian_eci_to_eqw(x) * j - SMatrix6::identity()).norm(),
-            0.0,
-            epsilon = 1e-12
-        );
-    }
-
-    #[test]
-    #[parallel]
-    fn test_covariance_eqw_eci_round_trip() {
-        let x = state(0.1, 97.8, 15.0, 30.0, 45.0);
-        let mut p = SMatrix6::zeros();
-        for i in 0..3 {
-            p[(i, i)] = 100.0;
-            p[(3 + i, 3 + i)] = 0.01;
-        }
-        p[(0, 1)] = 25.0;
-        p[(1, 0)] = 25.0;
-        let p_eci = covariance_eqw_to_eci(x, &p);
-        let p_back = covariance_eci_to_eqw(x, &p_eci);
-        assert_abs_diff_eq!((p_back - p).norm() / p.norm(), 0.0, epsilon = 1e-12);
-    }
-
-    #[test]
-    #[parallel]
     fn test_state_eci_to_eqw_is_pure_rotation_of_relative_state() {
         let x_chief = state(0.1, 97.8, 15.0, 30.0, 45.0);
         let x_deputy = state(0.1015, 97.85, 15.05, 30.05, 45.05);
@@ -801,17 +462,9 @@ mod tests {
             .iter()
             .map(|c| c + SVector6::new(100.0, 200.0, 300.0, 0.1, 0.2, 0.3))
             .collect();
-        let covs: Vec<SMatrix6> = (0..3)
-            .map(|i| SMatrix6::identity() * (i as f64 + 1.0))
-            .collect();
 
         let rot = rotations_eqw_to_eci(&chiefs);
         let rot_inv = rotations_eci_to_eqw(&chiefs);
-        let jac = jacobians_eqw_to_eci(&chiefs);
-        let jac_inv = jacobians_eci_to_eqw(&chiefs);
-        // covariances_eqw_to_eci broadcasts a single covariance across all chiefs
-        let cov = covariances_eqw_to_eci(&chiefs, &covs[..1]).unwrap();
-        let cov_inv = covariances_eci_to_eqw(&chiefs, &covs).unwrap();
         // states_eci_to_eqw broadcasts a single chief across all deputies
         let rel = states_eci_to_eqw(&chiefs[..1], &deputies).unwrap();
         let back = states_eqw_to_eci(&chiefs, &rel).unwrap();
@@ -819,16 +472,11 @@ mod tests {
         for i in 0..3 {
             assert_eq!(rot[i], rotation_eqw_to_eci(chiefs[i]));
             assert_eq!(rot_inv[i], rotation_eci_to_eqw(chiefs[i]));
-            assert_eq!(jac[i], jacobian_eqw_to_eci(chiefs[i]));
-            assert_eq!(jac_inv[i], jacobian_eci_to_eqw(chiefs[i]));
-            assert_eq!(cov[i], covariance_eqw_to_eci(chiefs[i], &covs[0]));
-            assert_eq!(cov_inv[i], covariance_eci_to_eqw(chiefs[i], &covs[i]));
             assert_eq!(rel[i], state_eci_to_eqw(chiefs[0], deputies[i]));
             assert_eq!(back[i], state_eqw_to_eci(chiefs[i], rel[i]));
         }
 
         assert!(states_eci_to_eqw(&chiefs[..2], &deputies).is_err());
-        assert!(covariances_eqw_to_eci(&chiefs[..2], &covs).is_err());
         assert!(rotations_eqw_to_eci(&[]).is_empty());
     }
 }

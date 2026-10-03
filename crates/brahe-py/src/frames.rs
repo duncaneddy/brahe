@@ -5828,6 +5828,94 @@ fn py_state_transform_jacobian<'py>(
     )
 }
 
+/// 6x6 Jacobian of the state map from inertial axes into rotating axes,
+/// `p' = R @ p` and `v' = R @ v - cross(omega_b, p')`.
+///
+/// The map is linear in the state, so its Jacobian is the constant
+/// `[[R, 0], [-skew(omega_b) @ R, R]]` and a state covariance transforms as
+/// `P' = J @ P @ J.T`. A zero `omega_b` gives the block diagonal
+/// `blockdiag(R, R)`, which is the Jacobian of an inertial-snapshot frame.
+///
+/// For a local orbital frame, `r` and `omega_b` come from that frame's
+/// rotation and angular-velocity functions evaluated at the frame origin's
+/// state, for example `rotation_eci_to_lvlh` and `omega_lvlh`. The Jacobian
+/// then holds the origin fixed: it maps a state or covariance referenced to
+/// the origin, and does not include the dependence of the axes on the
+/// origin's own state.
+///
+/// Args:
+///     r (numpy.ndarray): Rotation matrix from the inertial axes to the rotating axes, shape (3, 3)
+///     omega_b (numpy.ndarray): Angular velocity of the rotating axes, expressed in the rotating axes (rad/s), shape (3,)
+///
+/// Returns:
+///     numpy.ndarray: 6x6 Jacobian `J` such that `x_rotating = J @ x_inertial` and `P_rotating = J @ P_inertial @ J.T`, shape (6, 6)
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     sma = bh.R_EARTH + 700e3
+///     x_eci = np.array([sma, 0.0, 0.0, 0.0, bh.perigee_velocity(sma, 0.0), 0.0])
+///
+///     j = bh.jacobian_inertial_to_rotating(bh.rotation_eci_to_lvlh(x_eci), bh.omega_lvlh(x_eci))
+///     p_lvlh = bh.rotate_covariance(np.eye(6) * 100.0, j)
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(r, omega_b)")]
+#[pyo3(name = "jacobian_inertial_to_rotating")]
+fn py_jacobian_inertial_to_rotating<'py>(
+    py: Python<'py>,
+    r: &Bound<'py, PyAny>,
+    omega_b: &Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyArray<f64, Ix2>>> {
+    let r = pyany_to_smatrix::<3, 3>(r)?;
+    let omega_b = pyany_to_svector::<3>(omega_b)?;
+    let j = frames::jacobian_inertial_to_rotating(&r, &omega_b);
+    Ok(matrix_to_numpy!(py, j, 6, 6, f64).to_owned())
+}
+
+/// 6x6 Jacobian of the state map from rotating axes into inertial axes,
+/// `p = R.T @ p'` and `v = R.T @ (v' + cross(omega_b, p'))`.
+///
+/// Exact inverse of `jacobian_inertial_to_rotating`:
+/// `[[R.T, 0], [R.T @ skew(omega_b), R.T]]`. A zero `omega_b` gives the block
+/// diagonal `blockdiag(R.T, R.T)`.
+///
+/// Args:
+///     r (numpy.ndarray): Rotation matrix from the inertial axes to the rotating axes, shape (3, 3)
+///     omega_b (numpy.ndarray): Angular velocity of the rotating axes, expressed in the rotating axes (rad/s), shape (3,)
+///
+/// Returns:
+///     numpy.ndarray: 6x6 Jacobian `J` such that `x_inertial = J @ x_rotating` and `P_inertial = J @ P_rotating @ J.T`, shape (6, 6)
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     sma = bh.R_EARTH + 700e3
+///     x_eci = np.array([sma, 0.0, 0.0, 0.0, bh.perigee_velocity(sma, 0.0), 0.0])
+///     r = bh.rotation_eci_to_lvlh(x_eci)
+///     omega = bh.omega_lvlh(x_eci)
+///
+///     forward = bh.jacobian_inertial_to_rotating(r, omega)
+///     inverse = bh.jacobian_rotating_to_inertial(r, omega)
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(r, omega_b)")]
+#[pyo3(name = "jacobian_rotating_to_inertial")]
+fn py_jacobian_rotating_to_inertial<'py>(
+    py: Python<'py>,
+    r: &Bound<'py, PyAny>,
+    omega_b: &Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyArray<f64, Ix2>>> {
+    let r = pyany_to_smatrix::<3, 3>(r)?;
+    let omega_b = pyany_to_svector::<3>(omega_b)?;
+    let j = frames::jacobian_rotating_to_inertial(&r, &omega_b);
+    Ok(matrix_to_numpy!(py, j, 6, 6, f64).to_owned())
+}
+
 /// Rotates an `n x n` covariance (`n >= 6`) with a 6x6 state Jacobian,
 /// leaving elements beyond the orbital six unchanged, and symmetrizes the
 /// result.

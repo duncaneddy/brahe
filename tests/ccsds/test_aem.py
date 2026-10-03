@@ -928,6 +928,129 @@ def test_aem_register_for_inverts_when_celestial_is_frame_b(eop):
     bh.clear_frame_registry()
 
 
+def _lvlh_frame_aem(swap: bool = False) -> AEM:
+    """Single-segment AEM with LVLH_ROTATING and SC_BODY_1 endpoints.
+
+    `swap=True` puts LVLH_ROTATING on REF_FRAME_B instead of REF_FRAME_A.
+    """
+    ref_frame_a, ref_frame_b = "LVLH_ROTATING", "SC_BODY_1"
+    if swap:
+        ref_frame_a, ref_frame_b = ref_frame_b, ref_frame_a
+    return AEM.from_str(
+        "CCSDS_AEM_VERS = 2.0\n"
+        "CREATION_DATE = 2002-11-04T17:22:31\n"
+        "ORIGINATOR = BRAHE\n"
+        "\n"
+        "META_START\n"
+        "OBJECT_NAME = TESTSAT\n"
+        "OBJECT_ID = 2024-001A\n"
+        "CENTER_NAME = EARTH\n"
+        f"REF_FRAME_A = {ref_frame_a}\n"
+        f"REF_FRAME_B = {ref_frame_b}\n"
+        "TIME_SYSTEM = UTC\n"
+        "START_TIME = 2024-01-01T00:00:00.000\n"
+        "STOP_TIME = 2024-01-01T00:01:00.000\n"
+        "ATTITUDE_TYPE = QUATERNION\n"
+        "META_STOP\n"
+        "\n"
+        "DATA_START\n"
+        "2024-01-01T00:00:00.000 0.0 0.0 0.70710678 0.70710678\n"
+        "2024-01-01T00:01:00.000 0.0 0.0 0.70710678 0.70710678\n"
+        "DATA_STOP\n"
+    )
+
+
+def _register_sc_orbit() -> np.ndarray:
+    """Register an orbit state for "SC" so orbit-relative endpoints resolve."""
+    x = bh.state_koe_to_eci(
+        np.array([bh.R_EARTH + 500e3, 0.001, 97.8, 15.0, 30.0, 45.0]),
+        bh.AngleFormat.DEGREES,
+    )
+    bh.register_object("SC", lambda _: x, bh.CelestialFrame.GCRF)
+    return x
+
+
+def test_aem_register_for_orbit_relative_parent_as_frame_a(eop):
+    """Mirror of test_aem_register_for_orbit_relative_parent_as_frame_a in Rust."""
+    bh.clear_frame_registry()
+    bh.clear_object_registry()
+    x = _register_sc_orbit()
+
+    aem = _lvlh_frame_aem()
+    traj = aem.segment_to_attitude_trajectory(0)
+    epoch = traj.start_epoch
+
+    aem.register_for("SC")
+
+    body = bh.ReferenceFrame.body("SC", bh.BodyFrame.SC_BODY("1"))
+    link = bh.rotation_frame_to_frame(bh.ReferenceFrame.LVLH("SC"), body, epoch)
+    expected = traj.quaternion(epoch).to_rotation_matrix().to_matrix()
+    np.testing.assert_allclose(link, expected, atol=1e-12)
+
+    # Through the chain: GCRF -> LVLH -> body
+    full = bh.rotation_frame_to_frame(
+        bh.ReferenceFrame.celestial(bh.CelestialFrame.GCRF), body, epoch
+    )
+    np.testing.assert_allclose(full, expected @ bh.rotation_eci_to_lvlh(x), atol=1e-12)
+
+    bh.clear_frame_registry()
+    bh.clear_object_registry()
+
+
+def test_aem_register_for_orbit_relative_parent_as_frame_b(eop):
+    """Mirror of test_aem_register_for_orbit_relative_parent_as_frame_b in Rust."""
+    bh.clear_frame_registry()
+    bh.clear_object_registry()
+    _register_sc_orbit()
+
+    aem = _lvlh_frame_aem(swap=True)
+    traj = aem.segment_to_attitude_trajectory(0)
+    epoch = traj.start_epoch
+
+    aem.register_for("SC")
+
+    body = bh.ReferenceFrame.body("SC", bh.BodyFrame.SC_BODY("1"))
+    link = bh.rotation_frame_to_frame(bh.ReferenceFrame.LVLH("SC"), body, epoch)
+    expected = traj.quaternion(epoch).conjugate().to_rotation_matrix().to_matrix()
+    np.testing.assert_allclose(link, expected, atol=1e-12)
+
+    bh.clear_frame_registry()
+    bh.clear_object_registry()
+
+
+def test_aem_register_for_rejects_two_orbit_relative_endpoints(eop):
+    """Mirror of test_aem_register_for_rejects_two_orbit_relative_endpoints in Rust."""
+    bh.clear_frame_registry()
+    bh.clear_object_registry()
+
+    aem = AEM.from_str(
+        "CCSDS_AEM_VERS = 2.0\n"
+        "CREATION_DATE = 2002-11-04T17:22:31\n"
+        "ORIGINATOR = BRAHE\n"
+        "\n"
+        "META_START\n"
+        "OBJECT_NAME = TESTSAT\n"
+        "OBJECT_ID = 2024-001A\n"
+        "CENTER_NAME = EARTH\n"
+        "REF_FRAME_A = LVLH_ROTATING\n"
+        "REF_FRAME_B = RSW_ROTATING\n"
+        "TIME_SYSTEM = UTC\n"
+        "START_TIME = 2024-01-01T00:00:00.000\n"
+        "STOP_TIME = 2024-01-01T00:01:00.000\n"
+        "ATTITUDE_TYPE = QUATERNION\n"
+        "META_STOP\n"
+        "\n"
+        "DATA_START\n"
+        "2024-01-01T00:00:00.000 0.0 0.0 0.70710678 0.70710678\n"
+        "DATA_STOP\n"
+    )
+
+    with pytest.raises(Exception, match="body frame"):
+        aem.register_for("SC")
+
+    bh.clear_frame_registry()
+
+
 def test_aem_register_for_inverts_angular_velocity(eop):
     """Mirror of test_aem_register_for_inverts_angular_velocity in Rust."""
     bh.clear_frame_registry()

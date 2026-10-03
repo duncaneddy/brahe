@@ -656,14 +656,14 @@ mod tests {
     use crate::frames::registry::{FRAME_REGISTRY, FrameEntry};
     use crate::frames::{
         CallbackOrientation, OrientationProvider, clear_frame_registry, clear_object_registry,
-        covariance_frame_to_frame, position_frame_to_frame, register_frame, register_object,
-        rotation_frame_to_frame, unregister_frame,
+        covariance_frame_to_frame, jacobian_inertial_to_rotating, position_frame_to_frame,
+        register_frame, register_object, rotate_covariance_6, rotation_frame_to_frame,
+        unregister_frame,
     };
     use crate::math::{SMatrix6, SVector6};
     use crate::orbit_dynamics::ephemerides::sun_position;
     use crate::relative_motion::{
-        covariance_eci_to_lvlh, omega_lvlh, rotation_eci_to_lvlh, state_eci_to_lvlh,
-        state_eci_to_rtn,
+        omega_lvlh, rotation_eci_to_lvlh, state_eci_to_lvlh, state_eci_to_rtn,
     };
     use crate::spice::NAIFId;
     use crate::time::TimeSystem;
@@ -1171,21 +1171,22 @@ mod tests {
             p[(i, i)] = (i as f64 + 1.0) * 10.0;
         }
 
-        // `covariance_frame_to_frame` routes through a numerically differenced
-        // Jacobian, so the comparison uses a looser relative tolerance than the
-        // analytic transforms in `relative_motion`.
+        // `covariance_frame_to_frame` probes the router's state map, which is
+        // affine for a fixed origin, so it reproduces the analytic Jacobian to
+        // rounding.
         let p_graph =
             covariance_frame_to_frame(CelestialFrame::GCRF, ReferenceFrame::LVLH("A"), epc, &p)
                 .unwrap();
         let p_graph_static = SMatrix6::from_iterator(p_graph.iter().copied());
 
         let p6 = SMatrix6::from_iterator(p.iter().copied());
-        let p_expected = covariance_eci_to_lvlh(x, &p6, OrbitRelativeFrameVariant::Rotating);
+        let j = jacobian_inertial_to_rotating(&rotation_eci_to_lvlh(x), &omega_lvlh(x));
+        let p_expected = rotate_covariance_6(&p6, &j);
 
         assert_abs_diff_eq!(
             (p_graph_static - p_expected).norm() / p_expected.norm(),
             0.0,
-            epsilon = 1e-6
+            epsilon = 1e-12
         );
         clear_object_registry();
     }

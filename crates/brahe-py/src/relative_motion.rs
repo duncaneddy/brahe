@@ -523,17 +523,11 @@ fn py_state_roe_to_eci<'py>(
 /// the plain block diagonal; `ROTATING` carries the coupling term.
 ///
 /// Args:
-///     x_eci (numpy.ndarray or list): 6D state vector of the frame's origin in the ECI frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
-///         vectors with the 6 components along `axis` (for example shape (n, 6)).
+///     x_eci (numpy.ndarray or list): 6D state vector of the frame's origin in the ECI frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,)
 ///     variant (OrbitRelativeFrameVariant): Whether the RTN axes rotate with the orbit or are frozen at the epoch
-///     axis (int, optional): The axis along which the 6 components of a single vector
-///         lie; the remaining axes enumerate the batch. For a batch of shape (n, 6)
-///         the components lie along the last axis, so the default `-1` applies; a
-///         (6, n) column layout uses `axis=0`.
 ///
 /// Returns:
-///     numpy.ndarray: 6x6 Jacobian such that `P_eci = J @ P_rtn @ J.T`, shape (6, 6), or the batch dimensions
-///         followed by (6, 6) for batched input.
+///     numpy.ndarray: 6x6 Jacobian such that `P_eci = J @ P_rtn @ J.T`, shape (6, 6)
 ///
 /// Example:
 ///     ```python
@@ -545,23 +539,16 @@ fn py_state_roe_to_eci<'py>(
 ///     j = bh.jacobian_rtn_to_eci(x_eci, bh.OrbitRelativeFrameVariant.ROTATING)
 ///     ```
 #[pyfunction]
-#[pyo3(signature = (x_eci, variant, axis=-1))]
-#[pyo3(text_signature = "(x_eci, variant, axis=-1)")]
+#[pyo3(text_signature = "(x_eci, variant)")]
 #[pyo3(name = "jacobian_rtn_to_eci")]
 fn py_jacobian_rtn_to_eci<'py>(
     py: Python<'py>,
     x_eci: &Bound<'py, PyAny>,
     variant: &PyOrbitRelativeFrameVariant,
-    axis: isize,
-) -> PyResult<Bound<'py, PyAny>> {
-    let variant = variant.variant;
-    dispatch_vec_matrix::<6, 6>(
-        py,
-        x_eci,
-        axis,
-        |x| relative_motion::jacobian_rtn_to_eci(x, variant),
-        |xs| relative_motion::jacobians_rtn_to_eci(xs, variant),
-    )
+) -> PyResult<Bound<'py, PyArray<f64, Ix2>>> {
+    let x = pyany_to_svector::<6>(x_eci)?;
+    let j = relative_motion::jacobian_rtn_to_eci(x, variant.variant);
+    Ok(matrix_to_numpy!(py, j, 6, 6, f64).to_owned())
 }
 
 /// 6x6 Jacobian taking an ECI state covariance into RTN axes.
@@ -570,17 +557,11 @@ fn py_jacobian_rtn_to_eci<'py>(
 /// rotation, the Jacobian is `[[R.T, 0], [-skew(omega) @ R.T, R.T]]`.
 ///
 /// Args:
-///     x_eci (numpy.ndarray or list): 6D state vector of the frame's origin in the ECI frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
-///         vectors with the 6 components along `axis` (for example shape (n, 6)).
+///     x_eci (numpy.ndarray or list): 6D state vector of the frame's origin in the ECI frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,)
 ///     variant (OrbitRelativeFrameVariant): Whether the RTN axes rotate with the orbit or are frozen at the epoch
-///     axis (int, optional): The axis along which the 6 components of a single vector
-///         lie; the remaining axes enumerate the batch. For a batch of shape (n, 6)
-///         the components lie along the last axis, so the default `-1` applies; a
-///         (6, n) column layout uses `axis=0`.
 ///
 /// Returns:
-///     numpy.ndarray: 6x6 Jacobian such that `P_rtn = J @ P_eci @ J.T`, shape (6, 6), or the batch dimensions
-///         followed by (6, 6) for batched input.
+///     numpy.ndarray: 6x6 Jacobian such that `P_rtn = J @ P_eci @ J.T`, shape (6, 6)
 ///
 /// Example:
 ///     ```python
@@ -592,23 +573,16 @@ fn py_jacobian_rtn_to_eci<'py>(
 ///     j = bh.jacobian_eci_to_rtn(x_eci, bh.OrbitRelativeFrameVariant.ROTATING)
 ///     ```
 #[pyfunction]
-#[pyo3(signature = (x_eci, variant, axis=-1))]
-#[pyo3(text_signature = "(x_eci, variant, axis=-1)")]
+#[pyo3(text_signature = "(x_eci, variant)")]
 #[pyo3(name = "jacobian_eci_to_rtn")]
 fn py_jacobian_eci_to_rtn<'py>(
     py: Python<'py>,
     x_eci: &Bound<'py, PyAny>,
     variant: &PyOrbitRelativeFrameVariant,
-    axis: isize,
-) -> PyResult<Bound<'py, PyAny>> {
-    let variant = variant.variant;
-    dispatch_vec_matrix::<6, 6>(
-        py,
-        x_eci,
-        axis,
-        |x| relative_motion::jacobian_eci_to_rtn(x, variant),
-        |xs| relative_motion::jacobians_eci_to_rtn(xs, variant),
-    )
+) -> PyResult<Bound<'py, PyArray<f64, Ix2>>> {
+    let x = pyany_to_svector::<6>(x_eci)?;
+    let j = relative_motion::jacobian_eci_to_rtn(x, variant.variant);
+    Ok(matrix_to_numpy!(py, j, 6, 6, f64).to_owned())
 }
 
 /// Transforms a 6x6 state covariance from RTN axes into ECI axes.
@@ -617,17 +591,12 @@ fn py_jacobian_eci_to_rtn<'py>(
 /// `jacobian_rtn_to_eci`, and symmetrizes the result.
 ///
 /// Args:
-///     x_eci (numpy.ndarray or list): 6D state vector of the frame's origin in the ECI frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
-///         vectors with the 6 components along `axis` (for example shape (n, 6)).
-///     covariance (numpy.ndarray): 6x6 state covariance in RTN axes, shape (6, 6), or an (n, 6, 6) batch stacked along the leading axis; either argument may be single and broadcasts
+///     x_eci (numpy.ndarray or list): 6D state vector of the frame's origin in the ECI frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,)
+///     covariance (numpy.ndarray): 6x6 state covariance in RTN axes, shape (6, 6)
 ///     variant (OrbitRelativeFrameVariant): Whether the RTN axes rotate with the orbit or are frozen at the epoch
-///     axis (int, optional): The axis along which the 6 components of a single vector
-///         lie; the remaining axes enumerate the batch. For a batch of shape (n, 6)
-///         the components lie along the last axis, so the default `-1` applies; a
-///         (6, n) column layout uses `axis=0`.
 ///
 /// Returns:
-///     numpy.ndarray: 6x6 state covariance in ECI axes, shape (6, 6). For batched input, when `x_eci` is batched the output is its batch dimensions followed by (6, 6), except a length-1 `x_eci` batch broadcast against n covariances yields (n, 6, 6); when only `covariance` is batched the output is (n, 6, 6).
+///     numpy.ndarray: 6x6 state covariance in ECI axes, shape (6, 6)
 ///
 /// Example:
 ///     ```python
@@ -641,25 +610,18 @@ fn py_jacobian_eci_to_rtn<'py>(
 ///     )
 ///     ```
 #[pyfunction]
-#[pyo3(signature = (x_eci, covariance, variant, axis=-1))]
-#[pyo3(text_signature = "(x_eci, covariance, variant, axis=-1)")]
+#[pyo3(text_signature = "(x_eci, covariance, variant)")]
 #[pyo3(name = "covariance_rtn_to_eci")]
 fn py_covariance_rtn_to_eci<'py>(
     py: Python<'py>,
     x_eci: &Bound<'py, PyAny>,
     covariance: &Bound<'py, PyAny>,
     variant: &PyOrbitRelativeFrameVariant,
-    axis: isize,
-) -> PyResult<Bound<'py, PyAny>> {
-    let variant = variant.variant;
-    dispatch_vec_covariance::<6>(
-        py,
-        x_eci,
-        covariance,
-        axis,
-        |x, p| relative_motion::covariance_rtn_to_eci(x, p, variant),
-        |xs, ps| relative_motion::covariances_rtn_to_eci(xs, ps, variant),
-    )
+) -> PyResult<Bound<'py, PyArray<f64, Ix2>>> {
+    let x = pyany_to_svector::<6>(x_eci)?;
+    let p = pyany_to_smatrix::<6, 6>(covariance)?;
+    let rotated = relative_motion::covariance_rtn_to_eci(x, &p, variant.variant);
+    Ok(matrix_to_numpy!(py, rotated, 6, 6, f64).to_owned())
 }
 
 /// Transforms a 6x6 state covariance from ECI axes into RTN axes.
@@ -668,17 +630,12 @@ fn py_covariance_rtn_to_eci<'py>(
 /// `jacobian_eci_to_rtn`, and symmetrizes the result.
 ///
 /// Args:
-///     x_eci (numpy.ndarray or list): 6D state vector of the frame's origin in the ECI frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
-///         vectors with the 6 components along `axis` (for example shape (n, 6)).
-///     covariance (numpy.ndarray): 6x6 state covariance in ECI axes, shape (6, 6), or an (n, 6, 6) batch stacked along the leading axis; either argument may be single and broadcasts
+///     x_eci (numpy.ndarray or list): 6D state vector of the frame's origin in the ECI frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,)
+///     covariance (numpy.ndarray): 6x6 state covariance in ECI axes, shape (6, 6)
 ///     variant (OrbitRelativeFrameVariant): Whether the RTN axes rotate with the orbit or are frozen at the epoch
-///     axis (int, optional): The axis along which the 6 components of a single vector
-///         lie; the remaining axes enumerate the batch. For a batch of shape (n, 6)
-///         the components lie along the last axis, so the default `-1` applies; a
-///         (6, n) column layout uses `axis=0`.
 ///
 /// Returns:
-///     numpy.ndarray: 6x6 state covariance in RTN axes, shape (6, 6). For batched input, when `x_eci` is batched the output is its batch dimensions followed by (6, 6), except a length-1 `x_eci` batch broadcast against n covariances yields (n, 6, 6); when only `covariance` is batched the output is (n, 6, 6).
+///     numpy.ndarray: 6x6 state covariance in RTN axes, shape (6, 6)
 ///
 /// Example:
 ///     ```python
@@ -692,25 +649,18 @@ fn py_covariance_rtn_to_eci<'py>(
 ///     )
 ///     ```
 #[pyfunction]
-#[pyo3(signature = (x_eci, covariance, variant, axis=-1))]
-#[pyo3(text_signature = "(x_eci, covariance, variant, axis=-1)")]
+#[pyo3(text_signature = "(x_eci, covariance, variant)")]
 #[pyo3(name = "covariance_eci_to_rtn")]
 fn py_covariance_eci_to_rtn<'py>(
     py: Python<'py>,
     x_eci: &Bound<'py, PyAny>,
     covariance: &Bound<'py, PyAny>,
     variant: &PyOrbitRelativeFrameVariant,
-    axis: isize,
-) -> PyResult<Bound<'py, PyAny>> {
-    let variant = variant.variant;
-    dispatch_vec_covariance::<6>(
-        py,
-        x_eci,
-        covariance,
-        axis,
-        |x, p| relative_motion::covariance_eci_to_rtn(x, p, variant),
-        |xs, ps| relative_motion::covariances_eci_to_rtn(xs, ps, variant),
-    )
+) -> PyResult<Bound<'py, PyArray<f64, Ix2>>> {
+    let x = pyany_to_svector::<6>(x_eci)?;
+    let p = pyany_to_smatrix::<6, 6>(covariance)?;
+    let rotated = relative_motion::covariance_eci_to_rtn(x, &p, variant.variant);
+    Ok(matrix_to_numpy!(py, rotated, 6, 6, f64).to_owned())
 }
 
 /// Computes the rotation matrix transforming a vector in the Local-Vertical Local-Horizontal
@@ -858,206 +808,6 @@ fn py_omega_lvlh<'py>(
     axis: isize,
 ) -> PyResult<Bound<'py, PyAny>> {
     dispatch_vec_map::<6, 3>(py, x_eci, axis, relative_motion::omega_lvlh, relative_motion::omegas_lvlh)
-}
-
-/// 6x6 Jacobian taking an LVLH state covariance into ECI axes.
-///
-/// The LVLH-to-ECI state map is `r_eci = R @ rho` and
-/// `v_eci = R @ (rho_dot + omega x rho)`, with `R` the LVLH-to-ECI rotation
-/// and `omega` the LVLH frame's angular velocity in LVLH components. Its
-/// Jacobian is `[[R, 0], [R @ skew(omega), R]]`. The `INERTIAL` variant
-/// freezes the axes at the evaluation epoch, taking `omega = 0`, and so gives
-/// the plain block diagonal; `ROTATING` carries the coupling term.
-///
-/// Args:
-///     x_eci (numpy.ndarray or list): 6D state vector of the frame's origin in the ECI frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
-///         vectors with the 6 components along `axis` (for example shape (n, 6)).
-///     variant (OrbitRelativeFrameVariant): Whether the LVLH axes rotate with the orbit or are frozen at the epoch
-///     axis (int, optional): The axis along which the 6 components of a single vector
-///         lie; the remaining axes enumerate the batch. For a batch of shape (n, 6)
-///         the components lie along the last axis, so the default `-1` applies; a
-///         (6, n) column layout uses `axis=0`.
-///
-/// Returns:
-///     numpy.ndarray: 6x6 Jacobian such that `P_eci = J @ P_lvlh @ J.T`, shape (6, 6), or the batch dimensions
-///         followed by (6, 6) for batched input.
-///
-/// Example:
-///     ```python
-///     import brahe as bh
-///     import numpy as np
-///
-///     oe = np.array([bh.R_EARTH + 700e3, 0.01, 97.8, 15.0, 30.0, 45.0])
-///     x_eci = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
-///     j = bh.jacobian_lvlh_to_eci(x_eci, bh.OrbitRelativeFrameVariant.ROTATING)
-///     ```
-#[pyfunction]
-#[pyo3(signature = (x_eci, variant, axis=-1))]
-#[pyo3(text_signature = "(x_eci, variant, axis=-1)")]
-#[pyo3(name = "jacobian_lvlh_to_eci")]
-fn py_jacobian_lvlh_to_eci<'py>(
-    py: Python<'py>,
-    x_eci: &Bound<'py, PyAny>,
-    variant: &PyOrbitRelativeFrameVariant,
-    axis: isize,
-) -> PyResult<Bound<'py, PyAny>> {
-    let variant = variant.variant;
-    dispatch_vec_matrix::<6, 6>(
-        py,
-        x_eci,
-        axis,
-        |x| relative_motion::jacobian_lvlh_to_eci(x, variant),
-        |xs| relative_motion::jacobians_lvlh_to_eci(xs, variant),
-    )
-}
-
-/// 6x6 Jacobian taking an ECI state covariance into LVLH axes.
-///
-/// Exact inverse of `jacobian_lvlh_to_eci`: with `R.T` the ECI-to-LVLH
-/// rotation, the Jacobian is `[[R.T, 0], [-skew(omega) @ R.T, R.T]]`.
-///
-/// Args:
-///     x_eci (numpy.ndarray or list): 6D state vector of the frame's origin in the ECI frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
-///         vectors with the 6 components along `axis` (for example shape (n, 6)).
-///     variant (OrbitRelativeFrameVariant): Whether the LVLH axes rotate with the orbit or are frozen at the epoch
-///     axis (int, optional): The axis along which the 6 components of a single vector
-///         lie; the remaining axes enumerate the batch. For a batch of shape (n, 6)
-///         the components lie along the last axis, so the default `-1` applies; a
-///         (6, n) column layout uses `axis=0`.
-///
-/// Returns:
-///     numpy.ndarray: 6x6 Jacobian such that `P_lvlh = J @ P_eci @ J.T`, shape (6, 6), or the batch dimensions
-///         followed by (6, 6) for batched input.
-///
-/// Example:
-///     ```python
-///     import brahe as bh
-///     import numpy as np
-///
-///     oe = np.array([bh.R_EARTH + 700e3, 0.01, 97.8, 15.0, 30.0, 45.0])
-///     x_eci = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
-///     j = bh.jacobian_eci_to_lvlh(x_eci, bh.OrbitRelativeFrameVariant.ROTATING)
-///     ```
-#[pyfunction]
-#[pyo3(signature = (x_eci, variant, axis=-1))]
-#[pyo3(text_signature = "(x_eci, variant, axis=-1)")]
-#[pyo3(name = "jacobian_eci_to_lvlh")]
-fn py_jacobian_eci_to_lvlh<'py>(
-    py: Python<'py>,
-    x_eci: &Bound<'py, PyAny>,
-    variant: &PyOrbitRelativeFrameVariant,
-    axis: isize,
-) -> PyResult<Bound<'py, PyAny>> {
-    let variant = variant.variant;
-    dispatch_vec_matrix::<6, 6>(
-        py,
-        x_eci,
-        axis,
-        |x| relative_motion::jacobian_eci_to_lvlh(x, variant),
-        |xs| relative_motion::jacobians_eci_to_lvlh(xs, variant),
-    )
-}
-
-/// Transforms a 6x6 state covariance from LVLH axes into ECI axes.
-///
-/// Applies the congruence `P_eci = J @ P_lvlh @ J.T` with `J` from
-/// `jacobian_lvlh_to_eci`, and symmetrizes the result.
-///
-/// Args:
-///     x_eci (numpy.ndarray or list): 6D state vector of the frame's origin in the ECI frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
-///         vectors with the 6 components along `axis` (for example shape (n, 6)).
-///     covariance (numpy.ndarray): 6x6 state covariance in LVLH axes, shape (6, 6), or an (n, 6, 6) batch stacked along the leading axis; either argument may be single and broadcasts
-///     variant (OrbitRelativeFrameVariant): Whether the LVLH axes rotate with the orbit or are frozen at the epoch
-///     axis (int, optional): The axis along which the 6 components of a single vector
-///         lie; the remaining axes enumerate the batch. For a batch of shape (n, 6)
-///         the components lie along the last axis, so the default `-1` applies; a
-///         (6, n) column layout uses `axis=0`.
-///
-/// Returns:
-///     numpy.ndarray: 6x6 state covariance in ECI axes, shape (6, 6). For batched input, when `x_eci` is batched the output is its batch dimensions followed by (6, 6), except a length-1 `x_eci` batch broadcast against n covariances yields (n, 6, 6); when only `covariance` is batched the output is (n, 6, 6).
-///
-/// Example:
-///     ```python
-///     import brahe as bh
-///     import numpy as np
-///
-///     oe = np.array([bh.R_EARTH + 700e3, 0.01, 97.8, 15.0, 30.0, 45.0])
-///     x_eci = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
-///     p_eci = bh.covariance_lvlh_to_eci(
-///         x_eci, np.eye(6) * 100.0, bh.OrbitRelativeFrameVariant.ROTATING
-///     )
-///     ```
-#[pyfunction]
-#[pyo3(signature = (x_eci, covariance, variant, axis=-1))]
-#[pyo3(text_signature = "(x_eci, covariance, variant, axis=-1)")]
-#[pyo3(name = "covariance_lvlh_to_eci")]
-fn py_covariance_lvlh_to_eci<'py>(
-    py: Python<'py>,
-    x_eci: &Bound<'py, PyAny>,
-    covariance: &Bound<'py, PyAny>,
-    variant: &PyOrbitRelativeFrameVariant,
-    axis: isize,
-) -> PyResult<Bound<'py, PyAny>> {
-    let variant = variant.variant;
-    dispatch_vec_covariance::<6>(
-        py,
-        x_eci,
-        covariance,
-        axis,
-        |x, p| relative_motion::covariance_lvlh_to_eci(x, p, variant),
-        |xs, ps| relative_motion::covariances_lvlh_to_eci(xs, ps, variant),
-    )
-}
-
-/// Transforms a 6x6 state covariance from ECI axes into LVLH axes.
-///
-/// Applies the congruence `P_lvlh = J @ P_eci @ J.T` with `J` from
-/// `jacobian_eci_to_lvlh`, and symmetrizes the result.
-///
-/// Args:
-///     x_eci (numpy.ndarray or list): 6D state vector of the frame's origin in the ECI frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
-///         vectors with the 6 components along `axis` (for example shape (n, 6)).
-///     covariance (numpy.ndarray): 6x6 state covariance in ECI axes, shape (6, 6), or an (n, 6, 6) batch stacked along the leading axis; either argument may be single and broadcasts
-///     variant (OrbitRelativeFrameVariant): Whether the LVLH axes rotate with the orbit or are frozen at the epoch
-///     axis (int, optional): The axis along which the 6 components of a single vector
-///         lie; the remaining axes enumerate the batch. For a batch of shape (n, 6)
-///         the components lie along the last axis, so the default `-1` applies; a
-///         (6, n) column layout uses `axis=0`.
-///
-/// Returns:
-///     numpy.ndarray: 6x6 state covariance in LVLH axes, shape (6, 6). For batched input, when `x_eci` is batched the output is its batch dimensions followed by (6, 6), except a length-1 `x_eci` batch broadcast against n covariances yields (n, 6, 6); when only `covariance` is batched the output is (n, 6, 6).
-///
-/// Example:
-///     ```python
-///     import brahe as bh
-///     import numpy as np
-///
-///     oe = np.array([bh.R_EARTH + 700e3, 0.01, 97.8, 15.0, 30.0, 45.0])
-///     x_eci = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
-///     p_lvlh = bh.covariance_eci_to_lvlh(
-///         x_eci, np.eye(6) * 100.0, bh.OrbitRelativeFrameVariant.ROTATING
-///     )
-///     ```
-#[pyfunction]
-#[pyo3(signature = (x_eci, covariance, variant, axis=-1))]
-#[pyo3(text_signature = "(x_eci, covariance, variant, axis=-1)")]
-#[pyo3(name = "covariance_eci_to_lvlh")]
-fn py_covariance_eci_to_lvlh<'py>(
-    py: Python<'py>,
-    x_eci: &Bound<'py, PyAny>,
-    covariance: &Bound<'py, PyAny>,
-    variant: &PyOrbitRelativeFrameVariant,
-    axis: isize,
-) -> PyResult<Bound<'py, PyAny>> {
-    let variant = variant.variant;
-    dispatch_vec_covariance::<6>(
-        py,
-        x_eci,
-        covariance,
-        axis,
-        |x, p| relative_motion::covariance_eci_to_lvlh(x, p, variant),
-        |xs, ps| relative_motion::covariances_eci_to_lvlh(xs, ps, variant),
-    )
 }
 
 /// Transforms the absolute states of a chief and deputy satellite from the Earth-Centered

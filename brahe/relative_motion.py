@@ -22,13 +22,9 @@ Functions are provided for:
 """
 
 from brahe._brahe import (
-    covariance_eci_to_lvlh,
     covariance_eci_to_rtn,
-    covariance_lvlh_to_eci,
     covariance_rtn_to_eci,
-    jacobian_eci_to_lvlh,
     jacobian_eci_to_rtn,
-    jacobian_lvlh_to_eci,
     jacobian_rtn_to_eci,
     omega_lvlh,
     omega_rtn,
@@ -47,13 +43,9 @@ from brahe._brahe import (
 )
 
 __all__ = [
-    "covariance_eci_to_lvlh",
     "covariance_eci_to_rtn",
-    "covariance_lvlh_to_eci",
     "covariance_rtn_to_eci",
-    "jacobian_eci_to_lvlh",
     "jacobian_eci_to_rtn",
-    "jacobian_lvlh_to_eci",
     "jacobian_rtn_to_eci",
     "omega_lvlh",
     "omega_rtn",

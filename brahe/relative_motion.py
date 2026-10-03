@@ -4,7 +4,7 @@ Relative Motion Module
 Satellite relative motion and orbital reference frames.
 
 This module provides transformations between inertial frames and orbital
-reference frames such as RTN, LVLH, and NTW.
+reference frames such as RTN, LVLH, NTW, and TNW.
 
 The RTN frame is an orbital reference frame defined as:
 - R (Radial): Points from Earth's center to satellite position
@@ -17,10 +17,14 @@ orbit normal, and X = Y × Z.
 The NTW frame has Y along velocity, Z along the orbit normal, and
 X = Y × Z; it coincides with RTN on a circular orbit.
 
+The TNW frame has X along velocity, Z along the orbit normal, and Y = Z × X
+pointing inward.
+
 Functions are provided for:
 - Rotation matrices between ECI and RTN frames
 - Rotation matrices between ECI and LVLH frames
 - Rotation matrices between ECI and NTW frames
+- Rotation matrices between ECI and TNW frames
 - (Future) Relative motion dynamics (Clohessy-Wiltshire equations, etc.)
 """
 
@@ -33,17 +37,23 @@ from brahe._brahe import (
     omega_ntw,
     omega_ntw_for_body,
     omega_rtn,
+    omega_tnw,
+    omega_tnw_for_body,
     rotation_eci_to_lvlh,
     rotation_eci_to_ntw,
     rotation_eci_to_rtn,
+    rotation_eci_to_tnw,
     rotation_lvlh_to_eci,
     rotation_ntw_to_eci,
     rotation_rtn_to_eci,
+    rotation_tnw_to_eci,
     state_eci_to_lvlh,
     state_eci_to_ntw,
     state_eci_to_roe,
     state_eci_to_rtn,
+    state_eci_to_tnw,
     state_inertial_to_ntw_for_body,
+    state_inertial_to_tnw_for_body,
     state_lvlh_to_eci,
     state_ntw_to_eci,
     state_ntw_to_inertial_for_body,
@@ -51,6 +61,8 @@ from brahe._brahe import (
     state_roe_to_eci,
     state_roe_to_oe,
     state_rtn_to_eci,
+    state_tnw_to_eci,
+    state_tnw_to_inertial_for_body,
 )
 
 __all__ = [
@@ -62,17 +74,23 @@ __all__ = [
     "omega_ntw",
     "omega_ntw_for_body",
     "omega_rtn",
+    "omega_tnw",
+    "omega_tnw_for_body",
     "rotation_eci_to_lvlh",
     "rotation_eci_to_ntw",
     "rotation_eci_to_rtn",
+    "rotation_eci_to_tnw",
     "rotation_lvlh_to_eci",
     "rotation_ntw_to_eci",
     "rotation_rtn_to_eci",
+    "rotation_tnw_to_eci",
     "state_eci_to_lvlh",
     "state_eci_to_ntw",
     "state_eci_to_roe",
     "state_eci_to_rtn",
+    "state_eci_to_tnw",
     "state_inertial_to_ntw_for_body",
+    "state_inertial_to_tnw_for_body",
     "state_lvlh_to_eci",
     "state_ntw_to_eci",
     "state_ntw_to_inertial_for_body",
@@ -80,4 +98,6 @@ __all__ = [
     "state_roe_to_eci",
     "state_roe_to_oe",
     "state_rtn_to_eci",
+    "state_tnw_to_eci",
+    "state_tnw_to_inertial_for_body",
 ]

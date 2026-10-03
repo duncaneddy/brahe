@@ -28,6 +28,7 @@ pub mod gcrf_itrf;
 mod graph;
 pub mod iau_rotation;
 // Not `pub`: shared state-kinematics algebra used by the pairwise modules.
+// The state Jacobians are re-exported below.
 mod kinematics;
 pub mod lunar;
 pub mod mars;
@@ -44,7 +45,10 @@ pub mod teme;
 pub mod transform;
 
 pub(crate) use graph::{celestial_root, icrf_aligned_inertial};
-pub(crate) use kinematics::state_inertial_to_rotating;
+#[cfg(test)]
+pub(crate) use kinematics::angular_velocity_from_rotation_rate;
+pub use kinematics::{jacobian_inertial_to_rotating, jacobian_rotating_to_inertial};
+pub(crate) use kinematics::{state_inertial_to_rotating, state_rotating_to_inertial};
 
 pub use axes::*;
 pub use center::*;

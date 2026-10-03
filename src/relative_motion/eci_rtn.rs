@@ -2,8 +2,14 @@
  * Earth-Centered Inertial (ECI) to Radial, Along-Track, Cross-Track (RTN) Frame Transformations
  */
 
-use crate::frames::{OrbitRelativeFrameVariant, rotate_covariance_6};
-use crate::math::{SMatrix3, SMatrix6, SVector6, block_diagonal, skew_symmetric};
+use crate::frames::{
+    OrbitRelativeFrameVariant, jacobian_inertial_to_rotating, jacobian_rotating_to_inertial,
+    rotate_covariance_6,
+};
+use crate::math::{SMatrix3, SMatrix6, SVector6};
+use crate::relative_motion::common::{
+    relative_state_from_frame, relative_state_to_frame, true_anomaly_rate,
+};
 use nalgebra::Vector3;
 
 use crate::utils::BraheError;
@@ -119,13 +125,7 @@ pub fn rotation_eci_to_rtn(x_eci: SVector6) -> SMatrix3 {
 /// let omega = omega_rtn(x_eci);
 /// ```
 pub fn omega_rtn(x_eci: SVector6) -> Vector3<f64> {
-    // Extract position and velocity
-    let rc = x_eci.fixed_rows::<3>(0);
-    let vc = x_eci.fixed_rows::<3>(3);
-
-    // Get angular velocity of RTN frame with respect to ECI frame (Alfriend equation 2.16)
-    let f_dot = (rc.cross(&vc)).norm() / (rc.norm().powi(2));
-    Vector3::new(0.0, 0.0, f_dot)
+    Vector3::new(0.0, 0.0, true_anomaly_rate(x_eci))
 }
 
 /// Transforms the absolute states of a chief and deputy satellite from the Earth-Centered Inertial (ECI)
@@ -156,29 +156,11 @@ pub fn omega_rtn(x_eci: SVector6) -> Vector3<f64> {
 /// let x_rel_rtn = state_eci_to_rtn(x_chief, x_deputy);
 /// ```
 pub fn state_eci_to_rtn(x_chief: SVector6, x_deputy: SVector6) -> SVector6 {
-    // NOTE: This could potentially be more accurately revised based on equations in section 4.7.1 of Alfriend
-
-    // Get RTN rotation matrix
-    let r_eci_to_rtn = rotation_eci_to_rtn(x_chief);
-
-    // Relative position and velocity in ECI frame
-    let rho_eci = x_deputy.fixed_rows::<3>(0) - x_chief.fixed_rows::<3>(0);
-    let rho_dot_eci = x_deputy.fixed_rows::<3>(3) - x_chief.fixed_rows::<3>(3);
-
-    // Get angular velocity of RTN frame with respect to ECI frame
-    let omega = omega_rtn(x_chief);
-
-    // Transform relative position and velocity to RTN frame
-    let rho_rtn = r_eci_to_rtn * rho_eci;
-    let rho_dot_rtn = r_eci_to_rtn * rho_dot_eci - omega.cross(&rho_rtn);
-
-    SVector6::new(
-        rho_rtn[0],
-        rho_rtn[1],
-        rho_rtn[2],
-        rho_dot_rtn[0],
-        rho_dot_rtn[1],
-        rho_dot_rtn[2],
+    relative_state_to_frame(
+        &rotation_eci_to_rtn(x_chief),
+        &omega_rtn(x_chief),
+        x_chief,
+        x_deputy,
     )
 }
 
@@ -211,31 +193,11 @@ pub fn state_eci_to_rtn(x_chief: SVector6, x_deputy: SVector6) -> SVector6 {
 /// let x_deputy_reconstructed = state_rtn_to_eci(x_chief, x_rel_rtn);
 /// ```
 pub fn state_rtn_to_eci(x_chief: SVector6, x_rel_rtn: SVector6) -> SVector6 {
-    // Extract chief position and velocity
-    let rc = x_chief.fixed_rows::<3>(0);
-    let vc = x_chief.fixed_rows::<3>(3);
-
-    // Get RTN rotation matrix
-    let r_rtn_to_eci = rotation_rtn_to_eci(x_chief);
-
-    // Extract relative position and velocity in RTN frame
-    let rho_rtn = x_rel_rtn.fixed_rows::<3>(0);
-    let rho_dot_rtn = x_rel_rtn.fixed_rows::<3>(3);
-
-    // Get angular velocity of RTN frame with respect to ECI frame
-    let omega = omega_rtn(x_chief);
-
-    // Compute deputy absolute state in ECI frame
-    let r_deputy = rc + r_rtn_to_eci * rho_rtn;
-    let v_deputy = r_rtn_to_eci * (rho_dot_rtn + omega.cross(&rho_rtn)) + vc;
-
-    SVector6::new(
-        r_deputy[0],
-        r_deputy[1],
-        r_deputy[2],
-        v_deputy[0],
-        v_deputy[1],
-        v_deputy[2],
+    relative_state_from_frame(
+        &rotation_eci_to_rtn(x_chief),
+        &omega_rtn(x_chief),
+        x_chief,
+        x_rel_rtn,
     )
 }
 
@@ -279,13 +241,11 @@ pub fn state_rtn_to_eci(x_chief: SVector6, x_rel_rtn: SVector6) -> SVector6 {
 /// 3. D. A. Vallado,
 ///    ["Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003](https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf)
 pub fn jacobian_rtn_to_eci(x_eci: SVector6, variant: OrbitRelativeFrameVariant) -> SMatrix6 {
-    let r = rotation_rtn_to_eci(x_eci);
-    let mut j = block_diagonal(&r, &r);
-    if variant == OrbitRelativeFrameVariant::Rotating {
-        let coupling = r * skew_symmetric(&omega_rtn(x_eci));
-        j.fixed_view_mut::<3, 3>(3, 0).copy_from(&coupling);
-    }
-    j
+    let omega = match variant {
+        OrbitRelativeFrameVariant::Rotating => omega_rtn(x_eci),
+        OrbitRelativeFrameVariant::Inertial => Vector3::zeros(),
+    };
+    jacobian_rotating_to_inertial(&rotation_eci_to_rtn(x_eci), &omega)
 }
 
 /// 6x6 Jacobian taking an ECI state covariance into RTN axes.
@@ -325,13 +285,11 @@ pub fn jacobian_rtn_to_eci(x_eci: SVector6, variant: OrbitRelativeFrameVariant) 
 /// 3. D. A. Vallado,
 ///    ["Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003](https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf)
 pub fn jacobian_eci_to_rtn(x_eci: SVector6, variant: OrbitRelativeFrameVariant) -> SMatrix6 {
-    let r = rotation_eci_to_rtn(x_eci);
-    let mut j = block_diagonal(&r, &r);
-    if variant == OrbitRelativeFrameVariant::Rotating {
-        let coupling = -skew_symmetric(&omega_rtn(x_eci)) * r;
-        j.fixed_view_mut::<3, 3>(3, 0).copy_from(&coupling);
-    }
-    j
+    let omega = match variant {
+        OrbitRelativeFrameVariant::Rotating => omega_rtn(x_eci),
+        OrbitRelativeFrameVariant::Inertial => Vector3::zeros(),
+    };
+    jacobian_inertial_to_rotating(&rotation_eci_to_rtn(x_eci), &omega)
 }
 
 /// Transforms a 6x6 state covariance from RTN axes into ECI axes.
@@ -551,6 +509,36 @@ pub fn states_rtn_to_eci(
     batch_zip(|c, r| state_rtn_to_eci(*c, *r), x_chief, x_rel_rtn)
 }
 
+/// Computes the RTN frame angular velocity for each state in `x_eci`.
+///
+/// Batch form of [`omega_rtn`]. Evaluation runs on the global thread pool for
+/// large inputs.
+///
+/// # Arguments
+/// - `x_eci`: Cartesian ECI states (position, velocity). Units: (*m*; *m/s*)
+///
+/// # Returns
+/// - Angular velocities of the RTN frame relative to ECI, expressed in RTN axes, one per
+///   state, in input order. Units: (*rad/s*)
+///
+/// # References
+/// - K. T. Alfriend, S. R. Vadali, P. Gurfil, J. P. How, L. S. Breger, *Spacecraft Formation Flying*, Elsevier, 2010, eq. 2.16
+///
+/// # Examples
+/// ```
+/// use brahe::constants::{R_EARTH, AngleFormat};
+/// use brahe::coordinates::state_koe_to_eci;
+/// use brahe::relative_motion::omegas_rtn;
+/// use brahe::vector6_from_array;
+///
+/// let x = state_koe_to_eci(vector6_from_array([R_EARTH + 700e3, 0.001, 97.8, 15.0, 30.0, 45.0]), AngleFormat::Degrees);
+/// let omega = omegas_rtn(&[x, x]);
+/// assert_eq!(omega.len(), 2);
+/// ```
+pub fn omegas_rtn(x_eci: &[SVector6]) -> Vec<Vector3<f64>> {
+    batch_map(|x| omega_rtn(*x), x_eci)
+}
+
 #[cfg(test)]
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
@@ -559,6 +547,7 @@ mod tests {
     use crate::R_EARTH;
     use crate::coordinates::state_koe_to_eci;
     use crate::math::vector6_from_array;
+    use crate::math::{block_diagonal, skew_symmetric};
     use crate::orbits::{mean_motion, perigee_velocity};
     use crate::utils::testing::setup_global_test_eop;
     use approx::assert_abs_diff_eq;
@@ -845,5 +834,23 @@ mod tests {
         // The rotating variant shears velocity against position, so it is not.
         let p_rot = covariance_eci_to_rtn(x, &p, OrbitRelativeFrameVariant::Rotating);
         assert!((p_rot - p).norm() > 1e-6);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_batch_rtn_rates_match_scalar() {
+        let states: Vec<SVector6> = (0..3)
+            .map(|i| {
+                state_koe_to_eci(
+                    vector6_from_array([R_EARTH + 700e3, 0.01, 97.8, 15.0, 30.0, 45.0 + i as f64]),
+                    AngleFormat::Degrees,
+                )
+            })
+            .collect();
+
+        let omegas = omegas_rtn(&states);
+        for i in 0..3 {
+            assert_eq!(omegas[i], omega_rtn(states[i]));
+        }
     }
 }

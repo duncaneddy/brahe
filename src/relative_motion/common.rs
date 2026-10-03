@@ -1,14 +1,12 @@
 /*!
- * Shared relative-state transport and Jacobian assembly for the local
- * orbital frames in this module.
+ * Shared relative-state transport for the local orbital frames in this
+ * module.
  */
 
 use nalgebra::Vector3;
 
-use crate::frames::{
-    OrbitRelativeFrameVariant, state_inertial_to_rotating, state_rotating_to_inertial,
-};
-use crate::math::{SMatrix3, SMatrix6, SVector6, block_diagonal, skew_symmetric};
+use crate::frames::{state_inertial_to_rotating, state_rotating_to_inertial};
+use crate::math::{SMatrix3, SVector6};
 
 /// Relative state of a deputy with respect to a chief in a rotating local
 /// orbital frame.
@@ -71,55 +69,6 @@ pub(crate) fn true_anomaly_rate(x_inertial: SVector6) -> f64 {
     (r.cross(&v)).norm() / (r.norm().powi(2))
 }
 
-/// 6x6 Jacobian of the state map from a local orbital frame into inertial
-/// axes: `[[R, 0], [R [ω]×, R]]` for the rotating variant and the block
-/// diagonal `[[R, 0], [0, R]]` for the inertial snapshot.
-///
-/// # Arguments
-/// - `r_frame_to_eci`: Rotation from the local frame into the inertial axes (dimensionless)
-/// - `omega`: Angular velocity of the local frame relative to the inertial axes, expressed in the local frame (rad/s)
-/// - `variant`: Rotating or inertial snapshot
-///
-/// # Returns
-/// - Jacobian `J` such that `P_eci = J P_frame Jᵀ`
-pub(crate) fn jacobian_to_inertial(
-    r_frame_to_eci: &SMatrix3,
-    omega: &Vector3<f64>,
-    variant: OrbitRelativeFrameVariant,
-) -> SMatrix6 {
-    let mut j = block_diagonal(r_frame_to_eci, r_frame_to_eci);
-    if variant == OrbitRelativeFrameVariant::Rotating {
-        let coupling = r_frame_to_eci * skew_symmetric(omega);
-        j.fixed_view_mut::<3, 3>(3, 0).copy_from(&coupling);
-    }
-    j
-}
-
-/// 6x6 Jacobian of the state map from inertial axes into a local orbital
-/// frame: `[[Rᵀ, 0], [−[ω]× Rᵀ, Rᵀ]]` for the rotating variant and the
-/// block diagonal for the inertial snapshot. Exact inverse of
-/// [`jacobian_to_inertial`].
-///
-/// # Arguments
-/// - `r_eci_to_frame`: Rotation from the inertial axes into the local frame (dimensionless)
-/// - `omega`: Angular velocity of the local frame relative to the inertial axes, expressed in the local frame (rad/s)
-/// - `variant`: Rotating or inertial snapshot
-///
-/// # Returns
-/// - Jacobian `J` such that `P_frame = J P_eci Jᵀ`
-pub(crate) fn jacobian_from_inertial(
-    r_eci_to_frame: &SMatrix3,
-    omega: &Vector3<f64>,
-    variant: OrbitRelativeFrameVariant,
-) -> SMatrix6 {
-    let mut j = block_diagonal(r_eci_to_frame, r_eci_to_frame);
-    if variant == OrbitRelativeFrameVariant::Rotating {
-        let coupling = -skew_symmetric(omega) * r_eci_to_frame;
-        j.fixed_view_mut::<3, 3>(3, 0).copy_from(&coupling);
-    }
-    j
-}
-
 /// Rate at which the velocity direction turns under two-body motion.
 ///
 /// With `a = −μ r / r³`, the component of the acceleration perpendicular to
@@ -160,8 +109,7 @@ mod tests {
     use crate::coordinates::state_koe_to_eci;
     use crate::orbits::mean_motion;
     use crate::relative_motion::{
-        jacobian_eci_to_rtn, jacobian_rtn_to_eci, omega_rtn, rotation_eci_to_rtn,
-        rotation_rtn_to_eci, state_eci_to_rtn, state_rtn_to_eci,
+        omega_rtn, rotation_eci_to_rtn, state_eci_to_rtn, state_rtn_to_eci,
     };
     use approx::assert_abs_diff_eq;
     use serial_test::parallel;
@@ -200,26 +148,6 @@ mod tests {
             AngleFormat::Degrees,
         );
         assert_eq!(true_anomaly_rate(x), omega_rtn(x)[2]);
-    }
-
-    #[test]
-    #[parallel]
-    fn test_jacobian_helpers_match_rtn_bitwise() {
-        let (x_chief, _) = chief_and_deputy();
-        let omega = omega_rtn(x_chief);
-        for variant in [
-            OrbitRelativeFrameVariant::Inertial,
-            OrbitRelativeFrameVariant::Rotating,
-        ] {
-            assert_eq!(
-                jacobian_to_inertial(&rotation_rtn_to_eci(x_chief), &omega, variant),
-                jacobian_rtn_to_eci(x_chief, variant)
-            );
-            assert_eq!(
-                jacobian_from_inertial(&rotation_eci_to_rtn(x_chief), &omega, variant),
-                jacobian_eci_to_rtn(x_chief, variant)
-            );
-        }
     }
 
     #[test]

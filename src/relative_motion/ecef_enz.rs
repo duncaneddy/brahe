@@ -4,12 +4,8 @@
 
 use nalgebra::Vector3;
 
-use crate::frames::{OrbitRelativeFrameVariant, rotate_covariance_6};
-use crate::math::{SMatrix3, SMatrix6, SVector6};
-use crate::relative_motion::common::{
-    jacobian_from_inertial, jacobian_to_inertial, relative_state_from_frame,
-    relative_state_to_frame,
-};
+use crate::math::{SMatrix3, SVector6};
+use crate::relative_motion::common::{relative_state_from_frame, relative_state_to_frame};
 use crate::relative_motion::ecef_sez::sez_axes;
 use crate::utils::BraheError;
 use crate::utils::batch::{batch_map, batch_zip};
@@ -139,179 +135,6 @@ pub fn rotation_enz_to_ecef(x_ecef: SVector6) -> SMatrix3 {
 /// ```
 pub fn omega_enz(x_ecef: SVector6) -> Vector3<f64> {
     enz_axes(x_ecef).1
-}
-
-/// 6x6 Jacobian taking an ENZ state covariance into the Earth-Centered Earth-Fixed (ECEF)
-/// frame.
-///
-/// With `R` the ENZ-to-ECEF rotation and `ω` the ENZ angular velocity from [`omega_enz`], the
-/// Jacobian is `[[R, 0], [R [ω]×, R]]` for the rotating variant and `[[R, 0], [0, R]]` for the
-/// inertial snapshot, which treats the ENZ axes as fixed relative to ECEF (a fixed site's
-/// axes never rotate, so the two variants then agree).
-///
-/// # Arguments:
-/// - `x_ecef`: 6D state vector of the site in the ECEF frame [x, y, z, vx, vy, vz] (m, m/s)
-/// - `variant`: Whether the ENZ axes rotate with the site or are frozen at the epoch
-///
-/// # Returns:
-/// - `j`: 6x6 Jacobian such that `P_ecef = J P_enz Jᵀ`
-///
-/// # Examples:
-/// ```
-/// use brahe::SVector6;
-/// use brahe::constants::AngleFormat;
-/// use brahe::coordinates::position_geodetic_to_ecef;
-/// use brahe::frames::OrbitRelativeFrameVariant;
-/// use brahe::relative_motion::*;
-/// use nalgebra::Vector3;
-///
-/// let r = position_geodetic_to_ecef(Vector3::new(30.0, 45.0, 500.0), AngleFormat::Degrees).unwrap();
-/// let x_site = SVector6::new(r[0], r[1], r[2], 0.0, 0.0, 0.0);
-///
-/// let j = jacobian_enz_to_ecef(x_site, OrbitRelativeFrameVariant::Rotating);
-/// ```
-///
-/// # References:
-/// 1. NASA Conjunction Assessment Risk Analysis (CARA),
-///    [*Conjunction Assessment Handbook*, NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13)](https://ntrs.nasa.gov/citations/20205011318)
-/// 2. NASA CARA Analysis Tools,
-///    [`RIC2ECI.m`](https://github.com/nasa/CARA_Analysis_Tools)
-/// 3. D. A. Vallado,
-///    ["Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003](https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf)
-pub fn jacobian_enz_to_ecef(x_ecef: SVector6, variant: OrbitRelativeFrameVariant) -> SMatrix6 {
-    let (r, omega) = enz_axes(x_ecef);
-    jacobian_to_inertial(&r.transpose(), &omega, variant)
-}
-
-/// 6x6 Jacobian taking a state covariance in the Earth-Centered Earth-Fixed (ECEF) frame into
-/// ENZ axes. Exact inverse of [`jacobian_enz_to_ecef`].
-///
-/// In the inertial-snapshot variant the ENZ axes are treated as fixed relative to ECEF.
-///
-/// # Arguments:
-/// - `x_ecef`: 6D state vector of the site in the ECEF frame [x, y, z, vx, vy, vz] (m, m/s)
-/// - `variant`: Whether the ENZ axes rotate with the site or are frozen at the epoch
-///
-/// # Returns:
-/// - `j`: 6x6 Jacobian such that `P_enz = J P_ecef Jᵀ`
-///
-/// # Examples:
-/// ```
-/// use brahe::SVector6;
-/// use brahe::constants::AngleFormat;
-/// use brahe::coordinates::position_geodetic_to_ecef;
-/// use brahe::frames::OrbitRelativeFrameVariant;
-/// use brahe::relative_motion::*;
-/// use nalgebra::Vector3;
-///
-/// let r = position_geodetic_to_ecef(Vector3::new(30.0, 45.0, 500.0), AngleFormat::Degrees).unwrap();
-/// let x_site = SVector6::new(r[0], r[1], r[2], 0.0, 0.0, 0.0);
-///
-/// let j = jacobian_ecef_to_enz(x_site, OrbitRelativeFrameVariant::Rotating);
-/// ```
-///
-/// # References:
-/// 1. NASA Conjunction Assessment Risk Analysis (CARA),
-///    [*Conjunction Assessment Handbook*, NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13)](https://ntrs.nasa.gov/citations/20205011318)
-/// 2. NASA CARA Analysis Tools,
-///    [`RIC2ECI.m`](https://github.com/nasa/CARA_Analysis_Tools)
-/// 3. D. A. Vallado,
-///    ["Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003](https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf)
-pub fn jacobian_ecef_to_enz(x_ecef: SVector6, variant: OrbitRelativeFrameVariant) -> SMatrix6 {
-    let (r, omega) = enz_axes(x_ecef);
-    jacobian_from_inertial(&r, &omega, variant)
-}
-
-/// Transforms a 6x6 state covariance from ENZ axes into the Earth-Centered Earth-Fixed (ECEF)
-/// frame.
-///
-/// Applies the congruence `P_ecef = J P_enz Jᵀ` with `J` from [`jacobian_enz_to_ecef`], and
-/// symmetrizes the result. In the inertial-snapshot variant the ENZ axes are treated as fixed
-/// relative to ECEF.
-///
-/// # Arguments:
-/// - `x_ecef`: 6D state vector of the site in the ECEF frame [x, y, z, vx, vy, vz] (m, m/s)
-/// - `covariance`: 6x6 state covariance in ENZ axes (m², m²/s, m²/s²)
-/// - `variant`: Whether the ENZ axes rotate with the site or are frozen at the epoch
-///
-/// # Returns:
-/// - `p_ecef`: 6x6 state covariance in the ECEF frame (m², m²/s, m²/s²)
-///
-/// # Examples:
-/// ```
-/// use brahe::{SVector6, SMatrix6};
-/// use brahe::constants::AngleFormat;
-/// use brahe::coordinates::position_geodetic_to_ecef;
-/// use brahe::frames::OrbitRelativeFrameVariant;
-/// use brahe::relative_motion::*;
-/// use nalgebra::Vector3;
-///
-/// let r = position_geodetic_to_ecef(Vector3::new(30.0, 45.0, 500.0), AngleFormat::Degrees).unwrap();
-/// let x_site = SVector6::new(r[0], r[1], r[2], 0.0, 0.0, 0.0);
-/// let p_enz = SMatrix6::identity();
-///
-/// let p_ecef = covariance_enz_to_ecef(x_site, &p_enz, OrbitRelativeFrameVariant::Rotating);
-/// ```
-///
-/// # References:
-/// 1. NASA Conjunction Assessment Risk Analysis (CARA),
-///    [*Conjunction Assessment Handbook*, NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13)](https://ntrs.nasa.gov/citations/20205011318)
-/// 2. NASA CARA Analysis Tools,
-///    [`RIC2ECI.m`](https://github.com/nasa/CARA_Analysis_Tools)
-/// 3. D. A. Vallado,
-///    ["Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003](https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf)
-pub fn covariance_enz_to_ecef(
-    x_ecef: SVector6,
-    covariance: &SMatrix6,
-    variant: OrbitRelativeFrameVariant,
-) -> SMatrix6 {
-    rotate_covariance_6(covariance, &jacobian_enz_to_ecef(x_ecef, variant))
-}
-
-/// Transforms a 6x6 state covariance from the Earth-Centered Earth-Fixed (ECEF) frame into
-/// ENZ axes.
-///
-/// Applies the congruence `P_enz = J P_ecef Jᵀ` with `J` from [`jacobian_ecef_to_enz`], and
-/// symmetrizes the result. In the inertial-snapshot variant the ENZ axes are treated as fixed
-/// relative to ECEF.
-///
-/// # Arguments:
-/// - `x_ecef`: 6D state vector of the site in the ECEF frame [x, y, z, vx, vy, vz] (m, m/s)
-/// - `covariance`: 6x6 state covariance in the ECEF frame (m², m²/s, m²/s²)
-/// - `variant`: Whether the ENZ axes rotate with the site or are frozen at the epoch
-///
-/// # Returns:
-/// - `p_enz`: 6x6 state covariance in ENZ axes (m², m²/s, m²/s²)
-///
-/// # Examples:
-/// ```
-/// use brahe::{SVector6, SMatrix6};
-/// use brahe::constants::AngleFormat;
-/// use brahe::coordinates::position_geodetic_to_ecef;
-/// use brahe::frames::OrbitRelativeFrameVariant;
-/// use brahe::relative_motion::*;
-/// use nalgebra::Vector3;
-///
-/// let r = position_geodetic_to_ecef(Vector3::new(30.0, 45.0, 500.0), AngleFormat::Degrees).unwrap();
-/// let x_site = SVector6::new(r[0], r[1], r[2], 0.0, 0.0, 0.0);
-/// let p_ecef = SMatrix6::identity();
-///
-/// let p_enz = covariance_ecef_to_enz(x_site, &p_ecef, OrbitRelativeFrameVariant::Rotating);
-/// ```
-///
-/// # References:
-/// 1. NASA Conjunction Assessment Risk Analysis (CARA),
-///    [*Conjunction Assessment Handbook*, NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13)](https://ntrs.nasa.gov/citations/20205011318)
-/// 2. NASA CARA Analysis Tools,
-///    [`RIC2ECI.m`](https://github.com/nasa/CARA_Analysis_Tools)
-/// 3. D. A. Vallado,
-///    ["Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003](https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf)
-pub fn covariance_ecef_to_enz(
-    x_ecef: SVector6,
-    covariance: &SMatrix6,
-    variant: OrbitRelativeFrameVariant,
-) -> SMatrix6 {
-    rotate_covariance_6(covariance, &jacobian_ecef_to_enz(x_ecef, variant))
 }
 
 /// Transforms the absolute Earth-Centered Earth-Fixed (ECEF) states of a site and a target
@@ -469,178 +292,6 @@ pub fn omegas_enz(x_ecef: &[SVector6]) -> Vec<Vector3<f64>> {
     batch_map(|x| omega_enz(*x), x_ecef)
 }
 
-/// Computes the ENZ-to-ECEF covariance Jacobian for each site state in `x_ecef`.
-///
-/// Batch form of [`jacobian_enz_to_ecef`]. Evaluation runs on the global thread pool for
-/// large inputs.
-///
-/// # Arguments
-/// - `x_ecef`: Site Cartesian ECEF states (position, velocity). Units: (*m*; *m/s*)
-/// - `variant`: Whether the ENZ axes rotate with the site or are frozen at the epoch
-///
-/// # Returns
-/// - Jacobians such that `P_ecef = J P_enz Jᵀ`, one per site, in input order
-///
-/// # References
-/// 1. NASA Conjunction Assessment Risk Analysis (CARA),
-///    [*Conjunction Assessment Handbook*, NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13)](https://ntrs.nasa.gov/citations/20205011318)
-/// 2. NASA CARA Analysis Tools,
-///    [`RIC2ECI.m`](https://github.com/nasa/CARA_Analysis_Tools)
-/// 3. D. A. Vallado,
-///    ["Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003](https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf)
-///
-/// # Examples
-/// ```
-/// use brahe::SVector6;
-/// use brahe::constants::AngleFormat;
-/// use brahe::coordinates::position_geodetic_to_ecef;
-/// use brahe::frames::OrbitRelativeFrameVariant;
-/// use brahe::relative_motion::jacobians_enz_to_ecef;
-/// use nalgebra::Vector3;
-///
-/// let r = position_geodetic_to_ecef(Vector3::new(30.0, 45.0, 500.0), AngleFormat::Degrees).unwrap();
-/// let x_site = SVector6::new(r[0], r[1], r[2], 0.0, 0.0, 0.0);
-/// let j = jacobians_enz_to_ecef(&[x_site, x_site], OrbitRelativeFrameVariant::Rotating);
-/// assert_eq!(j.len(), 2);
-/// ```
-pub fn jacobians_enz_to_ecef(
-    x_ecef: &[SVector6],
-    variant: OrbitRelativeFrameVariant,
-) -> Vec<SMatrix6> {
-    batch_map(|x| jacobian_enz_to_ecef(*x, variant), x_ecef)
-}
-
-/// Computes the ECEF-to-ENZ covariance Jacobian for each site state in `x_ecef`.
-///
-/// Batch form of [`jacobian_ecef_to_enz`]. Evaluation runs on the global thread pool for
-/// large inputs.
-///
-/// # Arguments
-/// - `x_ecef`: Site Cartesian ECEF states (position, velocity). Units: (*m*; *m/s*)
-/// - `variant`: Whether the ENZ axes rotate with the site or are frozen at the epoch
-///
-/// # Returns
-/// - Jacobians such that `P_enz = J P_ecef Jᵀ`, one per site, in input order
-///
-/// # References
-/// 1. NASA Conjunction Assessment Risk Analysis (CARA),
-///    [*Conjunction Assessment Handbook*, NASA/SP-20205011318, Appendix N (RIC-to-ECI covariance transformation, eq. N-13)](https://ntrs.nasa.gov/citations/20205011318)
-/// 2. NASA CARA Analysis Tools,
-///    [`RIC2ECI.m`](https://github.com/nasa/CARA_Analysis_Tools)
-/// 3. D. A. Vallado,
-///    ["Covariance Transformations for Satellite Flight Dynamics Operations," AAS 03-526, AAS/AIAA Astrodynamics Specialist Conference, 2003](https://celestrak.org/publications/AAS/03-526/AAS-03-526.pdf)
-///
-/// # Examples
-/// ```
-/// use brahe::SVector6;
-/// use brahe::constants::AngleFormat;
-/// use brahe::coordinates::position_geodetic_to_ecef;
-/// use brahe::frames::OrbitRelativeFrameVariant;
-/// use brahe::relative_motion::jacobians_ecef_to_enz;
-/// use nalgebra::Vector3;
-///
-/// let r = position_geodetic_to_ecef(Vector3::new(30.0, 45.0, 500.0), AngleFormat::Degrees).unwrap();
-/// let x_site = SVector6::new(r[0], r[1], r[2], 0.0, 0.0, 0.0);
-/// let j = jacobians_ecef_to_enz(&[x_site, x_site], OrbitRelativeFrameVariant::Rotating);
-/// assert_eq!(j.len(), 2);
-/// ```
-pub fn jacobians_ecef_to_enz(
-    x_ecef: &[SVector6],
-    variant: OrbitRelativeFrameVariant,
-) -> Vec<SMatrix6> {
-    batch_map(|x| jacobian_ecef_to_enz(*x, variant), x_ecef)
-}
-
-/// Transforms each state covariance in `covariances` from ENZ axes into the Earth-Centered
-/// Earth-Fixed (ECEF) frame.
-///
-/// Batch form of [`covariance_enz_to_ecef`]. Evaluation runs on the global thread pool for
-/// large inputs.
-///
-/// The `x_ecef` and `covariances` arguments follow the broadcast rule: each argument has
-/// length 1 or the common batch length.
-///
-/// # Arguments
-/// - `x_ecef`: Site Cartesian ECEF states, length 1 or the batch length. Units: (*m*; *m/s*)
-/// - `covariances`: State covariances in ENZ axes, length 1 or the batch length. Units: (*m²*, *m²/s*, *m²/s²*)
-/// - `variant`: Whether the ENZ axes rotate with the site or are frozen at the epoch
-///
-/// # Returns
-/// - State covariances in the ECEF frame, in input order. Units: (*m²*, *m²/s*, *m²/s²*)
-/// - Error if the lengths do not satisfy the broadcast rule
-///
-/// # Examples
-/// ```
-/// use brahe::{SVector6, SMatrix6};
-/// use brahe::constants::AngleFormat;
-/// use brahe::coordinates::position_geodetic_to_ecef;
-/// use brahe::frames::OrbitRelativeFrameVariant;
-/// use brahe::relative_motion::covariances_enz_to_ecef;
-/// use nalgebra::Vector3;
-///
-/// let r = position_geodetic_to_ecef(Vector3::new(30.0, 45.0, 500.0), AngleFormat::Degrees).unwrap();
-/// let x_site = SVector6::new(r[0], r[1], r[2], 0.0, 0.0, 0.0);
-/// let p = vec![SMatrix6::identity(); 2];
-/// let p_ecef = covariances_enz_to_ecef(&[x_site], &p, OrbitRelativeFrameVariant::Rotating).unwrap();
-/// assert_eq!(p_ecef.len(), 2);
-/// ```
-pub fn covariances_enz_to_ecef(
-    x_ecef: &[SVector6],
-    covariances: &[SMatrix6],
-    variant: OrbitRelativeFrameVariant,
-) -> Result<Vec<SMatrix6>, BraheError> {
-    batch_zip(
-        |x, p| covariance_enz_to_ecef(*x, p, variant),
-        x_ecef,
-        covariances,
-    )
-}
-
-/// Transforms each state covariance in `covariances` from the Earth-Centered Earth-Fixed
-/// (ECEF) frame into ENZ axes.
-///
-/// Batch form of [`covariance_ecef_to_enz`]. Evaluation runs on the global thread pool for
-/// large inputs.
-///
-/// The `x_ecef` and `covariances` arguments follow the broadcast rule: each argument has
-/// length 1 or the common batch length.
-///
-/// # Arguments
-/// - `x_ecef`: Site Cartesian ECEF states, length 1 or the batch length. Units: (*m*; *m/s*)
-/// - `covariances`: State covariances in the ECEF frame, length 1 or the batch length. Units: (*m²*, *m²/s*, *m²/s²*)
-/// - `variant`: Whether the ENZ axes rotate with the site or are frozen at the epoch
-///
-/// # Returns
-/// - State covariances in ENZ axes, in input order. Units: (*m²*, *m²/s*, *m²/s²*)
-/// - Error if the lengths do not satisfy the broadcast rule
-///
-/// # Examples
-/// ```
-/// use brahe::{SVector6, SMatrix6};
-/// use brahe::constants::AngleFormat;
-/// use brahe::coordinates::position_geodetic_to_ecef;
-/// use brahe::frames::OrbitRelativeFrameVariant;
-/// use brahe::relative_motion::covariances_ecef_to_enz;
-/// use nalgebra::Vector3;
-///
-/// let r = position_geodetic_to_ecef(Vector3::new(30.0, 45.0, 500.0), AngleFormat::Degrees).unwrap();
-/// let x_site = SVector6::new(r[0], r[1], r[2], 0.0, 0.0, 0.0);
-/// let p = vec![SMatrix6::identity(); 2];
-/// let p_enz = covariances_ecef_to_enz(&[x_site], &p, OrbitRelativeFrameVariant::Rotating).unwrap();
-/// assert_eq!(p_enz.len(), 2);
-/// ```
-pub fn covariances_ecef_to_enz(
-    x_ecef: &[SVector6],
-    covariances: &[SMatrix6],
-    variant: OrbitRelativeFrameVariant,
-) -> Result<Vec<SMatrix6>, BraheError> {
-    batch_zip(
-        |x, p| covariance_ecef_to_enz(*x, p, variant),
-        x_ecef,
-        covariances,
-    )
-}
-
 /// Computes the ENZ relative state of each target with respect to its site.
 ///
 /// Batch form of [`state_ecef_to_enz`]. Evaluation runs on the global thread pool for large
@@ -731,7 +382,7 @@ mod tests {
         relative_position_ecef_to_enz, rotation_ellipsoid_to_enz,
     };
     use crate::frames::angular_velocity_from_rotation_rate;
-    use crate::math::{block_diagonal, skew_symmetric};
+
     use crate::relative_motion::ecef_sez::{omega_sez, rotation_sez_to_ecef};
     use approx::assert_abs_diff_eq;
     use serial_test::parallel;
@@ -834,55 +485,6 @@ mod tests {
 
     #[test]
     #[parallel]
-    fn test_jacobian_enz_ecef_forms() {
-        let x = moving_site(0.0);
-        let j_i = jacobian_enz_to_ecef(x, OrbitRelativeFrameVariant::Inertial);
-        let r = rotation_enz_to_ecef(x);
-        assert_abs_diff_eq!((j_i - block_diagonal(&r, &r)).norm(), 0.0, epsilon = 1e-15);
-        let j_r = jacobian_enz_to_ecef(x, OrbitRelativeFrameVariant::Rotating);
-        let coupling: SMatrix3 = j_r.fixed_view::<3, 3>(3, 0).into();
-        assert_abs_diff_eq!(
-            (coupling - r * skew_symmetric(&omega_enz(x))).norm(),
-            0.0,
-            epsilon = 1e-18
-        );
-        for variant in [
-            OrbitRelativeFrameVariant::Inertial,
-            OrbitRelativeFrameVariant::Rotating,
-        ] {
-            let forward = jacobian_enz_to_ecef(x, variant);
-            let inverse = jacobian_ecef_to_enz(x, variant);
-            assert_abs_diff_eq!(
-                (inverse * forward - SMatrix6::identity()).norm(),
-                0.0,
-                epsilon = 1e-12
-            );
-        }
-    }
-
-    #[test]
-    #[parallel]
-    fn test_covariance_enz_ecef_round_trip() {
-        let x = moving_site(0.0);
-        let mut p = SMatrix6::zeros();
-        for i in 0..3 {
-            p[(i, i)] = 100.0;
-            p[(3 + i, 3 + i)] = 0.01;
-        }
-        p[(0, 1)] = 25.0;
-        p[(1, 0)] = 25.0;
-        for variant in [
-            OrbitRelativeFrameVariant::Inertial,
-            OrbitRelativeFrameVariant::Rotating,
-        ] {
-            let p_ecef = covariance_enz_to_ecef(x, &p, variant);
-            let p_back = covariance_ecef_to_enz(x, &p_ecef, variant);
-            assert_abs_diff_eq!((p_back - p).norm() / p.norm(), 0.0, epsilon = 1e-12);
-        }
-    }
-
-    #[test]
-    #[parallel]
     fn test_state_enz_to_ecef_round_trip() {
         for x_site in [site_state(), moving_site(0.0)] {
             let x_rel = SVector6::new(1000.0, 500.0, -300.0, 0.1, -0.05, 0.02);
@@ -899,9 +501,6 @@ mod tests {
             .iter()
             .map(|s| s + SVector6::new(100.0, 200.0, 300.0, 0.1, 0.2, 0.3))
             .collect();
-        let covs: Vec<SMatrix6> = (0..3)
-            .map(|i| SMatrix6::identity() * (i as f64 + 1.0))
-            .collect();
 
         let rot = rotations_ecef_to_enz(&sites);
         let rot_inv = rotations_enz_to_ecef(&sites);
@@ -909,30 +508,6 @@ mod tests {
         let rel = states_ecef_to_enz(&sites, &targets).unwrap();
         let rel_broadcast = states_ecef_to_enz(&sites[..1], &targets).unwrap();
         let back = states_enz_to_ecef(&sites, &rel).unwrap();
-
-        for variant in [
-            OrbitRelativeFrameVariant::Inertial,
-            OrbitRelativeFrameVariant::Rotating,
-        ] {
-            let jac = jacobians_enz_to_ecef(&sites, variant);
-            let jac_inv = jacobians_ecef_to_enz(&sites, variant);
-            let cov = covariances_enz_to_ecef(&sites, &covs, variant).unwrap();
-            let cov_broadcast = covariances_enz_to_ecef(&sites, &covs[..1], variant).unwrap();
-            let cov_inv = covariances_ecef_to_enz(&sites, &covs, variant).unwrap();
-            for i in 0..3 {
-                assert_eq!(jac[i], jacobian_enz_to_ecef(sites[i], variant));
-                assert_eq!(jac_inv[i], jacobian_ecef_to_enz(sites[i], variant));
-                assert_eq!(cov[i], covariance_enz_to_ecef(sites[i], &covs[i], variant));
-                assert_eq!(
-                    cov_broadcast[i],
-                    covariance_enz_to_ecef(sites[i], &covs[0], variant)
-                );
-                assert_eq!(
-                    cov_inv[i],
-                    covariance_ecef_to_enz(sites[i], &covs[i], variant)
-                );
-            }
-        }
 
         for i in 0..3 {
             assert_eq!(rot[i], rotation_ecef_to_enz(sites[i]));
@@ -944,10 +519,6 @@ mod tests {
         }
 
         assert!(states_ecef_to_enz(&sites[..2], &targets).is_err());
-        assert!(
-            covariances_enz_to_ecef(&sites[..2], &covs, OrbitRelativeFrameVariant::Rotating)
-                .is_err()
-        );
         assert!(rotations_ecef_to_enz(&[]).is_empty());
     }
 }

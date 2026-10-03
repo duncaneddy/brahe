@@ -4,7 +4,7 @@ Relative Motion Module
 Satellite relative motion and orbital reference frames.
 
 This module provides transformations between inertial frames and orbital
-reference frames such as RTN, LVLH, NTW, TNW, VNC, PQW, EQW, and NSW.
+reference frames such as RTN, LVLH, NTW, TNW, VNC, PQW, EQW, NSW, and SEZ.
 
 The RTN frame is an orbital reference frame defined as:
 - R (Radial): Points from Earth's center to satellite position
@@ -32,6 +32,9 @@ normal, and Q = W × E; it is an inertial snapshot with no rate.
 The NSW frame has X toward nadir, Y as close to the Sun as possible while
 normal to X, and Z = X × Y; its functions take the Sun state as an argument.
 
+The SEZ frame is the south/east/zenith horizon frame of an ECEF site; its
+functions take ECEF states and its rate is relative to ECEF.
+
 Functions are provided for:
 - Rotation matrices between ECI and RTN frames
 - Rotation matrices between ECI and LVLH frames
@@ -41,6 +44,7 @@ Functions are provided for:
 - Rotation matrices between ECI and PQW frames
 - Rotation matrices between ECI and EQW frames
 - Rotation matrices between ECI and NSW frames
+- Rotation matrices between ECEF and SEZ frames
 - (Future) Relative motion dynamics (Clohessy-Wiltshire equations, etc.)
 """
 
@@ -54,10 +58,12 @@ from brahe._brahe import (
     omega_ntw,
     omega_ntw_for_body,
     omega_rtn,
+    omega_sez,
     omega_tnw,
     omega_tnw_for_body,
     omega_vnc,
     omega_vnc_for_body,
+    rotation_ecef_to_sez,
     rotation_eci_to_eqw,
     rotation_eci_to_lvlh,
     rotation_eci_to_nsw,
@@ -74,8 +80,10 @@ from brahe._brahe import (
     rotation_pqw_to_eci,
     rotation_pqw_to_inertial_for_body,
     rotation_rtn_to_eci,
+    rotation_sez_to_ecef,
     rotation_tnw_to_eci,
     rotation_vnc_to_eci,
+    state_ecef_to_sez,
     state_eci_to_eqw,
     state_eci_to_lvlh,
     state_eci_to_nsw,
@@ -100,6 +108,7 @@ from brahe._brahe import (
     state_roe_to_eci,
     state_roe_to_oe,
     state_rtn_to_eci,
+    state_sez_to_ecef,
     state_tnw_to_eci,
     state_tnw_to_inertial_for_body,
     state_vnc_to_eci,
@@ -116,10 +125,12 @@ __all__ = [
     "omega_ntw",
     "omega_ntw_for_body",
     "omega_rtn",
+    "omega_sez",
     "omega_tnw",
     "omega_tnw_for_body",
     "omega_vnc",
     "omega_vnc_for_body",
+    "rotation_ecef_to_sez",
     "rotation_eci_to_eqw",
     "rotation_eci_to_lvlh",
     "rotation_eci_to_nsw",
@@ -136,8 +147,10 @@ __all__ = [
     "rotation_pqw_to_eci",
     "rotation_pqw_to_inertial_for_body",
     "rotation_rtn_to_eci",
+    "rotation_sez_to_ecef",
     "rotation_tnw_to_eci",
     "rotation_vnc_to_eci",
+    "state_ecef_to_sez",
     "state_eci_to_eqw",
     "state_eci_to_lvlh",
     "state_eci_to_nsw",
@@ -162,6 +175,7 @@ __all__ = [
     "state_roe_to_eci",
     "state_roe_to_oe",
     "state_rtn_to_eci",
+    "state_sez_to_ecef",
     "state_tnw_to_eci",
     "state_tnw_to_inertial_for_body",
     "state_vnc_to_eci",

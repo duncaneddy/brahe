@@ -30,6 +30,7 @@ exclude = [# We need to keep the size down for crates.io these don't need to be 
     "/brahe",
     "/crates",
     ".github",
+    ".cargo",
     "/examples",
     "/plots",
     "/joss",
@@ -64,20 +65,20 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 base64 = "0.23"
 sha2 = "0.11"
-quick-xml = { version = "0.41", features = ["serialize"] }
+quick-xml = { version = "0.42", features = ["serialize"] }
 sgp4 = "2.4"
-uuid = { version = "1.25.0", features = ["v4", "v7", "serde"] }
+uuid = { version = "1.26.1", features = ["v4", "v7", "serde"] }
 rayon = "1.12"
 num_cpus = "1.17"
 dirs = "7"
 polars = { version = "0.55", default-features = false, features = ["lazy", "dtype-datetime"] }
-lru = "0.18.2"
+lru = "0.18.5"
 rand = "0.9"
 # Pinned to the rand-0.9-compatible line. rand_distr 0.6 requires rand 0.10,
-# but polars and rv (transitive) hold the tree on rand 0.9 / rand_distr 0.5, so
-# bumping would duplicate both crates and drop `StdRng: Clone` (which
-# SimpleSSNSensor relies on). Dependabot is configured to ignore rand_distr for
-# the same reason; revisit once polars and rv adopt rand 0.10.
+# whose `StdRng` does not implement `Clone` (which SimpleSSNSensor relies on),
+# and the rv dev-dependency requires rand 0.9 / rand_distr 0.5.
+# Dependabot is configured to ignore rand, rand_distr, and rv for the same
+# reason.
 rand_distr = "0.5"
 
 # pyo3 is an optional dependency used only by the `python` feature, which enables
@@ -96,7 +97,7 @@ httpmock = "0.8"
 tempfile = "3"
 cargo-deny = "0.20"
 mockall = "0.15"
-rv = "0.19"
+rv = "0.20"
 rand = "0.9"
 criterion = { version = "0.8", features = ["html_reports"] }
 # default-features disabled to drop anise's `analysis` feature, which pulls in

@@ -145,18 +145,17 @@ macro_rules! numpy_to_vector6 {
 
 macro_rules! numpy_to_smatrix3 {
     ($arr:expr) => {{
-        let shape = $arr.shape();
+        let view = $arr.as_array();
+        let shape = view.shape();
         if shape[0] != 3 || shape[1] != 3 {
             return Err(pyo3::exceptions::PyValueError::new_err(format!(
                 "Expected 3x3 matrix, got {}x{}",
                 shape[0], shape[1]
             )));
         }
-        let mat_vec = $arr.to_vec().map_err(|_| {
-            pyo3::exceptions::PyValueError::new_err("Failed to convert numpy array to matrix")
-        })?;
-        // numpy is row-major, nalgebra is column-major
-        nalgebra::SMatrix::<f64, 3, 3>::from_row_slice(&mat_vec)
+        // Index through the strided view so C-ordered, Fortran-ordered, and
+        // non-contiguous arrays are all read in logical (row, column) order.
+        nalgebra::SMatrix::<f64, 3, 3>::from_fn(|i, j| view[[i, j]])
     }};
 }
 

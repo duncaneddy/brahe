@@ -7,7 +7,9 @@ use nalgebra::Vector3;
 use crate::constants::{AngleFormat, WGS84_A, WGS84_F};
 use crate::coordinates::{position_ecef_to_geodetic, rotation_ellipsoid_to_sez};
 use crate::math::{SMatrix3, SVector6};
-use crate::relative_motion::common::{relative_state_from_frame, relative_state_to_frame};
+use crate::relative_motion::common::{
+    absolute_states_to_relative_state, relative_state_to_absolute_state,
+};
 use crate::utils::BraheError;
 use crate::utils::batch::{batch_map, batch_zip};
 
@@ -175,7 +177,7 @@ pub fn omega_sez(x_ecef: SVector6) -> Vector3<f64> {
 /// ```
 pub fn state_ecef_to_sez(x_site: SVector6, x_target: SVector6) -> SVector6 {
     let (r, omega) = sez_axes(x_site);
-    relative_state_to_frame(&r, &omega, x_site, x_target)
+    absolute_states_to_relative_state(&r, &omega, x_site, x_target)
 }
 
 /// Transforms the relative state of a target with respect to a site from the site's rotating
@@ -208,7 +210,7 @@ pub fn state_ecef_to_sez(x_site: SVector6, x_target: SVector6) -> SVector6 {
 /// ```
 pub fn state_sez_to_ecef(x_site: SVector6, x_rel_sez: SVector6) -> SVector6 {
     let (r, omega) = sez_axes(x_site);
-    relative_state_from_frame(&r, &omega, x_site, x_rel_sez)
+    relative_state_to_absolute_state(&r, &omega, x_site, x_rel_sez)
 }
 
 /// Computes the ECEF-to-SEZ rotation matrix for each site state in `x_ecef`.

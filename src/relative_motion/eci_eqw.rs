@@ -5,7 +5,9 @@
 use nalgebra::Vector3;
 
 use crate::math::{SMatrix3, SVector6};
-use crate::relative_motion::common::{relative_state_from_frame, relative_state_to_frame};
+use crate::relative_motion::common::{
+    absolute_states_to_relative_state, relative_state_to_absolute_state,
+};
 use crate::utils::BraheError;
 use crate::utils::batch::{batch_map, batch_zip};
 
@@ -132,7 +134,7 @@ pub fn rotation_eci_to_eqw(x_eci: SVector6) -> SMatrix3 {
 /// let x_rel_eqw = state_eci_to_eqw(x_chief, x_deputy);
 /// ```
 pub fn state_eci_to_eqw(x_chief: SVector6, x_deputy: SVector6) -> SVector6 {
-    relative_state_to_frame(
+    absolute_states_to_relative_state(
         &rotation_eci_to_eqw(x_chief),
         &Vector3::zeros(),
         x_chief,
@@ -172,7 +174,7 @@ pub fn state_eci_to_eqw(x_chief: SVector6, x_deputy: SVector6) -> SVector6 {
 /// let x_deputy = state_eqw_to_eci(x_chief, x_rel_eqw);
 /// ```
 pub fn state_eqw_to_eci(x_chief: SVector6, x_rel_eqw: SVector6) -> SVector6 {
-    relative_state_from_frame(
+    relative_state_to_absolute_state(
         &rotation_eci_to_eqw(x_chief),
         &Vector3::zeros(),
         x_chief,

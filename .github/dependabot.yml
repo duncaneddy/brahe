@@ -14,9 +14,9 @@ updates:
     cooldown:
       default-days: 7
     ignore:
-      # rand_distr 0.6 needs rand 0.10, but polars and rv keep the tree on
-      # rand 0.9 / rand_distr 0.5; bumping any of these duplicates the crates
-      # and drops StdRng: Clone. Revisit once polars and rv adopt rand 0.10.
+      # rand_distr 0.6 needs rand 0.10, whose StdRng does not implement Clone
+      # (SimpleSSNSensor relies on it), and rv requires rand 0.9 /
+      # rand_distr 0.5.
       - dependency-name: "rand"
       - dependency-name: "rand_distr"
       - dependency-name: "rv"

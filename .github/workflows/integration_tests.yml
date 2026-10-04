@@ -36,10 +36,16 @@ jobs:
             TEST_SPACETRACK_BASE_URL: https://for-testing-only.space-track.org
         steps:
             -   uses: actions/checkout@v7.0.1
+            # Restore-only against test_rust.yml's per-OS cache: the
+            # `integration` feature adds no dependencies, and this job runs
+            # from the weekly schedule and from release tags, neither of
+            # which should save an entry of its own.
             -   name: Set up Rust toolchain with cache
-                uses: actions-rust-lang/setup-rust-toolchain@v1.17.0
+                uses: actions-rust-lang/setup-rust-toolchain@v2.0.0
                 with:
                     toolchain: ${{ matrix.rust-toolchain }}
+                    cache-shared-key: test-rust
+                    cache-save-if: false
             -   name: Set default Rust toolchain
                 run: |
                     rustup update ${{ matrix.rust-toolchain }}
@@ -95,6 +101,11 @@ jobs:
                     retry_wait_seconds: 60
                     command: cargo llvm-cov -p brahe --features integration --lcov --output-path lcov-integration.info
 
+            # `--tests` runs the unit and integration test targets and skips
+            # doctests, matching what `cargo llvm-cov` runs on Ubuntu above.
+            # The doctests are not network-gated and already run on every OS
+            # in test_rust.yml; on Windows they take ~27 minutes on their own,
+            # which pushes the full `cargo test` past the 30-minute attempt cap.
             -   name: Run Rust integration tests (non-Ubuntu)
                 if: matrix.os != 'ubuntu-latest'
                 uses: nick-fields/retry@v4
@@ -102,11 +113,11 @@ jobs:
                     timeout_minutes: 30
                     max_attempts: 3
                     retry_wait_seconds: 60
-                    command: cargo test -p brahe --features integration
+                    command: cargo test -p brahe --features integration --tests
 
             -   name: Upload integration coverage to Codecov
                 if: matrix.os == 'ubuntu-latest'
-                uses: codecov/codecov-action@v7.0.0
+                uses: codecov/codecov-action@v7.1.1
                 env:
                     CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
                 with:
@@ -137,17 +148,24 @@ jobs:
             # rebuild it, relocating the cost rather than removing it.
             UV_NO_SYNC: "1"
         steps:
+            # Checkout precedes the toolchain step: rust-cache reads Cargo.lock
+            # and the workspace layout when it derives its key, so with nothing
+            # checked out it would key on an empty lockfile and cache no target
+            # directory at all. Restore-only against test_rust.yml's Linux
+            # cache, which already holds the shared dependency build.
+            -   uses: actions/checkout@v7.0.1
             -   name: Set up Rust toolchain
-                uses: actions-rust-lang/setup-rust-toolchain@v1.17.0
+                uses: actions-rust-lang/setup-rust-toolchain@v2.0.0
                 with:
                     toolchain: ${{ matrix.rust-toolchain }}
+                    cache-shared-key: test-rust
+                    cache-save-if: false
             -   name: Set default Rust toolchain
                 run: |
                     rustup update ${{ matrix.rust-toolchain }}
                     rustup default ${{ matrix.rust-toolchain }}
-            -   uses: actions/checkout@v7.0.1
             -   name: Install the latest version of uv
-                uses: astral-sh/setup-uv@v10.0.1
+                uses: astral-sh/setup-uv@v10.2.0
                 with:
                     enable-cache: true
             -   name: Install Python ${{ matrix.python-version }}
@@ -206,7 +224,11 @@ jobs:
                     timeout_minutes: 30
                     max_attempts: 3
                     retry_wait_seconds: 60
+                    # The retry action runs this block under `bash -c` without
+                    # errexit, so without `set -e` a pytest failure is masked by
+                    # the coverage report that follows it and the step passes.
                     command: |
+                        set -euo pipefail
                         cargo llvm-cov clean --workspace
                         eval "$(cargo llvm-cov show-env --export-prefix)"
                         uv pip install maturin --quiet
@@ -233,7 +255,7 @@ jobs:
 
             -   name: Upload Python integration coverage to Codecov
                 if: matrix.python-version == '3.10'
-                uses: codecov/codecov-action@v7.0.0
+                uses: codecov/codecov-action@v7.1.1
                 env:
                     CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
                 with:
@@ -245,7 +267,7 @@ jobs:
 
             -   name: Upload Python-Rust integration coverage to Codecov
                 if: matrix.python-version == '3.10'
-                uses: codecov/codecov-action@v7.0.0
+                uses: codecov/codecov-action@v7.1.1
                 env:
                     CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
                 with:

@@ -45,6 +45,32 @@ def test_block_diagonal():
     np.testing.assert_array_equal(m[3:6, 0:3], np.zeros((3, 3)))
 
 
+@pytest.mark.parametrize(
+    "layout",
+    [
+        np.asfortranarray,
+        lambda m: np.ascontiguousarray(m.T).T,
+        lambda m: np.kron(m, np.ones((2, 2)))[::2, ::2],
+    ],
+    ids=["fortran_order", "transposed_view", "strided_view"],
+)
+def test_block_diagonal_memory_layout(layout):
+    """Non-C-contiguous inputs are read in logical (row, column) order."""
+    a = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 9.0]])
+    b = np.array([[-1.0, -2.0, -3.0], [-4.0, -5.0, -6.0], [-7.0, -8.0, -9.0]])
+    a_view = layout(a)
+    b_view = layout(b)
+    assert not a_view.flags["C_CONTIGUOUS"]
+    np.testing.assert_array_equal(a_view, a)
+
+    m = bh.block_diagonal(a_view, b_view)
+
+    np.testing.assert_array_equal(m[0:3, 0:3], a)
+    np.testing.assert_array_equal(m[3:6, 3:6], b)
+    np.testing.assert_array_equal(m[0:3, 3:6], np.zeros((3, 3)))
+    np.testing.assert_array_equal(m[3:6, 0:3], np.zeros((3, 3)))
+
+
 def test_is_symmetric():
     """Rust: test_is_symmetric"""
     symmetric = np.array(

@@ -465,6 +465,7 @@ mod tests {
 
     #[test]
     #[parallel]
+    #[allow(clippy::clone_on_copy)]
     fn test_EventDirection_clone() {
         let dir = EventDirection::Increasing;
         let cloned = Clone::clone(&dir); // Explicit trait call to test Clone impl
@@ -505,6 +506,7 @@ mod tests {
 
     #[test]
     #[parallel]
+    #[allow(clippy::clone_on_copy)]
     fn test_EdgeType_clone() {
         let edge = EdgeType::FallingEdge;
         let cloned = Clone::clone(&edge); // Explicit trait call to test Clone impl
@@ -539,6 +541,7 @@ mod tests {
 
     #[test]
     #[parallel]
+    #[allow(clippy::clone_on_copy)]
     fn test_EventType_clone() {
         let event_type = EventType::Window;
         let cloned = Clone::clone(&event_type); // Explicit trait call to test Clone impl
@@ -573,6 +576,7 @@ mod tests {
 
     #[test]
     #[parallel]
+    #[allow(clippy::clone_on_copy)]
     fn test_EventAction_clone() {
         let action = EventAction::Stop;
         let cloned = Clone::clone(&action); // Explicit trait call to test Clone impl

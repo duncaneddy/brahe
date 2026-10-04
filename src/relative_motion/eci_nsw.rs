@@ -5,7 +5,9 @@
 use nalgebra::Vector3;
 
 use crate::math::{SMatrix3, SVector6};
-use crate::relative_motion::common::{relative_state_from_frame, relative_state_to_frame};
+use crate::relative_motion::common::{
+    absolute_states_to_relative_state, relative_state_to_absolute_state,
+};
 use crate::utils::BraheError;
 use crate::utils::batch::{batch_zip, batch_zip3};
 
@@ -215,7 +217,7 @@ pub fn omega_nsw(x_eci: SVector6, x_sun: SVector6) -> Vector3<f64> {
 /// ```
 pub fn state_eci_to_nsw(x_chief: SVector6, x_deputy: SVector6, x_sun: SVector6) -> SVector6 {
     let (r, omega) = nsw_axes(x_chief, x_sun);
-    relative_state_to_frame(&r.transpose(), &omega, x_chief, x_deputy)
+    absolute_states_to_relative_state(&r.transpose(), &omega, x_chief, x_deputy)
 }
 
 /// Transforms the relative state of a deputy satellite with respect to a chief satellite from
@@ -252,7 +254,7 @@ pub fn state_eci_to_nsw(x_chief: SVector6, x_deputy: SVector6, x_sun: SVector6) 
 /// ```
 pub fn state_nsw_to_eci(x_chief: SVector6, x_rel_nsw: SVector6, x_sun: SVector6) -> SVector6 {
     let (r, omega) = nsw_axes(x_chief, x_sun);
-    relative_state_from_frame(&r.transpose(), &omega, x_chief, x_rel_nsw)
+    relative_state_to_absolute_state(&r.transpose(), &omega, x_chief, x_rel_nsw)
 }
 
 /// Computes the NSW-to-ECI rotation matrix for each pair of spacecraft and Sun states.

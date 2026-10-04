@@ -7,7 +7,7 @@ use nalgebra::Vector3;
 use crate::constants::GM_EARTH;
 use crate::math::{SMatrix3, SVector6};
 use crate::relative_motion::common::{
-    relative_state_from_frame, relative_state_to_frame, velocity_direction_rate,
+    absolute_states_to_relative_state, relative_state_to_absolute_state, velocity_direction_rate,
 };
 use crate::relative_motion::rotation_ntw_to_eci;
 use crate::utils::BraheError;
@@ -186,7 +186,7 @@ pub fn omega_tnw(x_eci: SVector6) -> Vector3<f64> {
 /// let x_rel_tnw = state_inertial_to_tnw_for_body(x_chief, x_deputy, GM_MARS);
 /// ```
 pub fn state_inertial_to_tnw_for_body(x_chief: SVector6, x_deputy: SVector6, gm: f64) -> SVector6 {
-    relative_state_to_frame(
+    absolute_states_to_relative_state(
         &rotation_eci_to_tnw(x_chief),
         &omega_tnw_for_body(x_chief, gm),
         x_chief,
@@ -262,7 +262,7 @@ pub fn state_eci_to_tnw(x_chief: SVector6, x_deputy: SVector6) -> SVector6 {
 /// let x_deputy = state_tnw_to_inertial_for_body(x_chief, x_rel_tnw, GM_MARS);
 /// ```
 pub fn state_tnw_to_inertial_for_body(x_chief: SVector6, x_rel_tnw: SVector6, gm: f64) -> SVector6 {
-    relative_state_from_frame(
+    relative_state_to_absolute_state(
         &rotation_eci_to_tnw(x_chief),
         &omega_tnw_for_body(x_chief, gm),
         x_chief,

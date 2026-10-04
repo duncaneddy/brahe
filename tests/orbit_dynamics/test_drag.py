@@ -30,6 +30,20 @@ class TestDrag:
         assert np.linalg.norm(a) > 0.0
         assert np.linalg.norm(a) == pytest.approx(5.97601877277239e-8, abs=1.0e-10)
 
+    def test_accel_drag_rotation_memory_layout(self):
+        """A transposed rotation view gives the same result as its C-ordered copy."""
+        oe = np.array([bh.R_EARTH + 500e3, 0.01, 97.3, 15.0, 30.0, 45.0])
+        x_object = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
+        c, s = np.cos(np.radians(30.0)), np.sin(np.radians(30.0))
+        T = np.array([[c, s, 0.0], [-s, c, 0.0], [0.0, 0.0, 1.0]])
+
+        a_view = bh.accel_drag(x_object, 1.0e-12, 1000.0, 1.0, 2.0, T.T)
+        a_copy = bh.accel_drag(
+            x_object, 1.0e-12, 1000.0, 1.0, 2.0, np.ascontiguousarray(T.T)
+        )
+
+        np.testing.assert_array_equal(a_view, a_copy)
+
     def test_accel_drag_for_body_earth_omega_matches_legacy(self):
         """accel_drag_for_body with Earth's spin vector matches accel_drag exactly."""
         oe = np.array([bh.R_EARTH + 500e3, 0.01, 97.3, 15.0, 30.0, 45.0])

@@ -9,21 +9,22 @@ use crate::frames::{state_inertial_to_rotating, state_rotating_to_inertial};
 use crate::math::{SMatrix3, SVector6};
 
 /// Relative state of a deputy with respect to a chief in a rotating local
-/// orbital frame.
+/// frame, from the absolute states of both in the base frame that the local
+/// frame rotates relative to.
 ///
 /// The relative position is `ρ = R (r_d − r_c)` and the relative velocity
 /// applies the transport term of the rotating axes,
 /// `ρ̇ = R (v_d − v_c) − ω × ρ`.
 ///
 /// # Arguments
-/// - `r_eci_to_frame`: Rotation from the inertial axes into the local frame (dimensionless)
-/// - `omega`: Angular velocity of the local frame relative to the inertial axes, expressed in the local frame (rad/s)
-/// - `x_chief`: Chief Cartesian state in the inertial frame (m, m/s)
-/// - `x_deputy`: Deputy Cartesian state in the inertial frame (m, m/s)
+/// - `r_eci_to_frame`: Rotation from the base frame axes into the local frame (dimensionless)
+/// - `omega`: Angular velocity of the local frame relative to the base frame, expressed in the local frame (rad/s)
+/// - `x_chief`: Chief absolute Cartesian state in the base frame (m, m/s)
+/// - `x_deputy`: Deputy absolute Cartesian state in the base frame (m, m/s)
 ///
 /// # Returns
 /// - Deputy state relative to the chief, in the local frame (m, m/s)
-pub(crate) fn relative_state_to_frame(
+pub(crate) fn absolute_states_to_relative_state(
     r_eci_to_frame: &SMatrix3,
     omega: &Vector3<f64>,
     x_chief: SVector6,
@@ -32,18 +33,18 @@ pub(crate) fn relative_state_to_frame(
     state_inertial_to_rotating(r_eci_to_frame, omega, &(x_deputy - x_chief))
 }
 
-/// Inverse of [`relative_state_to_frame`]: the deputy's inertial state from
-/// its relative state in a rotating local orbital frame.
+/// Inverse of [`absolute_states_to_relative_state`]: the deputy's absolute
+/// state in the base frame from its relative state in a rotating local frame.
 ///
 /// # Arguments
-/// - `r_eci_to_frame`: Rotation from the inertial axes into the local frame (dimensionless)
-/// - `omega`: Angular velocity of the local frame relative to the inertial axes, expressed in the local frame (rad/s)
-/// - `x_chief`: Chief Cartesian state in the inertial frame (m, m/s)
+/// - `r_eci_to_frame`: Rotation from the base frame axes into the local frame (dimensionless)
+/// - `omega`: Angular velocity of the local frame relative to the base frame, expressed in the local frame (rad/s)
+/// - `x_chief`: Chief absolute Cartesian state in the base frame (m, m/s)
 /// - `x_rel`: Deputy state relative to the chief, in the local frame (m, m/s)
 ///
 /// # Returns
-/// - Deputy Cartesian state in the inertial frame (m, m/s)
-pub(crate) fn relative_state_from_frame(
+/// - Deputy absolute Cartesian state in the base frame (m, m/s)
+pub(crate) fn relative_state_to_absolute_state(
     r_eci_to_frame: &SMatrix3,
     omega: &Vector3<f64>,
     x_chief: SVector6,
@@ -100,10 +101,10 @@ mod tests {
         let r = rotation_eci_to_rtn(x_chief);
         let omega = omega_rtn(x_chief);
 
-        let rel = relative_state_to_frame(&r, &omega, x_chief, x_deputy);
+        let rel = absolute_states_to_relative_state(&r, &omega, x_chief, x_deputy);
         assert_eq!(rel, state_eci_to_rtn(x_chief, x_deputy));
 
-        let back = relative_state_from_frame(&r, &omega, x_chief, rel);
+        let back = relative_state_to_absolute_state(&r, &omega, x_chief, rel);
         assert_eq!(back, state_rtn_to_eci(x_chief, rel));
     }
 

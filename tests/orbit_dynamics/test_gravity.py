@@ -391,6 +391,20 @@ class TestSphericalHarmonicGravity:
         expected_mag = bh.GM_EARTH / (bh.R_EARTH + 500e3) ** 2
         assert mag == pytest.approx(expected_mag, rel=1e-2)
 
+    def test_accel_gravity_spherical_harmonics_rotation_memory_layout(self):
+        """A transposed rotation view gives the same result as its C-ordered copy."""
+        model = bh.GravityModel.from_model_type(bh.GravityModelType.JGM3)
+        r_eci = np.array([6525.919e3, 1710.416e3, 2508.886e3])
+        c, s = np.cos(np.radians(30.0)), np.sin(np.radians(30.0))
+        R = np.array([[c, s, 0.0], [-s, c, 0.0], [0.0, 0.0, 1.0]])
+
+        a_view = bh.accel_gravity_spherical_harmonics(r_eci, R.T, model, 20, 20)
+        a_copy = bh.accel_gravity_spherical_harmonics(
+            r_eci, np.ascontiguousarray(R.T), model, 20, 20
+        )
+
+        np.testing.assert_array_equal(a_view, a_copy)
+
     def test_accel_gravity_spherical_harmonics_egm2008(self):
         """Test spherical harmonics with high-fidelity EGM2008 model."""
         model = bh.GravityModel.from_model_type(bh.GravityModelType.EGM2008_120)

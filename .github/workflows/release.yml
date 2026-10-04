@@ -122,10 +122,14 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v7.0.1
 
+    # No cargo cache in the release build jobs: they run on tag refs, and a
+    # cache saved under a tag is restorable only by later runs of that same
+    # tag while still counting against the repository's cache budget.
     - name: Set up Rust
-      uses: actions-rust-lang/setup-rust-toolchain@v1.17.0
+      uses: actions-rust-lang/setup-rust-toolchain@v2.0.0
       with:
         toolchain: ${{ env.RUST_TOOLCHAIN }}
+        cache: false
 
     - name: Set default Rust toolchain
       run: |
@@ -133,7 +137,7 @@ jobs:
         rustup default ${{ env.RUST_TOOLCHAIN }}
 
     - name: Install the latest version of uv
-      uses: astral-sh/setup-uv@v10.0.1
+      uses: astral-sh/setup-uv@v10.2.0
       with:
         enable-cache: true
 
@@ -182,9 +186,10 @@ jobs:
         path: brahe/
 
     - name: Set up Rust
-      uses: actions-rust-lang/setup-rust-toolchain@v1.17.0
+      uses: actions-rust-lang/setup-rust-toolchain@v2.0.0
       with:
         toolchain: ${{ matrix.rust-toolchain }}
+        cache: false
 
     - name: Set default Rust toolchain
       run: |
@@ -192,7 +197,7 @@ jobs:
         rustup default ${{ matrix.rust-toolchain }}
 
     - name: Install the latest version of uv
-      uses: astral-sh/setup-uv@v10.0.1
+      uses: astral-sh/setup-uv@v10.2.0
       with:
         enable-cache: true
 
@@ -238,9 +243,10 @@ jobs:
         path: brahe/
 
     - name: Set up Rust
-      uses: actions-rust-lang/setup-rust-toolchain@v1.17.0
+      uses: actions-rust-lang/setup-rust-toolchain@v2.0.0
       with:
         toolchain: ${{ matrix.rust-toolchain }}
+        cache: false
 
     - name: Set default Rust toolchain
       run: |
@@ -248,7 +254,7 @@ jobs:
         rustup default ${{ matrix.rust-toolchain }}
 
     - name: Install the latest version of uv
-      uses: astral-sh/setup-uv@v10.0.1
+      uses: astral-sh/setup-uv@v10.2.0
       with:
         enable-cache: true
 
@@ -302,9 +308,10 @@ jobs:
     steps:
       - uses: actions/checkout@v7.0.1
       - name: Set up Rust toolchain
-        uses: actions-rust-lang/setup-rust-toolchain@v1.17.0
+        uses: actions-rust-lang/setup-rust-toolchain@v2.0.0
         with:
           toolchain: ${{ env.RUST_TOOLCHAIN }}
+          cache: false
       - name: Set default Rust toolchain
         run: |
           rustup update ${{ env.RUST_TOOLCHAIN }}

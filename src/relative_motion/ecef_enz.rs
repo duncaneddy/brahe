@@ -5,7 +5,9 @@
 use nalgebra::Vector3;
 
 use crate::math::{SMatrix3, SVector6};
-use crate::relative_motion::common::{relative_state_from_frame, relative_state_to_frame};
+use crate::relative_motion::common::{
+    absolute_states_to_relative_state, relative_state_to_absolute_state,
+};
 use crate::relative_motion::ecef_sez::sez_axes;
 use crate::utils::BraheError;
 use crate::utils::batch::{batch_map, batch_zip};
@@ -166,7 +168,7 @@ pub fn omega_enz(x_ecef: SVector6) -> Vector3<f64> {
 /// ```
 pub fn state_ecef_to_enz(x_site: SVector6, x_target: SVector6) -> SVector6 {
     let (r, omega) = enz_axes(x_site);
-    relative_state_to_frame(&r, &omega, x_site, x_target)
+    absolute_states_to_relative_state(&r, &omega, x_site, x_target)
 }
 
 /// Transforms the relative state of a target with respect to a site from the site's rotating
@@ -196,7 +198,7 @@ pub fn state_ecef_to_enz(x_site: SVector6, x_target: SVector6) -> SVector6 {
 /// ```
 pub fn state_enz_to_ecef(x_site: SVector6, x_rel_enz: SVector6) -> SVector6 {
     let (r, omega) = enz_axes(x_site);
-    relative_state_from_frame(&r, &omega, x_site, x_rel_enz)
+    relative_state_to_absolute_state(&r, &omega, x_site, x_rel_enz)
 }
 
 /// Computes the ECEF-to-ENZ rotation matrix for each site state in `x_ecef`.

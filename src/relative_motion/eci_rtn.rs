@@ -8,7 +8,7 @@ use crate::frames::{
 };
 use crate::math::{SMatrix3, SMatrix6, SVector6};
 use crate::relative_motion::common::{
-    relative_state_from_frame, relative_state_to_frame, true_anomaly_rate,
+    absolute_states_to_relative_state, relative_state_to_absolute_state, true_anomaly_rate,
 };
 use nalgebra::Vector3;
 
@@ -156,7 +156,7 @@ pub fn omega_rtn(x_eci: SVector6) -> Vector3<f64> {
 /// let x_rel_rtn = state_eci_to_rtn(x_chief, x_deputy);
 /// ```
 pub fn state_eci_to_rtn(x_chief: SVector6, x_deputy: SVector6) -> SVector6 {
-    relative_state_to_frame(
+    absolute_states_to_relative_state(
         &rotation_eci_to_rtn(x_chief),
         &omega_rtn(x_chief),
         x_chief,
@@ -193,7 +193,7 @@ pub fn state_eci_to_rtn(x_chief: SVector6, x_deputy: SVector6) -> SVector6 {
 /// let x_deputy_reconstructed = state_rtn_to_eci(x_chief, x_rel_rtn);
 /// ```
 pub fn state_rtn_to_eci(x_chief: SVector6, x_rel_rtn: SVector6) -> SVector6 {
-    relative_state_from_frame(
+    relative_state_to_absolute_state(
         &rotation_eci_to_rtn(x_chief),
         &omega_rtn(x_chief),
         x_chief,

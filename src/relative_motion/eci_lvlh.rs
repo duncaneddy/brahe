@@ -6,7 +6,7 @@ use nalgebra::Vector3;
 
 use crate::math::{SMatrix3, SVector6};
 use crate::relative_motion::common::{
-    relative_state_from_frame, relative_state_to_frame, true_anomaly_rate,
+    absolute_states_to_relative_state, relative_state_to_absolute_state, true_anomaly_rate,
 };
 use crate::relative_motion::rotation_rtn_to_eci;
 use crate::utils::BraheError;
@@ -152,7 +152,7 @@ pub fn omega_lvlh(x_eci: SVector6) -> Vector3<f64> {
 /// let x_rel_lvlh = state_eci_to_lvlh(x_chief, x_deputy);
 /// ```
 pub fn state_eci_to_lvlh(x_chief: SVector6, x_deputy: SVector6) -> SVector6 {
-    relative_state_to_frame(
+    absolute_states_to_relative_state(
         &rotation_eci_to_lvlh(x_chief),
         &omega_lvlh(x_chief),
         x_chief,
@@ -189,7 +189,7 @@ pub fn state_eci_to_lvlh(x_chief: SVector6, x_deputy: SVector6) -> SVector6 {
 /// let x_deputy = state_lvlh_to_eci(x_chief, x_rel_lvlh);
 /// ```
 pub fn state_lvlh_to_eci(x_chief: SVector6, x_rel_lvlh: SVector6) -> SVector6 {
-    relative_state_from_frame(
+    relative_state_to_absolute_state(
         &rotation_eci_to_lvlh(x_chief),
         &omega_lvlh(x_chief),
         x_chief,

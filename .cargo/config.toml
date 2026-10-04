@@ -1,0 +1,8 @@
+# The macOS linker emits a compact-unwind note when a binary's `__eh_frame`
+# section passes 16 MB, which the `brahe` test binary does purely from the size
+# of its dependency graph. It is a link-time performance note rather than a
+# defect in the crate, and CI denies every emitted warning, so the note would
+# otherwise fail the macOS Rust test job. Scoped to macOS so linker diagnostics
+# stay visible on the other targets.
+[target.'cfg(target_os = "macos")']
+rustflags = ["-A", "linker_messages"]

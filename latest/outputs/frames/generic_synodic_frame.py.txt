@@ -1,5 +1,0 @@
-Epoch: 2024-03-01 00:00:00.000 UTC
-GCRF state (km): [1942.531 -412.664 6580.137]
-Sun-Mars synodic state (km): [-1.007e+08 -1.086e+08 -4.456e+06]
-
-Example validated successfully!

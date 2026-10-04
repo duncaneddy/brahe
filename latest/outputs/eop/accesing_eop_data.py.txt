@@ -1,7 +1,7 @@
-At epoch 2026-10-01 17:10:29.979 UTC:
-  x_pole: 8.407299803796712e-07 arcseconds
-  y_pole: 1.5780426553794242e-06 arcseconds
-  dut1: -0.022663646749335145 seconds
-  length of day: 5.249774656869452e-10 seconds
-  dX: 1.0486216842869106e-09 arcseconds
-  dY: 0.0009249000000000001 arcseconds
+At epoch 2026-10-04 08:32:26.067 UTC:
+  x_pole: 8.256605344420399e-07 arcseconds
+  y_pole: 1.5688751512194956e-06 arcseconds
+  dut1: -0.024362508161584476 seconds
+  length of day: 5.353478910199609e-10 seconds
+  dX: 1.1451430788589938e-09 arcseconds
+  dY: 0.0009141 arcseconds

@@ -1,1 +1,0 @@
-Built ForceModelConfig with ICGEM gravity source: Earth/JGM3 (20x20)

@@ -1,0 +1,4 @@
+Tidal corrections example
+  Orbital period:               94.6 min
+  Max tidal position difference: 1.357 m  (0.001 km)
+Example validated successfully!

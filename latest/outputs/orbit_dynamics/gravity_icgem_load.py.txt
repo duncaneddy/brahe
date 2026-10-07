@@ -1,0 +1,3 @@
+Loaded JGM3 (70x70, GM=3.986004e+14 m^3/s^2)
+
+Earth normalized C(2,0) = -4.841695e-04

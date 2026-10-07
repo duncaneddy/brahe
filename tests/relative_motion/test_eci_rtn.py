@@ -1,5 +1,5 @@
 """
-Tests for RTN (Radial-Tangential-Normal) frame transformations.
+Tests for RTN (Radial-Transverse-Normal) frame transformations.
 
 These tests mirror the Rust tests in src/relative_motion/eci_rtn.rs
 """

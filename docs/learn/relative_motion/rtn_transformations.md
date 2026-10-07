@@ -1,13 +1,13 @@
 # RTN Transformations
 
-The RTN (Radial-Tangential-Normal) frame is an orbital reference frame that moves
+The RTN (Radial-Transverse-Normal) frame is an orbital reference frame that moves
 with the satellite. It is commonly used for relative motion analysis and formation
 flying applications.
 
 The RTN frame is defined as:
 
 - **R (Radial)**: Points from the Earth's center to the satellite's position
-- **T (Tangential)**: Along-track direction, perpendicular to R in the orbital plane
+- **T (Transverse)**: In-plane direction perpendicular to R, completing the right-handed triad with N; it lies along the velocity only where the radial velocity is zero, which is everywhere on a circular orbit and at periapsis and apoapsis of an eccentric one
 - **N (Normal)**: Cross-track direction, perpendicular to the orbital plane (angular momentum direction)
 
 ## Coordinate System Definition

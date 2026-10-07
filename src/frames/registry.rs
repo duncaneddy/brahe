@@ -69,15 +69,17 @@ pub(crate) fn frame_key(frame: &ReferenceFrame) -> Option<FrameKey> {
 /// Registers (or replaces) `frame`'s orientation relative to `parent`.
 ///
 /// `frame` must be a bound `Body` frame (e.g. `ReferenceFrame::SC_BODY("SC")`,
-/// `ReferenceFrame::CSS("SC", "1")`); `parent` must resolve to a celestial root by
-/// walking the registry: either `parent` is itself `ReferenceFrame::Celestial`,
-/// or it is a bound `Body` frame that is already registered and whose own
-/// parent chain terminates at one. Re-registering an existing `frame`
-/// replaces its entry; the new parent chain is revalidated, so replacing a
-/// frame with a parent that would cycle back through `frame` itself is
-/// rejected. Validation and insertion happen under a single write-lock
-/// acquisition, so two concurrent calls cannot race to co-create a cycle
-/// between each other.
+/// `ReferenceFrame::CSS("SC", "1")`); `parent` must resolve to a celestial root
+/// by walking the registry: `parent` is itself `ReferenceFrame::Celestial`, a
+/// bound `ReferenceFrame::OrbitRelative`, or a bound `Body` frame that is
+/// already registered and whose own parent chain terminates at one of those.
+/// An orbit-relative parent's object is not checked here; an unregistered
+/// object surfaces at the first transform through the chain.
+/// Re-registering an existing `frame` replaces its entry; the new parent
+/// chain is revalidated, so replacing a frame with a parent that would cycle
+/// back through `frame` itself is rejected. Validation and insertion happen
+/// under a single write-lock acquisition, so two concurrent calls cannot
+/// race to co-create a cycle between each other.
 ///
 /// # Arguments
 /// * `frame` - The bound `Body` frame being registered
@@ -87,10 +89,11 @@ pub(crate) fn frame_key(frame: &ReferenceFrame) -> Option<FrameKey> {
 ///
 /// # Returns
 /// * `Ok(())`: If `frame` is bound and `parent`'s chain terminates at a
-///   celestial frame without passing through `frame` itself
+///   celestial frame or a bound orbit-relative frame without passing through
+///   `frame` itself
 /// * `Err(BraheError)`: If `frame` is not a bound `Body` frame, if the
-///   parent chain does not terminate at a celestial frame, or if it cycles
-///   back through `frame`
+///   parent chain does not terminate at a celestial frame or a bound
+///   orbit-relative frame, or if it cycles back through `frame`
 ///
 /// # Examples
 ///
@@ -131,7 +134,8 @@ pub fn register_frame(
 }
 
 /// Walks `parent`'s chain through the registry, requiring it to terminate
-/// at `ReferenceFrame::Celestial` without passing through `frame` itself.
+/// at `ReferenceFrame::Celestial` or at a bound `ReferenceFrame::OrbitRelative`,
+/// without passing through `frame` itself.
 fn validate_parent_chain(
     frame: &ReferenceFrame,
     parent: &ReferenceFrame,
@@ -148,6 +152,21 @@ fn validate_parent_chain(
                  {} itself",
                 frame, parent, frame
             )));
+        }
+        match &current {
+            ReferenceFrame::OrbitRelative {
+                object: Some(_), ..
+            } => return Ok(()),
+            ReferenceFrame::OrbitRelative {
+                kind, object: None, ..
+            } => {
+                return Err(BraheError::Error(format!(
+                    "cannot register {}: parent {} is not bound to an object; bind it with \
+                     ReferenceFrame::{}(object) before registering",
+                    frame, current, kind
+                )));
+            }
+            _ => {}
         }
         let key = frame_key(&current).ok_or_else(|| missing_parent_error(frame, &current))?;
         match map.get(&key) {
@@ -236,7 +255,7 @@ mod tests {
 
     use super::*;
     use crate::attitude::Quaternion;
-    use crate::frames::CelestialFrame;
+    use crate::frames::{CelestialFrame, OrbitRelativeFrameKind, OrbitRelativeFrameVariant};
 
     #[test]
     #[serial]
@@ -308,6 +327,27 @@ mod tests {
 
         clear_frame_registry();
         assert!(frame_entry(&key).is_none());
+    }
+
+    #[test]
+    #[serial]
+    fn test_register_frame_rejects_unbound_orbit_relative_parent() {
+        clear_frame_registry();
+        let unbound = ReferenceFrame::orbit_relative(
+            OrbitRelativeFrameKind::LVLH,
+            OrbitRelativeFrameVariant::Rotating,
+            None,
+        )
+        .unwrap();
+        let err = register_frame(
+            ReferenceFrame::SC_BODY("SC"),
+            unbound,
+            Quaternion::new(1.0, 0.0, 0.0, 0.0),
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(err.contains("not bound"), "{err}");
+        clear_frame_registry();
     }
 
     #[test]

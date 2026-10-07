@@ -15,12 +15,13 @@ With $\hat{r}$ the unit position, $\hat{v}$ the unit velocity, $\hat{h}$ the uni
 | NTW | $\hat{v} \times \hat{h}$ | $\hat{v}$ | $\hat{h}$ | $+Z$ |
 | TNW | $\hat{v}$ | $\hat{h} \times \hat{v}$ | $\hat{h}$ | $+Z$ |
 | VNC | $\hat{v}$ | $\hat{h}$ | $\hat{v} \times \hat{h}$ | $+Y$ |
+| PQW | $\hat{e}$ | $\hat{h} \times \hat{e}$ | $\hat{h}$ | inertial only |
 
 Source: SANA Orbit-Relative Reference Frames registry (<https://sanaregistry.org/r/orbit_relative_reference_frames>) and CCSDS 500.0-G-4, *Navigation Dataâ€”Definitions and Conventions*, Section 4.3.7.
 
 ## Variants
 
-Every frame exists as a rotating frame, which carries the orbital angular velocity, and as an inertial snapshot, whose rate is zero. The `state_*` relative-state functions always use the rotating transport term. A covariance transformation selects the variant through the rate it applies, as described under [Covariance](#covariance), and the frame graph selects it through the `OrbitRelativeFrameVariant` of the `ReferenceFrame`.
+Every frame exists as a rotating frame, which carries the orbital angular velocity, and as an inertial snapshot, whose rate is zero. The `state_*` relative-state functions always use the rotating transport term. A covariance transformation selects the variant through the rate it applies, as described under [Covariance](#covariance), and the frame graph selects it through the `OrbitRelativeFrameVariant` of the `ReferenceFrame`. PQW and EQW are the exception: SANA registers them only as inertial snapshots, so they have no `omega_*` functions, their covariance transformation uses $\omega = 0$, and their `state_*` functions apply no transport term.
 
 ## Conventions
 
@@ -64,6 +65,8 @@ The example transforms a covariance into rotating and snapshot LVLH, back to ECI
         ```
         --8<-- "./docs/outputs/relative_motion/orbit_relative_covariance.rs.txt"
         ```
+
+PQW and EQW are registered by SANA only as inertial snapshots. On a circular orbit the periapsis direction is undefined and PQW takes P along the ascending node; on an equatorial orbit the node is undefined and P (and EQW's E) is taken along the inertial x axis projected into the orbit plane. These match the zero-angle conventions for the argument of periapsis and the right ascension of the ascending node.
 
 ## LVLH
 
@@ -173,6 +176,33 @@ The VNC frame places X along the velocity, Y along the orbit normal, and Z = X Ã
         --8<-- "./docs/outputs/relative_motion/vnc_frame.rs.txt"
         ```
 
+## PQW
+
+The perifocal frame places P toward periapsis, W along the orbit normal, and Q = W Ã— P, so a satellite's own position is $r[\cos f, \sin f, 0]$ with $f$ the true anomaly. The periapsis direction is the eccentricity vector, which needs the central body's gravitational parameter, so the rotation has an Earth form and a `_for_body` form. There is no rate: the frame is an inertial snapshot.
+
+=== "Python"
+
+    ``` python
+    --8<-- "./examples/relative_motion/pqw_frame.py:8"
+    ```
+
+=== "Rust"
+
+    ``` rust
+    --8<-- "./examples/relative_motion/pqw_frame.rs:4"
+    ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/relative_motion/pqw_frame.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/relative_motion/pqw_frame.rs.txt"
+        ```
+
 ### See Also
 
 - [RTN Transformations](rtn_transformations.md)
@@ -181,3 +211,4 @@ The VNC frame places X along the velocity, Y along the orbit normal, and Z = X Ã
 - [NTW Transformations API Reference](../../library_api/relative_motion/ntw_transformations.md)
 - [TNW Transformations API Reference](../../library_api/relative_motion/tnw_transformations.md)
 - [VNC Transformations API Reference](../../library_api/relative_motion/vnc_transformations.md)
+- [PQW Transformations API Reference](../../library_api/relative_motion/pqw_transformations.md)

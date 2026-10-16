@@ -1,0 +1,8 @@
+Epoch 1: 2024-01-01 00:00:00.000 UTC
+Epoch 2: 2024-01-01 00:00:00.000 GPS
+(Epoch 2) - (Epoch 1): -18.0 seconds
+Epoch 3: 2024-01-01 00:00:00.000 TAI
+Epoch 4: 2024-01-01 00:00:00.000 UTC
+Epoch 3 > Epoch 4: False
+Epoch 1 MJD (TT): 60310.00080074074
+Epoch 2 MJD (TT): 60310.00059240741

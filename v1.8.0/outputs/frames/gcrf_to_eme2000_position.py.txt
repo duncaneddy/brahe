@@ -1,0 +1,20 @@
+Orbital elements (degrees):
+  a    = 6878136.300 m = 500.0 km altitude
+  e    = 0.0100
+  i    = 97.8000°
+  Ω    = 15.0000°
+  ω    = 30.0000°
+  M    = 45.0000°
+
+Position in GCRF:
+  [1848963.547, -434937.816, 6560410.665] m
+
+Position in EME2000:
+  [1848964.106, -434937.468, 6560410.530] m
+
+Position in EME2000 (using rotation matrix):
+  [1848964.106, -434937.468, 6560410.530] m
+
+Difference between methods: 9.313226e-10 m
+
+Note: Transformation is constant (time-independent, no epoch needed)

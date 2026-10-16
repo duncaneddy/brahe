@@ -1,0 +1,2 @@
+Found 5 access windows with custom configuration
+Configuration: 60.0s time step, adaptive=True

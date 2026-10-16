@@ -1,0 +1,5 @@
+Epoch: 2024-03-01 00:10:00.000 TDB
+Inertial state:   [ 7.0e+05 -2.0e+05  3.0e+05  1.0e+01  2.5e+01 -5.0e+00]
+Body-fixed state: [ 6.710e+05 -2.824e+05  3.000e+05 -4.355e+01 -1.106e+02 -5.000e+00]
+
+Example validated successfully!

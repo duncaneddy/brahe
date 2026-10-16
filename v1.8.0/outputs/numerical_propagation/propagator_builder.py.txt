@@ -1,0 +1,3 @@
+Minimal builder — epoch: 2024-01-01 13:00:00.000 UTC
+Builder with covariance — epoch: 2024-01-01 13:00:00.000 UTC
+Example validated successfully!

@@ -1,0 +1,2 @@
+Perigee velocity: 7689.119 m/s
+Apogee velocity: 7536.859 m/s

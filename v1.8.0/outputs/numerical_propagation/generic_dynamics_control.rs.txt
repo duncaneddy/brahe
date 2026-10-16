@@ -1,0 +1,26 @@
+Damped vs Undamped Harmonic Oscillator:
+  Natural frequency: 1.0 Hz
+  Damping ratio: 0.1
+  Damping coefficient: 1.257 /s
+
+Time (s)  Damped x    Undamped x  Amplitude ratio
+-------------------------------------------------------
+  0.0       +1.0000      +1.0000       1.000
+  1.0       +0.5315      +0.9998       0.532
+  2.0       +0.2822      +0.9996       0.282
+  3.0       +0.1497      +0.9995       0.150
+  4.0       +0.0793      +0.9996       0.079
+  5.0       +0.0420      +0.9998       0.042
+  6.0       +0.0222      +0.9998       0.022
+  7.0       +0.0117      +0.9996       0.012
+  8.0       +0.0062      +0.9995       0.006
+  9.0       +0.0033      +0.9995       0.003
+  10.0       +0.0017      +1.0000       0.002
+
+After 10 periods:
+  Damped amplitude: 0.0017 m
+  Undamped amplitude: 1.0000 m
+  Expected decay ratio: 0.0019
+  Actual decay ratio: 0.0017
+
+Example validated successfully!

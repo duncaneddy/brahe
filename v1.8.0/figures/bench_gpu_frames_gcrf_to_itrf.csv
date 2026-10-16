@@ -1,0 +1,7 @@
+batch_size,brahe-rust-rayon (ops/s),astrojax-cpu (ops/s),astrojax-gpu (ops/s),astrojax-multigpu (ops/s)
+1,187K,6.06K,1.92K,skipped:below_multigpu_min_batch
+100,599K,69.7K,177K,skipped:below_multigpu_min_batch
+1K,1.75M,124K,1.69M,skipped:below_multigpu_min_batch
+10K,2.53M,160K,13.9M,skipped:below_multigpu_min_batch
+100K,2.53M,219K,42.6M,41.0M
+1M,2.39M,270K,29.2M,29.3M

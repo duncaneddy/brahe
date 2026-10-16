@@ -1,0 +1,9 @@
+task,astrojax-cpu_peak_speedup,astrojax-gpu_peak_speedup,astrojax-multigpu_peak_speedup
+coordinates.enz_to_azel,22.38x,22.25x,27.51x
+coordinates.geodetic_to_ecef,18.75x,20.21x,15.65x
+coordinates.keplerian_to_cartesian,1.98x,19.58x,29.85x
+force_model.grav_5x5,0.10x,6.47x,9.21x
+frames.gcrf_to_itrf,0.12x,16.86x,16.22x
+propagation.numerical_twobody_j2,0.49x,4.86x,5.04x
+propagation.sgp4_iss_sweep,5.47x,948.76x,1206.41x
+time.utc_mjd_to_tt_mjd,6.68x,19.14x,35.63x

@@ -1,0 +1,5 @@
+Loaded 21 SSN sites, 16 calibrated sensors
+Simulated 337 measurements over 10 passes
+Final position error: 7.6 m
+Final position 1-sigma: [7.9, 4.9, 6.9] m
+Example validated successfully!

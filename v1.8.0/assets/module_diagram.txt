@@ -1,0 +1,99 @@
+
+
+
+
+
+
+
+
+
+                                               ┌────────────────────────────────────────────────────────────────┐
+                                               │                                                                │
+                                               │                      FOUNDATIONAL MODULES                      │
+                                               │                                                                │
+                                               └────────────────────────────────────────────────────────────────┘
+                                                       ┌────────────────────────────────────────────────┐
+                                                       │                Utilities & Traits              │
+                                                       │                                                │
+                                                       │  - Common Traits                               │
+                                                       │  - Common Package Errors                       │
+                                                       │  - Thread, Cache Management                    │
+                                                       │  - Package testing utilities                   │
+                                                       │  - Mathematics utilities                       │
+                                                       │  - Data handling & transformations utilities   │
+                                                       │                                                │
+                                                       └────────────────────────────────────────────────┘
+
+
+                                           ┌─────────────┐   ┌───────────────────────┐   ┌─────────────────────────┐
+                                           │             │   │                       │   │                         │
+                                           │  Constants  │   │         Time          │   │           EOP           │
+                                           │             │   │                       │   │                         │
+                                           │ - Math      │   │ - Epoch               │   │ - EOP Providers         │
+                                           │ - Time      │   │ - TimeRange           │   │ - EOP Access traits     │
+                                           │ - Physicial │   │ - TimeSystems         │   │ - Global EOP management │
+                                           └─────────────┘   │ - Time transformation │   │                         │
+                                                             │   functions           │   └─────────────────────────┘
+                                                             └───────────────────────┘
+
+                                               ┌────────────────────────────────────────────────────────────────┐
+                                               │                        ORBIT & ATTITUDE                        │
+                                               │        REPRESENTATIONS, TRANSFORMATIONS, AND PROPERTIES        │
+                                               │                                                                │
+                                               └────────────────────────────────────────────────────────────────┘
+
+                      ┌───────────────────────────┐   ┌────────────────────────────────┐   ┌───────────────────────┐   ┌─────────────────┐
+                      │                           │   │                                │   │                       │   │                 │
+                      │        COORDINATES        │   │             Frames             │   │         Orbits        │   │     Attitude    │
+                      │                           │   │                                │   │                       │   │                 │
+                      │ - Cartesian <> Osculating │   │ - State: ECI <> ECEF           │   │ - Functions of        │   │- RotationMatrix │
+                      │ - Geocentric              │   │ - Rotation Matrix: ECI <> ECEF │   │ Keplerian Elements    │   │- Quaternion     │
+                      │ - Geodetic                │   │ - Precession/Nutation Model    │   │ - Special orbits      │   │- EulerAngle     │
+                      │ - Topocentric             │   │ - Earth Rotation Model         │   │ (e.g. Sun-sync)       │   │- EulerAxis      │
+                      │                           │   │ - Polar Motion Model           │   │ - Two-Line Elements   │   │                 │
+                      └───────────────────────────┘   │                                │   │                       │   └─────────────────┘
+                                                      └────────────────────────────────┘   └───────────────────────┘
+
+                                               ┌────────────────────────────────────────────────────────────────┐
+                                               │                                                                │
+                                               │                  STATE PROPAGATION & HANDLING                  │
+                                               │                                                                │
+                                               └────────────────────────────────────────────────────────────────┘
+
+
+                      ┌────────────────────┐   ┌───────────────────────────────┐   ┌───────────────────────┐   ┌────────────────────────┐
+                      │                    │   │                               │   │                       │   │                        │
+                      │    Trajectories    │   │         Orbit Dynamics        │   │       Numerical       │   │      Propagators       │
+                      │                    │   │         (Force Models)        │   │      Integration      │   │                        │
+                      │                    │   │                               │   │                       │   │ - Keplerian Propagator │
+                      │ - Trajectory Trait │   │ - Point-Mass Gravity          │   │ - Runge-Kutta Methods │   │ - SGP Propagator       │
+                      │ - DTrajectory      │   │ - Spherical Harmonic Gravity  │   │                       │   │                        │
+                      │ - STrajectory      │   │ - Third-Body Gravity          │   │                       │   └────────────────────────┘
+                      │ - OrbitTrajectory  │   │ - Planetary Ephemerides       │   │                       │
+                      │                    │   │ - Drag                        │   └───────────────────────┘
+                      └────────────────────┘   │ - Atmospheric Density Models  │
+                                               │ - Solar Radiation Pressure    │
+                                               │ - Eclipse Models              │
+                                               │                               │
+                                               └───────────────────────────────┘
+
+
+                                               ┌────────────────────────────────────────────────────────────────┐
+                                               │                                                                │
+                                               │                          APPLICATIONS                          │
+                                               │                                                                │
+                                               └────────────────────────────────────────────────────────────────┘
+
+
+                                         ┌───────────────────┐   ┌───────────────────────┐   ┌───────────────────────┐
+                                         │                   │   │                       │   │                       │
+                                         │      Datasets     │   │         Access        │   │        PLOTTING       │
+                                         │                   │   │      Computation      │   │                       │
+                                         │ - Ground Stations │   │                       │   │ - Ground Tracks       │
+                                         │ - Celestrak       │   │ - Location Models     │   │ - State Vectors       │
+                                         │                   │   │ (GeoJSON)             │   │ - Orbital Elements    │
+                                         │                   │   │ - Access Constraints  │   │ - Access Geometry     │
+                                         │                   │   │ - Access Properties   │   │                       │
+                                         └───────────────────┘   │ - Access Computation  │   └───────────────────────┘
+                                                                 │                       │
+                                                                 └───────────────────────┘

@@ -1,0 +1,20 @@
+Periapsis radius: 3651.2 km (altitude: 255 km)
+Apoapsis radius:  3716.2 km (altitude: 320 km)
+Semi-major axis: 3683.7 km, eccentricity: 0.0088
+Mars spin pole (ICRF): [ 0.4462 -0.4062  0.7974]
+RAAN for 15:00 LTAN: 114.27 deg (Sun RA 69.27 deg)
+
+Propagating 2 days...
+  Complete!
+
+Min periapsis altitude: 229.95 km
+Mean inclination (rel. Mars pole): 92.5712 deg (target: 92.6 deg)
+
+Example validated successfully!
+
+✓ Generated docs/figures/mro_mars_orbit_elements_light.html
+✓ Generated docs/figures/mro_mars_orbit_elements_dark.html
+✓ Generated docs/figures/mro_mars_orbit_3d_light.html
+✓ Generated docs/figures/mro_mars_orbit_3d_dark.html
+
+MRO Mars Orbit Example Complete!

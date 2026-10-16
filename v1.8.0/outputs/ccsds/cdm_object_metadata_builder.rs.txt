@@ -1,0 +1,4 @@
+Object: SATELLITE A
+Designator: 12345
+Comments: ["Generated for conjunction screening"]
+Example validated successfully!

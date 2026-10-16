@@ -1,0 +1,10 @@
+Epoch: 2008-09-20 12:35:40.104 UTC
+TEME state vector:
+  Position: [4550084.410, 3253042.848, 3728355.240] m
+  Velocity: [-1021.319331, 6334.629918, -4267.256174] m/s
+
+ITRF state vector:
+  Position: [-4989209.285, -2528501.268, 3728358.989] m
+  Velocity: [-131.542881, -6052.392221, -4267.263413] m/s
+
+Inertial speed: 7705.849 m/s, Earth-fixed speed: 7406.638 m/s

@@ -1,0 +1,4 @@
+Downlink only: DopplerComputer(uplink_frequency=None, downlink_frequency=Some(8400000000.0))
+Both frequencies: DopplerComputer(uplink_frequency=Some(2000000000.0), downlink_frequency=Some(8400000000.0))
+
+First pass downlink Doppler shift range: -178593.2 to 178818.8 Hz

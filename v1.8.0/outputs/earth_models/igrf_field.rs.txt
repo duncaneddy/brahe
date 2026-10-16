@@ -1,0 +1,9 @@
+IGRF-14 magnetic field at (lon=0, lat=60, alt=400 km)
+  B_east:        -76.4 nT
+  B_north:     13099.9 nT
+  B_zenith:   -41136.7 nT
+
+  Horizontal intensity:    13100.1 nT
+  Total intensity:        43172.2 nT
+  Inclination:              72.34 deg
+  Declination:              -0.33 deg

@@ -1,0 +1,19 @@
+Object: GOES 9 (1995-025A)
+Theory: SGP/SGP4
+Epoch:  2007-03-05 10:34:41.426 UTC
+
+SGP Propagator created:
+  NORAD ID: 23581
+  Name:     GOES 9
+  Epoch:    2007-03-05 10:34:41.426 UTC
+
+State after 1 day (2007-03-06 10:34:41.426 UTC):
+  Position: [-22455.711, 35678.856, 1446.264] km
+  Velocity: [-2597.006, -1638.752, 125.747] m/s
+
+State every 6 hours:
+  + 0h: r=42181.9 km
+  + 6h: r=42174.0 km
+  +12h: r=42145.6 km
+  +18h: r=42153.8 km
+  +24h: r=42182.1 km

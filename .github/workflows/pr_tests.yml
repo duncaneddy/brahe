@@ -124,8 +124,8 @@ jobs:
         with:
           enable-cache: true
 
-      - name: Install Python 3.14
-        run: uv python install 3.14
+      - name: Install Python 3.15
+        run: uv python install 3.15
 
       - name: Install just
         uses: extractions/setup-just@v4
@@ -166,8 +166,8 @@ jobs:
         with:
           enable-cache: true
 
-      - name: Install Python 3.14
-        run: uv python install 3.14
+      - name: Install Python 3.15
+        run: uv python install 3.15
 
       - name: Install just
         uses: extractions/setup-just@v4
@@ -210,8 +210,8 @@ jobs:
         with:
           enable-cache: true
 
-      - name: Install Python 3.14
-        run: uv python install 3.14
+      - name: Install Python 3.15
+        run: uv python install 3.15
 
       - name: Install dependencies
         run: uv sync --group docs --all-extras --frozen --no-install-project

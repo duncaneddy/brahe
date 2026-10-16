@@ -89,7 +89,14 @@ jobs:
   prepare-release-notes:
     runs-on: ubuntu-latest
     timeout-minutes: 60
-    needs: [validate-version, test-rust, test-python, test-examples, integration-tests]
+    needs:
+      [
+        validate-version,
+        test-rust,
+        test-python,
+        test-examples,
+        integration-tests,
+      ]
     steps:
       - name: Checkout code
         uses: actions/checkout@v7.0.1
@@ -119,51 +126,51 @@ jobs:
       RUST_TOOLCHAIN: stable
       PYTHON_VERSION: 3.12
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v7.0.1
+      - name: Checkout code
+        uses: actions/checkout@v7.0.1
 
-    # No cargo cache in the release build jobs: they run on tag refs, and a
-    # cache saved under a tag is restorable only by later runs of that same
-    # tag while still counting against the repository's cache budget.
-    - name: Set up Rust
-      uses: actions-rust-lang/setup-rust-toolchain@v2.0.0
-      with:
-        toolchain: ${{ env.RUST_TOOLCHAIN }}
-        cache: false
+      # No cargo cache in the release build jobs: they run on tag refs, and a
+      # cache saved under a tag is restorable only by later runs of that same
+      # tag while still counting against the repository's cache budget.
+      - name: Set up Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v2.0.0
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          cache: false
 
-    - name: Set default Rust toolchain
-      run: |
-        rustup update ${{ env.RUST_TOOLCHAIN }}
-        rustup default ${{ env.RUST_TOOLCHAIN }}
+      - name: Set default Rust toolchain
+        run: |
+          rustup update ${{ env.RUST_TOOLCHAIN }}
+          rustup default ${{ env.RUST_TOOLCHAIN }}
 
-    - name: Install the latest version of uv
-      uses: astral-sh/setup-uv@v10.3.0
-      with:
-        enable-cache: true
+      - name: Install the latest version of uv
+        uses: astral-sh/setup-uv@v10.3.0
+        with:
+          enable-cache: true
 
-    - name: Install Python
-      run: uv python install ${{ env.PYTHON_VERSION }}
+      - name: Install Python
+        run: uv python install ${{ env.PYTHON_VERSION }}
 
-    - name: Create virtual environment
-      run: uv venv -p ${{ env.PYTHON_VERSION }}
+      - name: Create virtual environment
+        run: uv venv -p ${{ env.PYTHON_VERSION }}
 
-    - name: Install package and dependencies
-      run: |
-        # Dependencies only; the line below installs the project. Letting uv
-        # sync build it costs a full cold compile under PEP 517 isolation that
-        # this then discards. `generate_stubs.sh` calls `.venv/bin/...`
-        # directly rather than through `uv run`, so no sync setting is needed.
-        uv sync --group dev --no-install-project
-        uv pip install -e .
+      - name: Install package and dependencies
+        run: |
+          # Dependencies only; the line below installs the project. Letting uv
+          # sync build it costs a full cold compile under PEP 517 isolation that
+          # this then discards. `generate_stubs.sh` calls `.venv/bin/...`
+          # directly rather than through `uv run`, so no sync setting is needed.
+          uv sync --group dev --no-install-project
+          uv pip install -e .
 
-    - name: Generate stubs
-      run: ./scripts/generate_stubs.sh
+      - name: Generate stubs
+        run: ./scripts/generate_stubs.sh
 
-    - name: Upload stubs artifact
-      uses: actions/upload-artifact@v7
-      with:
-        name: type-stubs
-        path: brahe/_brahe.pyi
+      - name: Upload stubs artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: type-stubs
+          path: brahe/_brahe.pyi
 
   python-build-source:
     needs: [prepare-release-notes, generate-stubs]
@@ -172,55 +179,55 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        python-version: ['3.12']
+        python-version: ["3.12"]
         rust-toolchain: [stable]
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v7.0.1
+      - name: Checkout code
+        uses: actions/checkout@v7.0.1
 
-    - name: Download type stubs
-      uses: actions/download-artifact@v8
-      with:
-        name: type-stubs
-        path: brahe/
+      - name: Download type stubs
+        uses: actions/download-artifact@v8
+        with:
+          name: type-stubs
+          path: brahe/
 
-    - name: Set up Rust
-      uses: actions-rust-lang/setup-rust-toolchain@v2.0.0
-      with:
-        toolchain: ${{ matrix.rust-toolchain }}
-        cache: false
+      - name: Set up Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v2.0.0
+        with:
+          toolchain: ${{ matrix.rust-toolchain }}
+          cache: false
 
-    - name: Set default Rust toolchain
-      run: |
-        rustup update ${{ matrix.rust-toolchain }}
-        rustup default ${{ matrix.rust-toolchain }}
+      - name: Set default Rust toolchain
+        run: |
+          rustup update ${{ matrix.rust-toolchain }}
+          rustup default ${{ matrix.rust-toolchain }}
 
-    - name: Install the latest version of uv
-      uses: astral-sh/setup-uv@v10.3.0
-      with:
-        enable-cache: true
+      - name: Install the latest version of uv
+        uses: astral-sh/setup-uv@v10.3.0
+        with:
+          enable-cache: true
 
-    - name: Install Python ${{ matrix.python-version }}
-      run: uv python install ${{ matrix.python-version }}
+      - name: Install Python ${{ matrix.python-version }}
+        run: uv python install ${{ matrix.python-version }}
 
-    - name: Create virtual environment
-      run: uv venv -p ${{ matrix.python-version }}
+      - name: Create virtual environment
+        run: uv venv -p ${{ matrix.python-version }}
 
-    - name: Activate virtual environment
-      run: source .venv/bin/activate
+      - name: Activate virtual environment
+        run: source .venv/bin/activate
 
-    - name: Install build
-      run: uv pip install -U build
+      - name: Install build
+        run: uv pip install -U build
 
-    - name: Build source distribution
-      run: uv run python -m build --sdist
+      - name: Build source distribution
+        run: uv run python -m build --sdist
 
-    - name: Upload artifact
-      uses: actions/upload-artifact@v7
-      with:
-        path: dist/*.tar.gz
-        name: brahe-${{ github.ref_name }}-${{ runner.os }}-source
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7
+        with:
+          path: dist/*.tar.gz
+          name: brahe-${{ github.ref_name }}-${{ runner.os }}-source
 
   python-build-wheels:
     needs: [prepare-release-notes, generate-stubs]
@@ -228,51 +235,51 @@ jobs:
     timeout-minutes: 60
     strategy:
       matrix:
-          os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest, windows-latest]
-          python-version: ['3.10', '3.11', '3.12', '3.13', '3.14']
-          rust-toolchain: [stable]
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest, windows-latest]
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14", "3.15"]
+        rust-toolchain: [stable]
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v7.0.1
+      - name: Checkout code
+        uses: actions/checkout@v7.0.1
 
-    - name: Download type stubs
-      uses: actions/download-artifact@v8
-      with:
-        name: type-stubs
-        path: brahe/
+      - name: Download type stubs
+        uses: actions/download-artifact@v8
+        with:
+          name: type-stubs
+          path: brahe/
 
-    - name: Set up Rust
-      uses: actions-rust-lang/setup-rust-toolchain@v2.0.0
-      with:
-        toolchain: ${{ matrix.rust-toolchain }}
-        cache: false
+      - name: Set up Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v2.0.0
+        with:
+          toolchain: ${{ matrix.rust-toolchain }}
+          cache: false
 
-    - name: Set default Rust toolchain
-      run: |
-        rustup update ${{ matrix.rust-toolchain }}
-        rustup default ${{ matrix.rust-toolchain }}
+      - name: Set default Rust toolchain
+        run: |
+          rustup update ${{ matrix.rust-toolchain }}
+          rustup default ${{ matrix.rust-toolchain }}
 
-    - name: Install the latest version of uv
-      uses: astral-sh/setup-uv@v10.3.0
-      with:
-        enable-cache: true
+      - name: Install the latest version of uv
+        uses: astral-sh/setup-uv@v10.3.0
+        with:
+          enable-cache: true
 
-    - name: Install Python ${{ matrix.python-version }}
-      run: uv python install ${{ matrix.python-version }}
+      - name: Install Python ${{ matrix.python-version }}
+        run: uv python install ${{ matrix.python-version }}
 
-    - name: Build wheel with maturin
-      uses: PyO3/maturin-action@v1
-      with:
-        command: build
-        rust-toolchain: ${{ matrix.rust-toolchain }}
-        args: --release -i python${{ matrix.python-version }}
+      - name: Build wheel with maturin
+        uses: PyO3/maturin-action@v1
+        with:
+          command: build
+          rust-toolchain: ${{ matrix.rust-toolchain }}
+          args: --release -i python${{ matrix.python-version }}
 
-    - name: Upload artifact
-      uses: actions/upload-artifact@v7
-      with:
-        path: target/wheels/*.whl
-        name: brahe-${{ github.ref_name }}-python${{ matrix.python-version }}-${{ matrix.os }}-wheel
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7
+        with:
+          path: target/wheels/*.whl
+          name: brahe-${{ github.ref_name }}-python${{ matrix.python-version }}-${{ matrix.os }}-wheel
 
   release-python:
     needs: [python-build-source, python-build-wheels]
@@ -283,18 +290,18 @@ jobs:
       id-token: write
 
     steps:
-    # Download all artifacts to dist folder
-    - name: Download artifacts
-      uses: actions/download-artifact@v8
+      # Download all artifacts to dist folder
+      - name: Download artifacts
+        uses: actions/download-artifact@v8
 
-    - name: Copy artifacts to dist folder
-      run: |
-        mkdir dist
-        cp -r ${{ github.workspace }}/*-source/* dist/
-        cp -r ${{ github.workspace }}/*-wheel/* dist/
+      - name: Copy artifacts to dist folder
+        run: |
+          mkdir dist
+          cp -r ${{ github.workspace }}/*-source/* dist/
+          cp -r ${{ github.workspace }}/*-wheel/* dist/
 
-    - name: Upload package to PyPI
-      uses: pypa/gh-action-pypi-publish@release/v1
+      - name: Upload package to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
 
   release-rust:
     runs-on: ubuntu-latest

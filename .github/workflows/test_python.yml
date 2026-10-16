@@ -1,145 +1,143 @@
 name: Test Python
 on:
-    workflow_call:
-        inputs:
-            python-versions:
-                description: 'JSON array of Python versions to test'
-                required: false
-                type: string
-                default: '["3.10", "3.11", "3.12", "3.13", "3.14"]'
-            coverage-python-version:
-                description: 'Python version used for the coverage-instrumented build'
-                required: false
-                type: string
-                default: '3.13'
-            network_mode:
-                description: "BRAHE_NETWORK_MODE for the test steps."
-                type: string
-                default: "offline"
+  workflow_call:
+    inputs:
+      python-versions:
+        description: "JSON array of Python versions to test"
+        required: false
+        type: string
+        default: '["3.10", "3.11", "3.12", "3.13", "3.14", "3.15"]'
+      coverage-python-version:
+        description: "Python version used for the coverage-instrumented build"
+        required: false
+        type: string
+        default: "3.13"
+      network_mode:
+        description: "BRAHE_NETWORK_MODE for the test steps."
+        type: string
+        default: "offline"
 jobs:
-    test-python:
-        runs-on: ${{ matrix.os }}
-        timeout-minutes: 60
-        permissions:
-            id-token: write
+  test-python:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    permissions:
+      id-token: write
+    env:
+      BRAHE_NETWORK_MODE: ${{ inputs.network_mode }}
+      # The project is installed by the explicit build steps below, not by
+      # `uv sync`. Without this, `uv run` would notice it missing and
+      # rebuild it, relocating the cost rather than removing it — and on
+      # the coverage leg it could replace the instrumented build.
+      UV_NO_SYNC: "1"
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python-version: ${{ fromJSON(inputs.python-versions) }}
+        rust-toolchain: [stable]
+    steps:
+      # Checkout precedes the toolchain step: rust-cache reads Cargo.lock
+      # and the workspace layout when it derives its key, so with nothing
+      # checked out it would key on an empty lockfile and cache no target
+      # directory at all.
+      - uses: actions/checkout@v7.0.1
+      # Cargo cache scheme: restore-only against test_rust.yml's per-OS
+      # cache, which every python-version leg on an OS shares. The
+      # coverage leg reuses its instrumented dependency build and the
+      # macOS and Windows legs its plain one, recompiling only the
+      # crates whose features differ; the remaining ubuntu legs reuse
+      # the registry. The job saves nothing: a saved entry per OS here
+      # would duplicate that cache and push the repository past its
+      # cache budget.
+      - name: Set up Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v2.0.0
+        with:
+          toolchain: ${{ matrix.rust-toolchain }}
+          cache-shared-key: test-rust
+          cache-save-if: false
+      - name: Set default Rust toolchain
+        run: |
+          rustup update ${{ matrix.rust-toolchain }}
+          rustup default ${{ matrix.rust-toolchain }}
+      # Every SPICE kernel the unit suites auto-load is a committed test
+      # asset, so the suites run offline straight from a clone with no
+      # download step and no cache to warm. tests/test_frames.py loads
+      # mar099s directly, and BRAHE_NETWORK_MODE is offline, so a missing
+      # kernel is a test failure rather than a slow path.
+      - name: Seed the SPICE test kernels
+        shell: bash
+        run: |
+          mkdir -p ~/.cache/brahe/naif
+          cp test_assets/de440s.bsp ~/.cache/brahe/naif/
+          cp test_assets/mar099s.bsp ~/.cache/brahe/naif/
+          cp test_assets/moon_pa_de440_200625.bpc ~/.cache/brahe/naif/
+      - name: Install the latest version of uv
+        uses: astral-sh/setup-uv@v10.3.0
+        with:
+          enable-cache: true
+      - name: Install Python ${{ matrix.python-version }}
+        run: uv python install ${{ matrix.python-version }}
+
+      # Dependencies only. uv builds the project under PEP 517 isolation, in
+      # a temporary target directory it cannot share with the restored
+      # cargo cache, so letting it do so costs a full cold compile — about
+      # seven minutes — which the build step below then discards and
+      # redoes warm in about two. The 140 third-party packages install
+      # from the uv cache in well under a second either way.
+      - name: Install dependencies
+        run: uv sync --group test --all-extras --frozen --no-install-project --python ${{ matrix.python-version }}
+
+      # ── Coverage-instrumented build (ubuntu + coverage-python-version only) ──
+
+      - name: Install cargo-llvm-cov
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == inputs.coverage-python-version
+        uses: taiki-e/install-action@cargo-llvm-cov
+
+      - name: Build extension (coverage)
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == inputs.coverage-python-version
+        run: |
+          cargo llvm-cov clean --workspace
+          eval "$(cargo llvm-cov show-env --export-prefix)"
+          uv pip install maturin --quiet
+          uv run maturin develop --uv --features pyo3/extension-module
+
+      - name: Test with coverage
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == inputs.coverage-python-version
+        run: |
+          eval "$(cargo llvm-cov show-env --export-prefix)"
+          uv run --frozen pytest tests/ -n auto --dist loadscope \
+              --cov=brahe \
+              --cov-report=xml:python-coverage.xml \
+              --cov-report=term
+          cargo llvm-cov report --lcov --output-path python-rust-coverage.lcov
+
+      - name: Build extension (standard)
+        if: matrix.os != 'ubuntu-latest' || matrix.python-version != inputs.coverage-python-version
+        run: uv pip install -e .
+
+      - name: Test with python ${{ matrix.python-version }}
+        if: matrix.os != 'ubuntu-latest' || matrix.python-version != inputs.coverage-python-version
+        run: uv run --frozen pytest tests/ -n auto --dist loadscope
+
+      - name: Upload Python coverage to Codecov
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == inputs.coverage-python-version
+        uses: codecov/codecov-action@v7.1.1
         env:
-            BRAHE_NETWORK_MODE: ${{ inputs.network_mode }}
-            # The project is installed by the explicit build steps below, not by
-            # `uv sync`. Without this, `uv run` would notice it missing and
-            # rebuild it, relocating the cost rather than removing it — and on
-            # the coverage leg it could replace the instrumented build.
-            UV_NO_SYNC: "1"
-        strategy:
-            matrix:
-                os: [ubuntu-latest, macos-latest, windows-latest]
-                python-version: ${{ fromJSON(inputs.python-versions) }}
-                rust-toolchain: [stable]
-        steps:
-            # Checkout precedes the toolchain step: rust-cache reads Cargo.lock
-            # and the workspace layout when it derives its key, so with nothing
-            # checked out it would key on an empty lockfile and cache no target
-            # directory at all.
-            -   uses: actions/checkout@v7.0.1
-            # Cargo cache scheme: restore-only against test_rust.yml's per-OS
-            # cache, which every python-version leg on an OS shares. The
-            # coverage leg reuses its instrumented dependency build and the
-            # macOS and Windows legs its plain one, recompiling only the
-            # crates whose features differ; the remaining ubuntu legs reuse
-            # the registry. The job saves nothing: a saved entry per OS here
-            # would duplicate that cache and push the repository past its
-            # cache budget.
-            -   name: Set up Rust toolchain
-                uses: actions-rust-lang/setup-rust-toolchain@v2.0.0
-                with:
-                    toolchain: ${{ matrix.rust-toolchain }}
-                    cache-shared-key: test-rust
-                    cache-save-if: false
-            -   name: Set default Rust toolchain
-                run: |
-                    rustup update ${{ matrix.rust-toolchain }}
-                    rustup default ${{ matrix.rust-toolchain }}
-            # Every SPICE kernel the unit suites auto-load is a committed test
-            # asset, so the suites run offline straight from a clone with no
-            # download step and no cache to warm. tests/test_frames.py loads
-            # mar099s directly, and BRAHE_NETWORK_MODE is offline, so a missing
-            # kernel is a test failure rather than a slow path.
-            -   name: Seed the SPICE test kernels
-                shell: bash
-                run: |
-                    mkdir -p ~/.cache/brahe/naif
-                    cp test_assets/de440s.bsp ~/.cache/brahe/naif/
-                    cp test_assets/mar099s.bsp ~/.cache/brahe/naif/
-                    cp test_assets/moon_pa_de440_200625.bpc ~/.cache/brahe/naif/
-            -   name: Install the latest version of uv
-                uses: astral-sh/setup-uv@v10.3.0
-                with:
-                    enable-cache: true
-            -   name: Install Python ${{ matrix.python-version }}
-                run: uv python install ${{ matrix.python-version }}
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+        with:
+          files: python-coverage.xml
+          flags: python
+          fail_ci_if_error: false
+          verbose: true
+          use_oidc: true
 
-            # Dependencies only. uv builds the project under PEP 517 isolation, in
-            # a temporary target directory it cannot share with the restored
-            # cargo cache, so letting it do so costs a full cold compile — about
-            # seven minutes — which the build step below then discards and
-            # redoes warm in about two. The 140 third-party packages install
-            # from the uv cache in well under a second either way.
-            -   name: Install dependencies
-                run: uv sync --group test --all-extras --frozen --no-install-project --python ${{ matrix.python-version }}
-
-            # ── Coverage-instrumented build (ubuntu + coverage-python-version only) ──
-
-            -   name: Install cargo-llvm-cov
-                if: matrix.os == 'ubuntu-latest' && matrix.python-version == inputs.coverage-python-version
-                uses: taiki-e/install-action@cargo-llvm-cov
-
-            -   name: Build extension (coverage)
-                if: matrix.os == 'ubuntu-latest' && matrix.python-version == inputs.coverage-python-version
-                run: |
-                    cargo llvm-cov clean --workspace
-                    eval "$(cargo llvm-cov show-env --export-prefix)"
-                    uv pip install maturin --quiet
-                    uv run maturin develop --uv --features pyo3/extension-module
-
-
-            -   name: Test with coverage
-                if: matrix.os == 'ubuntu-latest' && matrix.python-version == inputs.coverage-python-version
-                run: |
-                    eval "$(cargo llvm-cov show-env --export-prefix)"
-                    uv run --frozen pytest tests/ -n auto --dist loadscope \
-                        --cov=brahe \
-                        --cov-report=xml:python-coverage.xml \
-                        --cov-report=term
-                    cargo llvm-cov report --lcov --output-path python-rust-coverage.lcov
-
-            -   name: Build extension (standard)
-                if: matrix.os != 'ubuntu-latest' || matrix.python-version != inputs.coverage-python-version
-                run: uv pip install -e .
-
-
-            -   name: Test with python ${{ matrix.python-version }}
-                if: matrix.os != 'ubuntu-latest' || matrix.python-version != inputs.coverage-python-version
-                run: uv run --frozen pytest tests/ -n auto --dist loadscope
-
-            -   name: Upload Python coverage to Codecov
-                if: matrix.os == 'ubuntu-latest' && matrix.python-version == inputs.coverage-python-version
-                uses: codecov/codecov-action@v7.1.1
-                env:
-                    CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-                with:
-                    files: python-coverage.xml
-                    flags: python
-                    fail_ci_if_error: false
-                    verbose: true
-                    use_oidc: true
-
-            -   name: Upload Python-Rust coverage to Codecov
-                if: matrix.os == 'ubuntu-latest' && matrix.python-version == inputs.coverage-python-version
-                uses: codecov/codecov-action@v7.1.1
-                env:
-                    CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-                with:
-                    files: python-rust-coverage.lcov
-                    flags: python-rust
-                    fail_ci_if_error: false
-                    verbose: true
-                    use_oidc: true
+      - name: Upload Python-Rust coverage to Codecov
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == inputs.coverage-python-version
+        uses: codecov/codecov-action@v7.1.1
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+        with:
+          files: python-rust-coverage.lcov
+          flags: python-rust
+          fail_ci_if_error: false
+          verbose: true
+          use_oidc: true

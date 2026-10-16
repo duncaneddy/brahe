@@ -8,6 +8,9 @@ concurrency:
   group: pr-tests-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
+env:
+  PYTHON_VERSION: "3.14"
+
 jobs:
   # Decide whether this PR touches only files that cannot affect the build.
   # The filter lives here rather than in a workflow-level `paths-ignore` because
@@ -124,8 +127,8 @@ jobs:
         with:
           enable-cache: true
 
-      - name: Install Python 3.15
-        run: uv python install 3.15
+      - name: Install Python ${{ env.PYTHON_VERSION }}
+        run: uv python install ${{ env.PYTHON_VERSION }}
 
       - name: Install just
         uses: extractions/setup-just@v4
@@ -166,8 +169,8 @@ jobs:
         with:
           enable-cache: true
 
-      - name: Install Python 3.15
-        run: uv python install 3.15
+      - name: Install Python ${{ env.PYTHON_VERSION }}
+        run: uv python install ${{ env.PYTHON_VERSION }}
 
       - name: Install just
         uses: extractions/setup-just@v4
@@ -210,8 +213,8 @@ jobs:
         with:
           enable-cache: true
 
-      - name: Install Python 3.15
-        run: uv python install 3.15
+      - name: Install Python ${{ env.PYTHON_VERSION }}
+        run: uv python install ${{ env.PYTHON_VERSION }}
 
       - name: Install dependencies
         run: uv sync --group docs --all-extras --frozen --no-install-project

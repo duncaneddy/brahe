@@ -16,6 +16,9 @@ on:
         - cron: "0 6 * * 1"
     workflow_dispatch:
 
+env:
+    PYTHON_VERSION: "3.14"
+
 jobs:
     warm-cache:
         runs-on: ubuntu-latest
@@ -42,8 +45,8 @@ jobs:
                 with:
                     enable-cache: true
 
-            -   name: Install Python 3.15
-                run: uv python install 3.15
+            -   name: Install Python ${{ env.PYTHON_VERSION }}
+                run: uv python install ${{ env.PYTHON_VERSION }}
 
             -   name: Install dependencies
                 run: uv sync --all-extras --frozen --no-install-project

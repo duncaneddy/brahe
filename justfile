@@ -396,7 +396,7 @@ bench-compare-publish *args: _setup
 # when already cached.
 setup:
     @which uv > /dev/null 2>&1 || { echo "Error: uv is not installed. Install from https://docs.astral.sh/uv/"; exit 1; }
-    uv venv --python 3.15 --allow-existing
+    uv venv --python 3.14 --allow-existing
     uv sync --group dev
     uv pip install -e . --quiet
     .venv/bin/pre-commit install

@@ -11,6 +11,9 @@ concurrency:
   group: gh-pages-deploy
   cancel-in-progress: false
 
+env:
+  PYTHON_VERSION: "3.12"
+
 jobs:
   # Only run if the Unit Tests workflow succeeded
   check-success:
@@ -28,7 +31,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest, windows-latest]
-        python-version: ['3.10', '3.11', '3.12', '3.13', '3.14', '3.15']
+        python-version: ['3.10', '3.11', '3.12', '3.13', '3.14']
         rust-toolchain: [stable]
 
     steps:
@@ -101,11 +104,11 @@ jobs:
         with:
           enable-cache: true
 
-      - name: Install Python 3.12
-        run: uv python install 3.12
+      - name: Install Python ${{ env.PYTHON_VERSION }}
+        run: uv python install ${{ env.PYTHON_VERSION }}
 
       - name: Create virtual environment
-        run: uv venv -p 3.12
+        run: uv venv -p ${{ env.PYTHON_VERSION }}
 
       - name: Activate virtual environment
         run: source .venv/bin/activate
@@ -236,8 +239,8 @@ jobs:
         with:
           enable-cache: true
 
-      - name: Install Python 3.12
-        run: uv python install 3.12
+      - name: Install Python ${{ env.PYTHON_VERSION }}
+        run: uv python install ${{ env.PYTHON_VERSION }}
 
       - name: Generate simple index
         env:

@@ -193,9 +193,9 @@ impl ReferenceFrame {
     /// frame (rotating variant).
     ///
     /// Among the orbit-relative kinds only `RTN`, `LVLH`, `NTW`, `TNW`,
-    /// `VNC`, `PQW`, and `EQW` have axes derivations today, so this frame is
-    /// constructible but every transform through it errors until issue
-    /// #452 adds the remaining derivations.
+    /// `VNC`, `PQW`, `EQW`, and `NSW` have axes derivations today, so this
+    /// frame is constructible but every transform through it errors until
+    /// issue #452 adds the remaining derivation.
     ///
     /// # Arguments
     /// * `object` - The object the frame is defined relative to
@@ -252,10 +252,10 @@ impl ReferenceFrame {
     /// Constructs a bound Nadir/Sun/Normal orbit-relative frame (rotating
     /// variant).
     ///
-    /// Among the orbit-relative kinds only `RTN`, `LVLH`, `NTW`, `TNW`,
-    /// `VNC`, `PQW`, and `EQW` have axes derivations today, so this frame is
-    /// constructible but every transform through it errors until issue
-    /// #452 adds the remaining derivations.
+    /// Axes: X toward nadir, Y as close to the Sun as possible while normal
+    /// to X, Z = X × Y (see
+    /// [`crate::relative_motion::rotation_nsw_to_eci`]). The Sun state
+    /// comes from the global [`crate::frames::FrameEphemerisSource`].
     ///
     /// # Arguments
     /// * `object` - The object the frame is defined relative to
@@ -364,9 +364,9 @@ impl ReferenceFrame {
     /// a CCSDS file) and an optional, not-yet-bound object.
     ///
     /// Among the orbit-relative kinds only `RTN`, `LVLH`, `NTW`, `TNW`,
-    /// `VNC`, `PQW`, and `EQW` have axes derivations today; the others construct
-    /// successfully but every transform through them errors until issue
-    /// #452 adds the remaining derivations.
+    /// `VNC`, `PQW`, `EQW`, and `NSW` have axes derivations today; the
+    /// others construct successfully but every transform through them
+    /// errors until issue #452 adds the remaining derivation.
     ///
     /// # Arguments
     /// * `kind` - The frame construction (axes definition)
@@ -792,8 +792,8 @@ impl ReferenceFrame {
     /// frame with a bound object. `true` is necessary but not sufficient
     /// for the frame to actually resolve. An orbit-relative frame also needs
     /// an axes derivation for its `kind` (currently `RTN`, `LVLH`, `NTW`,
-    /// `TNW`, `VNC`, `PQW`, and `EQW`), and a body frame also needs its
-    /// orientation chain registered (`register_frame`).
+    /// `TNW`, `VNC`, `PQW`, `EQW`, and `NSW`), and a body frame also needs
+    /// its orientation chain registered (`register_frame`).
     ///
     /// # Returns
     /// `bool`: `true` if the frame is bound (celestial frames are always

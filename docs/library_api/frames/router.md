@@ -25,6 +25,14 @@
 
 ::: brahe.state_frame_to_frame
 
+## Frame Ephemeris Source
+
+::: brahe.FrameEphemerisSource
+
+::: brahe.set_frame_ephemeris_source
+
+::: brahe.get_frame_ephemeris_source
+
 ## State Jacobians and Covariance
 
 ::: brahe.state_transform_jacobian

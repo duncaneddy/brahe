@@ -6,7 +6,7 @@ on:
                 description: 'JSON array of Python versions to test'
                 required: false
                 type: string
-                default: '["3.10", "3.11", "3.12", "3.13", "3.14"]'
+                default: '["3.10", "3.11", "3.12", "3.13", "3.14", "3.15"]'
             coverage-python-version:
                 description: 'Python version used for the coverage-instrumented build'
                 required: false

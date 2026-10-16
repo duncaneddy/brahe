@@ -1,5 +1,5 @@
 Loaded 27940 PSATCAT records
-Active payloads: 16094
+Active payloads: 16062
 
 Communications payloads: 17443
 Civil payloads: 3302

@@ -97,8 +97,8 @@ jobs:
         with:
           enable-cache: true
 
-      - name: Install Python 3.14
-        run: uv python install 3.14
+      - name: Install Python 3.15
+        run: uv python install 3.15
 
       # Dependencies only: uv builds the project under PEP 517 isolation, in a
       # temporary target directory it cannot share with the restored cargo

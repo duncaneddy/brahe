@@ -240,12 +240,12 @@ jobs:
                             --cov-report=term
                         cargo llvm-cov report --lcov --output-path python-rust-coverage-integration.lcov
 
-            -   name: Build extension (standard) — 3.14
-                if: matrix.python-version == '3.14'
+            -   name: Build extension (standard) — 3.15
+                if: matrix.python-version == '3.15'
                 run: uv pip install -e ".[all]"
 
-            -   name: Test (with retries) — 3.14
-                if: matrix.python-version == '3.14'
+            -   name: Test (with retries) — 3.15
+                if: matrix.python-version == '3.15'
                 uses: nick-fields/retry@v4
                 with:
                     timeout_minutes: 30

@@ -1,3 +1,0 @@
-Method: IntegrationMethod.DP54
-abs_tol: 1e-09
-rel_tol: 1e-06

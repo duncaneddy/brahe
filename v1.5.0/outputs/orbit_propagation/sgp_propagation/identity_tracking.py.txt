@@ -1,3 +1,0 @@
-Name: ISS (ZARYA)
-ID: 25544
-NORAD ID from TLE: 25544

@@ -1,3 +1,0 @@
-TLE set valid: True
-Line 1 valid: True
-Line 2 valid: True

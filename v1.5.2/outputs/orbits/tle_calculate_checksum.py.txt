@@ -1,4 +1,0 @@
-Line 1 checksum: 5
-Line 2 checksum: 9
-
-Corrupted line valid: False

@@ -1,3 +1,0 @@
-Name: Some("ISS (ZARYA)")
-ID: Some(25544)
-NORAD ID from TLE: 25544

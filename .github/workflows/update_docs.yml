@@ -17,6 +17,9 @@ concurrency:
   group: gh-pages-deploy
   cancel-in-progress: false
 
+env:
+  PYTHON_VERSION: "3.15"
+
 jobs:
   publish-docs:
     runs-on: ubuntu-latest
@@ -123,8 +126,8 @@ jobs:
         with:
           enable-cache: true
 
-      - name: Install Python 3.14
-        run: uv python install 3.14
+      - name: Install Python ${{ env.PYTHON_VERSION }}
+        run: uv python install ${{ env.PYTHON_VERSION }}
 
       - name: Install dependencies
         run: uv sync --group docs --all-extras --frozen --no-install-project

@@ -9,7 +9,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  PYTHON_VERSION: "3.14"
+  PYTHON_VERSION: "3.15"
 
 jobs:
   # Decide whether this PR touches only files that cannot affect the build.

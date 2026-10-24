@@ -15,9 +15,9 @@ use crate::utils::errors::BraheError;
 /// existing RTN vocabulary (`state_eci_to_rtn`, `covariance_rtn`).
 ///
 /// Every kind is a valid frame identity, which is what parsing a data file
-/// needs, but only `RTN`, `LVLH`, `NTW`, and `TNW` have axes derivations
-/// today. A transform through any other kind errors until issue #452 adds
-/// the remaining derivations.
+/// needs, but only `RTN`, `LVLH`, `NTW`, `TNW`, and `VNC` have axes
+/// derivations today. A transform through any other kind errors until issue
+/// #452 adds the remaining derivations.
 ///
 /// # Examples
 ///

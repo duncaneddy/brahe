@@ -804,16 +804,103 @@ def test_nsw_auto_source_prefers_loaded_kernels(
     np.testing.assert_allclose(r, bh.rotation_eci_to_nsw(x, x_sun), atol=1e-14)
 
 
-def test_unsupported_orbit_relative_kind_names_issue(clear_frame_registries):
+def test_sez_station_rotation_matches_relative_motion(eop, clear_frame_registries):
     epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+    r_gs = bh.position_geodetic_to_ecef(
+        np.array([30.0, 45.0, 500.0]), bh.AngleFormat.DEGREES
+    )
+    x_gs = np.concatenate([r_gs, np.zeros(3)])
+    bh.register_object("GS", lambda epc: x_gs, bh.CelestialFrame.ITRF)
+
+    got = bh.rotation_frame_to_frame(
+        bh.CelestialFrame.ITRF, bh.ReferenceFrame.SEZ("GS"), epc
+    )
+    np.testing.assert_allclose(got, bh.rotation_ecef_to_sez(x_gs), atol=1e-12)
+
+    r_t = r_gs + np.array([200e3, 300e3, 400e3])
+    x_t = np.concatenate([r_t, np.zeros(3)])
+    rel = bh.state_frame_to_frame(
+        bh.CelestialFrame.ITRF, bh.ReferenceFrame.SEZ("GS"), epc, x_t
+    )
+    np.testing.assert_allclose(rel, bh.state_ecef_to_sez(x_gs, x_t), atol=1e-6)
+
+
+def test_sez_static_target_has_no_velocity_in_station_frame(clear_frame_registries):
+    """Rust: test_sez_static_target_has_no_velocity_in_station_frame"""
+    epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+    r_gs = bh.position_geodetic_to_ecef(
+        np.array([30.0, 45.0, 500.0]), bh.AngleFormat.DEGREES
+    )
+    x_gs = np.concatenate([r_gs, np.zeros(3)])
+    bh.register_object("GS", lambda epc: x_gs, bh.CelestialFrame.ITRF)
+
+    r_t = x_gs[:3] + np.array([200e3, 300e3, 400e3])
+    x_t = np.concatenate([r_t, np.zeros(3)])
+    rel = bh.state_frame_to_frame(
+        bh.CelestialFrame.ITRF, bh.ReferenceFrame.SEZ("GS"), epc, x_t
+    )
+    np.testing.assert_allclose(rel, bh.state_ecef_to_sez(x_gs, x_t), atol=1e-6)
+    assert np.linalg.norm(rel[3:]) < 1e-6
+
+
+def test_sez_requires_earth_centered_object(clear_frame_registries):
+    epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+    oe = np.array([bh.R_MARS + 400e3, 0.05, 92.6, 45.0, 270.0, 10.0])
+    x = bh.state_koe_to_inertial_for_body(
+        oe, bh.CentralBody.Mars, bh.AngleFormat.DEGREES
+    )
+    mars_frame = bh.CelestialFrame.Centered(499, bh.FrameAxes.ICRF)
+    bh.register_object("M", lambda epc: x, mars_frame)
+
     with pytest.raises(RuntimeError, match="SEZ"):
         bh.rotation_frame_to_frame(
-            bh.CelestialFrame.GCRF, bh.ReferenceFrame.SEZ("A"), epc
+            bh.CelestialFrame.GCRF, bh.ReferenceFrame.SEZ("M"), epc
         )
-    with pytest.raises(RuntimeError, match="RTN, LVLH, NTW, TNW, VNC, PQW, EQW, NSW"):
-        bh.rotation_frame_to_frame(
-            bh.CelestialFrame.GCRF, bh.ReferenceFrame.SEZ("A"), epc
-        )
+    with pytest.raises(RuntimeError, match="Earth"):
+        bh.rotation_frame_to_frame(mars_frame, bh.ReferenceFrame.SEZ("M"), epc)
+
+
+def test_sez_moving_site_rate_composes_site_and_earth_rotation(
+    eop, clear_frame_registries
+):
+    """Rust: test_sez_moving_site_rate_composes_site_and_earth_rotation"""
+    epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+    r_gs = bh.position_geodetic_to_ecef(
+        np.array([30.0, 45.0, 10e3]), bh.AngleFormat.DEGREES
+    )
+    x_gs = np.concatenate([r_gs, np.array([-120.0, 180.0, 90.0])])
+    bh.register_object("GS", lambda epc: x_gs, bh.CelestialFrame.ITRF)
+    assert np.linalg.norm(bh.omega_sez(x_gs)) > 1e-6
+
+    r_t = r_gs + np.array([200e3, 300e3, 400e3])
+    x_t = np.concatenate([r_t, np.zeros(3)])
+    rel = bh.state_frame_to_frame(
+        bh.CelestialFrame.ITRF, bh.ReferenceFrame.SEZ("GS"), epc, x_t
+    )
+    np.testing.assert_allclose(rel, bh.state_ecef_to_sez(x_gs, x_t), atol=1e-6)
+
+    # The site rate enters the relative velocity, which a static site at the
+    # same position would not show.
+    x_static = np.concatenate([r_gs, np.zeros(3)])
+    static_rel = bh.state_ecef_to_sez(x_static, x_t)
+    assert np.linalg.norm(rel[3:] - static_rel[3:]) > 1.0
+
+
+def test_sez_pole_site_rotation_matches_relative_motion(eop, clear_frame_registries):
+    """Rust: test_sez_pole_site_rotation_matches_relative_motion"""
+    epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+    r_gs = bh.position_geodetic_to_ecef(
+        np.array([0.0, 90.0, 0.0]), bh.AngleFormat.DEGREES
+    )
+    x_gs = np.concatenate([r_gs, np.zeros(3)])
+    bh.register_object("GS", lambda epc: x_gs, bh.CelestialFrame.ITRF)
+
+    got = bh.rotation_frame_to_frame(
+        bh.CelestialFrame.ITRF, bh.ReferenceFrame.SEZ("GS"), epc
+    )
+    np.testing.assert_allclose(got, bh.rotation_ecef_to_sez(x_gs), atol=1e-12)
+    np.testing.assert_allclose(got @ got.T, np.eye(3), atol=1e-12)
+    np.testing.assert_allclose(got[2], np.array([0.0, 0.0, 1.0]), atol=1e-9)
 
 
 def test_sun_vector_in_sensor_frame(eop, clear_frame_registries):

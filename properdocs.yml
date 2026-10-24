@@ -464,6 +464,7 @@ nav:
           - library_api/relative_motion/index.md
           - RTN Transformations: library_api/relative_motion/rtn_transformations.md
           - LVLH Transformations: library_api/relative_motion/lvlh_transformations.md
+          - NTW Transformations: library_api/relative_motion/ntw_transformations.md
           - ROE Transformations: library_api/relative_motion/roe_transformations.md
           - ECI-ROE Transformations: library_api/relative_motion/eci_roe_transformations.md
       - Access Computation:

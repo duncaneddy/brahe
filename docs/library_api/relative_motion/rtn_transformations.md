@@ -1,6 +1,6 @@
 # RTN Transformations
 
-Rotation matrices between ECI (Earth-Centered Inertial) and RTN (Radial-Tangential-Normal) orbital frames.
+Rotation matrices between ECI (Earth-Centered Inertial) and RTN (Radial-Transverse-Normal) orbital frames.
 
 !!! note
     For conceptual explanations of the RTN frame, see [Relative Motion](../../learn/relative_motion/index.md).

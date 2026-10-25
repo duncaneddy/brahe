@@ -17,4 +17,4 @@ Note: Polar motion effects are typically centimeters to meters
 
 Verification using position_gcrf_to_itrf:
   [757164.267, 1725863.563, 6564672.302] m
-  Max difference: 2.33e-10 m
+  Max difference: 1.16e-10 m

@@ -13,5 +13,5 @@ ITRF state vector (via GCRF: TOD -> GCRF -> ITRF):
   Velocity: [-6988.092233, 1313.354558, 0.005893] m/s
 
 Difference between the direct and GCRF-mediated paths:
-  Position: 3.579101e-06 m
-  Velocity: 3.593157e-09 m/s
+  Position: 3.578988e-06 m
+  Velocity: 3.592988e-09 m/s

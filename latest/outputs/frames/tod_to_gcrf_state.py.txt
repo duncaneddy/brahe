@@ -9,5 +9,5 @@ GCRF state vector:
   Velocity: [40.670408, 7611.891342, -0.345232] m/s
 
 Round-trip error (TOD -> GCRF -> TOD):
-  Position: 3.725291e-09 m
-  Velocity: 6.190732e-13 m/s
+  Position: 3.725290e-09 m
+  Velocity: 1.638975e-13 m/s

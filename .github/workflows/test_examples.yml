@@ -96,7 +96,7 @@ jobs:
           restore-keys: ${{ github.ref != 'refs/heads/main' && format('rust-script-v2-{0}-', runner.os) || '' }}
 
       - name: Install the latest version of uv
-        uses: astral-sh/setup-uv@v10.3.1
+        uses: astral-sh/setup-uv@v10.3.2
         with:
           enable-cache: true
 

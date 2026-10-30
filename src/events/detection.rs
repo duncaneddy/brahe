@@ -1003,73 +1003,130 @@ mod tests {
         );
     }
 
-    fn assert_static_endpoint_direction(initial: f64, rejected: EventDirection) {
+    fn static_endpoint_detected(initial: f64, endpoint: f64, direction: EventDirection) -> bool {
         let start = Epoch::from_jd(2451545.0, TimeSystem::UTC);
         let end = start + 2.0;
         let previous = SVector::<f64, 1>::from_element(initial);
-        let current = SVector::<f64, 1>::zeros();
-        let state_at =
-            |epoch: Epoch| SVector::<f64, 1>::from_element(initial * (1.0 - (epoch - start) / 2.0));
+        let current = SVector::<f64, 1>::from_element(endpoint);
+        let state_at = |epoch: Epoch| {
+            SVector::<f64, 1>::from_element(initial + (endpoint - initial) * (epoch - start) / 2.0)
+        };
         let detector = SValueEvent::<1, 0>::new(
-            "WrongDirectionAtEndpoint",
+            "EndpointDirection",
             |_epoch, state, _params| state[0],
             0.0,
-            rejected,
+            direction,
         );
 
-        assert!(
-            sscan_for_event(
-                &detector, 0, &state_at, start, end, &previous, &current, None
-            )
-            .is_none(),
-            "opposite-direction movement to a target endpoint must not trigger {rejected:?}"
-        );
+        sscan_for_event(
+            &detector, 0, &state_at, start, end, &previous, &current, None,
+        )
+        .is_some()
     }
 
-    fn assert_dynamic_endpoint_direction(initial: f64, rejected: EventDirection) {
+    fn dynamic_endpoint_detected(initial: f64, endpoint: f64, direction: EventDirection) -> bool {
         let start = Epoch::from_jd(2451545.0, TimeSystem::UTC);
         let end = start + 2.0;
         let previous = DVector::from_element(1, initial);
-        let current = DVector::zeros(1);
-        let state_at =
-            |epoch: Epoch| DVector::from_element(1, initial * (1.0 - (epoch - start) / 2.0));
+        let current = DVector::from_element(1, endpoint);
+        let state_at = |epoch: Epoch| {
+            DVector::from_element(1, initial + (endpoint - initial) * (epoch - start) / 2.0)
+        };
         let detector = DValueEvent::new(
-            "WrongDirectionAtEndpoint",
+            "EndpointDirection",
             |_epoch, state, _params| state[0],
             0.0,
-            rejected,
+            direction,
         );
 
-        assert!(
-            dscan_for_event(
-                &detector, 0, &state_at, start, end, &previous, &current, None
-            )
-            .is_none(),
-            "opposite-direction movement to a target endpoint must not trigger {rejected:?}"
-        );
+        dscan_for_event(
+            &detector, 0, &state_at, start, end, &previous, &current, None,
+        )
+        .is_some()
     }
 
     #[test]
     #[parallel]
     fn test_sscan_rejects_decreasing_detector_at_increasing_endpoint() {
-        assert_static_endpoint_direction(-2.0, EventDirection::Decreasing);
+        assert!(!static_endpoint_detected(
+            -2.0,
+            0.0,
+            EventDirection::Decreasing
+        ));
     }
 
     #[test]
     #[parallel]
     fn test_sscan_rejects_increasing_detector_at_decreasing_endpoint() {
-        assert_static_endpoint_direction(2.0, EventDirection::Increasing);
+        assert!(!static_endpoint_detected(
+            2.0,
+            0.0,
+            EventDirection::Increasing
+        ));
     }
 
     #[test]
     #[parallel]
     fn test_dscan_rejects_decreasing_detector_at_increasing_endpoint() {
-        assert_dynamic_endpoint_direction(-2.0, EventDirection::Decreasing);
+        assert!(!dynamic_endpoint_detected(
+            -2.0,
+            0.0,
+            EventDirection::Decreasing
+        ));
     }
 
     #[test]
     #[parallel]
     fn test_dscan_rejects_increasing_detector_at_decreasing_endpoint() {
-        assert_dynamic_endpoint_direction(2.0, EventDirection::Increasing);
+        assert!(!dynamic_endpoint_detected(
+            2.0,
+            0.0,
+            EventDirection::Increasing
+        ));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_sscan_accepts_direction_matching_endpoint() {
+        assert!(static_endpoint_detected(
+            -2.0,
+            0.0,
+            EventDirection::Increasing
+        ));
+        assert!(static_endpoint_detected(
+            2.0,
+            0.0,
+            EventDirection::Decreasing
+        ));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_sscan_accepts_any_direction_at_endpoint() {
+        // No sign change: acceptance must come from the near-target tolerance path.
+        assert!(static_endpoint_detected(-2.0, -5e-10, EventDirection::Any));
+        assert!(static_endpoint_detected(2.0, 5e-10, EventDirection::Any));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_dscan_accepts_direction_matching_endpoint() {
+        assert!(dynamic_endpoint_detected(
+            -2.0,
+            0.0,
+            EventDirection::Increasing
+        ));
+        assert!(dynamic_endpoint_detected(
+            2.0,
+            0.0,
+            EventDirection::Decreasing
+        ));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_dscan_accepts_any_direction_at_endpoint() {
+        assert!(dynamic_endpoint_detected(-2.0, -5e-10, EventDirection::Any));
+        assert!(dynamic_endpoint_detected(2.0, 5e-10, EventDirection::Any));
     }
 }

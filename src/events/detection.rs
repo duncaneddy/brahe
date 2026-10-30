@@ -409,7 +409,14 @@ where
         }
     };
 
-    if !crossed && current_crossing.abs() > detector.value_tolerance() {
+    // Near-target tolerance must not bypass the requested crossing direction.
+    let near_target_in_direction = current_crossing.abs() <= detector.value_tolerance()
+        && match dir {
+            EventDirection::Increasing => prev_crossing < 0.0 && current_crossing > prev_crossing,
+            EventDirection::Decreasing => prev_crossing > 0.0 && current_crossing < prev_crossing,
+            EventDirection::Any => true,
+        };
+    if !crossed && !near_target_in_direction {
         return None;
     }
 
@@ -496,7 +503,14 @@ where
         }
     };
 
-    if !crossed && current_crossing.abs() > detector.value_tolerance() {
+    // Near-target tolerance must not bypass the requested crossing direction.
+    let near_target_in_direction = current_crossing.abs() <= detector.value_tolerance()
+        && match dir {
+            EventDirection::Increasing => prev_crossing < 0.0 && current_crossing > prev_crossing,
+            EventDirection::Decreasing => prev_crossing > 0.0 && current_crossing < prev_crossing,
+            EventDirection::Any => true,
+        };
+    if !crossed && !near_target_in_direction {
         return None;
     }
 
@@ -553,6 +567,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::events::SValueEvent;
     use crate::time::TimeSystem;
     use nalgebra::Vector6;
     use serial_test::parallel;
@@ -986,5 +1001,75 @@ mod tests {
             result.is_some(),
             "Should detect increasing crossing from -0.4 to 1.0"
         );
+    }
+
+    fn assert_static_endpoint_direction(initial: f64, rejected: EventDirection) {
+        let start = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let end = start + 2.0;
+        let previous = SVector::<f64, 1>::from_element(initial);
+        let current = SVector::<f64, 1>::zeros();
+        let state_at =
+            |epoch: Epoch| SVector::<f64, 1>::from_element(initial * (1.0 - (epoch - start) / 2.0));
+        let detector = SValueEvent::<1, 0>::new(
+            "WrongDirectionAtEndpoint",
+            |_epoch, state, _params| state[0],
+            0.0,
+            rejected,
+        );
+
+        assert!(
+            sscan_for_event(
+                &detector, 0, &state_at, start, end, &previous, &current, None
+            )
+            .is_none(),
+            "opposite-direction movement to a target endpoint must not trigger {rejected:?}"
+        );
+    }
+
+    fn assert_dynamic_endpoint_direction(initial: f64, rejected: EventDirection) {
+        let start = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let end = start + 2.0;
+        let previous = DVector::from_element(1, initial);
+        let current = DVector::zeros(1);
+        let state_at =
+            |epoch: Epoch| DVector::from_element(1, initial * (1.0 - (epoch - start) / 2.0));
+        let detector = DValueEvent::new(
+            "WrongDirectionAtEndpoint",
+            |_epoch, state, _params| state[0],
+            0.0,
+            rejected,
+        );
+
+        assert!(
+            dscan_for_event(
+                &detector, 0, &state_at, start, end, &previous, &current, None
+            )
+            .is_none(),
+            "opposite-direction movement to a target endpoint must not trigger {rejected:?}"
+        );
+    }
+
+    #[test]
+    #[parallel]
+    fn test_sscan_rejects_decreasing_detector_at_increasing_endpoint() {
+        assert_static_endpoint_direction(-2.0, EventDirection::Decreasing);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_sscan_rejects_increasing_detector_at_decreasing_endpoint() {
+        assert_static_endpoint_direction(2.0, EventDirection::Increasing);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_dscan_rejects_decreasing_detector_at_increasing_endpoint() {
+        assert_dynamic_endpoint_direction(-2.0, EventDirection::Decreasing);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_dscan_rejects_increasing_detector_at_decreasing_endpoint() {
+        assert_dynamic_endpoint_direction(2.0, EventDirection::Increasing);
     }
 }

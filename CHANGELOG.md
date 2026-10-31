@@ -9,6 +9,22 @@ Each release groups entries under the Keep a Changelog section headings in the o
 
 <!-- release notes start -->
 
+## [1.8.1] - 2026-10-31
+
+### Added
+
+- Add testing and wheel releases for python 3.15. [@duncaneddy](https://github.com/duncaneddy) ([#595](https://github.com/duncaneddy/brahe/pull/595))
+
+### Changed
+
+- Move over internal CI workflows from python 3.14 to 3.15. [@duncaneddy](https://github.com/duncaneddy) ([#596](https://github.com/duncaneddy/brahe/pull/596))
+- Upgrade Cargo dependencies (PyO3). [@duncaneddy](https://github.com/duncaneddy) ([#609](https://github.com/duncaneddy/brahe/pull/609))
+
+### Fixed
+
+- Updated `uv.lock` to address security warnings / upgrades. [@duncaneddy](https://github.com/duncaneddy) ([#606](https://github.com/duncaneddy/brahe/pull/606))
+- Respect `ValueEvent` direction filters at propagation-step endpoints near the target. [@heathsanchez](https://github.com/heathsanchez) ([#608](https://github.com/duncaneddy/brahe/pull/608))
+
 ## [1.8.0] - 2026-10-16
 
 ### Added

@@ -51,7 +51,7 @@ name = "brahe"
 [dependencies]
 rsofa = "0.5"
 nalgebra = { version = ">=0.34, <0.36", features = ["serde-serialize"] }
-numpy = { version = "0.29", optional = true }
+numpy = { version = "0.30", optional = true }
 once_cell = "1.21"
 num-traits = "0.2"
 regex = "1"
@@ -67,7 +67,7 @@ base64 = "0.23"
 sha2 = "0.11"
 quick-xml = { version = "0.42", features = ["serialize"] }
 sgp4 = "2.4"
-uuid = { version = "1.26.1", features = ["v4", "v7", "serde"] }
+uuid = { version = "1.29.0", features = ["v4", "v7", "serde"] }
 rayon = "1.12"
 num_cpus = "1.17"
 dirs = "7"
@@ -85,7 +85,7 @@ rand_distr = "0.5"
 # the `python_interop` module holding the `BraheError` PyErr conversion. The
 # extension module itself is built from the `brahe-py` workspace crate.
 [dependencies.pyo3]
-version = "0.29"
+version = "0.30"
 optional = true
 
 [dev-dependencies]

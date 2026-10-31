@@ -8,11 +8,7 @@ use brahe::datasets::horizons::{HorizonsClient, HorizonsSPKRequest, HorizonsSPKR
 ///     command (str): Horizons COMMAND target, e.g. "DES=20000001;".
 ///     start (Epoch): SPK span start.
 ///     stop (Epoch): SPK span stop.
-#[pyclass(
-    name = "HorizonsSPKRequest",
-    module = "brahe._brahe",
-    skip_from_py_object
-)]
+#[pyclass(name = "HorizonsSPKRequest", module = "brahe._brahe")]
 #[derive(Clone)]
 pub struct PyHorizonsSPKRequest {
     inner: HorizonsSPKRequest,

@@ -111,10 +111,16 @@ fn py_rotation_eci_to_rtn<'py>(
 /// ECI axes.
 ///
 /// Args:
-///     x_eci (numpy.ndarray or list): 6D state vector in the ECI frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,)
+///     x_eci (numpy.ndarray or list): 6D state vector in the ECI frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
+///         vectors with the 6 components along `axis` (for example shape (n, 6)).
+///     axis (int, optional): The axis along which the 6 components of a single vector
+///         lie; the remaining axes enumerate the batch. For a batch of shape (n, 6)
+///         the components lie along the last axis, so the default `-1` applies; a
+///         (6, n) column layout uses `axis=0`.
 ///
 /// Returns:
-///     numpy.ndarray: Angular velocity of the RTN frame relative to ECI, expressed in RTN axes (rad/s), shape (3,)
+///     numpy.ndarray: Angular velocity of the RTN frame relative to ECI, expressed in RTN axes (rad/s), shape (3,), or the batch dimensions
+///         with 3 components along `axis` for batched input.
 ///
 /// Example:
 ///     ```python
@@ -126,12 +132,15 @@ fn py_rotation_eci_to_rtn<'py>(
 ///     omega = bh.omega_rtn(state)
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(x_eci)")]
+#[pyo3(signature = (x_eci, axis=-1))]
+#[pyo3(text_signature = "(x_eci, axis=-1)")]
 #[pyo3(name = "omega_rtn")]
-fn py_omega_rtn<'py>(py: Python<'py>, x_eci: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let x = pyany_to_svector::<6>(x_eci)?;
-    let omega = relative_motion::omega_rtn(x);
-    Ok(vector_to_numpy!(py, omega, 3, f64))
+fn py_omega_rtn<'py>(
+    py: Python<'py>,
+    x_eci: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_vec_map::<6, 3>(py, x_eci, axis, relative_motion::omega_rtn, relative_motion::omegas_rtn)
 }
 
 /// Transforms the absolute states of a chief and deputy satellite from the Earth-Centered Inertial (ECI)
@@ -652,4 +661,261 @@ fn py_covariance_eci_to_rtn<'py>(
     let p = pyany_to_smatrix::<6, 6>(covariance)?;
     let rotated = relative_motion::covariance_eci_to_rtn(x, &p, variant.variant);
     Ok(matrix_to_numpy!(py, rotated, 6, 6, f64).to_owned())
+}
+
+/// Computes the rotation matrix transforming a vector in the Local-Vertical Local-Horizontal
+/// (LVLH) frame to the Earth-Centered Inertial (ECI) frame.
+///
+/// The ECI frame can be any inertial frame centered on the orbited body, such as GCRF or EME2000.
+///
+/// The LVLH frame follows the CCSDS and SANA definition:
+/// - Z: Unit vector collinear with and opposite to the position vector (nadir).
+/// - Y: Unit vector collinear with and opposite to the orbital angular momentum `r x v`.
+/// - X: `Y x Z`, completing the right-handed set (along-track for a circular orbit).
+///
+/// This is a signed permutation of the RTN axes: `X = T`, `Y = -N`, `Z = -R`. Vallado and
+/// STK use the name LVLH for the RTN axes themselves; brahe follows the CCSDS convention.
+///
+/// Args:
+///     x_eci (numpy.ndarray or list): 6D state vector in the ECI frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
+///         vectors with the 6 components along `axis` (for example shape (n, 6)).
+///     axis (int, optional): The axis along which the 6 components of a single vector
+///         lie; the remaining axes enumerate the batch. For a batch of shape (n, 6)
+///         the components lie along the last axis, so the default `-1` applies; a
+///         (6, n) column layout uses `axis=0`.
+///
+/// Returns:
+///     numpy.ndarray: 3x3 rotation matrix transforming from LVLH to ECI frame, shape (3, 3), or the batch dimensions
+///         followed by (3, 3) for batched input.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     oe = np.array([bh.R_EARTH + 700e3, 0.01, 97.8, 15.0, 30.0, 45.0])
+///     x_eci = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
+///
+///     R = bh.rotation_lvlh_to_eci(x_eci)
+///     print(f"LVLH to ECI rotation matrix:\n{R}")
+///     ```
+#[pyfunction]
+#[pyo3(signature = (x_eci, axis=-1))]
+#[pyo3(text_signature = "(x_eci, axis=-1)")]
+#[pyo3(name = "rotation_lvlh_to_eci")]
+fn py_rotation_lvlh_to_eci<'py>(
+    py: Python<'py>,
+    x_eci: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_vec_rotation::<6>(
+        py,
+        x_eci,
+        axis,
+        relative_motion::rotation_lvlh_to_eci,
+        relative_motion::rotations_lvlh_to_eci,
+    )
+}
+
+/// Computes the rotation matrix transforming a vector in the Earth-Centered Inertial (ECI)
+/// frame to the Local-Vertical Local-Horizontal (LVLH) frame.
+///
+/// This is the transpose (inverse) of the LVLH-to-ECI rotation matrix.
+///
+/// The LVLH frame follows the CCSDS and SANA definition:
+/// - Z: Unit vector collinear with and opposite to the position vector (nadir).
+/// - Y: Unit vector collinear with and opposite to the orbital angular momentum `r x v`.
+/// - X: `Y x Z`, completing the right-handed set (along-track for a circular orbit).
+///
+/// This is a signed permutation of the RTN axes: `X = T`, `Y = -N`, `Z = -R`. Vallado and
+/// STK use the name LVLH for the RTN axes themselves; brahe follows the CCSDS convention.
+///
+/// Args:
+///     x_eci (numpy.ndarray or list): 6D state vector in the ECI frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
+///         vectors with the 6 components along `axis` (for example shape (n, 6)).
+///     axis (int, optional): The axis along which the 6 components of a single vector
+///         lie; the remaining axes enumerate the batch. For a batch of shape (n, 6)
+///         the components lie along the last axis, so the default `-1` applies; a
+///         (6, n) column layout uses `axis=0`.
+///
+/// Returns:
+///     numpy.ndarray: 3x3 rotation matrix transforming from ECI to LVLH frame, shape (3, 3), or the batch dimensions
+///         followed by (3, 3) for batched input.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     oe = np.array([bh.R_EARTH + 700e3, 0.01, 97.8, 15.0, 30.0, 45.0])
+///     x_eci = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
+///
+///     R = bh.rotation_eci_to_lvlh(x_eci)
+///     print(f"ECI to LVLH rotation matrix:\n{R}")
+///     ```
+#[pyfunction]
+#[pyo3(signature = (x_eci, axis=-1))]
+#[pyo3(text_signature = "(x_eci, axis=-1)")]
+#[pyo3(name = "rotation_eci_to_lvlh")]
+fn py_rotation_eci_to_lvlh<'py>(
+    py: Python<'py>,
+    x_eci: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_vec_rotation::<6>(
+        py,
+        x_eci,
+        axis,
+        relative_motion::rotation_eci_to_lvlh,
+        relative_motion::rotations_eci_to_lvlh,
+    )
+}
+
+/// Computes the angular velocity of the Local-Vertical Local-Horizontal (LVLH) frame with
+/// respect to the Earth-Centered Inertial (ECI) frame, expressed in LVLH axes.
+///
+/// The LVLH frame rotates about the orbit normal at the true-anomaly rate `f_dot = |r x v| / r^2`.
+/// The orbit normal is the negative LVLH Y axis, so the angular velocity is `[0, -f_dot, 0]`.
+///
+/// Args:
+///     x_eci (numpy.ndarray or list): 6D state vector in the ECI frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
+///         vectors with the 6 components along `axis` (for example shape (n, 6)).
+///     axis (int, optional): The axis along which the 6 components of a single vector
+///         lie; the remaining axes enumerate the batch. For a batch of shape (n, 6)
+///         the components lie along the last axis, so the default `-1` applies; a
+///         (6, n) column layout uses `axis=0`.
+///
+/// Returns:
+///     numpy.ndarray: Angular velocity of the LVLH frame relative to ECI, expressed in LVLH axes (rad/s), shape (3,), or the batch dimensions
+///         with 3 components along `axis` for batched input.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     oe = np.array([bh.R_EARTH + 700e3, 0.01, 97.8, 15.0, 30.0, 45.0])
+///     x_eci = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
+///     omega = bh.omega_lvlh(x_eci)
+///     ```
+#[pyfunction]
+#[pyo3(signature = (x_eci, axis=-1))]
+#[pyo3(text_signature = "(x_eci, axis=-1)")]
+#[pyo3(name = "omega_lvlh")]
+fn py_omega_lvlh<'py>(
+    py: Python<'py>,
+    x_eci: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_vec_map::<6, 3>(py, x_eci, axis, relative_motion::omega_lvlh, relative_motion::omegas_lvlh)
+}
+
+/// Transforms the absolute states of a chief and deputy satellite from the Earth-Centered
+/// Inertial (ECI) frame to the relative state of the deputy with respect to the chief in the
+/// rotating Local-Vertical Local-Horizontal (LVLH) frame.
+///
+/// Args:
+///     x_chief (numpy.ndarray or list): 6D state vector of the chief satellite in the ECI frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
+///         vectors with the 6 components along `axis` (for example shape (n, 6)).
+///     x_deputy (numpy.ndarray or list): 6D state vector of the deputy satellite in the ECI frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
+///         vectors with the 6 components along `axis` (for example shape (n, 6)).
+///     axis (int, optional): The axis along which the 6 components of a single vector
+///         lie; the remaining axes enumerate the batch. For a batch of shape (n, 6)
+///         the components lie along the last axis, so the default `-1` applies; a
+///         (6, n) column layout uses `axis=0`.
+///         A single vector in one argument is broadcast across a batch in the other.
+///
+/// Returns:
+///     numpy.ndarray: 6D relative state vector of the deputy with respect to the chief in the LVLH frame [ρ_X, ρ_Y, ρ_Z, ρ̇_X, ρ̇_Y, ρ̇_Z] (m, m/s), shape (6,), or the layout of the batched
+///         argument for batched input.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     bh.initialize_eop()
+///
+///     oe_chief = np.array([bh.R_EARTH + 700e3, 0.01, 97.8, 15.0, 30.0, 45.0])
+///     oe_deputy = np.array([bh.R_EARTH + 701e3, 0.0115, 97.85, 15.05, 30.05, 45.05])
+///
+///     x_chief = bh.state_koe_to_eci(oe_chief, bh.AngleFormat.DEGREES)
+///     x_deputy = bh.state_koe_to_eci(oe_deputy, bh.AngleFormat.DEGREES)
+///
+///     x_rel_lvlh = bh.state_eci_to_lvlh(x_chief, x_deputy)
+///     print(f"Relative state in LVLH: {x_rel_lvlh}")
+///     ```
+#[pyfunction]
+#[pyo3(signature = (x_chief, x_deputy, axis=-1))]
+#[pyo3(text_signature = "(x_chief, x_deputy, axis=-1)")]
+#[pyo3(name = "state_eci_to_lvlh")]
+fn py_state_eci_to_lvlh<'py>(
+    py: Python<'py>,
+    x_chief: &Bound<'py, PyAny>,
+    x_deputy: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_vec_pair::<6>(
+        py,
+        x_chief,
+        x_deputy,
+        axis,
+        relative_motion::state_eci_to_lvlh,
+        relative_motion::states_eci_to_lvlh,
+    )
+}
+
+/// Transforms the relative state of a deputy satellite with respect to a chief satellite
+/// from the rotating Local-Vertical Local-Horizontal (LVLH) frame to the absolute state of
+/// the deputy in the Earth-Centered Inertial (ECI) frame.
+///
+/// Args:
+///     x_chief (numpy.ndarray or list): 6D state vector of the chief satellite in the ECI frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
+///         vectors with the 6 components along `axis` (for example shape (n, 6)).
+///     x_rel_lvlh (numpy.ndarray or list): 6D relative state vector of the deputy with respect to the chief in the LVLH frame [ρ_X, ρ_Y, ρ_Z, ρ̇_X, ρ̇_Y, ρ̇_Z] (m, m/s), shape (6,), or a batch of
+///         vectors with the 6 components along `axis` (for example shape (n, 6)).
+///     axis (int, optional): The axis along which the 6 components of a single vector
+///         lie; the remaining axes enumerate the batch. For a batch of shape (n, 6)
+///         the components lie along the last axis, so the default `-1` applies; a
+///         (6, n) column layout uses `axis=0`.
+///         A single vector in one argument is broadcast across a batch in the other.
+///
+/// Returns:
+///     numpy.ndarray: 6D state vector of the deputy satellite in the ECI frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or the layout of the batched
+///         argument for batched input.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     bh.initialize_eop()
+///
+///     oe_chief = np.array([bh.R_EARTH + 700e3, 0.01, 97.8, 15.0, 30.0, 45.0])
+///     x_chief = bh.state_koe_to_eci(oe_chief, bh.AngleFormat.DEGREES)
+///
+///     # Relative state: 1km X, 0.5km Y, -0.3km Z
+///     x_rel_lvlh = np.array([1000.0, 500.0, -300.0, 0.0, 0.0, 0.0])
+///
+///     x_deputy = bh.state_lvlh_to_eci(x_chief, x_rel_lvlh)
+///     print(f"Deputy state in ECI: {x_deputy}")
+///     ```
+#[pyfunction]
+#[pyo3(signature = (x_chief, x_rel_lvlh, axis=-1))]
+#[pyo3(text_signature = "(x_chief, x_rel_lvlh, axis=-1)")]
+#[pyo3(name = "state_lvlh_to_eci")]
+fn py_state_lvlh_to_eci<'py>(
+    py: Python<'py>,
+    x_chief: &Bound<'py, PyAny>,
+    x_rel_lvlh: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_vec_pair::<6>(
+        py,
+        x_chief,
+        x_rel_lvlh,
+        axis,
+        relative_motion::state_lvlh_to_eci,
+        relative_motion::states_lvlh_to_eci,
+    )
 }

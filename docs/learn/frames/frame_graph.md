@@ -5,7 +5,7 @@
 A `ReferenceFrame` is one of three variants:
 
 - **Celestial**: any `CelestialFrame` (`GCRF`, `ITRF`, `LFPA`, ...). Evaluable analytically from an epoch alone, exactly as in the router.
-- **Orbit-relative**: a local orbital frame of one object (`RTN`, `LVLH`, `NTW`, `TNW`, `PQW`, `EQW`, `SEZ`, `VNC`, or `NSW`), either rotating with the orbit or frozen as an inertial snapshot at each evaluation epoch. Only `RTN` has an axes derivation today; the other kinds are valid frame identities, which is what parsing a data file needs, but a transform through one raises until [issue #452](https://github.com/duncaneddy/brahe/issues/452) adds the remaining derivations.
+- **Orbit-relative**: a local orbital frame of one object (`RTN`, `LVLH`, `NTW`, `TNW`, `PQW`, `EQW`, `SEZ`, `VNC`, or `NSW`), either rotating with the orbit or frozen as an inertial snapshot at each evaluation epoch. `RTN` and `LVLH` have axes derivations today; the other kinds are valid frame identities, which is what parsing a data file needs, but a transform through one raises until [issue #452](https://github.com/duncaneddy/brahe/issues/452) adds the remaining derivations.
 - **Body**: an object-local frame with no global transformation, such as a spacecraft body frame, a sensor, an actuator, or an instrument.
 
 Orbit-relative and body frames carry an object identity, a plain string (e.g. `"LRO"`, `"2024-123A"`) kept separate from NAIF or NORAD IDs. Constructing one through a family method, `ReferenceFrame.RTN("SC")` or `ReferenceFrame.CSS("SC", "1")`, binds it to that object directly.

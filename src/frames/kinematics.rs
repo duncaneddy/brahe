@@ -17,7 +17,7 @@
 
 use nalgebra::Vector3;
 
-use crate::math::{SMatrix3, SVector6};
+use crate::math::{SMatrix3, SMatrix6, SVector6, block_diagonal, skew_symmetric};
 
 /// Rotates a Cartesian state between two axis sets that have no relative
 /// angular velocity: `p' = R p` and `v' = R v`.
@@ -77,6 +77,90 @@ pub(crate) fn state_rotating_to_inertial(
     let p: Vector3<f64> = r.transpose() * p_rot;
     let v: Vector3<f64> = r.transpose() * (v_rot + omega_b.cross(&p_rot));
     SVector6::new(p[0], p[1], p[2], v[0], v[1], v[2])
+}
+
+/// 6x6 Jacobian of the state map from inertial axes into rotating axes,
+/// `p' = R p` and `v' = R v - omega_b × p'`.
+///
+/// The map is linear in the state, so its Jacobian is the constant
+/// `[[R, 0], [-[omega_b]× R, R]]` and a state covariance transforms as
+/// `P' = J P Jᵀ`. A zero `omega_b` gives the block diagonal
+/// `blockdiag(R, R)`, which is the Jacobian of an inertial-snapshot frame.
+///
+/// For a local orbital frame, `R` and `omega_b` come from that frame's
+/// rotation and angular-velocity functions evaluated at the frame origin's
+/// state, for example `rotation_eci_to_lvlh` and `omega_lvlh`. The Jacobian
+/// then holds the origin fixed: it maps a state or covariance referenced to
+/// the origin, and does not include the dependence of the axes on the
+/// origin's own state.
+///
+/// # Arguments
+/// - `r`: Rotation matrix from the inertial axes to the rotating axes (dimensionless)
+/// - `omega_b`: Angular velocity of the rotating axes, expressed in the rotating axes. Units: (*rad/s*)
+///
+/// # Returns
+/// - `SMatrix6`: Jacobian `J` such that `x_rotating = J x_inertial` and `P_rotating = J P_inertial Jᵀ`
+///
+/// # Examples
+/// ```
+/// use brahe::R_EARTH;
+/// use brahe::frames::{jacobian_inertial_to_rotating, rotate_covariance_6};
+/// use brahe::math::linalg::{SMatrix6, SVector6};
+/// use brahe::orbits::perigee_velocity;
+/// use brahe::relative_motion::{omega_lvlh, rotation_eci_to_lvlh};
+///
+/// let sma = R_EARTH + 700e3;
+/// let x_eci = SVector6::new(sma, 0.0, 0.0, 0.0, perigee_velocity(sma, 0.0), 0.0);
+///
+/// let j = jacobian_inertial_to_rotating(&rotation_eci_to_lvlh(x_eci), &omega_lvlh(x_eci));
+/// let p_lvlh = rotate_covariance_6(&(SMatrix6::identity() * 100.0), &j);
+/// assert!(j.fixed_view::<3, 3>(3, 0).norm() > 0.0);
+/// assert_eq!(p_lvlh.nrows(), 6);
+/// ```
+pub fn jacobian_inertial_to_rotating(r: &SMatrix3, omega_b: &Vector3<f64>) -> SMatrix6 {
+    let mut j = block_diagonal(r, r);
+    j.fixed_view_mut::<3, 3>(3, 0)
+        .copy_from(&(-skew_symmetric(omega_b) * r));
+    j
+}
+
+/// 6x6 Jacobian of the state map from rotating axes into inertial axes,
+/// `p = Rᵀ p'` and `v = Rᵀ (v' + omega_b × p')`.
+///
+/// Exact inverse of [`jacobian_inertial_to_rotating`]:
+/// `[[Rᵀ, 0], [Rᵀ [omega_b]×, Rᵀ]]`. A zero `omega_b` gives the block
+/// diagonal `blockdiag(Rᵀ, Rᵀ)`.
+///
+/// # Arguments
+/// - `r`: Rotation matrix from the inertial axes to the rotating axes (dimensionless)
+/// - `omega_b`: Angular velocity of the rotating axes, expressed in the rotating axes. Units: (*rad/s*)
+///
+/// # Returns
+/// - `SMatrix6`: Jacobian `J` such that `x_inertial = J x_rotating` and `P_inertial = J P_rotating Jᵀ`
+///
+/// # Examples
+/// ```
+/// use brahe::R_EARTH;
+/// use brahe::frames::{jacobian_inertial_to_rotating, jacobian_rotating_to_inertial};
+/// use brahe::math::linalg::{SMatrix6, SVector6};
+/// use brahe::orbits::perigee_velocity;
+/// use brahe::relative_motion::{omega_lvlh, rotation_eci_to_lvlh};
+///
+/// let sma = R_EARTH + 700e3;
+/// let x_eci = SVector6::new(sma, 0.0, 0.0, 0.0, perigee_velocity(sma, 0.0), 0.0);
+/// let r = rotation_eci_to_lvlh(x_eci);
+/// let omega = omega_lvlh(x_eci);
+///
+/// let forward = jacobian_inertial_to_rotating(&r, &omega);
+/// let inverse = jacobian_rotating_to_inertial(&r, &omega);
+/// assert!((inverse * forward - SMatrix6::identity()).norm() < 1e-12);
+/// ```
+pub fn jacobian_rotating_to_inertial(r: &SMatrix3, omega_b: &Vector3<f64>) -> SMatrix6 {
+    let rt = r.transpose();
+    let mut j = block_diagonal(&rt, &rt);
+    j.fixed_view_mut::<3, 3>(3, 0)
+        .copy_from(&(rt * skew_symmetric(omega_b)));
+    j
 }
 
 /// Extracts the angular velocity of a rotating axis set from its rotation
@@ -153,6 +237,73 @@ mod tests {
         for i in 0..6 {
             assert_abs_diff_eq!(x_back[i], x[i], epsilon = 1e-12 * x[i].abs());
         }
+    }
+
+    #[test]
+    #[parallel]
+    fn test_jacobian_inertial_to_rotating_reproduces_state_map() {
+        let (r, _) = spinning_axes(7.2921150e-5, 3.6e3);
+        let omega_b = Vector3::new(1.0e-6, -2.0e-6, 7.2921150e-5);
+        let x = SVector6::new(7.0e6, -1.2e6, 3.4e5, -1.1e3, 7.4e3, 2.0e2);
+
+        let j = jacobian_inertial_to_rotating(&r, &omega_b);
+        let expected = state_inertial_to_rotating(&r, &omega_b, &x);
+        let got = j * x;
+        for i in 0..6 {
+            assert_abs_diff_eq!(got[i], expected[i], epsilon = 1e-12 * x.norm());
+        }
+    }
+
+    #[test]
+    #[parallel]
+    fn test_jacobian_rotating_to_inertial_reproduces_state_map() {
+        let (r, _) = spinning_axes(7.2921150e-5, 3.6e3);
+        let omega_b = Vector3::new(1.0e-6, -2.0e-6, 7.2921150e-5);
+        let x = SVector6::new(7.0e6, -1.2e6, 3.4e5, -1.1e3, 7.4e3, 2.0e2);
+
+        let j = jacobian_rotating_to_inertial(&r, &omega_b);
+        let expected = state_rotating_to_inertial(&r, &omega_b, &x);
+        let got = j * x;
+        for i in 0..6 {
+            assert_abs_diff_eq!(got[i], expected[i], epsilon = 1e-12 * x.norm());
+        }
+    }
+
+    #[test]
+    #[parallel]
+    fn test_jacobian_rotating_inertial_inverse_identity() {
+        let (r, _) = spinning_axes(2.5e-4, 7.7e3);
+        let omega_b = Vector3::new(3.0e-5, 1.0e-5, 2.5e-4);
+
+        let forward = jacobian_inertial_to_rotating(&r, &omega_b);
+        let inverse = jacobian_rotating_to_inertial(&r, &omega_b);
+        assert_abs_diff_eq!(
+            (inverse * forward - SMatrix6::identity()).norm(),
+            0.0,
+            epsilon = 1e-14
+        );
+        assert_abs_diff_eq!(
+            (forward * inverse - SMatrix6::identity()).norm(),
+            0.0,
+            epsilon = 1e-14
+        );
+    }
+
+    #[test]
+    #[parallel]
+    fn test_jacobian_zero_rate_is_block_diagonal() {
+        let (r, _) = spinning_axes(2.5e-4, 7.7e3);
+        let zero = Vector3::zeros();
+
+        assert_eq!(
+            jacobian_inertial_to_rotating(&r, &zero),
+            block_diagonal(&r, &r)
+        );
+        let rt = r.transpose();
+        assert_eq!(
+            jacobian_rotating_to_inertial(&r, &zero),
+            block_diagonal(&rt, &rt)
+        );
     }
 
     #[test]

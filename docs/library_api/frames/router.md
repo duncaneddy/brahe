@@ -25,6 +25,18 @@
 
 ::: brahe.state_frame_to_frame
 
+## State Jacobians and Covariance
+
+::: brahe.state_transform_jacobian
+
+::: brahe.covariance_frame_to_frame
+
+::: brahe.rotate_covariance
+
+::: brahe.jacobian_inertial_to_rotating
+
+::: brahe.jacobian_rotating_to_inertial
+
 ## Generic IAU/WGCCRE Body-Fixed Rotations
 
 ::: brahe.rotation_icrf_to_body_fixed_iau
@@ -38,3 +50,4 @@
 - [Mars Frames](mars.md) - Mars-centered frame transformations
 - [CentralBody / ForceModelConfig](../propagators/force_model_config.md) - Multibody propagation configuration
 - [Reference Frames Module](index.md) - Complete API reference for frames module
+- [Orbit-Relative Frames (Learn)](../../learn/relative_motion/orbit_relative_frames.md) - Covariance transformation into local orbital frames

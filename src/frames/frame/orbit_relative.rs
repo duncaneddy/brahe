@@ -14,10 +14,8 @@ use crate::utils::errors::BraheError;
 /// `RTN` is the frame the SANA registries call `RSW`; brahe uses its
 /// existing RTN vocabulary (`state_eci_to_rtn`, `covariance_rtn`).
 ///
-/// Every kind is a valid frame identity, which is what parsing a data file
-/// needs, but only `RTN`, `LVLH`, `NTW`, `TNW`, `VNC`, `PQW`, `EQW`, and
-/// `NSW` have axes derivations today. A transform through any other kind
-/// errors until issue #452 adds the SEZ derivation.
+/// Every kind has an axes derivation in [`crate::relative_motion`]; `SEZ`
+/// is evaluable only for Earth-centered objects.
 ///
 /// # Examples
 ///

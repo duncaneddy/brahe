@@ -597,6 +597,32 @@ def test_aem_teme_of_epoch_has_no_native_frame(eop):
             AEM.from_attitude_trajectory(traj, "SAT1", "2024-001A", "BRAHE", "UTC")
 
 
+def test_aem_enu_ref_frame_writes_back_as_enz(eop):
+    """Mirror of test_orbit_relative_frame_enu_aliases_parse_as_enz in Rust."""
+    aem = AEM.from_str(
+        "CCSDS_AEM_VERS = 2.0\n"
+        "CREATION_DATE = 2002-11-04T17:22:31\n"
+        "ORIGINATOR = BRAHE\n"
+        "\n"
+        "META_START\n"
+        "OBJECT_NAME = TESTSAT\n"
+        "OBJECT_ID = 2024-001A\n"
+        "REF_FRAME_A = ENU_ROTATING\n"
+        "REF_FRAME_B = SC_BODY_1\n"
+        "TIME_SYSTEM = UTC\n"
+        "START_TIME = 2024-01-01T00:00:00.000\n"
+        "STOP_TIME = 2024-01-01T00:01:00.000\n"
+        "ATTITUDE_TYPE = QUATERNION\n"
+        "META_STOP\n"
+        "\n"
+        "DATA_START\n"
+        "2024-01-01T00:00:00.000 0.0 0.0 0.0 1.0\n"
+        "2024-01-01T00:01:00.000 0.0 0.0 0.0 1.0\n"
+        "DATA_STOP\n"
+    )
+    assert "REF_FRAME_A = ENZ_ROTATING" in aem.to_string("KVN")
+
+
 def test_aem_from_attitude_trajectory_empty_errors():
     """Mirror of test_aem_from_attitude_trajectory_empty_errors in Rust."""
     frame_a = bh.ReferenceFrame.celestial(bh.CelestialFrame.EME2000)

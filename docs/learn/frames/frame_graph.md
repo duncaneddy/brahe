@@ -5,7 +5,7 @@
 A `ReferenceFrame` is one of three variants:
 
 - **Celestial**: any `CelestialFrame` (`GCRF`, `ITRF`, `LFPA`, ...). Evaluable analytically from an epoch alone, exactly as in the router.
-- **Orbit-relative**: a local orbital frame of one object (`RTN`, `LVLH`, `NTW`, `TNW`, `PQW`, `EQW`, `SEZ`, `VNC`, or `NSW`), either rotating with the orbit or frozen as an inertial snapshot at each evaluation epoch. Every kind has an axes derivation (see [Orbit-Relative Frames](../relative_motion/orbit_relative_frames.md)); `SEZ` is a topocentric frame on the WGS84 ellipsoid and is evaluable only for Earth-centered objects.
+- **Orbit-relative**: a local orbital frame of one object (`RTN`, `LVLH`, `NTW`, `TNW`, `PQW`, `EQW`, `SEZ`, `VNC`, `NSW`, or `ENZ`), either rotating with the orbit or frozen as an inertial snapshot at each evaluation epoch. Every kind has an axes derivation (see [Orbit-Relative Frames](../relative_motion/orbit_relative_frames.md)); `SEZ` and `ENZ` are topocentric frames on the WGS84 ellipsoid and are evaluable only for Earth-centered objects.
 
 The `NSW` frame's Sun state comes from the global ephemeris source selected with `set_frame_ephemeris_source`: `Auto` (the default) uses the SPICE registry when a kernel is already loaded, otherwise the analytic Sun model for an Earth-centered evaluation, and otherwise the SPICE registry, which loads the default DE kernel, for any other center; `Analytic` forces the low-precision analytic model and works only for an Earth-centered frame, and `Kernel` forces the SPICE registry regardless of center.
 

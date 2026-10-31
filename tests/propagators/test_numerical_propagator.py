@@ -815,6 +815,74 @@ def test_numericalpropagator_event_value_event():
     assert detected, "PositionCrossing event not found in event log"
 
 
+@pytest.mark.parametrize(
+    ("initial", "velocity", "direction"),
+    [
+        (-2.0, 1.0, "DECREASING"),
+        (2.0, -1.0, "INCREASING"),
+    ],
+)
+def test_numericalpropagator_value_event_rejects_wrong_direction_at_endpoint(
+    initial, velocity, direction
+):
+    """A target landing must not bypass the ValueEvent direction filter."""
+    from brahe import EventDirection, ValueEvent
+
+    epoch = create_test_epoch()
+    prop = NumericalPropagator(
+        epoch,
+        np.array([initial]),
+        lambda _epoch, _state, _params: np.array([velocity]),
+        create_seeded_step_config(2.0),
+    )
+    prop.add_event_detector(
+        ValueEvent(
+            "WrongDirectionAtEndpoint",
+            lambda _epoch, state: state[0],
+            0.0,
+            getattr(EventDirection, direction),
+        )
+    )
+    prop.propagate_to(epoch + 2.0)
+
+    assert len(prop.event_log()) == 0
+
+
+@pytest.mark.parametrize(
+    ("initial", "velocity", "direction"),
+    [
+        (-2.0, 1.0, "INCREASING"),
+        (2.0, -1.0, "DECREASING"),
+        (-2.0, 1.0, "ANY"),
+        (2.0, -1.0, "ANY"),
+    ],
+)
+def test_numericalpropagator_value_event_accepts_permitted_endpoint(
+    initial, velocity, direction
+):
+    """A target landing must still trigger for a permitted crossing direction."""
+    from brahe import EventDirection, ValueEvent
+
+    epoch = create_test_epoch()
+    prop = NumericalPropagator(
+        epoch,
+        np.array([initial]),
+        lambda _epoch, _state, _params: np.array([velocity]),
+        create_seeded_step_config(2.0),
+    )
+    prop.add_event_detector(
+        ValueEvent(
+            "AllowedDirectionAtEndpoint",
+            lambda _epoch, state: state[0],
+            0.0,
+            getattr(EventDirection, direction),
+        )
+    )
+    prop.propagate_to(epoch + 2.0)
+
+    assert len(prop.event_log()) == 1
+
+
 def test_numericalpropagator_event_callback_state_modification():
     """Test event callback that modifies state (mirrors Rust test)"""
     from brahe import EventAction, EventDirection, ValueEvent

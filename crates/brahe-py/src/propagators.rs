@@ -6823,7 +6823,7 @@ fn wrap_state_dynamics(
                 let res = result.map_err(|e| stash_callback_err(&err_slot, e))?;
                 let res_arr: PyReadonlyArray1<f64> = res
                     .extract(py)
-                    .map_err(|e| stash_callback_err(&err_slot, PyErr::from(e)))?;
+                    .map_err(|e| stash_callback_err(&err_slot, e))?;
                 let res_slice = res_arr.as_slice().map_err(|e| {
                     RustBraheError::Error(format!("callback returned non-contiguous array: {e}"))
                 })?;

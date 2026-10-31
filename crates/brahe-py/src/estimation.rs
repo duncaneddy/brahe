@@ -2644,7 +2644,7 @@ impl PyExtendedKalmanFilter {
 
                             let res = result.map_err(|e| stash_callback_err(&err_slot, e))?;
                             let res_arr: PyReadonlyArray1<f64> =
-                                res.extract(py).map_err(|e| stash_callback_err(&err_slot, PyErr::from(e)))?;
+                                res.extract(py).map_err(|e| stash_callback_err(&err_slot, e))?;
                             let res_slice = res_arr.as_slice().map_err(|e| {
                                 RustBraheError::Error(format!(
                                     "callback returned non-contiguous array: {e}"
@@ -2678,7 +2678,7 @@ impl PyExtendedKalmanFilter {
 
                             let res = result.map_err(|e| stash_callback_err(&err_slot, e))?;
                             let res_arr: PyReadonlyArray1<f64> =
-                                res.extract(py).map_err(|e| stash_callback_err(&err_slot, PyErr::from(e)))?;
+                                res.extract(py).map_err(|e| stash_callback_err(&err_slot, e))?;
                             let res_slice = res_arr.as_slice().map_err(|e| {
                                 RustBraheError::Error(format!(
                                     "callback returned non-contiguous array: {e}"
@@ -3326,7 +3326,7 @@ impl PyUnscentedKalmanFilter {
                             let res = result.map_err(|e| stash_callback_err(&err_slot, e))?;
                             let res_arr: PyReadonlyArray1<f64> = res
                                 .extract(py)
-                                .map_err(|e| stash_callback_err(&err_slot, PyErr::from(e)))?;
+                                .map_err(|e| stash_callback_err(&err_slot, e))?;
                             let res_slice = res_arr.as_slice().map_err(|e| {
                                 RustBraheError::Error(format!(
                                     "callback returned non-contiguous array: {e}"
@@ -3359,7 +3359,7 @@ impl PyUnscentedKalmanFilter {
                             let res = result.map_err(|e| stash_callback_err(&err_slot, e))?;
                             let res_arr: PyReadonlyArray1<f64> = res
                                 .extract(py)
-                                .map_err(|e| stash_callback_err(&err_slot, PyErr::from(e)))?;
+                                .map_err(|e| stash_callback_err(&err_slot, e))?;
                             let res_slice = res_arr.as_slice().map_err(|e| {
                                 RustBraheError::Error(format!(
                                     "callback returned non-contiguous array: {e}"
@@ -3792,7 +3792,7 @@ impl PyUnscentedKalmanFilterBuilder {
 ///     method = bh.BLSSolverMethod.NORMAL_EQUATIONS
 ///     config = bh.BLSConfig(solver_method=method)
 ///     ```
-#[pyclass(module = "brahe._brahe", skip_from_py_object)]
+#[pyclass(module = "brahe._brahe")]
 #[pyo3(name = "BLSSolverMethod")]
 #[derive(Clone)]
 pub struct PyBLSSolverMethod {}
@@ -4379,7 +4379,7 @@ impl PyBatchLeastSquares {
 
                             let res = result.map_err(|e| stash_callback_err(&err_slot, e))?;
                             let res_arr: PyReadonlyArray1<f64> =
-                                res.extract(py).map_err(|e| stash_callback_err(&err_slot, PyErr::from(e)))?;
+                                res.extract(py).map_err(|e| stash_callback_err(&err_slot, e))?;
                             let res_slice = res_arr.as_slice().map_err(|e| {
                                 RustBraheError::Error(format!(
                                     "callback returned non-contiguous array: {e}"
@@ -4413,7 +4413,7 @@ impl PyBatchLeastSquares {
 
                             let res = result.map_err(|e| stash_callback_err(&err_slot, e))?;
                             let res_arr: PyReadonlyArray1<f64> =
-                                res.extract(py).map_err(|e| stash_callback_err(&err_slot, PyErr::from(e)))?;
+                                res.extract(py).map_err(|e| stash_callback_err(&err_slot, e))?;
                             let res_slice = res_arr.as_slice().map_err(|e| {
                                 RustBraheError::Error(format!(
                                     "callback returned non-contiguous array: {e}"

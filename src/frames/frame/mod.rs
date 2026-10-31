@@ -162,10 +162,10 @@ impl ReferenceFrame {
     /// Constructs a bound Tangential/Normal/cross-track orbit-relative
     /// frame (rotating variant).
     ///
-    /// Among the orbit-relative kinds only `RTN`, `LVLH`, and `NTW` have
-    /// axes derivations today, so this frame is constructible but every
-    /// transform through it errors until issue #452 adds the remaining
-    /// derivations.
+    /// Axes: X along velocity, Z along the orbit normal, Y = Z × X pointing
+    /// inward (see [`crate::relative_motion::rotation_tnw_to_eci`]). The
+    /// rotating variant's rate uses the gravitational parameter of the
+    /// object's declared center.
     ///
     /// # Arguments
     /// * `object` - The object the frame is defined relative to
@@ -192,10 +192,10 @@ impl ReferenceFrame {
     /// Constructs a bound topocentric South/East/Zenith orbit-relative
     /// frame (rotating variant).
     ///
-    /// Among the orbit-relative kinds only `RTN`, `LVLH`, and `NTW` have
-    /// axes derivations today, so this frame is constructible but every
-    /// transform through it errors until issue #452 adds the remaining
-    /// derivations.
+    /// Among the orbit-relative kinds only `RTN`, `LVLH`, `NTW`, and `TNW`
+    /// have axes derivations today, so this frame is constructible but
+    /// every transform through it errors until issue #452 adds the
+    /// remaining derivations.
     ///
     /// # Arguments
     /// * `object` - The object the frame is defined relative to
@@ -222,10 +222,10 @@ impl ReferenceFrame {
     /// Constructs a bound Velocity/Normal/Co-normal orbit-relative frame
     /// (rotating variant).
     ///
-    /// Among the orbit-relative kinds only `RTN`, `LVLH`, and `NTW` have
-    /// axes derivations today, so this frame is constructible but every
-    /// transform through it errors until issue #452 adds the remaining
-    /// derivations.
+    /// Among the orbit-relative kinds only `RTN`, `LVLH`, `NTW`, and `TNW`
+    /// have axes derivations today, so this frame is constructible but
+    /// every transform through it errors until issue #452 adds the
+    /// remaining derivations.
     ///
     /// # Arguments
     /// * `object` - The object the frame is defined relative to
@@ -252,10 +252,10 @@ impl ReferenceFrame {
     /// Constructs a bound Nadir/Sun/Normal orbit-relative frame (rotating
     /// variant).
     ///
-    /// Among the orbit-relative kinds only `RTN`, `LVLH`, and `NTW` have
-    /// axes derivations today, so this frame is constructible but every
-    /// transform through it errors until issue #452 adds the remaining
-    /// derivations.
+    /// Among the orbit-relative kinds only `RTN`, `LVLH`, `NTW`, and `TNW`
+    /// have axes derivations today, so this frame is constructible but
+    /// every transform through it errors until issue #452 adds the
+    /// remaining derivations.
     ///
     /// # Arguments
     /// * `object` - The object the frame is defined relative to
@@ -282,10 +282,10 @@ impl ReferenceFrame {
     /// Constructs a bound Perifocal orbit-relative frame (inertial-snapshot
     /// variant; `PQW` is SANA-registered only as inertial).
     ///
-    /// Among the orbit-relative kinds only `RTN`, `LVLH`, and `NTW` have
-    /// axes derivations today, so this frame is constructible but every
-    /// transform through it errors until issue #452 adds the remaining
-    /// derivations.
+    /// Among the orbit-relative kinds only `RTN`, `LVLH`, `NTW`, and `TNW`
+    /// have axes derivations today, so this frame is constructible but
+    /// every transform through it errors until issue #452 adds the
+    /// remaining derivations.
     ///
     /// # Arguments
     /// * `object` - The object the frame is defined relative to
@@ -313,10 +313,10 @@ impl ReferenceFrame {
     /// (inertial-snapshot variant; `EQW` is SANA-registered only as
     /// inertial).
     ///
-    /// Among the orbit-relative kinds only `RTN`, `LVLH`, and `NTW` have
-    /// axes derivations today, so this frame is constructible but every
-    /// transform through it errors until issue #452 adds the remaining
-    /// derivations.
+    /// Among the orbit-relative kinds only `RTN`, `LVLH`, `NTW`, and `TNW`
+    /// have axes derivations today, so this frame is constructible but
+    /// every transform through it errors until issue #452 adds the
+    /// remaining derivations.
     ///
     /// # Arguments
     /// * `object` - The object the frame is defined relative to
@@ -362,10 +362,10 @@ impl ReferenceFrame {
     /// callers that hold a runtime `kind`/`variant` pair (e.g. parsed from
     /// a CCSDS file) and an optional, not-yet-bound object.
     ///
-    /// Among the orbit-relative kinds only `RTN`, `LVLH`, and `NTW` have
-    /// axes derivations today; the others construct successfully but every
-    /// transform through them errors until issue #452 adds the remaining
-    /// derivations.
+    /// Among the orbit-relative kinds only `RTN`, `LVLH`, `NTW`, and `TNW`
+    /// have axes derivations today; the others construct successfully but
+    /// every transform through them errors until issue #452 adds the
+    /// remaining derivations.
     ///
     /// # Arguments
     /// * `kind` - The frame construction (axes definition)
@@ -790,9 +790,9 @@ impl ReferenceFrame {
     /// requires: a celestial frame (always), or an orbit-relative/body
     /// frame with a bound object. `true` is necessary but not sufficient
     /// for the frame to actually resolve. An orbit-relative frame also needs
-    /// an axes derivation for its `kind` (currently `RTN`, `LVLH`, and
-    /// `NTW`), and a body frame also needs its orientation chain registered
-    /// (`register_frame`).
+    /// an axes derivation for its `kind` (currently `RTN`, `LVLH`, `NTW`,
+    /// and `TNW`), and a body frame also needs its orientation chain
+    /// registered (`register_frame`).
     ///
     /// # Returns
     /// `bool`: `true` if the frame is bound (celestial frames are always

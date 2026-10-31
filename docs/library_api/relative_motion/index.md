@@ -14,3 +14,4 @@ For conceptual explanations and usage examples, see the
 - [TNW Transformations](tnw_transformations.md) - Transforms between ECI and the TNW frame
 - [VNC Transformations](vnc_transformations.md) - Transforms between ECI and the VNC frame
 - [PQW Transformations](pqw_transformations.md) - Transforms between ECI and the PQW frame
+- [EQW Transformations](eqw_transformations.md) - Transforms between ECI and the EQW frame

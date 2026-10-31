@@ -1,0 +1,11 @@
+TLI delta-v: 3.0943 km/s
+Flight time to re-entry: 6.40 days
+
+✓ Generated docs/figures/earth_moon_free_return_distance_light.html
+✓ Generated docs/figures/earth_moon_free_return_distance_dark.html
+✓ Generated docs/figures/earth_moon_free_return_emr_light.html
+✓ Generated docs/figures/earth_moon_free_return_emr_dark.html
+✓ Generated docs/figures/earth_moon_free_return_emr_2d_light.html
+✓ Generated docs/figures/earth_moon_free_return_emr_2d_dark.html
+
+Earth-Moon Free-Return Example Complete!

@@ -1,0 +1,5 @@
+ECEF GNSS tracking with ECEFPositionMeasurementModel:
+  Initial position error: 1000.0 m
+  Final position error:   0.00 m
+  Final velocity error:   0.0000 m/s
+  Observations processed: 20

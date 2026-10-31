@@ -1,0 +1,8 @@
+Detected 3 events:
+  '30-minute mark' at t+1800.0s
+  '1-hour mark' at t+3600.0s
+  '90-minute stop' at t+5400.0s
+
+Propagation stopped at: t+5400.0s (requested: t+7200s)
+
+Example validated successfully!

@@ -1,0 +1,15 @@
+Epoch: 2024-01-01 12:00:00.000 UTC
+
+GCRF to ITRF rotation matrix:
+  [ 0.1794538, -0.9837663, -0.0003836]
+  [ 0.9837637,  0.1794542, -0.0022908]
+  [ 0.0023225,  0.0000338,  0.9999973]
+
+Position in GCRF:
+  [1848964.106, -434937.468, 6560410.530] m
+
+Position in ITRF (using rotation matrix):
+  [757164.267, 1725863.563, 6564672.302] m
+
+Position in ITRF (using position_gcrf_to_itrf):
+  [757164.267, 1725863.563, 6564672.302] m

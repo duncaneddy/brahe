@@ -1,0 +1,5 @@
+Initial epoch: 2024-01-01 12:00:00.000 UTC
+Final epoch:   2024-01-01 13:00:00.000 UTC
+Position (km): [3351.511, 1720.297, -5776.689]
+Velocity (m/s): [6336.225, 1132.109, 4031.027]
+Example validated successfully!

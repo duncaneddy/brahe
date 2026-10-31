@@ -1,0 +1,4 @@
+Difference in seconds: 86400.00
+epoch < epoch_plus_1_day: true
+epoch == epoch_minus_1_day: false
+epoch > epoch_minus_1_day: true

@@ -1,0 +1,5 @@
+Original epoch: 2025-01-01 12:00:00.000 UTC
+Plus 1 hour: 2025-01-01 13:00:00.000 UTC
+Plus 1 day: 2025-01-02 12:00:00.000 UTC
+In-place plus 1 second: 2025-01-01 12:00:01.000 UTC
+In-place plus 1 millisecond: 2025-01-01 12:00:01.001 UTC

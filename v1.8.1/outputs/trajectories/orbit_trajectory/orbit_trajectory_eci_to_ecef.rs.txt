@@ -1,0 +1,9 @@
+Original frame: Celestial(GCRF)
+Original representation: OrbitRepresentation(Cartesian)
+
+Converted frame: Celestial(ITRF)
+Converted representation: OrbitRepresentation(Cartesian)
+Same number of states: 5
+
+First state ECI: [6878136.3, 0, 0] m
+First state ECEF: [-1176064.0596141217, -6776826.507241379, 15961.823588606134] m

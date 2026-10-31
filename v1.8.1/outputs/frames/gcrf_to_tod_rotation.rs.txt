@@ -1,0 +1,16 @@
+Epoch: 2024-01-01 12:00:00.000 UTC
+
+GCRF to TOD rotation matrix:
+  [ 0.9999830314, -0.0053430242, -0.0023214107]
+  [ 0.0053429333,  0.9999857254, -0.0000453536]
+  [ 0.0023216198,  0.0000329497,  0.9999973045]
+
+Verify orthonormality (R @ R^T should be identity):
+  Max deviation from identity: 4.44e-16
+
+Comparison with the CIO-based bias-precession-nutation matrix:
+  Max element difference: 5.343029e-3
+
+Note: rotation_gcrf_to_tod and bias_precession_nutation share the same
+Celestial Intermediate Pole direction (third row) and differ only by the
+equation of the origins, a rotation within the equatorial plane.

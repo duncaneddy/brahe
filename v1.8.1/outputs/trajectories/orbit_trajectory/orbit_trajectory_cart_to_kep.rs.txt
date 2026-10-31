@@ -1,0 +1,27 @@
+Original representation: OrbitRepresentation(Cartesian)
+Converted representation: OrbitRepresentation(Keplerian)
+Angle format: Some(Degrees)
+
+Epoch: 2024-01-01 00:00:00.000 UTC
+  Semi-major axis: 6878.14 km
+  Eccentricity: 0.001000
+  Inclination: 97.80°
+  RAAN: 15.00°
+  Argument of perigee: 30.00°
+  Mean Anomaly: 0.00°
+
+Epoch: 2024-01-01 00:05:00.000 UTC
+  Semi-major axis: 6878.14 km
+  Eccentricity: 0.001000
+  Inclination: 97.80°
+  RAAN: 15.00°
+  Argument of perigee: 30.00°
+  Mean Anomaly: 10.00°
+
+Epoch: 2024-01-01 00:10:00.000 UTC
+  Semi-major axis: 6878.14 km
+  Eccentricity: 0.001000
+  Inclination: 97.80°
+  RAAN: 15.00°
+  Argument of perigee: 30.00°
+  Mean Anomaly: 20.00°

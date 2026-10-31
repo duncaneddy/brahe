@@ -1,0 +1,4 @@
+Total satellites: 24
+Number of planes: 6
+Pattern: Delta
+Generated 24 Keplerian propagators

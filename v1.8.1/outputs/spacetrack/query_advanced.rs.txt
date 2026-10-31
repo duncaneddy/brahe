@@ -1,0 +1,11 @@
+Ordered and limited:
+  /basicspacedata/query/class/gp/NORAD_CAT_ID/25544/orderby/EPOCH%20desc/limit/5/format/json
+
+Paginated results:
+  /basicspacedata/query/class/gp/OBJECT_TYPE/PAYLOAD/orderby/NORAD_CAT_ID%20asc/limit/10,20/format/json
+
+Filtered fields:
+  /basicspacedata/query/class/gp/NORAD_CAT_ID/25544/predicates/OBJECT_NAME,EPOCH,INCLINATION,PERIOD/format/json
+
+Distinct with metadata:
+  /basicspacedata/query/class/satcat/COUNTRY/US/metadata/true/distinct/true/format/json

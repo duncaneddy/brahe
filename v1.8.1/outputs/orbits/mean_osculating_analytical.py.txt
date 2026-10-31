@@ -1,0 +1,7 @@
+Mean elements       : a=6878136.300 m, e=0.010000, i=45.000 deg, raan=30.000 deg, argp=60.000 deg, M=0.000 deg
+Osculating elements : a=6875710.369 m, e=0.010058, i=44.990 deg, raan=30.025 deg, argp=61.150 deg, M=358.859 deg
+Recovered mean      : a=6878134.204 m, e=0.009999, i=45.001 deg, raan=29.644 deg, argp=60.377 deg, M=0.000 deg
+
+Semi-major axis, osculating - mean:       -2425.931 m
+Semi-major axis, round-trip residual:     -2.095604 m
+Argument of perigee, round-trip residual: +3.770572e-01 deg

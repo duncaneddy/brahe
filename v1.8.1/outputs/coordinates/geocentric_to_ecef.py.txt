@@ -1,0 +1,10 @@
+Geocentric coordinates (spherical Earth model):
+Longitude: -122.4194° = -2.136622 rad
+Latitude:  37.7749° = 0.659296 rad
+Altitude:  13.8 m
+
+ECEF Cartesian coordinates:
+x = -2702779.686 m
+y = -4255713.575 m
+z = 3907005.447 m
+Distance from Earth center: 6378150.800 m

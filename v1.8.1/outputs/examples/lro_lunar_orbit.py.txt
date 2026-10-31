@@ -1,0 +1,19 @@
+Perilune radius: 1768.0 km (altitude: 30 km)
+Apolune radius:  1918.0 km (altitude: 180 km)
+Semi-major axis: 1843.0 km, eccentricity: 0.0407
+
+Propagating 7 days (full model vs. point mass)...
+  Complete!
+
+Initial inclination (rel. Moon pole): 85.2000 deg (target: 85.2 deg)
+Min perilune altitude (full model): 27.27 km
+Max altitude divergence (full vs. point mass): 20.277 km
+
+Example validated successfully!
+
+✓ Generated docs/figures/lro_lunar_orbit_altitude_light.html
+✓ Generated docs/figures/lro_lunar_orbit_altitude_dark.html
+✓ Generated docs/figures/lro_lunar_orbit_3d_light.html
+✓ Generated docs/figures/lro_lunar_orbit_3d_dark.html
+
+LRO Lunar Orbit Example Complete!

@@ -1,0 +1,4 @@
+Downlink only: uplink=None, downlink=8.4e9 Hz
+Both frequencies: uplink=2.0e9 Hz, downlink=8.4e9 Hz
+
+First pass downlink Doppler shift range: -178593.2 to 178818.8 Hz

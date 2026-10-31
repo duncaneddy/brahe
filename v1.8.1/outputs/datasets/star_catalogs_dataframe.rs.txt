@@ -1,0 +1,3 @@
+DataFrame shape: (117955, 24)
+Columns: ["hip_id", "vmag", "var_flag", "ra", "dec", "parallax", "pm_ra", "pm_dec", "e_ra", "e_dec", "e_parallax", "e_pm_ra", "e_pm_dec", "bt_mag", "vt_mag", "b_v", "hp_mag", "hvar_type", "mult_flag", "hd_id", "bd_id", "cod_id", "cpd_id", "spectral_type"]
+Stars brighter than Vmag 4.0: 518

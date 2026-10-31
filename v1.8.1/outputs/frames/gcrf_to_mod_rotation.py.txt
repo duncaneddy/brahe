@@ -1,0 +1,19 @@
+Epoch: 2024-01-01 12:00:00.000 UTC
+
+GCRF to MOD rotation matrix:
+  [ 0.9999828794, -0.0053669215, -0.0023317698]
+  [ 0.0053669216,  0.9999855980, -0.0000061942]
+  [ 0.0023317695, -0.0000063203,  0.9999972814]
+
+J2000 epoch: 2000-01-01 12:00:00.000 TT
+
+GCRF to MOD rotation matrix at J2000:
+  [ 1.0000000000, -0.0000000708,  0.0000000806]
+  [ 0.0000000708,  1.0000000000,  0.0000000331]
+  [-0.0000000806, -0.0000000331,  1.0000000000]
+
+Comparison with the EME2000 frame bias matrix at J2000:
+  Max absolute difference: 9.77e-13
+
+Note: at J2000 the precession is identity, so MOD reduces
+to the constant frame bias between GCRF and EME2000.

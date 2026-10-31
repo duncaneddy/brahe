@@ -1,0 +1,24 @@
+High-Precision HEO Orbit Propagation
+Semi-major axis: 26554.0 km
+Eccentricity: 0.74
+Period: 11.96 hours
+
+Using RKN1210 with tol=1e-14
+Propagating for one orbital period...
+
+t=  0.02h  r=  6915.2km  dt=  60.0s  err=2.27e-3
+t=  0.60h  r= 14168.3km  dt= 301.0s  err=2.40e-2
+t=  2.51h  r= 34605.1km  dt= 900.0s  err=1.55e-3
+t=  5.01h  r= 45353.9km  dt= 900.0s  err=0.00e0
+t=  7.51h  r= 44086.7km  dt= 900.0s  err=2.16e-3
+t= 10.01h  r= 30123.9km  dt= 900.0s  err=5.10e-3
+t= 11.64h  r=  9917.6km  dt= 290.9s  err=2.08e-1
+
+Propagation complete!
+Total steps: 67
+Average step: 642.7 s
+Cumulative error estimate: 5.63e0
+
+Orbit element errors after one period:
+  Semi-major axis: 3.725e-8 m
+  Eccentricity:    2.220e-16

@@ -1,0 +1,5 @@
+Records: 50, covariance: true
+Span: 2026-09-11 01:49:42.000 UTC to 2026-09-11 02:38:42.000 UTC
+File name: MEME_100002_STARLINK-37711_2540149_Operational_nomnvr_UNCLASSIFIED.txt
+Re-read 50 records; state frame EME2000
+First line: created:2026-09-11 02:00:00 UTC

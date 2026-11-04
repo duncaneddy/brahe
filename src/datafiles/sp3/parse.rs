@@ -188,8 +188,9 @@ impl SP3 {
     /// Parse an SP3 file from bytes that are plain text or gzip-compressed.
     ///
     /// The compression is detected from the leading magic bytes: gzip data is
-    /// decompressed and anything else is read as UTF-8 text. Unix compress
-    /// (`.Z`) data is rejected because it cannot be decoded.
+    /// decompressed and anything else is read as UTF-8 text. The decompressed
+    /// size is limited to 1 GiB. Unix compress (`.Z`) data is rejected because
+    /// it cannot be decoded.
     ///
     /// # Arguments
     ///
@@ -198,8 +199,9 @@ impl SP3 {
     /// # Returns
     ///
     /// * `Result<SP3, BraheError>` - The parsed file, a `ParseError` of the form
-    ///   `"SP3: <detail>"` if the gzip stream is corrupt, the text is not UTF-8, or the data
-    ///   is Unix compress data, or a `ParseError` as for [`SP3::from_str`]
+    ///   `"SP3: <detail>"` if the gzip stream is corrupt or decompresses to more than 1 GiB,
+    ///   the text is not UTF-8, or the data is Unix compress data, or a `ParseError` as for
+    ///   [`SP3::from_str`]
     ///
     /// # Examples
     ///

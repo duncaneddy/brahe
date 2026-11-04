@@ -1824,7 +1824,7 @@ impl PySP3 {
 
     /// Parse an SP3 file from bytes that are plain text or gzip-compressed.
     ///
-    /// Gzip data is detected from its leading bytes and decompressed. Unix compress (``.Z``) data is rejected.
+    /// Gzip data is detected from its leading bytes and decompressed; the decompressed size is limited to 1 GiB. Unix compress (``.Z``) data is rejected.
     ///
     /// Args:
     ///     data (bytes): File contents, either SP3 text or a gzip stream of SP3 text.
@@ -1833,7 +1833,7 @@ impl PySP3 {
     ///     SP3: The parsed file.
     ///
     /// Raises:
-    ///     BraheError: If the gzip stream is corrupt, the text is not UTF-8, the data is Unix compress data, or the header or any record is malformed.
+    ///     BraheError: If the gzip stream is corrupt or decompresses to more than 1 GiB, the text is not UTF-8, the data is Unix compress data, or the header or any record is malformed.
     ///
     /// Example:
     ///     ```python
@@ -1901,7 +1901,7 @@ impl PySP3 {
 
     /// Write the file as SP3-d text.
     ///
-    /// The text is gzip-compressed when the path ends in ``.gz``, compared case-insensitively.
+    /// The text is gzip-compressed when the path ends in ``.gz``, compared case-insensitively. The data is written to a temporary file and renamed into place, so a failed write leaves any existing file unchanged. The parent directory must exist.
     ///
     /// Args:
     ///     path (str): Destination path; any ``os.PathLike`` is accepted. A ``.gz`` extension selects gzip output.

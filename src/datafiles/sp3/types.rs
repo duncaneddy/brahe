@@ -889,13 +889,13 @@ pub struct SP3Header {
     pub start_epoch: Epoch,
     /// Number of epochs in the file
     pub number_of_epochs: usize,
-    /// Data used descriptor
+    /// Data used descriptor; at most 5 characters to be written
     pub data_used: String,
-    /// Coordinate system label
+    /// Coordinate system label; at most 5 characters to be written
     pub coordinate_system: String,
-    /// Orbit type
+    /// Orbit type; at most 3 characters to be written
     pub orbit_type: SP3OrbitType,
-    /// Producing agency
+    /// Producing agency; at most 4 characters to be written
     pub agency: String,
     /// GPS week of the first epoch
     pub gps_week: u32,
@@ -944,7 +944,7 @@ pub struct SP3WriteOptions {
     pub time_system: SP3TimeSystem,
     /// Coordinate system label, at most 5 characters
     pub coordinate_system: String,
-    /// Orbit type
+    /// Orbit type; an `Other` label has at most 3 characters
     pub orbit_type: SP3OrbitType,
     /// Data used descriptor, at most 5 characters
     pub data_used: String,
@@ -1062,7 +1062,7 @@ impl SP3WriteOptions {
     ///
     /// # Arguments
     ///
-    /// * `orbit_type` - Orbit type
+    /// * `orbit_type` - Orbit type; an `Other` label has at most 3 characters
     ///
     /// # Returns
     ///
@@ -1223,6 +1223,54 @@ pub(crate) fn header_time_fields(epoch: &Epoch, time_system: TimeSystem) -> (u32
     )
 }
 
+/// Check the labels of the first header line against their SP3-d fields.
+///
+/// The data used, coordinate system, orbit type, and agency fields are 5,
+/// 5, 3, and 4 characters wide. Every label must fit its field and contain
+/// no whitespace, and every label except the agency must be non-empty.
+///
+/// # Arguments
+///
+/// * `data_used` - Data used descriptor
+/// * `coordinate_system` - Coordinate system label
+/// * `orbit_type` - Orbit type
+/// * `agency` - Producing agency
+/// * `remedy` - How to shorten an over-width label, appended to its error
+///
+/// # Returns
+///
+/// * `Result<(), BraheError>` - An error naming the first label that does not fit
+pub(crate) fn check_header_labels(
+    data_used: &str,
+    coordinate_system: &str,
+    orbit_type: &SP3OrbitType,
+    agency: &str,
+    remedy: &str,
+) -> Result<(), BraheError> {
+    let orbit_type = orbit_type.to_string();
+    let labels = [
+        ("data used", data_used, 5, false),
+        ("coordinate system", coordinate_system, 5, false),
+        ("orbit type", orbit_type.as_str(), 3, false),
+        ("agency", agency, 4, true),
+    ];
+    for (name, label, width, may_be_empty) in labels {
+        if (label.is_empty() && !may_be_empty) || label.contains(char::is_whitespace) {
+            return Err(sp3_error(&format!(
+                "{} '{}' must be a non-empty label without whitespace",
+                name, label
+            )));
+        }
+        if label.chars().count() > width {
+            return Err(sp3_error(&format!(
+                "{} '{}' is longer than {} characters, the width of its SP3-d header field; {}",
+                name, label, width, remedy
+            )));
+        }
+    }
+    Ok(())
+}
+
 /// File type implied by the systems of a satellite list.
 pub(crate) fn file_type_from_satellites(satellites: &[SP3SatelliteId]) -> SP3FileType {
     let Some(first) = satellites.first() else {
@@ -1294,7 +1342,9 @@ impl SP3 {
     /// # Returns
     ///
     /// * `Result<SP3, BraheError>` - The empty file, or an error for duplicate satellites,
-    ///   a satellite number outside 1 to 99, more than 999 satellites, a non-positive or non-finite interval, or a time system
+    ///   a satellite number outside 1 to 99, a header label longer than its SP3-d field
+    ///   (agency 4, coordinate system 5, data used 5, orbit type 3 characters), an empty
+    ///   data used, coordinate system, or orbit type label, a label containing whitespace, more than 999 satellites, a non-positive or non-finite interval, or a time system
     ///   without a Brahe equivalent
     ///
     /// # Examples
@@ -1333,6 +1383,13 @@ impl SP3 {
                 epoch_interval
             )));
         }
+        check_header_labels(
+            &options.data_used,
+            &options.coordinate_system,
+            &options.orbit_type,
+            &options.agency,
+            "shorten it in SP3WriteOptions",
+        )?;
         let time_system = options.time_system.to_time_system().ok_or_else(|| {
             sp3_error(&format!(
                 "time system {} has no Brahe equivalent",
@@ -2262,5 +2319,41 @@ mod tests {
         sp3.header_mut().epoch_interval = 0.0;
         let err = sp3.push_epoch(t0 + 900.0).unwrap_err();
         assert!(err.to_string().contains("epoch interval"), "{err}");
+    }
+
+    #[test]
+    #[parallel]
+    fn test_SP3_new_rejects_over_width_labels() {
+        let opts = SP3WriteOptions::default;
+        let cases = [
+            (
+                opts().with_data_used("ORBITS"),
+                "data used 'ORBITS' is longer than 5",
+            ),
+            (
+                opts().with_coordinate_system("ITRF14"),
+                "coordinate system 'ITRF14' is longer than 5",
+            ),
+            (
+                opts().with_orbit_type(SP3OrbitType::Other("FITS".to_string())),
+                "orbit type 'FITS' is longer than 3",
+            ),
+            (
+                opts().with_agency("BRAHE"),
+                "agency 'BRAHE' is longer than 4",
+            ),
+            (opts().with_agency("A B"), "agency 'A B' must be"),
+            (opts().with_data_used(""), "data used '' must be"),
+        ];
+        for (options, expected) in cases {
+            let err = SP3::new(vec![sid("G01")], 900.0, options).unwrap_err();
+            assert!(err.to_string().contains(expected), "{err}");
+        }
+        let at_width = opts()
+            .with_data_used("ABCDE")
+            .with_coordinate_system("FGHIJ")
+            .with_orbit_type(SP3OrbitType::Other("KLM".to_string()))
+            .with_agency("");
+        assert!(SP3::new(vec![sid("G01")], 900.0, at_width).is_ok());
     }
 }

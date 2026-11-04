@@ -465,6 +465,38 @@ def test_SP3_new_rejects_more_than_999_satellites():
     assert "999" in str(excinfo.value)
 
 
+@pytest.mark.parametrize(
+    "options, expected",
+    [
+        ({"data_used": "ORBITS"}, "data used 'ORBITS' is longer than 5"),
+        (
+            {"coordinate_system": "ITRF14"},
+            "coordinate system 'ITRF14' is longer than 5",
+        ),
+        ({"orbit_type": "FITS"}, "orbit type 'FITS' is longer than 3"),
+        ({"agency": "BRAHE"}, "agency 'BRAHE' is longer than 4"),
+        ({"agency": "A B"}, "agency 'A B' must be"),
+        ({"data_used": ""}, "data used '' must be"),
+    ],
+)
+def test_SP3_new_rejects_over_width_labels(options, expected):
+    with pytest.raises(bh.BraheError) as excinfo:
+        SP3(["G01"], 900.0, **options)
+    assert expected in str(excinfo.value)
+
+
+def test_SP3_new_accepts_labels_at_width():
+    sp3 = SP3(
+        ["G01"],
+        900.0,
+        data_used="ABCDE",
+        coordinate_system="FGHIJ",
+        orbit_type="KLM",
+        agency="",
+    )
+    assert sp3.header.coordinate_system == "FGHIJ"
+
+
 def test_SP3_new_rejects_invalid_satellite_number():
     # Python identifiers are always validated on construction, so an
     # out-of-range number is rejected before it reaches the satellite list.
@@ -1571,7 +1603,6 @@ ROUND_TRIP_FIXTURES = [
     "example-d-5.sp3",
     "issue895-hours-increment.sp3",
     "issue895-minutes-increment.sp3",
-    "issue1014-days-increment.sp3",
     "issue895-second-digits.sp3",
     "issue895-no-eof.sp3",
     "issue895-clock-record.sp3",
@@ -1708,10 +1739,20 @@ def test_SP3_to_string_header_lines():
 def test_SP3_to_string_long_coordinate_system():
     read = SP3.from_file(fixture("issue1014-days-increment.sp3"))
     assert read.header.coordinate_system == "ITRF14"
+    msg = write_error(read)
+    assert "coordinate system 'ITRF14' is longer than 5 characters" in msg
+    assert "header" in msg
+
+    header = read.header
+    header.coordinate_system = "ITR14"
+    read.header = header
     text = read.to_string()
     first = text.splitlines()[0]
-    assert first == "#dV2021 12 30 23  0  0.00000000      62   SLR ITRF14 FIT JCET"
-    assert SP3.from_str(text).header.coordinate_system == "ITRF14"
+    assert first == "#dV2021 12 30 23  0  0.00000000      62   SLR ITR14 FIT JCET"
+    written = SP3.from_str(text)
+    assert written.header.coordinate_system == "ITR14"
+    assert written.epochs == read.epochs
+    assert written.satellite_ids == read.satellite_ids
 
 
 def test_SP3_to_string_recomputes_derived_header_fields():
@@ -1876,7 +1917,7 @@ def test_SP3_to_string_header_label_errors():
     header = sp3.header
     header.orbit_type = "X" * 30
     sp3.header = header
-    assert "longer than 80 characters" in write_error(sp3)
+    assert "longer than 3 characters" in write_error(sp3)
 
     sp3 = two_satellite_file()
     header = sp3.header
@@ -2103,3 +2144,43 @@ def test_SP3_to_string_no_epochs(tmp_path):
     with pytest.raises(bh.BraheError):
         sp3.to_file(str(path))
     assert not path.exists()
+
+
+@pytest.mark.parametrize(
+    "field, value, expected",
+    [
+        ("data_used", "ORBITS", "data used 'ORBITS' is longer than 5 characters"),
+        (
+            "coordinate_system",
+            "IGS20X",
+            "coordinate system 'IGS20X' is longer than 5 characters",
+        ),
+        ("orbit_type", "FITS", "orbit type 'FITS' is longer than 3 characters"),
+        ("agency", "BRAHE", "agency 'BRAHE' is longer than 4 characters"),
+    ],
+)
+def test_SP3_to_string_header_label_widths(field, value, expected):
+    sp3 = two_satellite_file()
+    header = sp3.header
+    setattr(header, field, value)
+    sp3.header = header
+    msg = write_error(sp3)
+    assert expected in msg
+    assert "header" in msg
+
+
+def test_SP3_to_string_header_labels_at_width():
+    sp3 = two_satellite_file()
+    header = sp3.header
+    header.data_used = "ABCDE"
+    header.coordinate_system = "FGHIJ"
+    header.orbit_type = "KLM"
+    header.agency = "NOPQ"
+    sp3.header = header
+    text = sp3.to_string()
+    assert text.startswith(
+        "#dV2024 11 10  0  0  0.00000000       2 ABCDE FGHIJ KLM NOPQ\n"
+    ), text
+    back = SP3.from_str(text).header
+    assert str(back.orbit_type) == "KLM"
+    assert back.agency == "NOPQ"

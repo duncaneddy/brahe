@@ -13,16 +13,14 @@ use super::parse::{
     POSITION_STD_UNITS, SATELLITES_PER_LINE, StdUnits, US_TO_S, VELOCITY_STD_UNITS, sp3_error,
 };
 use super::types::{
-    MAX_SATELLITES, SP3, SP3Correlation, SP3Header, SP3Record, SP3SatelliteId, epoch_grid_error,
-    header_time_fields,
+    MAX_SATELLITES, SP3, SP3Correlation, SP3Header, SP3Record, SP3SatelliteId, check_header_labels,
+    epoch_grid_error, header_time_fields,
 };
 use crate::time::{Epoch, TimeSystem};
 use crate::utils::BraheError;
 
 /// Maximum number of characters of a comment after the `/* ` prefix.
 const MAX_COMMENT_LENGTH: usize = 77;
-/// Maximum number of characters of a line.
-const MAX_LINE_LENGTH: usize = 80;
 /// Minimum number of `+` and of `++` lines.
 const MIN_SATELLITE_LINES: usize = 5;
 /// Minimum number of `/*` lines.
@@ -72,10 +70,11 @@ impl SP3 {
     /// exponent that reaches the field limit, and infinity, are written as
     /// the "too large" marker (99, 999, 9999, or 9999999), so the written
     /// value never understates the stored one. Accuracies are written as `ceil(log2(sigma_mm))`, at least 1.
-    /// The header labels are right-aligned in their columns; a label longer
-    /// than its column (such as the coordinate system `ITRF14`) is written in
-    /// full and shifts the fields after it, which readers that split the
-    /// first line on whitespace accept. Comment lines are padded to four.
+    /// The header labels are right-aligned in their fixed columns of the first
+    /// line: data used and coordinate system 5 characters, orbit type 3, and
+    /// agency 4. A longer label, such as the coordinate system `ITRF14` of
+    /// some ILRS files, is an error; shorten it with [`SP3::header_mut`]
+    /// before writing. Comment lines are padded to four.
     ///
     /// # Returns
     ///
@@ -85,7 +84,7 @@ impl SP3 {
     ///   or not on the interval grid, a record table that does not match the epochs and
     ///   satellites, an accuracy list that does not match the satellites, a comment longer
     ///   than 77 characters or containing a line break, an empty or whitespace-holding
-    ///   header label, a first line longer than 80 characters, a satellite number outside
+    ///   header label, a header label longer than its field, a satellite number outside
     ///   1..=99, a `%f` base that is not finite or not greater than 1 as written, a standard
     ///   deviation whose `%f` base is not set, a negative or NaN standard deviation, a clock
     ///   or clock rate that would read back as the missing-value marker `999999.999999`,
@@ -272,25 +271,14 @@ impl SP3 {
         let header = self.header();
         let start = self.start_epoch();
         let (year, month, day, hour, minute, second) = calendar_fields(start, time_system);
+        check_header_labels(
+            &header.data_used,
+            &header.coordinate_system,
+            &header.orbit_type,
+            &header.agency,
+            "shorten it with SP3::header_mut (in Python, assign a modified SP3.header)",
+        )?;
         let orbit_type = header.orbit_type.to_string();
-        let labels = [
-            ("data used", header.data_used.as_str(), false),
-            (
-                "coordinate system",
-                header.coordinate_system.as_str(),
-                false,
-            ),
-            ("orbit type", orbit_type.as_str(), false),
-            ("agency", header.agency.as_str(), true),
-        ];
-        for (name, label, may_be_empty) in labels {
-            if (label.is_empty() && !may_be_empty) || label.contains(char::is_whitespace) {
-                return Err(sp3_error(&format!(
-                    "{} '{}' must be a non-empty label without whitespace",
-                    name, label
-                )));
-            }
-        }
         let first = format!(
             "#d{}{:4} {:2} {:2} {:2} {:2} {:11.8} {:7} {:>5} {:>5} {:>3} {:>4}",
             if header.has_velocity { 'V' } else { 'P' },
@@ -306,12 +294,6 @@ impl SP3 {
             orbit_type,
             header.agency
         );
-        if first.trim_end().chars().count() > MAX_LINE_LENGTH {
-            return Err(sp3_error(&format!(
-                "first header line is longer than {} characters",
-                MAX_LINE_LENGTH
-            )));
-        }
         push_line(out, &first);
 
         let (gps_week, seconds_of_week, mjd, fractional_day) =
@@ -955,7 +937,6 @@ mod tests {
     #[case("example-d-5.sp3")]
     #[case("issue895-hours-increment.sp3")]
     #[case("issue895-minutes-increment.sp3")]
-    #[case("issue1014-days-increment.sp3")]
     #[case("issue895-second-digits.sp3")]
     #[case("issue895-no-eof.sp3")]
     #[case("issue895-clock-record.sp3")]
@@ -1139,18 +1120,25 @@ mod tests {
     #[test]
     #[parallel]
     fn test_SP3_to_string_long_coordinate_system() {
-        let read = fixture("issue1014-days-increment.sp3");
+        let mut read = fixture("issue1014-days-increment.sp3");
         assert_eq!(read.header().coordinate_system, "ITRF14");
+        let msg = write_error(&read);
+        assert!(
+            msg.contains("coordinate system 'ITRF14' is longer than 5 characters"),
+            "{msg}"
+        );
+        assert!(msg.contains("header_mut"), "{msg}");
+
+        read.header_mut().coordinate_system = "ITR14".to_string();
         let text = read.to_string().unwrap();
-        let first = text.lines().next().unwrap();
         assert_eq!(
-            first,
-            "#dV2021 12 30 23  0  0.00000000      62   SLR ITRF14 FIT JCET"
+            text.lines().next().unwrap(),
+            "#dV2021 12 30 23  0  0.00000000      62   SLR ITR14 FIT JCET"
         );
-        assert_eq!(
-            SP3::from_str(&text).unwrap().header().coordinate_system,
-            "ITRF14"
-        );
+        let written = SP3::from_str(&text).unwrap();
+        assert_eq!(written.header().coordinate_system, "ITR14");
+        assert_eq!(written.epochs(), read.epochs());
+        assert_eq!(written.satellite_ids(), read.satellite_ids());
     }
 
     #[test]
@@ -1370,7 +1358,7 @@ mod tests {
 
         let mut sp3 = two_satellite_file(SP3WriteOptions::default());
         sp3.header_mut().orbit_type = SP3OrbitType::Other("X".repeat(30));
-        assert!(write_error(&sp3).contains("longer than 80 characters"));
+        assert!(write_error(&sp3).contains("longer than 3 characters"));
 
         let mut sp3 = two_satellite_file(SP3WriteOptions::default());
         sp3.header_mut().comments = vec!["first\nsecond".to_string()];
@@ -1726,5 +1714,47 @@ mod tests {
         let path = dir.path().join("empty.sp3");
         assert!(sp3.to_file(&path).is_err());
         assert!(!path.exists());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_SP3_to_string_header_label_widths() {
+        type SetLabel = fn(&mut SP3);
+        let cases: [(&str, SetLabel); 4] = [
+            ("data used 'ORBITS' is longer than 5 characters", |s| {
+                s.header_mut().data_used = "ORBITS".to_string()
+            }),
+            (
+                "coordinate system 'IGS20X' is longer than 5 characters",
+                |s| s.header_mut().coordinate_system = "IGS20X".to_string(),
+            ),
+            ("orbit type 'FITS' is longer than 3 characters", |s| {
+                s.header_mut().orbit_type = SP3OrbitType::Other("FITS".to_string())
+            }),
+            ("agency 'BRAHE' is longer than 4 characters", |s| {
+                s.header_mut().agency = "BRAHE".to_string()
+            }),
+        ];
+        for (expected, set) in cases {
+            let mut sp3 = two_satellite_file(SP3WriteOptions::default());
+            set(&mut sp3);
+            let msg = write_error(&sp3);
+            assert!(msg.contains(expected), "{msg}");
+            assert!(msg.contains("header_mut"), "{msg}");
+        }
+
+        let mut sp3 = two_satellite_file(SP3WriteOptions::default());
+        sp3.header_mut().data_used = "ABCDE".to_string();
+        sp3.header_mut().coordinate_system = "FGHIJ".to_string();
+        sp3.header_mut().orbit_type = SP3OrbitType::Other("KLM".to_string());
+        sp3.header_mut().agency = "NOPQ".to_string();
+        let text = sp3.to_string().unwrap();
+        assert!(
+            text.starts_with("#dV2024 11 10  0  0  0.00000000       2 ABCDE FGHIJ KLM NOPQ\n"),
+            "{text}"
+        );
+        let header = SP3::from_str(&text).unwrap().header().clone();
+        assert_eq!(header.orbit_type, SP3OrbitType::Other("KLM".to_string()));
+        assert_eq!(header.agency, "NOPQ");
     }
 }

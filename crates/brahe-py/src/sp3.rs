@@ -1467,7 +1467,7 @@ impl PySP3Header {
         self.inner.number_of_epochs = value;
     }
 
-    /// Data used descriptor.
+    /// Data used descriptor; at most 5 characters to be written.
     ///
     /// Returns:
     ///     str: Descriptor, for example ``ORBIT``.
@@ -1481,7 +1481,7 @@ impl PySP3Header {
         self.inner.data_used = value;
     }
 
-    /// Coordinate system label.
+    /// Coordinate system label; at most 5 characters to be written.
     ///
     /// Returns:
     ///     str: Label, for example ``IGS20``.
@@ -1495,7 +1495,7 @@ impl PySP3Header {
         self.inner.coordinate_system = value;
     }
 
-    /// Orbit type.
+    /// Orbit type; at most 3 characters to be written.
     ///
     /// Returns:
     ///     SP3OrbitType: The orbit type.
@@ -1510,7 +1510,7 @@ impl PySP3Header {
         Ok(())
     }
 
-    /// Producing agency.
+    /// Producing agency; at most 4 characters to be written.
     ///
     /// Returns:
     ///     str: Agency label.
@@ -1734,7 +1734,7 @@ impl PySP3 {
     ///     agency (str, optional): Producing agency, at most 4 characters; defaults to ``BRHE``.
     ///     time_system (SP3TimeSystem | str, optional): Time system of the epochs; defaults to ``GPS``. Must have a Brahe equivalent (GPS, GAL, BDT, TAI, UTC).
     ///     coordinate_system (str, optional): Coordinate system label, at most 5 characters; defaults to ``IGS20``.
-    ///     orbit_type (SP3OrbitType | str, optional): Orbit type; defaults to ``EXT``.
+    ///     orbit_type (SP3OrbitType | str, optional): Orbit type, at most 3 characters; defaults to ``EXT``.
     ///     data_used (str, optional): Data used descriptor, at most 5 characters; defaults to ``ORBIT``.
     ///     include_velocity (bool, optional): Whether velocity records are written; defaults to True.
     ///     comments (list[str], optional): Comment lines, at most 77 characters each.
@@ -1743,7 +1743,7 @@ impl PySP3 {
     ///     SP3: The empty file.
     ///
     /// Raises:
-    ///     BraheError: If a satellite is invalid or duplicated, there are more than 999 satellites, the interval is not positive and finite, or the time system has no Brahe equivalent.
+    ///     BraheError: If a satellite is invalid or duplicated, there are more than 999 satellites, the interval is not positive and finite, the time system has no Brahe equivalent, or a header label is longer than its field (agency 4, coordinate system 5, data used 5, orbit type 3 characters), empty (except the agency), or contains whitespace.
     #[new]
     #[pyo3(
         signature = (
@@ -1852,7 +1852,7 @@ impl PySP3 {
     ///     str: The file text.
     ///
     /// Raises:
-    ///     BraheError: If the file cannot be represented in SP3-d, for example an off-grid epoch, a comment longer than 77 characters, or a value that does not fit its column.
+    ///     BraheError: If the file cannot be represented in SP3-d, for example an off-grid epoch, a comment longer than 77 characters, a header label longer than its field (agency 4, coordinate system 5, data used 5, orbit type 3 characters; shorten it by assigning a modified ``header``), or a value that does not fit its column.
     ///
     /// Example:
     ///     ```python

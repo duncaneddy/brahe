@@ -28,7 +28,7 @@ CDDIS redirects each request to the Earthdata login service. The client follows 
 
 ## Listing Products
 
-`list_products(epoch, ...)` lists the GPS week directory that contains `epoch`, and `list_products_between(start, end, ...)` lists every product whose coverage overlaps `[start, end]`. Each result is an `IGSProduct` holding the parsed `IGSProductFileName`, the published name, the URL, the size in bytes when the source reports it (CDDIS does, the Apache listings of Garner and BKG do not), and the GPS week of the directory it was listed in. `list_files(epoch)` returns the raw names of the directory, including files that are not products, and `list_weeks()` returns the week directories of the archive.
+`list_products(epoch, ...)` lists the GPS week directory that contains `epoch`, and `list_products_between(start, end, ...)` lists every product whose coverage overlaps `[start, end]`. Each result is an `IGSProduct` holding the parsed `IGSProductFileName`, the published name, the URL, the size in bytes when the listing provides it (the Apache listings of Garner and BKG do not), and the GPS week of the directory it was listed in. `list_files(epoch)` returns the raw names of the directory, including files that are not products, and `list_weeks()` returns the week directories of the archive.
 
 Both typed listings accept the filters `center`, `solution`, `content`, and `format`. The center is a code such as `COD` or `IGS`, compared without regard to case, and the other three take an `IGSSolutionType`, `IGSContentType`, or `IGSFileFormat`, or in Python their string codes (`"FIN"`, `"ORB"`, `"SP3"`). Names that match neither file name convention are left out of typed listings.
 

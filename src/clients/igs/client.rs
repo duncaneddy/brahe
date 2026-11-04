@@ -1492,7 +1492,8 @@ impl IGSProductsClient {
     ///
     /// Up to [`MAX_REDIRECTS`] redirects are followed one at a time, checking
     /// `BRAHE_NETWORK_MODE` before each request, with the agent's cookie jar
-    /// carrying cookies between them. For CDDIS, HTTP Basic credentials are
+    /// carrying cookies between them. A redirect from an `https` URL to an
+    /// `http` URL is refused. For CDDIS, HTTP Basic credentials are
     /// added only to requests for the Earthdata login service, only a final
     /// `200` from outside the login service is accepted, and a 404 during
     /// the sign-in (from the login service until the redirect back to `url`)
@@ -1571,11 +1572,17 @@ impl IGSProductsClient {
                         "{resource} request {current} answered {status} without a Location header"
                     ))
                 })?;
-            current = resolve_location(&uri, location).ok_or_else(|| {
+            let next = resolve_location(&uri, location).ok_or_else(|| {
                 failed(format!(
                     "{resource} request {current} redirected to an invalid location {location}"
                 ))
             })?;
+            if is_https_downgrade(&uri, &next) {
+                return Err(failed(format!(
+                    "{resource} request {current} redirected from HTTPS to plain HTTP {next}; the downgrade is not followed"
+                )));
+            }
+            current = next;
         }
         Err(failed(format!(
             "{resource} request {url} redirected more than {MAX_REDIRECTS} times"
@@ -1672,6 +1679,21 @@ fn resolve_location(base: &Uri, location: &str) -> Option<String> {
     let directory = &path[..path.rfind('/').map_or(0, |i| i + 1)];
     let directory = if directory.is_empty() { "/" } else { directory };
     Some(format!("{scheme}://{authority}{directory}{location}"))
+}
+
+/// Whether a redirect from `from` to the absolute URL `to` leaves HTTPS for
+/// plain HTTP.
+///
+/// # Arguments
+/// * `from` - URL of the redirecting request
+/// * `to` - Absolute redirect target
+///
+/// # Returns
+/// * `bool`: `true` when `from` uses `https` and `to` uses `http`, in any case
+fn is_https_downgrade(from: &Uri, to: &str) -> bool {
+    from.scheme_str()
+        .is_some_and(|scheme| scheme.eq_ignore_ascii_case("https"))
+        && location_scheme(to).is_some_and(|scheme| scheme.eq_ignore_ascii_case("http"))
 }
 
 /// Scheme of an absolute URL reference: the text before the first `:` when
@@ -3741,6 +3763,25 @@ mod tests {
         }
         let relative: Uri = "/no/host".parse().unwrap();
         assert_eq!(resolve_location(&relative, "/x"), None);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_igs_is_https_downgrade() {
+        let https: Uri = "https://igs.bkg.bund.de/root_ftp/IGS/products/2340/"
+            .parse()
+            .unwrap();
+        let http: Uri = "http://garner.ucsd.edu/pub/products/2340/".parse().unwrap();
+        assert!(is_https_downgrade(&https, "http://igs.bkg.bund.de/a.gz"));
+        assert!(is_https_downgrade(&https, "HTTP://mirror.example/a.gz"));
+        assert!(!is_https_downgrade(&https, "https://igs.bkg.bund.de/a.gz"));
+        assert!(!is_https_downgrade(&http, "http://garner.ucsd.edu/a.gz"));
+        assert!(!is_https_downgrade(&http, "https://garner.ucsd.edu/a.gz"));
+        let upper: Uri = "HTTPS://cddis.nasa.gov/archive/".parse().unwrap();
+        assert!(is_https_downgrade(
+            &upper,
+            "http://cddis.nasa.gov/archive/a.gz"
+        ));
     }
 
     #[test]

@@ -1254,6 +1254,9 @@ impl PyIGSProductsClient {
     ///
     /// Files whose names parse as IGS product names are returned; other files
     /// are skipped. Each filter left as None matches every product.
+    /// A solution, content, or format code that is not a known type is kept
+    /// as an ``Other`` value and matches only products published with that
+    /// code, so a misspelled code matches nothing.
     ///
     /// Args:
     ///     epoch (Epoch): Any instant in the GPS week to list.
@@ -1300,6 +1303,10 @@ impl PyIGSProductsClient {
     /// ``BRAHE_NETWORK_MODE`` forbids fetching a listing, the extra weeks are
     /// served only from the cache and skipped when they are not cached; a
     /// week containing part of the range must still be cached.
+    ///
+    /// A solution, content, or format code that is not a known type is kept
+    /// as an ``Other`` value and matches only products published with that
+    /// code, so a misspelled code matches nothing.
     ///
     /// Args:
     ///     start (Epoch): Start of the time range.
@@ -1401,6 +1408,10 @@ impl PyIGSProductsClient {
     /// The products are those ``list_products_between`` returns, each
     /// downloaded as ``download`` does.
     ///
+    /// A solution, content, or format code that is not a known type is kept
+    /// as an ``Other`` value and matches only products published with that
+    /// code, so a misspelled code matches nothing.
+    ///
     /// Args:
     ///     start (Epoch): Start of the time range.
     ///     end (Epoch): End of the time range, inclusive.
@@ -1441,6 +1452,10 @@ impl PyIGSProductsClient {
     /// unchanged. ``directory`` is created if missing. With ``keep_cached``
     /// False the cached files are removed; with ``keep_cached`` True they
     /// stay.
+    ///
+    /// A solution, content, or format code that is not a known type is kept
+    /// as an ``Other`` value and matches only products published with that
+    /// code, so a misspelled code matches nothing.
     ///
     /// Args:
     ///     start (Epoch): Start of the time range.
@@ -1520,7 +1535,10 @@ impl PyIGSProductsClient {
     /// set, in which case only that interval is used. Before GPS week 2238 it
     /// is the short-name daily SP3 file, such as ``cod21003.sp3``, and
     /// ``sampling`` is ignored. Uncompressed and gzip files are preferred to
-    /// Unix-compressed (``.Z``) ones before sampling is compared.
+    /// Unix-compressed (``.Z``) ones before sampling is compared. A solution
+    /// code that is not a known type is kept as an ``Other`` value and
+    /// matches only files published with that code, so a misspelled code
+    /// finds no file for the first day of the span and raises.
     ///
     /// Every file is chosen, and every listing and selection error is raised,
     /// before anything is downloaded. Ultra-rapid orbits are rejected because

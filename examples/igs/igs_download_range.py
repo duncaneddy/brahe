@@ -28,7 +28,7 @@ for sp3 in files:
 
 # One continuous trajectory per satellite across all files
 satellites = bh.SP3Satellite.from_files(files)
-g05 = next(s for s in satellites if str(s.id) == "G05")
+g05 = next(s for s in satellites if s.id == "G05")
 print(f"\nG05: {len(g05)} samples from {g05.start_epoch} to {g05.end_epoch}")
 
 for hours in (0.0, 6.0, 12.0, 18.0):

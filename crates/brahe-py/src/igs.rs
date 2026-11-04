@@ -1210,6 +1210,14 @@ impl PyIGSProductsClient {
     ///
     /// Raises:
     ///     BraheError: If the cache directory cannot be created.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     client = bh.IGSProductsClient()
+    ///     print(client.cache_dir())
+    ///     ```
     fn cache_dir(&self) -> PyResult<String> {
         self.inner
             .cache_dir()
@@ -1227,6 +1235,15 @@ impl PyIGSProductsClient {
     ///
     /// Raises:
     ///     BraheError: If the listing cannot be served from the cache or fetched.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     client = bh.IGSProductsClient(source="GARNER")
+    ///     weeks = client.list_weeks()
+    ///     assert 2340 in weeks
+    ///     ```
     fn list_weeks(&self, py: Python<'_>) -> PyResult<Vec<u32>> {
         py.detach(|| self.inner.list_weeks()).map_err(igs_py_err)
     }
@@ -1245,6 +1262,15 @@ impl PyIGSProductsClient {
     ///
     /// Raises:
     ///     BraheError: If the week directory does not exist on the source, or the listing cannot be served from the cache or fetched.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     client = bh.IGSProductsClient(source="GARNER")
+    ///     epoch = bh.Epoch(2024, 11, 10, 0, 0, 0.0, 0.0, time_system=bh.GPS)
+    ///     names = client.list_files(epoch)
+    ///     ```
     fn list_files(&self, py: Python<'_>, epoch: &PyEpoch) -> PyResult<Vec<String>> {
         let epoch = epoch.obj;
         py.detach(|| self.inner.list_files(epoch)).map_err(igs_py_err)
@@ -1270,6 +1296,16 @@ impl PyIGSProductsClient {
     ///
     /// Raises:
     ///     BraheError: If the week directory does not exist on the source, or the listing cannot be served from the cache or fetched.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     client = bh.IGSProductsClient(source="GARNER")
+    ///     epoch = bh.Epoch(2024, 11, 10, 0, 0, 0.0, 0.0, time_system=bh.GPS)
+    ///     for product in client.list_products(epoch, center="COD", solution="FIN", content="ORB"):
+    ///         print(product.name, product.url)
+    ///     ```
     #[pyo3(signature = (epoch, *, center=None, solution=None, content=None, format=None))]
     fn list_products(
         &self,
@@ -1321,6 +1357,16 @@ impl PyIGSProductsClient {
     ///
     /// Raises:
     ///     BraheError: If ``end`` is before ``start``, a week directory containing part of the range does not exist on the source, or a listing cannot be served from the cache or fetched.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     client = bh.IGSProductsClient(source="GARNER")
+    ///     start = bh.Epoch(2024, 11, 11, 0, 0, 0.0, 0.0, time_system=bh.GPS)
+    ///     end = bh.Epoch(2024, 11, 12, 0, 0, 0.0, 0.0, time_system=bh.GPS)
+    ///     products = client.list_products_between(start, end, center="IGS", solution="FIN", content="ORB")
+    ///     ```
     #[allow(clippy::too_many_arguments)]
     #[pyo3(signature = (start, end, *, center=None, solution=None, content=None, format=None))]
     fn list_products_between(
@@ -1362,6 +1408,16 @@ impl PyIGSProductsClient {
     ///
     /// Raises:
     ///     BraheError: If the file does not exist on the source, the network mode forbids the request, the Earthdata login fails, the body does not match the name's compression, or the cache cannot be written.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     client = bh.IGSProductsClient(source="GARNER")
+    ///     epoch = bh.Epoch(2024, 11, 10, 0, 0, 0.0, 0.0, time_system=bh.GPS)
+    ///     product = client.list_products(epoch, center="COD", solution="FIN", content="ORB", format="SP3")[0]
+    ///     path = client.download(product)
+    ///     ```
     fn download(&self, py: Python<'_>, product: &PyIGSProduct) -> PyResult<String> {
         let product = product.inner.clone();
         py.detach(|| self.inner.download(&product))
@@ -1389,6 +1445,19 @@ impl PyIGSProductsClient {
     ///
     /// Raises:
     ///     BraheError: If ``destination`` resolves inside the cache directory, which is checked before anything is downloaded, the download fails, the gzip data is invalid, or the file cannot be written.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import tempfile
+    ///
+    ///     import brahe as bh
+    ///
+    ///     client = bh.IGSProductsClient(source="GARNER")
+    ///     epoch = bh.Epoch(2024, 11, 10, 0, 0, 0.0, 0.0, time_system=bh.GPS)
+    ///     product = client.list_products(epoch, center="COD", solution="FIN", content="ORB", format="SP3")[0]
+    ///     with tempfile.TemporaryDirectory() as directory:
+    ///         path = client.save(product, directory)
+    ///     ```
     #[pyo3(signature = (product, destination, keep_cached=false))]
     fn save(
         &self,
@@ -1425,6 +1494,16 @@ impl PyIGSProductsClient {
     ///
     /// Raises:
     ///     BraheError: If the listing fails or any download fails.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     client = bh.IGSProductsClient(source="GARNER")
+    ///     start = bh.Epoch(2024, 11, 11, 0, 0, 0.0, 0.0, time_system=bh.GPS)
+    ///     end = bh.Epoch(2024, 11, 12, 0, 0, 0.0, 0.0, time_system=bh.GPS)
+    ///     paths = client.download_between(start, end, center="IGS", solution="FIN", content="ORB", format="SP3")
+    ///     ```
     #[allow(clippy::too_many_arguments)]
     #[pyo3(signature = (start, end, *, center=None, solution=None, content=None, format=None))]
     fn download_between(
@@ -1515,6 +1594,17 @@ impl PyIGSProductsClient {
     ///
     /// Raises:
     ///     BraheError: If the product is not an SP3 file or is Unix-compressed, both checked before anything is downloaded, or if the download or parse fails.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     client = bh.IGSProductsClient(source="GARNER")
+    ///     epoch = bh.Epoch(2024, 11, 10, 0, 0, 0.0, 0.0, time_system=bh.GPS)
+    ///     product = client.list_products(epoch, center="COD", solution="FIN", content="ORB", format="SP3")[0]
+    ///     sp3 = client.download_sp3(product)
+    ///     print(sp3.num_satellites, sp3.num_epochs)
+    ///     ```
     fn download_sp3(&self, py: Python<'_>, product: &PyIGSProduct) -> PyResult<PySP3> {
         let product = product.inner.clone();
         py.detach(|| self.inner.download_sp3(&product))

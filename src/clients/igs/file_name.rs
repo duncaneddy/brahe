@@ -946,6 +946,14 @@ fn short_center_and_solution(code: &str) -> (String, IGSSolutionType) {
 ///
 /// # Returns
 /// * `String`: Lowercase three-letter code, for example `"igr"` for IGS rapid products
+///
+/// # Examples
+///
+/// ```ignore
+/// assert_eq!(short_code("IGS", &IGSSolutionType::Rapid), "igr");
+/// assert_eq!(short_code("cod", &IGSSolutionType::UltraRapid), "cou");
+/// assert_eq!(short_code("COD", &IGSSolutionType::Final), "cod");
+/// ```
 pub(crate) fn short_code(center: &str, solution: &IGSSolutionType) -> String {
     let table = match solution {
         IGSSolutionType::Rapid => SHORT_RAPID_CODES,

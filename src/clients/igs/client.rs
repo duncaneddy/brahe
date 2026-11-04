@@ -73,12 +73,31 @@ const GARNER_WARNING: &str = "Warning: CDDIS_EARTHDATA_USERNAME/CDDIS_EARTHDATA_
 static GARNER_WARNED: AtomicBool = AtomicBool::new(false);
 
 /// Allows the next default selection that falls back to Garner to warn again.
+///
+/// # Examples
+///
+/// ```ignore
+/// reset_garner_warning();
+/// let (source, warned) = select_source(None, None);
+/// assert_eq!(source, IGSProductSource::Garner);
+/// assert!(warned);
+/// ```
 #[cfg(test)]
 pub(crate) fn reset_garner_warning() {
     GARNER_WARNED.store(false, Ordering::SeqCst);
 }
 
 /// Reads the CDDIS credentials from the environment when both are non-empty.
+///
+/// # Returns
+/// * `Option<(String, String)>`: The username and password, or `None` when either variable is unset or empty
+///
+/// # Examples
+///
+/// ```ignore
+/// // With CDDIS_EARTHDATA_USERNAME=user and CDDIS_EARTHDATA_PASSWORD=pass set:
+/// assert_eq!(credentials_from_env(), Some(("user".to_string(), "pass".to_string())));
+/// ```
 fn credentials_from_env() -> Option<(String, String)> {
     let username = env::var(CDDIS_USERNAME_VAR)
         .ok()
@@ -95,6 +114,21 @@ fn credentials_from_env() -> Option<(String, String)> {
 /// credentials are available and Garner when they are not, printing the
 /// Garner warning the first time that happens in the process. The boolean is
 /// `true` when this call printed the warning.
+///
+/// # Arguments
+/// * `explicit` - Source chosen by the caller, if any
+/// * `credentials` - CDDIS credentials available to the client, if any
+///
+/// # Returns
+/// * `(IGSProductSource, bool)`: The chosen source, and whether this call printed the Garner warning
+///
+/// # Examples
+///
+/// ```ignore
+/// let credentials = ("user".to_string(), "pass".to_string());
+/// assert_eq!(select_source(None, Some(&credentials)), (IGSProductSource::CDDIS, false));
+/// assert_eq!(select_source(Some(IGSProductSource::BKG), None), (IGSProductSource::BKG, false));
+/// ```
 fn select_source(
     explicit: Option<IGSProductSource>,
     credentials: Option<&(String, String)>,
@@ -1640,6 +1674,13 @@ impl From<ureq::Error> for RequestError {
 ///
 /// # Returns
 /// * `Option<u16>`: The port, or `None` for a scheme other than `http` or `https` without an explicit port
+///
+/// # Examples
+///
+/// ```ignore
+/// assert_eq!(effective_port(&"https://cddis.nasa.gov/archive".parse().unwrap()), Some(443));
+/// assert_eq!(effective_port(&"http://localhost:8080/".parse().unwrap()), Some(8080));
+/// ```
 fn effective_port(uri: &Uri) -> Option<u16> {
     let scheme = uri.scheme_str()?.to_ascii_lowercase();
     uri.port_u16().or(match scheme.as_str() {
@@ -1657,6 +1698,21 @@ fn effective_port(uri: &Uri) -> Option<u16> {
 ///
 /// # Returns
 /// * `Option<String>`: The absolute URL, or `None` if `base` has no scheme or host, or the location's scheme is not `http` or `https`
+///
+/// # Examples
+///
+/// ```ignore
+/// let base: Uri = "https://cddis.nasa.gov/archive/gnss/products/2340/".parse().unwrap();
+/// assert_eq!(
+///     resolve_location(&base, "/login?next=1").as_deref(),
+///     Some("https://cddis.nasa.gov/login?next=1")
+/// );
+/// assert_eq!(
+///     resolve_location(&base, "file.SP3.gz").as_deref(),
+///     Some("https://cddis.nasa.gov/archive/gnss/products/2340/file.SP3.gz")
+/// );
+/// assert_eq!(resolve_location(&base, "ftp://example.com/file"), None);
+/// ```
 fn resolve_location(base: &Uri, location: &str) -> Option<String> {
     if let Some(scheme) = location_scheme(location) {
         return ["http", "https"]
@@ -1690,6 +1746,14 @@ fn resolve_location(base: &Uri, location: &str) -> Option<String> {
 ///
 /// # Returns
 /// * `bool`: `true` when `from` uses `https` and `to` uses `http`, in any case
+///
+/// # Examples
+///
+/// ```ignore
+/// let from: Uri = "https://cddis.nasa.gov/archive".parse().unwrap();
+/// assert!(is_https_downgrade(&from, "http://cddis.nasa.gov/archive"));
+/// assert!(!is_https_downgrade(&from, "https://urs.earthdata.nasa.gov/oauth"));
+/// ```
 fn is_https_downgrade(from: &Uri, to: &str) -> bool {
     from.scheme_str()
         .is_some_and(|scheme| scheme.eq_ignore_ascii_case("https"))
@@ -1705,6 +1769,14 @@ fn is_https_downgrade(from: &Uri, to: &str) -> bool {
 ///
 /// # Returns
 /// * `Option<&str>`: The scheme as written, or `None` for a relative reference
+///
+/// # Examples
+///
+/// ```ignore
+/// assert_eq!(location_scheme("HTTPS://example.com/"), Some("HTTPS"));
+/// assert_eq!(location_scheme("/archive/file"), None);
+/// assert_eq!(location_scheme("dir/name:1"), None);
+/// ```
 fn location_scheme(reference: &str) -> Option<&str> {
     let end = reference.find([':', '/', '?', '#'])?;
     let scheme = &reference[..end];
@@ -1723,6 +1795,13 @@ fn location_scheme(reference: &str) -> Option<&str> {
 ///
 /// # Returns
 /// * `bool`: `true` for a body that starts with a markup tag
+///
+/// # Examples
+///
+/// ```ignore
+/// assert!(is_html(b"  <!DOCTYPE html><html>"));
+/// assert!(!is_html(b"#dP2024 11 10"));
+/// ```
 fn is_html(body: &[u8]) -> bool {
     body.iter()
         .find(|b| !b.is_ascii_whitespace())
@@ -1737,6 +1816,20 @@ fn is_html(body: &[u8]) -> bool {
 ///
 /// # Returns
 /// * `&str`: The file name
+///
+/// # Examples
+///
+/// ```ignore
+/// let name = "IGS0OPSFIN_20243150000_01D_15M_ORB.SP3.gz";
+/// let product = IGSProduct {
+///     file_name: IGSProductFileName::parse(name).unwrap(),
+///     name: name.to_string(),
+///     url: format!("https://igs.bkg.bund.de/root_ftp/IGS/products/2340/{name}"),
+///     size: None,
+///     gps_week: 2340,
+/// };
+/// assert_eq!(saved_name(&product), "IGS0OPSFIN_20243150000_01D_15M_ORB.SP3");
+/// ```
 fn saved_name(product: &IGSProduct) -> &str {
     match product.file_name.compression() {
         IGSCompression::Gzip => product.name.strip_suffix(".gz").unwrap_or(&product.name),
@@ -1755,6 +1848,13 @@ fn saved_name(product: &IGSProduct) -> &str {
 /// # Returns
 /// * `Ok(())`: The file was written
 /// * `Err(BraheError)`: If the cached file cannot be read or removed, its gzip data is invalid, or `target` cannot be written
+///
+/// # Examples
+///
+/// ```ignore
+/// // `product` is a gzip product whose cached copy is `cached`.
+/// write_saved(&product, &cached, Path::new("orbits/IGS0OPSFIN_20243150000_01D_15M_ORB.SP3"), true)?;
+/// ```
 fn write_saved(
     product: &IGSProduct,
     cached: &Path,
@@ -1798,6 +1898,13 @@ struct SP3RangeFile {
 ///
 /// # Returns
 /// * `u32`: `7 * week + day of week`
+///
+/// # Examples
+///
+/// ```ignore
+/// let epoch = Epoch::from_datetime(2024, 11, 10, 12, 0, 0.0, 0.0, TimeSystem::GPS);
+/// assert_eq!(gps_day(epoch), 2340 * 7);
+/// ```
 fn gps_day(epoch: Epoch) -> u32 {
     let (week, seconds) = epoch.gps_date();
     week * 7 + ((seconds / SECONDS_PER_DAY).floor() as u32).min(6)
@@ -1810,6 +1917,13 @@ fn gps_day(epoch: Epoch) -> u32 {
 ///
 /// # Returns
 /// * `Epoch`: 00:00 GPS time of that day
+///
+/// # Examples
+///
+/// ```ignore
+/// let start = gps_day_start(2340 * 7 + 1);
+/// assert_eq!(start, Epoch::from_datetime(2024, 11, 11, 0, 0, 0.0, 0.0, TimeSystem::GPS));
+/// ```
 fn gps_day_start(day: u32) -> Epoch {
     Epoch::from_gps_date(day / 7, f64::from(day % 7) * SECONDS_PER_DAY)
 }
@@ -1829,6 +1943,14 @@ fn gps_day_start(day: u32) -> Epoch {
 ///
 /// # Returns
 /// * `Option<&IGSProduct>`: The chosen file, or `None` when there is none
+///
+/// # Examples
+///
+/// ```ignore
+/// // `products` is the SP3 orbit listing of week 2340.
+/// let chosen = daily_orbit(&products, 2340 * 7, Some(900.0)).unwrap();
+/// assert_eq!(chosen.name, "IGS0OPSFIN_20243150000_01D_15M_ORB.SP3.gz");
+/// ```
 fn daily_orbit(products: &[IGSProduct], day: u32, sampling: Option<f64>) -> Option<&IGSProduct> {
     let style = if day / 7 >= IGS_LONG_NAME_FIRST_WEEK {
         IGSNameStyle::Long
@@ -1863,6 +1985,13 @@ fn daily_orbit(products: &[IGSProduct], day: u32, sampling: Option<f64>) -> Opti
 ///
 /// # Returns
 /// * `Ordering`: `Less` when `a` is preferred
+///
+/// # Examples
+///
+/// ```ignore
+/// // `coarse` has 15M sampling and `fine` 05M sampling, for the same day.
+/// assert_eq!(daily_orbit_preference(&coarse, &fine), CmpOrdering::Less);
+/// ```
 fn daily_orbit_preference(a: &IGSProduct, b: &IGSProduct) -> CmpOrdering {
     let (x, y) = (&a.file_name, &b.file_name);
     let unix = |name: &IGSProductFileName| name.compression() == IGSCompression::UnixCompress;
@@ -1898,6 +2027,19 @@ fn daily_orbit_preference(a: &IGSProduct, b: &IGSProduct) -> CmpOrdering {
 ///
 /// # Returns
 /// * `String`: The expected name
+///
+/// # Examples
+///
+/// ```ignore
+/// assert_eq!(
+///     expected_daily_orbit_name("igs", &IGSSolutionType::Final, 2340 * 7, Some(900.0)),
+///     "IGS0OPSFIN_20243150000_01D_15M_ORB.SP3.gz"
+/// );
+/// assert_eq!(
+///     expected_daily_orbit_name("IGS", &IGSSolutionType::Rapid, 2000 * 7 + 3, None),
+///     "igr20003.sp3[.gz|.Z]"
+/// );
+/// ```
 fn expected_daily_orbit_name(
     center: &str,
     solution: &IGSSolutionType,
@@ -1931,6 +2073,14 @@ fn expected_daily_orbit_name(
 ///
 /// # Returns
 /// * `String`: Two-digit count and unit (`D`, `H`, `M`, or `S`), using the largest unit that divides the interval
+///
+/// # Examples
+///
+/// ```ignore
+/// assert_eq!(duration_code(900.0), "15M");
+/// assert_eq!(duration_code(86400.0), "01D");
+/// assert_eq!(duration_code(30.0), "30S");
+/// ```
 fn duration_code(seconds: f64) -> String {
     let seconds = seconds.round() as u64;
     let (count, unit) = [(86400, 'D'), (3600, 'H'), (60, 'M')]
@@ -1952,6 +2102,15 @@ fn duration_code(seconds: f64) -> String {
 ///
 /// # Returns
 /// * `bool`: `true` when the coverage and the range share an instant
+///
+/// # Examples
+///
+/// ```ignore
+/// // `product` is a one-day file starting 2024-11-10 00:00 GPS.
+/// let noon = Epoch::from_datetime(2024, 11, 10, 12, 0, 0.0, 0.0, TimeSystem::GPS);
+/// assert!(covers(&product, noon, noon));
+/// assert!(!covers(&product, noon + 86400.0, noon + 86400.0));
+/// ```
 fn covers(product: &IGSProduct, start: Epoch, end: Epoch) -> bool {
     let (begin, span) = match product.file_name.span() {
         Some(span) => (product.file_name.start_epoch(), span),
@@ -1970,6 +2129,12 @@ fn covers(product: &IGSProduct, start: Epoch, end: Epoch) -> bool {
 ///
 /// # Returns
 /// * `Vec<&str>`: The double-quoted `href` values
+///
+/// # Examples
+///
+/// ```ignore
+/// assert_eq!(html_hrefs(r#"<a href="2340/">2340/</a> <a href="?C=N;O=D">Name</a>"#), ["2340/", "?C=N;O=D"]);
+/// ```
 fn html_hrefs(html: &str) -> Vec<&str> {
     let mut hrefs = Vec::new();
     let mut rest = html;
@@ -1995,6 +2160,14 @@ fn html_hrefs(html: &str) -> Vec<&str> {
 ///
 /// # Returns
 /// * `bool`: `true` for a plain file name
+///
+/// # Examples
+///
+/// ```ignore
+/// assert!(is_listed_file("IGS0OPSFIN_20243150000_01D_15M_ORB.SP3.gz"));
+/// assert!(!is_listed_file("?C=N;O=D"));
+/// assert!(!is_listed_file("../"));
+/// ```
 fn is_listed_file(name: &str) -> bool {
     !name.is_empty()
         && !name.starts_with(['?', '#'])
@@ -2011,6 +2184,13 @@ fn is_listed_file(name: &str) -> bool {
 ///
 /// # Returns
 /// * `Vec<(String, Option<u64>)>`: File names, each once, in listing order, with no size
+///
+/// # Examples
+///
+/// ```ignore
+/// let html = r#"<a href="../">Parent</a> <a href="igs23400.sp3.Z">igs23400.sp3.Z</a>"#;
+/// assert_eq!(html_listing_files(html), [("igs23400.sp3.Z".to_string(), None)]);
+/// ```
 fn html_listing_files(html: &str) -> Vec<(String, Option<u64>)> {
     let mut seen = HashSet::new();
     html_hrefs(html)
@@ -2032,6 +2212,16 @@ fn html_listing_files(html: &str) -> Vec<(String, Option<u64>)> {
 ///
 /// # Returns
 /// * `Vec<(String, Option<u64>)>`: File names and sizes in bytes, in listing order
+///
+/// # Examples
+///
+/// ```ignore
+/// let text = "IGS0OPSFIN_20243150000_01D_15M_ORB.SP3.gz 123456\n";
+/// assert_eq!(
+///     plain_listing_files(text),
+///     [("IGS0OPSFIN_20243150000_01D_15M_ORB.SP3.gz".to_string(), Some(123456))]
+/// );
+/// ```
 fn plain_listing_files(text: &str) -> Vec<(String, Option<u64>)> {
     text.lines()
         .filter_map(|line| {
@@ -2058,6 +2248,13 @@ fn plain_listing_files(text: &str) -> Vec<(String, Option<u64>)> {
 ///
 /// # Returns
 /// * `Vec<u32>`: Week numbers in ascending order, without duplicates
+///
+/// # Examples
+///
+/// ```ignore
+/// let html = r#"<a href="2341/">2341/</a> <a href="2340/">2340/</a> <a href="mgex/">mgex/</a>"#;
+/// assert_eq!(listed_weeks(html), [2340, 2341]);
+/// ```
 fn listed_weeks(html: &str) -> Vec<u32> {
     let mut weeks: Vec<u32> = html_hrefs(html)
         .into_iter()

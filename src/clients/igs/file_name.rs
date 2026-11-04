@@ -1019,6 +1019,7 @@ fn parse_short(
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
     use rstest::rstest;

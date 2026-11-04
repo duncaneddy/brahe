@@ -33,6 +33,9 @@ const BAD_CLOCK: f64 = 999_999.999_999;
 const COMPONENT_EXPONENT_WIDTH: u32 = 2;
 /// Width of the clock standard deviation exponent field of `P` and `V` lines.
 const CLOCK_EXPONENT_WIDTH: u32 = 3;
+/// Largest magnitude of a correlation coefficient in units of 1e-7; the
+/// coefficient columns hold values in [-0.9999999, 0.9999999].
+const MAX_CORRELATION: f64 = 9_999_999.0;
 /// Width and precision of the `%f` position/velocity base field.
 const POSITION_BASE_FIELD: (usize, usize) = (10, 7);
 /// Width and precision of the `%f` clock/clock-rate base field.
@@ -61,7 +64,8 @@ impl SP3 {
     /// `999999.999999` (and a zero velocity with the same clock rate when
     /// the file has velocities). An unknown clock or clock rate is written as
     /// `999999.999999`. `V` and `EV` lines are written only when
-    /// `has_velocity` is set.
+    /// `has_velocity` is set. An unknown (`None`) correlation coefficient is
+    /// written as blank columns.
     ///
     /// Standard deviations are written as the exponent
     /// `ceil(log_base(sigma))` of the `%f` base as written in the file. An
@@ -76,7 +80,7 @@ impl SP3 {
     /// # Returns
     ///
     /// * `Result<String, BraheError>` - The SP3-d text with `\n` line endings, or an error
-    ///   when the file cannot be represented: more than 999 satellites, a time system
+    ///   when the file cannot be represented: no epochs, more than 999 satellites, a time system
     ///   without a Brahe equivalent (`GLO`, `QZS`, `IRN`), epochs that are not ascending
     ///   or not on the interval grid, a record table that does not match the epochs and
     ///   satellites, an accuracy list that does not match the satellites, a comment longer
@@ -85,7 +89,8 @@ impl SP3 {
     ///   1..=99, a `%f` base that is not finite or not greater than 1 as written, a standard
     ///   deviation whose `%f` base is not set, a negative or NaN standard deviation, a clock
     ///   or clock rate that would read back as the missing-value marker `999999.999999`,
-    ///   or a value that does not fit its column
+    ///   a correlation coefficient that is NaN or outside [-0.9999999, 0.9999999] on the
+    ///   1e-7 grid, or a value that does not fit its column
     ///
     /// # Examples
     ///
@@ -211,6 +216,11 @@ impl SP3 {
             )));
         }
         let epochs = self.epochs();
+        if epochs.is_empty() {
+            return Err(sp3_error(
+                "file has no epochs; an SP3 file needs at least one epoch",
+            ));
+        }
         for pair in epochs.windows(2) {
             if let Some(detail) = epoch_grid_error(epochs[0], pair[0], pair[1], interval) {
                 return Err(sp3_error(&detail));
@@ -643,7 +653,7 @@ fn state_line(
     Ok(line)
 }
 
-/// `EP` or `EV` line.
+/// `EP` or `EV` line. `None` coefficients are blank columns.
 fn correlation_line(
     tag: &str,
     correlation: &SP3Correlation,
@@ -679,13 +689,21 @@ fn correlation_line(
         correlation.zc,
     ];
     for c in coefficients {
+        let Some(c) = c else {
+            line.push_str(&" ".repeat(9));
+            continue;
+        };
         if c.is_nan() {
             return Err(sp3_error("correlation coefficient is NaN"));
         }
-        let value = (c / CORRELATION_SCALE)
-            .round()
-            .clamp(-9_999_999.0, 99_999_999.0) as i64;
-        write!(line, " {:8}", value).unwrap();
+        let value = (c / CORRELATION_SCALE).round();
+        if value.abs() > MAX_CORRELATION {
+            return Err(sp3_error(&format!(
+                "correlation coefficient {} is outside [-0.9999999, 0.9999999]",
+                c
+            )));
+        }
+        write!(line, " {:8}", value as i64).unwrap();
     }
     Ok(line)
 }
@@ -853,7 +871,7 @@ mod tests {
                     (r.zc, w.zc),
                 ];
                 for (a, b) in pairs {
-                    assert_abs_diff_eq!(a, b, epsilon = 1e-12);
+                    assert_option_close(a, b, 1e-12, what);
                 }
             }
             _ => panic!("{what}: {read:?} != {written:?}"),
@@ -1393,12 +1411,12 @@ mod tests {
         let blank = || SP3Correlation {
             std: [None; 3],
             clock_std: None,
-            xy: 0.0,
-            xz: 0.0,
-            xc: 0.0,
-            yz: 0.0,
-            yc: 0.0,
-            zc: 0.0,
+            xy: Some(0.0),
+            xz: Some(0.0),
+            xc: Some(0.0),
+            yz: Some(0.0),
+            yc: Some(0.0),
+            zc: Some(0.0),
         };
         let record = |correlation: SP3Correlation| {
             let mut record = SP3Record::new([1.0e7, 2.0e7, 3.0e7]);
@@ -1418,7 +1436,7 @@ mod tests {
         assert!(write_error(&sp3).contains("not a non-negative number"));
 
         let not_a_number = SP3Correlation {
-            xy: f64::NAN,
+            xy: Some(f64::NAN),
             ..blank()
         };
         sp3.set_record(sat("G02"), 0, record(not_a_number)).unwrap();
@@ -1582,5 +1600,131 @@ mod tests {
             msg.contains("satellite number 100 out of range 1..=99"),
             "{msg}"
         );
+    }
+
+    #[test]
+    #[parallel]
+    fn test_SP3_round_trip_blank_correlation_coefficients() {
+        let content = std::fs::read_to_string("test_assets/sp3/example-d-2.sp3")
+            .unwrap()
+            .replacen(
+                "EP    55   55   55     222  1234567 -1234567  5999999      -30       21 -1230000",
+                "EP    10   10   10",
+                1,
+            );
+        let read = SP3::from_str(&content).unwrap();
+        let text = read.to_string().unwrap();
+        assert!(text.lines().any(|l| l == "EP    10   10   10"), "{text}");
+
+        let written = SP3::from_str(&text).unwrap();
+        let blank = written
+            .record(sat("G01"), 0)
+            .unwrap()
+            .unwrap()
+            .position_correlation
+            .clone()
+            .unwrap();
+        assert_eq!(
+            [blank.xy, blank.xz, blank.xc, blank.yz, blank.yc, blank.zc],
+            [None; 6]
+        );
+        let full = written
+            .record(sat("G02"), 0)
+            .unwrap()
+            .unwrap()
+            .position_correlation
+            .clone()
+            .unwrap();
+        let coefficients = [full.xy, full.xz, full.xc, full.yz, full.yc, full.zc];
+        let expected = [
+            0.1234567, -0.1234567, 0.5999999, -0.0000030, 0.0000021, -0.1230000,
+        ];
+        for (c, e) in coefficients.iter().zip(expected) {
+            assert_abs_diff_eq!(c.unwrap(), e, epsilon = 1e-15);
+        }
+
+        // Interior blanks keep the columns of the coefficients after them.
+        let mut sp3 = two_satellite_file(SP3WriteOptions::default());
+        let mut record = SP3Record::new([1.0e7, 2.0e7, 3.0e7]);
+        record.position_correlation = Some(SP3Correlation {
+            std: [None; 3],
+            clock_std: None,
+            xy: None,
+            xz: Some(0.5),
+            xc: None,
+            yz: None,
+            yc: None,
+            zc: Some(-0.25),
+        });
+        sp3.set_record(sat("G02"), 0, record).unwrap();
+        let text = sp3.to_string().unwrap();
+        assert!(
+            text.lines().any(|l| l
+                == "EP                                   5000000                            -2500000"),
+            "{text}"
+        );
+        let back = SP3::from_str(&text).unwrap();
+        let c = back
+            .record(sat("G02"), 0)
+            .unwrap()
+            .unwrap()
+            .position_correlation
+            .clone()
+            .unwrap();
+        assert_eq!(
+            [c.xy, c.xz, c.xc, c.yz, c.yc, c.zc],
+            [None, Some(0.5), None, None, None, Some(-0.25)]
+        );
+    }
+
+    #[test]
+    #[parallel]
+    fn test_SP3_to_string_correlation_out_of_range() {
+        let with_xy = |xy: f64| {
+            let mut sp3 = two_satellite_file(SP3WriteOptions::default());
+            let mut record = SP3Record::new([1.0e7, 2.0e7, 3.0e7]);
+            record.position_correlation = Some(SP3Correlation {
+                std: [None; 3],
+                clock_std: None,
+                xy: Some(xy),
+                xz: None,
+                xc: None,
+                yz: None,
+                yc: None,
+                zc: None,
+            });
+            sp3.set_record(sat("G02"), 0, record).unwrap();
+            sp3
+        };
+        for xy in [2.0, -2.0, 1.0, -1.0, 0.999_999_96, f64::INFINITY] {
+            let msg = write_error(&with_xy(xy));
+            assert!(
+                msg.contains("is outside [-0.9999999, 0.9999999]"),
+                "{xy}: {msg}"
+            );
+        }
+        for xy in [0.9999999, -0.9999999, 0.999_999_94] {
+            let text = with_xy(xy).to_string().unwrap();
+            let back = SP3::from_str(&text).unwrap();
+            let c = back
+                .record(sat("G02"), 0)
+                .unwrap()
+                .unwrap()
+                .position_correlation
+                .clone()
+                .unwrap();
+            assert_abs_diff_eq!(c.xy.unwrap(), xy, epsilon = 1e-7);
+        }
+    }
+
+    #[test]
+    #[parallel]
+    fn test_SP3_to_string_no_epochs() {
+        let sp3 = SP3::new(vec![sat("G01")], 900.0, SP3WriteOptions::default()).unwrap();
+        assert!(write_error(&sp3).contains("file has no epochs"));
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("empty.sp3");
+        assert!(sp3.to_file(&path).is_err());
+        assert!(!path.exists());
     }
 }

@@ -889,8 +889,10 @@ impl PySP3SatelliteId {
 /// Standard deviations and correlations of an SP3-c/d correlation record.
 ///
 /// ``EP`` records carry position (m) and clock (s) values and ``EV`` records
-/// carry velocity (m/s) and clock rate (s/s) values. Properties return
-/// copies; assign the object back to its owner to change it.
+/// carry velocity (m/s) and clock rate (s/s) values. A correlation
+/// coefficient whose column is blank in the file is unknown and is None,
+/// distinct from an explicit 0. Properties return copies; assign the object
+/// back to its owner to change it.
 ///
 /// Example:
 ///     ```python
@@ -898,7 +900,8 @@ impl PySP3SatelliteId {
 ///
 ///     corr = bh.SP3Correlation(std=(0.01, 0.01, 0.02), clock_std=1e-11, xy=0.1)
 ///     assert corr.std[2] == 0.02
-///     assert corr.yz == 0.0
+///     assert corr.xy == 0.1
+///     assert corr.yz is None
 ///     ```
 #[pyclass(module = "brahe._brahe", from_py_object)]
 #[pyo3(name = "SP3Correlation")]
@@ -914,27 +917,27 @@ impl PySP3Correlation {
     /// Args:
     ///     std (Sequence[float | None], optional): Standard deviations of x, y, z; defaults to all unknown.
     ///     clock_std (float, optional): Standard deviation of the clock.
-    ///     xy (float, optional): Correlation between x and y; defaults to 0.
-    ///     xz (float, optional): Correlation between x and z; defaults to 0.
-    ///     xc (float, optional): Correlation between x and the clock; defaults to 0.
-    ///     yz (float, optional): Correlation between y and z; defaults to 0.
-    ///     yc (float, optional): Correlation between y and the clock; defaults to 0.
-    ///     zc (float, optional): Correlation between z and the clock; defaults to 0.
+    ///     xy (float, optional): Correlation between x and y; defaults to None (unknown).
+    ///     xz (float, optional): Correlation between x and z; defaults to None (unknown).
+    ///     xc (float, optional): Correlation between x and the clock; defaults to None (unknown).
+    ///     yz (float, optional): Correlation between y and z; defaults to None (unknown).
+    ///     yc (float, optional): Correlation between y and the clock; defaults to None (unknown).
+    ///     zc (float, optional): Correlation between z and the clock; defaults to None (unknown).
     ///
     /// Returns:
     ///     SP3Correlation: The correlation record.
     #[new]
-    #[pyo3(signature = (std=None, clock_std=None, xy=0.0, xz=0.0, xc=0.0, yz=0.0, yc=0.0, zc=0.0))]
+    #[pyo3(signature = (std=None, clock_std=None, xy=None, xz=None, xc=None, yz=None, yc=None, zc=None))]
     #[allow(clippy::too_many_arguments)]
     fn new(
         std: Option<&Bound<'_, PyAny>>,
         clock_std: Option<f64>,
-        xy: f64,
-        xz: f64,
-        xc: f64,
-        yz: f64,
-        yc: f64,
-        zc: f64,
+        xy: Option<f64>,
+        xz: Option<f64>,
+        xc: Option<f64>,
+        yz: Option<f64>,
+        yc: Option<f64>,
+        zc: Option<f64>,
     ) -> PyResult<Self> {
         let std = match std {
             Some(obj) => extract_sp3_optional_triple(obj, "std")?,
@@ -978,84 +981,84 @@ impl PySP3Correlation {
     /// Correlation between x and y.
     ///
     /// Returns:
-    ///     float: Correlation coefficient.
+    ///     float | None: Correlation coefficient; None if unknown.
     #[getter]
-    fn xy(&self) -> f64 {
+    fn xy(&self) -> Option<f64> {
         self.inner.xy
     }
 
     #[setter]
-    fn set_xy(&mut self, value: f64) {
+    fn set_xy(&mut self, value: Option<f64>) {
         self.inner.xy = value;
     }
 
     /// Correlation between x and z.
     ///
     /// Returns:
-    ///     float: Correlation coefficient.
+    ///     float | None: Correlation coefficient; None if unknown.
     #[getter]
-    fn xz(&self) -> f64 {
+    fn xz(&self) -> Option<f64> {
         self.inner.xz
     }
 
     #[setter]
-    fn set_xz(&mut self, value: f64) {
+    fn set_xz(&mut self, value: Option<f64>) {
         self.inner.xz = value;
     }
 
     /// Correlation between x and the clock.
     ///
     /// Returns:
-    ///     float: Correlation coefficient.
+    ///     float | None: Correlation coefficient; None if unknown.
     #[getter]
-    fn xc(&self) -> f64 {
+    fn xc(&self) -> Option<f64> {
         self.inner.xc
     }
 
     #[setter]
-    fn set_xc(&mut self, value: f64) {
+    fn set_xc(&mut self, value: Option<f64>) {
         self.inner.xc = value;
     }
 
     /// Correlation between y and z.
     ///
     /// Returns:
-    ///     float: Correlation coefficient.
+    ///     float | None: Correlation coefficient; None if unknown.
     #[getter]
-    fn yz(&self) -> f64 {
+    fn yz(&self) -> Option<f64> {
         self.inner.yz
     }
 
     #[setter]
-    fn set_yz(&mut self, value: f64) {
+    fn set_yz(&mut self, value: Option<f64>) {
         self.inner.yz = value;
     }
 
     /// Correlation between y and the clock.
     ///
     /// Returns:
-    ///     float: Correlation coefficient.
+    ///     float | None: Correlation coefficient; None if unknown.
     #[getter]
-    fn yc(&self) -> f64 {
+    fn yc(&self) -> Option<f64> {
         self.inner.yc
     }
 
     #[setter]
-    fn set_yc(&mut self, value: f64) {
+    fn set_yc(&mut self, value: Option<f64>) {
         self.inner.yc = value;
     }
 
     /// Correlation between z and the clock.
     ///
     /// Returns:
-    ///     float: Correlation coefficient.
+    ///     float | None: Correlation coefficient; None if unknown.
     #[getter]
-    fn zc(&self) -> f64 {
+    fn zc(&self) -> Option<f64> {
         self.inner.zc
     }
 
     #[setter]
-    fn set_zc(&mut self, value: f64) {
+    fn set_zc(&mut self, value: Option<f64>) {
         self.inner.zc = value;
     }
 

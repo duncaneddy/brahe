@@ -669,6 +669,7 @@ fn exponent_std(
 /// Columns 5-18 hold the component standard deviations (I4, 9999 is too
 /// large), columns 20-26 the clock standard deviation (I7, 9999999 is too
 /// large), and columns 28-80 six I8 correlation coefficients scaled by 1e7.
+/// A blank field is `None`.
 fn parse_correlation(n: usize, line: &str, units: StdUnits) -> Result<SP3Correlation, BraheError> {
     let std_value = |start: usize, end: usize, too_large: i64, scale: f64| {
         let value = parse_optional::<i64>(n, field(n, line, start, end)?, "standard deviation")?;
@@ -683,7 +684,7 @@ fn parse_correlation(n: usize, line: &str, units: StdUnits) -> Result<SP3Correla
     let correlation = |k: usize| {
         let start = 27 + 9 * k;
         let value = parse_optional::<i64>(n, field(n, line, start, start + 8)?, "correlation")?;
-        Ok::<_, BraheError>(value.map_or(0.0, |v| v as f64 * CORRELATION_SCALE))
+        Ok::<_, BraheError>(value.map(|v| v as f64 * CORRELATION_SCALE))
     };
 
     Ok(SP3Correlation {
@@ -1393,12 +1394,12 @@ mod tests {
             assert_abs_diff_eq!(s.unwrap(), 0.055, epsilon = 1e-15);
         }
         assert_abs_diff_eq!(ep.clock_std.unwrap(), 222e-12, epsilon = 1e-24);
-        assert_abs_diff_eq!(ep.xy, 0.1234567, epsilon = 1e-15);
-        assert_abs_diff_eq!(ep.xz, -0.1234567, epsilon = 1e-15);
-        assert_abs_diff_eq!(ep.xc, 0.5999999, epsilon = 1e-15);
-        assert_abs_diff_eq!(ep.yz, -0.0000030, epsilon = 1e-15);
-        assert_abs_diff_eq!(ep.yc, 0.0000021, epsilon = 1e-15);
-        assert_abs_diff_eq!(ep.zc, -0.1230000, epsilon = 1e-15);
+        assert_abs_diff_eq!(ep.xy.unwrap(), 0.1234567, epsilon = 1e-15);
+        assert_abs_diff_eq!(ep.xz.unwrap(), -0.1234567, epsilon = 1e-15);
+        assert_abs_diff_eq!(ep.xc.unwrap(), 0.5999999, epsilon = 1e-15);
+        assert_abs_diff_eq!(ep.yz.unwrap(), -0.0000030, epsilon = 1e-15);
+        assert_abs_diff_eq!(ep.yc.unwrap(), 0.0000021, epsilon = 1e-15);
+        assert_abs_diff_eq!(ep.zc.unwrap(), -0.1230000, epsilon = 1e-15);
 
         let ev = r.velocity_correlation.as_ref().unwrap();
         for s in ev.std {
@@ -1406,7 +1407,7 @@ mod tests {
         }
         assert_abs_diff_eq!(ev.clock_std.unwrap(), 111e-16, epsilon = 1e-28);
         for c in [ev.xy, ev.xz, ev.xc, ev.yz, ev.yc, ev.zc] {
-            assert_abs_diff_eq!(c, 0.1234567, epsilon = 1e-15);
+            assert_abs_diff_eq!(c.unwrap(), 0.1234567, epsilon = 1e-15);
         }
 
         let g02 = sp3.record(sat("G02"), 0).unwrap().unwrap();
@@ -2211,5 +2212,31 @@ mod tests {
             msg.starts_with("SP3: line 2: epoch interval must be positive"),
             "{msg}"
         );
+    }
+
+    #[test]
+    #[parallel]
+    fn test_SP3_from_str_blank_correlation_coefficients() {
+        let content = read_fixture("example-d-2.sp3").replacen(
+            "EP    55   55   55     222  1234567 -1234567  5999999      -30       21 -1230000",
+            "EP    10   10   10",
+            1,
+        );
+        let sp3 = SP3::from_str(&content).unwrap();
+        let ep = sp3
+            .record(sat("G01"), 0)
+            .unwrap()
+            .unwrap()
+            .position_correlation
+            .clone()
+            .unwrap();
+        assert_eq!(ep.std, [Some(0.010); 3]);
+        assert_eq!(ep.clock_std, None);
+        assert_eq!([ep.xy, ep.xz, ep.xc, ep.yz, ep.yc, ep.zc], [None; 6]);
+
+        let g02 = sp3.record(sat("G02"), 0).unwrap().unwrap();
+        let full = g02.position_correlation.as_ref().unwrap();
+        assert_abs_diff_eq!(full.xy.unwrap(), 0.1234567, epsilon = 1e-15);
+        assert_abs_diff_eq!(full.yz.unwrap(), -0.0000030, epsilon = 1e-15);
     }
 }

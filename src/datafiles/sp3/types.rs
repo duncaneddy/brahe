@@ -675,7 +675,8 @@ impl FromStr for SP3SatelliteId {
 /// Holds the standard deviations and the six off-diagonal correlation
 /// coefficients of the position-clock (`EP`) or velocity-clock-rate (`EV`)
 /// covariance. Standard deviations are in SI units; the correlation
-/// coefficients are dimensionless.
+/// coefficients are dimensionless. A coefficient whose column is blank in
+/// the file is unknown and is `None`, distinct from an explicit zero.
 ///
 /// # Examples
 ///
@@ -685,10 +686,11 @@ impl FromStr for SP3SatelliteId {
 /// let corr = SP3Correlation {
 ///     std: [Some(0.01), Some(0.01), Some(0.02)],
 ///     clock_std: Some(1e-11),
-///     xy: 0.1, xz: 0.0, xc: 0.0,
-///     yz: -0.1, yc: 0.0, zc: 0.0,
+///     xy: Some(0.1), xz: Some(0.0), xc: None,
+///     yz: Some(-0.1), yc: None, zc: None,
 /// };
 /// assert_eq!(corr.std[2], Some(0.02));
+/// assert_eq!(corr.xc, None);
 /// ```
 #[derive(Debug, Clone, PartialEq)]
 pub struct SP3Correlation {
@@ -696,18 +698,18 @@ pub struct SP3Correlation {
     pub std: [Option<f64>; 3],
     /// Standard deviation of the clock. Units: s (`EP`) or s/s (`EV`)
     pub clock_std: Option<f64>,
-    /// Correlation between x and y
-    pub xy: f64,
-    /// Correlation between x and z
-    pub xz: f64,
-    /// Correlation between x and the clock
-    pub xc: f64,
-    /// Correlation between y and z
-    pub yz: f64,
-    /// Correlation between y and the clock
-    pub yc: f64,
-    /// Correlation between z and the clock
-    pub zc: f64,
+    /// Correlation between x and y; `None` if unknown
+    pub xy: Option<f64>,
+    /// Correlation between x and z; `None` if unknown
+    pub xz: Option<f64>,
+    /// Correlation between x and the clock; `None` if unknown
+    pub xc: Option<f64>,
+    /// Correlation between y and z; `None` if unknown
+    pub yz: Option<f64>,
+    /// Correlation between y and the clock; `None` if unknown
+    pub yc: Option<f64>,
+    /// Correlation between z and the clock; `None` if unknown
+    pub zc: Option<f64>,
 }
 
 /// One satellite state at one epoch of an SP3 file.

@@ -585,7 +585,7 @@ def test_SP3Correlation_properties():
     corr = SP3Correlation()
     assert corr.std == (None, None, None)
     assert corr.clock_std is None
-    assert (corr.xy, corr.xz, corr.xc, corr.yz, corr.yc, corr.zc) == (0.0,) * 6
+    assert (corr.xy, corr.xz, corr.xc, corr.yz, corr.yc, corr.zc) == (None,) * 6
     corr.std = (0.01, 0.01, 0.02)
     corr.clock_std = 1e-11
     corr.xy, corr.xz, corr.xc, corr.yz, corr.yc, corr.zc = 0.1, 0.2, 0.3, 0.4, 0.5, 0.6
@@ -1406,6 +1406,26 @@ def test_SP3_from_str_non_positive_epoch_interval(interval):
     assert msg.startswith("SP3: line 2: epoch interval must be positive"), msg
 
 
+FULL_EP_LINE = (
+    "EP    55   55   55     222  1234567 -1234567  5999999      -30       21 -1230000"
+)
+
+
+def test_SP3_from_str_blank_correlation_coefficients():
+    content = read_fixture("example-d-2.sp3").replace(
+        FULL_EP_LINE, "EP    10   10   10", 1
+    )
+    sp3 = SP3.from_str(content)
+    ep = sp3.record("G01", 0).position_correlation
+    assert ep.std == (0.010, 0.010, 0.010)
+    assert ep.clock_std is None
+    assert (ep.xy, ep.xz, ep.xc, ep.yz, ep.yc, ep.zc) == (None,) * 6
+
+    full = sp3.record("G02", 0).position_correlation
+    assert full.xy == pytest.approx(0.1234567, abs=1e-15)
+    assert full.yz == pytest.approx(-0.0000030, abs=1e-15)
+
+
 # ---------------------------------------------------------------------------
 # write.rs
 # ---------------------------------------------------------------------------
@@ -1457,7 +1477,7 @@ def assert_correlation_close(read, written, what):
         assert_option_close(read.std[k], written.std[k], 1e-15, what)
     assert_option_close(read.clock_std, written.clock_std, 1e-22, what)
     for name in ["xy", "xz", "xc", "yz", "yc", "zc"]:
-        assert getattr(read, name) == pytest.approx(getattr(written, name), abs=1e-12)
+        assert_option_close(getattr(read, name), getattr(written, name), 1e-12, what)
 
 
 def assert_record_close(read, written, pb, cb):
@@ -1900,7 +1920,8 @@ def test_SP3_to_string_correlation_errors():
     def record(correlation):
         return SP3Record([1.0e7, 2.0e7, 3.0e7], position_correlation=correlation)
 
-    sp3.set_record("G02", 0, record(SP3Correlation()))
+    zeros = {"xy": 0.0, "xz": 0.0, "xc": 0.0, "yz": 0.0, "yc": 0.0, "zc": 0.0}
+    sp3.set_record("G02", 0, record(SP3Correlation(**zeros)))
     assert "\nEP " in sp3.to_string()
 
     sp3.set_record("G02", 0, record(SP3Correlation(std=(-0.1, None, None))))
@@ -2018,3 +2039,67 @@ def test_SP3_to_string_clock_in_missing_value_range():
         SP3Record([1.0e7, 2.0e7, 3.0e7], velocity=[1.0, 2.0, 3.0], clock_rate=1.0e-4),
     )
     assert "clock rate 1000000.000000" in write_error(sp3)
+
+
+def test_SP3_round_trip_blank_correlation_coefficients():
+    content = read_fixture("example-d-2.sp3").replace(
+        FULL_EP_LINE, "EP    10   10   10", 1
+    )
+    text = SP3.from_str(content).to_string()
+    assert "EP    10   10   10" in text.splitlines()
+
+    written = SP3.from_str(text)
+    blank = written.record("G01", 0).position_correlation
+    assert (blank.xy, blank.xz, blank.xc, blank.yz, blank.yc, blank.zc) == (None,) * 6
+    full = written.record("G02", 0).position_correlation
+    expected = [0.1234567, -0.1234567, 0.5999999, -0.0000030, 0.0000021, -0.1230000]
+    for name, value in zip(["xy", "xz", "xc", "yz", "yc", "zc"], expected):
+        assert getattr(full, name) == pytest.approx(value, abs=1e-15)
+
+    # Interior blanks keep the columns of the coefficients after them.
+    sp3 = two_satellite_file()
+    sp3.set_record(
+        "G02",
+        0,
+        SP3Record(
+            [1.0e7, 2.0e7, 3.0e7],
+            position_correlation=SP3Correlation(xz=0.5, zc=-0.25),
+        ),
+    )
+    text = sp3.to_string()
+    assert (
+        "EP                                   5000000                            -2500000"
+        in text.splitlines()
+    ), text
+    c = SP3.from_str(text).record("G02", 0).position_correlation
+    assert (c.xy, c.xz, c.xc, c.yz, c.yc, c.zc) == (None, 0.5, None, None, None, -0.25)
+
+
+def test_SP3_to_string_correlation_out_of_range():
+    def with_xy(xy):
+        sp3 = two_satellite_file()
+        sp3.set_record(
+            "G02",
+            0,
+            SP3Record(
+                [1.0e7, 2.0e7, 3.0e7], position_correlation=SP3Correlation(xy=xy)
+            ),
+        )
+        return sp3
+
+    for xy in [2.0, -2.0, 1.0, -1.0, 0.999_999_96, math.inf]:
+        assert "is outside [-0.9999999, 0.9999999]" in write_error(with_xy(xy)), xy
+    for xy in [0.9999999, -0.9999999, 0.999_999_94]:
+        back = SP3.from_str(with_xy(xy).to_string())
+        assert back.record("G02", 0).position_correlation.xy == pytest.approx(
+            xy, abs=1e-7
+        )
+
+
+def test_SP3_to_string_no_epochs(tmp_path):
+    sp3 = SP3(["G01"], 900.0)
+    assert "file has no epochs" in write_error(sp3)
+    path = tmp_path / "empty.sp3"
+    with pytest.raises(bh.BraheError):
+        sp3.to_file(str(path))
+    assert not path.exists()

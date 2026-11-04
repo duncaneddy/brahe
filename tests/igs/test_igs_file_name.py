@@ -65,7 +65,7 @@ IDENTITY_CASES = [
     ),
     ("igs21000.sp3.Z", SHORT, "IGS", FIN, gps(2020, 4, 5, 0), 2100),
     ("igr21003.clk.Z", SHORT, "IGS", RAP, gps(2020, 4, 8, 0), 2100),
-    ("igu21000_06.sp3.Z", SHORT, "IGS", ULT, gps(2020, 4, 5, 6), 2100),
+    ("igu21000_06.sp3.Z", SHORT, "IGS", ULT, gps(2020, 4, 4, 6), 2100),
     ("igs21007.erp.Z", SHORT, "IGS", FIN, gps(2020, 4, 5, 0), 2100),
     ("cod21000.sp3", SHORT, "COD", FIN, gps(2020, 4, 5, 0), 2100),
 ]
@@ -81,7 +81,8 @@ def test_igs_product_file_name_parse_identity(
     assert name.solution == solution
     assert name.start_epoch == start
     assert name.gps_week == week
-    assert name.start_epoch.gps_date()[0] == week
+    if solution != ULT:
+        assert name.start_epoch.gps_date()[0] == week
     assert str(name) == name_str
     if style == LONG:
         assert name.version == 0
@@ -288,13 +289,21 @@ def test_igs_product_file_name_long_leap_day():
 
 def test_igs_product_file_name_igv_ultra_rapid_span():
     name = bh.IGSProductFileName.parse("igv21000_06.sp3")
-    assert name.start_epoch == gps(2020, 4, 5, 6)
+    assert name.start_epoch == gps(2020, 4, 4, 6)
+    assert name.span == 172800.0
+
+
+def test_igs_product_file_name_short_ultra_rapid_week_boundary():
+    name = bh.IGSProductFileName.parse("igu21000_00.sp3.Z")
+    assert name.gps_week == 2100
+    assert name.start_epoch == gps(2020, 4, 4, 0)
+    assert name.start_epoch.gps_date()[0] == 2099
     assert name.span == 172800.0
 
 
 def test_igs_product_file_name_siu_ultra_rapid():
     name = bh.IGSProductFileName.parse("siu21000_02.sp3.Z")
-    assert name.start_epoch == gps(2020, 4, 5, 2)
+    assert name.start_epoch == gps(2020, 4, 4, 2)
     assert name.span == 172800.0
     assert name.compression == UNIX
 

@@ -90,7 +90,9 @@ static ANALYSIS_CENTERS: [IGSAnalysisCenter; 14] = [
 impl IGSAnalysisCenter {
     /// Looks up an analysis center by its product file-name code.
     ///
-    /// Matching is case-insensitive.
+    /// Matching is case-insensitive. Short-name combination and variant codes
+    /// such as `IGL`, `IGV` and `COF` are not analysis centers in the table
+    /// and return `None`.
     ///
     /// # Arguments
     /// * `code` - Three-letter center code, for example `"COD"` or `"cod"`

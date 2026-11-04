@@ -39,6 +39,10 @@ const SECONDS_PER_YEAR_365: f64 = 365.0 * SECONDS_PER_DAY;
 const SHORT_DAILY_SPAN: f64 = SECONDS_PER_DAY;
 /// Span of an ultra-rapid short-name product, in seconds.
 const SHORT_ULTRA_SPAN: f64 = 2.0 * SECONDS_PER_DAY;
+/// Observed-arc length that precedes the named time of an ultra-rapid
+/// short-name product, in seconds. The named day and hour mark the start of
+/// the predicted half, so coverage begins this long before it.
+const SHORT_ULTRA_OBSERVED_LEAD: f64 = SECONDS_PER_DAY;
 
 /// Modified Julian Date of 1970-01-01, the epoch of the day-count in
 /// [`days_from_civil`].
@@ -449,8 +453,9 @@ impl IGSProductFileName {
     ///
     /// For short names, the analysis center and solution type come from the
     /// three-letter code, daily products span one day, ultra-rapid products
-    /// span two days from the `_hh` start hour, and weekly products (day `7`)
-    /// have no span and start at the beginning of the week. The sampling
+    /// span two days and start 24 hours before the named day and `_hh` hour
+    /// (the named time is where the predicted half begins), and weekly
+    /// products (day `7`) have no span and start at the beginning of the week. The sampling
     /// interval is not encoded.
     ///
     /// # Arguments
@@ -585,6 +590,12 @@ impl IGSProductFileName {
 
     /// Returns the start of the product's coverage.
     ///
+    /// For long names this is the start time in the name. For short
+    /// ultra-rapid names (`igu`, `igv`, `siu`, ...) the named week, day and
+    /// hour mark the start of the predicted half of the two-day file, so the
+    /// coverage starts 24 hours earlier and can fall in the previous GPS week,
+    /// whereas [`gps_week`](Self::gps_week) stays the named week.
+    ///
     /// # Returns
     /// * `Epoch`: Start epoch in the GPS time system
     ///
@@ -596,12 +607,20 @@ impl IGSProductFileName {
     ///
     /// let name = IGSProductFileName::parse("igs21000.sp3.Z").unwrap();
     /// assert_eq!(name.start_epoch(), Epoch::from_datetime(2020, 4, 5, 0, 0, 0.0, 0.0, TimeSystem::GPS));
+    ///
+    /// let ultra = IGSProductFileName::parse("igu21000_06.sp3.Z").unwrap();
+    /// assert_eq!(ultra.start_epoch(), Epoch::from_datetime(2020, 4, 4, 6, 0, 0.0, 0.0, TimeSystem::GPS));
     /// ```
     pub fn start_epoch(&self) -> Epoch {
         self.start_epoch
     }
 
-    /// Returns the GPS week containing the start epoch.
+    /// Returns the GPS week of the archive directory that holds the product.
+    ///
+    /// This is the week in the file name. It equals the week of
+    /// [`start_epoch`](Self::start_epoch) except for short ultra-rapid names
+    /// issued on the first day of a week, whose coverage starts in the
+    /// previous week.
     ///
     /// # Returns
     /// * `u32`: GPS week number
@@ -612,6 +631,10 @@ impl IGSProductFileName {
     /// use brahe::igs::IGSProductFileName;
     ///
     /// assert_eq!(IGSProductFileName::parse("igs21000.sp3.Z").unwrap().gps_week(), 2100);
+    ///
+    /// let ultra = IGSProductFileName::parse("igu21000_00.sp3.Z").unwrap();
+    /// assert_eq!(ultra.gps_week(), 2100);
+    /// assert_eq!(ultra.start_epoch().gps_date().0, 2099);
     /// ```
     pub fn gps_week(&self) -> u32 {
         self.gps_week
@@ -968,10 +991,14 @@ fn parse_short(
         Some(SHORT_DAILY_SPAN)
     };
     let day_offset = if weekly { 0 } else { day };
-    let start_epoch = Epoch::from_gps_date(
-        gps_week,
-        f64::from(day_offset) * SECONDS_PER_DAY + f64::from(hour) * SECONDS_PER_HOUR,
-    );
+    let named_seconds =
+        f64::from(day_offset) * SECONDS_PER_DAY + f64::from(hour) * SECONDS_PER_HOUR;
+    let coverage_offset = if ultra && !weekly {
+        SHORT_ULTRA_OBSERVED_LEAD
+    } else {
+        0.0
+    };
+    let start_epoch = Epoch::from_gps_date(gps_week, named_seconds) - coverage_offset;
     let (content, format) = short_content_and_format(extension);
 
     Ok(IGSProductFileName {
@@ -1063,7 +1090,7 @@ mod tests {
         IGSNameStyle::Short,
         "IGS",
         IGSSolutionType::UltraRapid,
-        gps(2020, 4, 5, 6),
+        gps(2020, 4, 4, 6),
         2100
     )]
     #[case(
@@ -1097,7 +1124,9 @@ mod tests {
         assert_eq!(name.solution(), &solution);
         assert_eq!(name.start_epoch(), start);
         assert_eq!(name.gps_week(), week);
-        assert_eq!(name.start_epoch().gps_date().0, week);
+        if solution != IGSSolutionType::UltraRapid {
+            assert_eq!(name.start_epoch().gps_date().0, week);
+        }
         assert_eq!(name.to_string(), input);
         assert_eq!(input.parse::<IGSProductFileName>().unwrap(), name);
         match style {
@@ -1350,7 +1379,17 @@ mod tests {
     #[parallel]
     fn test_igs_product_file_name_igv_ultra_rapid_span() {
         let name = IGSProductFileName::parse("igv21000_06.sp3").unwrap();
-        assert_eq!(name.start_epoch(), gps(2020, 4, 5, 6));
+        assert_eq!(name.start_epoch(), gps(2020, 4, 4, 6));
+        assert_eq!(name.span(), Some(172800.0));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_igs_product_file_name_short_ultra_rapid_week_boundary() {
+        let name = IGSProductFileName::parse("igu21000_00.sp3.Z").unwrap();
+        assert_eq!(name.gps_week(), 2100);
+        assert_eq!(name.start_epoch(), gps(2020, 4, 4, 0));
+        assert_eq!(name.start_epoch().gps_date().0, 2099);
         assert_eq!(name.span(), Some(172800.0));
     }
 
@@ -1358,7 +1397,7 @@ mod tests {
     #[parallel]
     fn test_igs_product_file_name_siu_ultra_rapid() {
         let name = IGSProductFileName::parse("siu21000_02.sp3.Z").unwrap();
-        assert_eq!(name.start_epoch(), gps(2020, 4, 5, 2));
+        assert_eq!(name.start_epoch(), gps(2020, 4, 4, 2));
         assert_eq!(name.span(), Some(172800.0));
         assert_eq!(name.compression(), IGSCompression::UnixCompress);
     }

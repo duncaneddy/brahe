@@ -590,6 +590,12 @@ impl PyIGSProductFileName {
 
     /// First epoch covered by the product, in GPS time.
     ///
+    /// For long names this is the start time in the name. For short ultra-rapid
+    /// names (igu, igv, siu, ...) the named week, day and hour mark the start of
+    /// the predicted half of the two-day file, so coverage starts 24 hours
+    /// earlier and can fall in the previous GPS week, whereas gps_week stays the
+    /// named week.
+    ///
     /// Returns:
     ///     Epoch: Start epoch.
     #[getter]
@@ -597,7 +603,11 @@ impl PyIGSProductFileName {
         PyEpoch { obj: self.inner.start_epoch() }
     }
 
-    /// GPS week containing the start epoch.
+    /// GPS week of the archive directory that holds the product.
+    ///
+    /// This is the week in the file name. It equals the week of start_epoch
+    /// except for short ultra-rapid names issued on the first day of a week,
+    /// whose coverage starts in the previous week.
     ///
     /// Returns:
     ///     int: GPS week number.
@@ -698,6 +708,9 @@ pub struct PyIGSAnalysisCenter {
 #[pymethods]
 impl PyIGSAnalysisCenter {
     /// Look up an analysis center by its product file-name code.
+    ///
+    /// Short-name combination and variant codes such as IGL, IGV and COF are not
+    /// analysis centers in the table and return None.
     ///
     /// Args:
     ///     code (str): Three-letter center code, case-insensitive.

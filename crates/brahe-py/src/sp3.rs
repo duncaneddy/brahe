@@ -691,6 +691,34 @@ fn extract_sp3_gnss_system(obj: &Bound<'_, PyAny>) -> PyResult<sp3::GNSSSystem> 
     ))
 }
 
+/// Extract an `sp3::SP3Version` from an `SP3Version` or its version letter.
+fn extract_sp3_version(obj: &Bound<'_, PyAny>) -> PyResult<sp3::SP3Version> {
+    if let Ok(version) = obj.extract::<PySP3Version>() {
+        return Ok(version.inner);
+    }
+    if let Ok(text) = obj.extract::<String>() {
+        return sp3::SP3Version::from_char(sp3_single_char(&text, "version letter")?)
+            .map_err(sp3_py_err);
+    }
+    Err(exceptions::PyTypeError::new_err(
+        "expected an SP3Version or a version letter string",
+    ))
+}
+
+/// Extract an `sp3::SP3FileType` from an `SP3FileType` or its code letter.
+fn extract_sp3_file_type(obj: &Bound<'_, PyAny>) -> PyResult<sp3::SP3FileType> {
+    if let Ok(file_type) = obj.extract::<PySP3FileType>() {
+        return Ok(file_type.inner);
+    }
+    if let Ok(text) = obj.extract::<String>() {
+        return sp3::SP3FileType::from_code(sp3_single_char(&text, "file type code")?)
+            .map_err(sp3_py_err);
+    }
+    Err(exceptions::PyTypeError::new_err(
+        "expected an SP3FileType or a file type code string",
+    ))
+}
+
 /// Extract an `sp3::SP3TimeSystem` from an `SP3TimeSystem` or its label.
 fn extract_sp3_time_system(obj: &Bound<'_, PyAny>) -> PyResult<sp3::SP3TimeSystem> {
     if let Ok(time_system) = obj.extract::<PySP3TimeSystem>() {
@@ -792,7 +820,14 @@ fn sp3_vector_to_numpy<'py>(py: Python<'py>, v: [f64; 3]) -> Bound<'py, PyArray<
 ///     assert str(sat) == "G05"
 ///     assert bh.SP3SatelliteId.parse("G 5") == sat
 ///     assert bh.SP3SatelliteId("G", 5) == sat
+///     assert sat == "G05"
+///     assert hash(sat) == hash("G05")
 ///     ```
+///
+/// An identifier also equals any string that ``parse`` reads as the same
+/// identifier. Its hash equals the hash of the canonical string ``str(sat)``
+/// only, so a non-canonical spelling such as ``"G 5"`` compares equal but
+/// hashes differently.
 #[pyclass(module = "brahe._brahe", from_py_object)]
 #[pyo3(name = "SP3SatelliteId")]
 #[derive(Clone, PartialEq)]
@@ -877,12 +912,35 @@ impl PySP3SatelliteId {
         format!("SP3SatelliteId('{}')", self.inner)
     }
 
-    fn __richcmp__(&self, other: &Self, op: CompareOp) -> bool {
-        op.matches(self.inner.cmp(&other.inner))
+    /// Compare with another `SP3SatelliteId`, or for `==` and `!=` with an
+    /// identifier string read by `SP3SatelliteId.parse`. A string that does
+    /// not parse is unequal.
+    fn __richcmp__(
+        &self,
+        py: Python<'_>,
+        other: &Bound<'_, PyAny>,
+        op: CompareOp,
+    ) -> PyResult<Py<PyAny>> {
+        let other_id = if let Ok(id) = other.extract::<PySP3SatelliteId>() {
+            Some(id.inner)
+        } else if let Ok(text) = other.extract::<String>() {
+            if !matches!(op, CompareOp::Eq | CompareOp::Ne) {
+                return Ok(py.NotImplemented());
+            }
+            sp3::SP3SatelliteId::parse(&text).ok()
+        } else {
+            return Ok(py.NotImplemented());
+        };
+        let result = match other_id {
+            Some(id) => op.matches(self.inner.cmp(&id)),
+            None => matches!(op, CompareOp::Ne),
+        };
+        result.into_py_any(py)
     }
 
-    fn __hash__(&self) -> u64 {
-        sp3_hash(&self.inner)
+    /// Hash of the canonical identifier string, so `hash(sat) == hash(str(sat))`.
+    fn __hash__(&self, py: Python<'_>) -> PyResult<isize> {
+        PyString::new(py, &self.inner.to_string()).hash()
     }
 }
 
@@ -1064,6 +1122,10 @@ impl PySP3Correlation {
 
     fn __repr__(&self) -> String {
         format!("SP3Correlation(std={:?}, clock_std={:?})", self.inner.std, self.inner.clock_std)
+    }
+
+    fn __eq__(&self, other: &Self) -> bool {
+        self.inner == other.inner
     }
 }
 
@@ -1383,6 +1445,10 @@ impl PySP3Record {
             self.inner.position, self.inner.clock, self.inner.velocity, self.inner.clock_rate
         )
     }
+
+    fn __eq__(&self, other: &Self) -> bool {
+        self.inner == other.inner
+    }
 }
 
 /// Header of an SP3 file.
@@ -1411,7 +1477,7 @@ pub struct PySP3Header {
 
 #[pymethods]
 impl PySP3Header {
-    /// SP3 format version.
+    /// SP3 format version. Assignment accepts an ``SP3Version`` or its letter.
     ///
     /// Returns:
     ///     SP3Version: The version.
@@ -1421,8 +1487,9 @@ impl PySP3Header {
     }
 
     #[setter]
-    fn set_version(&mut self, value: PySP3Version) {
-        self.inner.version = value.inner;
+    fn set_version(&mut self, value: &Bound<'_, PyAny>) -> PyResult<()> {
+        self.inner.version = extract_sp3_version(value)?;
+        Ok(())
     }
 
     /// Whether the file carries velocity records.
@@ -1594,7 +1661,8 @@ impl PySP3Header {
         self.inner.fractional_day = value;
     }
 
-    /// Satellite system covered by the file.
+    /// Satellite system covered by the file. Assignment accepts an
+    /// ``SP3FileType`` or its code letter.
     ///
     /// Returns:
     ///     SP3FileType: The file type.
@@ -1604,8 +1672,9 @@ impl PySP3Header {
     }
 
     #[setter]
-    fn set_file_type(&mut self, value: PySP3FileType) {
-        self.inner.file_type = value.inner;
+    fn set_file_type(&mut self, value: &Bound<'_, PyAny>) -> PyResult<()> {
+        self.inner.file_type = extract_sp3_file_type(value)?;
+        Ok(())
     }
 
     /// Time system of the epochs.
@@ -1688,6 +1757,10 @@ impl PySP3Header {
             self.inner.file_type,
             self.inner.epoch_interval
         )
+    }
+
+    fn __eq__(&self, other: &Self) -> bool {
+        self.inner == other.inner
     }
 }
 

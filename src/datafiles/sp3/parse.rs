@@ -2201,6 +2201,65 @@ mod tests {
         assert_abs_diff_eq!(sp3.end_epoch() - t0, 86_399.0, epsilon = 1e-7);
     }
 
+    fn grid_content(epochs: &[&str]) -> String {
+        let mut content = String::from(
+            "#dP2024  1  1 23 30  0.00000000       3 ORBIT IGS20 FIT  TST\n\
+             ## 2295 171000.00000000   900.00000000 60310 0.9791666666667\n\
+             +    1   G01\n\
+             ++         0\n\
+             %c G  cc GPS ccc cccc cccc cccc cccc ccccc ccccc ccccc ccccc\n\
+             %c cc cc ccc ccc cccc cccc cccc cccc ccccc ccccc ccccc ccccc\n\
+             %f  0.0000000  0.000000000  0.00000000000  0.000000000000000\n\
+             %f  0.0000000  0.000000000  0.00000000000  0.000000000000000\n\
+             %i    0    0    0    0      0      0      0      0         0\n\
+             %i    0    0    0    0      0      0      0      0         0\n\
+             /* EPOCH GRID\n",
+        );
+        for epoch in epochs {
+            content.push_str(&format!("*  {epoch}\n"));
+            content.push_str("PG01  15000.000000  20000.000000   5000.000000    100.000000\n");
+        }
+        content.push_str("EOF\n");
+        content
+    }
+
+    #[test]
+    #[parallel]
+    fn test_SP3_from_str_epoch_on_same_grid_point_rejected() {
+        let msg = parse_error(&grid_content(&[
+            "2024  1  1 23 30  0.00000000",
+            "2024  1  1 23 45  0.00000000",
+            "2024  1  1 23 45  0.00050000",
+        ]));
+        assert!(msg.starts_with("SP3: line 16: "), "{msg}");
+        assert!(msg.contains("same 900 s grid point"), "{msg}");
+    }
+
+    #[test]
+    #[parallel]
+    fn test_SP3_from_str_epoch_within_grid_tolerance_accepted() {
+        let t0 = Epoch::from_datetime(2024, 1, 1, 23, 30, 0.0, 0.0, TimeSystem::GPS);
+
+        let sp3 = SP3::from_str(&grid_content(&[
+            "2024  1  1 23 30  0.00000000",
+            "2024  1  1 23 45  0.00050000",
+            "2024  1  1 23 59 59.99950000",
+        ]))
+        .unwrap();
+        assert_eq!(sp3.num_epochs(), 3);
+        assert_abs_diff_eq!(sp3.epochs()[1] - t0, 900.0005, epsilon = 1e-7);
+        assert_abs_diff_eq!(sp3.epochs()[2] - t0, 1799.9995, epsilon = 1e-7);
+
+        let sp3 = SP3::from_str(&grid_content(&[
+            "2024  1  1 23 30  0.00000000",
+            "2024  1  1 23 45  0.00000000",
+            "2024  1  1 23 59 59.99999999",
+        ]))
+        .unwrap();
+        assert_eq!(sp3.num_epochs(), 3);
+        assert_abs_diff_eq!(sp3.end_epoch() - t0, 1800.0, epsilon = 1e-7);
+    }
+
     #[rstest]
     #[case("     0.00000000")]
     #[case("  -900.00000000")]

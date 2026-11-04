@@ -127,6 +127,23 @@ def test_SP3SatelliteId_eq_hash_and_system_argument():
         SP3SatelliteId(5, 5)
 
 
+def test_SP3SatelliteId_eq_str():
+    ident = SP3SatelliteId(GNSSSystem.GPS, 5)
+    assert ident == "G05"
+    assert ident == "G 5"
+    assert "G05" == ident
+    assert ident != "G06"
+    assert (ident == "not an id") is False
+    assert ident != "not an id"
+    assert ident != 5
+    assert hash(ident) == hash("G05")
+    assert {ident: 1}["G05"] == 1
+    with pytest.raises(TypeError):
+        _ = ident < "G06"
+    sats = [sat("G01"), sat("G05"), sat("R05")]
+    assert next(s for s in sats if s == "G05") is sats[1]
+
+
 def test_SP3TimeSystem_to_time_system():
     assert SP3TimeSystem.parse("ccc") == SP3TimeSystem.GPS
     assert SP3TimeSystem.GAL.to_time_system() == bh.TimeSystem.GST
@@ -427,6 +444,31 @@ def test_SP3_header_setters_accept_string_codes():
     header.orbit_type = "HLM"
     assert header.time_system == SP3TimeSystem.UTC
     assert header.orbit_type == SP3OrbitType.HLM
+    header.version = "c"
+    header.file_type = "M"
+    assert header.version == SP3Version.C
+    assert header.file_type == SP3FileType.MIXED
+    header.version = SP3Version.B
+    header.file_type = SP3FileType.GALILEO
+    assert header.version == SP3Version.B
+    assert header.file_type == SP3FileType.GALILEO
+    with pytest.raises(bh.BraheError):
+        header.version = "x"
+    with pytest.raises(bh.BraheError):
+        header.file_type = "X"
+    with pytest.raises(ValueError):
+        header.version = "cd"
+    with pytest.raises(TypeError):
+        header.file_type = 3
+
+
+def test_SP3Header_eq():
+    sp3 = SP3(["G01"], 900.0)
+    assert sp3.header == sp3.header
+    header = sp3.header
+    header.agency = "TEST"
+    assert header != sp3.header
+    assert sp3.header != "header"
 
 
 def test_SP3_new_errors():
@@ -463,6 +505,24 @@ def test_SP3_new_rejects_more_than_999_satellites():
     with pytest.raises(bh.BraheError) as excinfo:
         SP3(["G01"] * 1000, 900.0)
     assert "999" in str(excinfo.value)
+
+
+def test_SP3_push_epoch_requires_new_grid_point():
+    t0 = gps_t0()
+    sp3 = SP3(["G01"], 900.0)
+    sp3.push_epoch(t0)
+    sp3.push_epoch(t0 + 900.0)
+    with pytest.raises(bh.BraheError) as excinfo:
+        sp3.push_epoch(t0 + 900.0005)
+    assert "same 900 s grid point" in str(excinfo.value)
+    assert sp3.num_epochs == 2
+    assert sp3.push_epoch(t0 + 1800.0005) == 2
+
+    sp3 = SP3(["G01"], 900.0)
+    sp3.push_epoch(t0)
+    assert sp3.push_epoch(t0 + 899.9995) == 1
+    with pytest.raises(bh.BraheError):
+        sp3.push_epoch(t0 + 900.0004)
 
 
 @pytest.mark.parametrize(
@@ -611,6 +671,25 @@ def test_SP3Record_fields_and_vector_arguments():
         SP3Record([1.0, 2.0, 3.0], velocity=[1.0, 2.0, 3.0, 4.0])
     with pytest.raises(ValueError):
         SP3Record([1.0, 2.0, 3.0], position_std=[1.0, 2.0])
+
+
+def test_SP3Record_eq():
+    record = SP3Record([1.0, 2.0, 3.0], clock=1e-6)
+    assert record == SP3Record([1.0, 2.0, 3.0], clock=1e-6)
+    assert record != SP3Record([1.0, 2.0, 3.0])
+    assert record != [1.0, 2.0, 3.0]
+
+    sp3 = SP3(["G01"], 900.0)
+    sp3.push_epoch(gps_t0())
+    sp3.set_record("G01", 0, record)
+    assert sp3.record("G01", 0) == record
+
+
+def test_SP3Correlation_eq():
+    corr = SP3Correlation(std=(0.01, 0.01, 0.02), clock_std=1e-11, xy=0.1)
+    assert corr == SP3Correlation(std=(0.01, 0.01, 0.02), clock_std=1e-11, xy=0.1)
+    assert corr != SP3Correlation(std=(0.01, 0.01, 0.02), clock_std=1e-11)
+    assert corr != SP3Correlation(std=(0.01, 0.01, 0.02), clock_std=1e-11, xy=0.2)
 
 
 def test_SP3Correlation_properties():
@@ -1429,6 +1508,69 @@ def test_SP3_from_str_one_second_day():
     t0 = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 1.0, 0.0, bh.TimeSystem.GPS)
     assert_epoch(sp3.start_epoch, t0)
     assert sp3.end_epoch - t0 == pytest.approx(86_399.0, abs=1e-7)
+
+
+def grid_content(epochs):
+    content = (
+        "#dP2024  1  1 23 30  0.00000000       3 ORBIT IGS20 FIT  TST\n"
+        "## 2295 171000.00000000   900.00000000 60310 0.9791666666667\n"
+        "+    1   G01\n"
+        "++         0\n"
+        "%c G  cc GPS ccc cccc cccc cccc cccc ccccc ccccc ccccc ccccc\n"
+        "%c cc cc ccc ccc cccc cccc cccc cccc ccccc ccccc ccccc ccccc\n"
+        "%f  0.0000000  0.000000000  0.00000000000  0.000000000000000\n"
+        "%f  0.0000000  0.000000000  0.00000000000  0.000000000000000\n"
+        "%i    0    0    0    0      0      0      0      0         0\n"
+        "%i    0    0    0    0      0      0      0      0         0\n"
+        "/* EPOCH GRID\n"
+    )
+    for epoch in epochs:
+        content += f"*  {epoch}\n"
+        content += "PG01  15000.000000  20000.000000   5000.000000    100.000000\n"
+    return content + "EOF\n"
+
+
+def test_SP3_from_str_epoch_on_same_grid_point_rejected():
+    msg = parse_error(
+        grid_content(
+            [
+                "2024  1  1 23 30  0.00000000",
+                "2024  1  1 23 45  0.00000000",
+                "2024  1  1 23 45  0.00050000",
+            ]
+        )
+    )
+    assert msg.startswith("SP3: line 16: "), msg
+    assert "same 900 s grid point" in msg
+
+
+def test_SP3_from_str_epoch_within_grid_tolerance_accepted():
+    t0 = bh.Epoch.from_datetime(2024, 1, 1, 23, 30, 0.0, 0.0, bh.TimeSystem.GPS)
+
+    sp3 = SP3.from_str(
+        grid_content(
+            [
+                "2024  1  1 23 30  0.00000000",
+                "2024  1  1 23 45  0.00050000",
+                "2024  1  1 23 59 59.99950000",
+            ]
+        )
+    )
+    assert sp3.num_epochs == 3
+    assert sp3.epochs[1] - t0 == pytest.approx(900.0005, abs=1e-7)
+    assert sp3.epochs[2] - t0 == pytest.approx(1799.9995, abs=1e-7)
+
+    sp3 = SP3.from_str(
+        grid_content(
+            [
+                "2024  1  1 23 30  0.00000000",
+                "2024  1  1 23 45  0.00000000",
+                "2024  1  1 23 59 59.99999999",
+            ]
+        )
+    )
+    assert sp3.num_epochs == 3
+    assert sp3.end_epoch - t0 == pytest.approx(1800.0, abs=1e-7)
 
 
 @pytest.mark.parametrize("interval", ["     0.00000000", "  -900.00000000"])

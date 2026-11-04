@@ -1,4 +1,6 @@
-//! SP3 enums and satellite identifiers.
+//! SP3 data types: the format enums (version, GNSS system, file type, time
+//! system, orbit type), satellite identifiers, the header, records,
+//! correlations, write options, and the in-memory [`SP3`] file.
 
 use std::collections::HashSet;
 use std::fmt;
@@ -1158,10 +1160,10 @@ pub(crate) const GRID_TOLERANCE: f64 = 1.0e-3;
 
 /// Check that an epoch can follow the last epoch of a file.
 ///
-/// The epoch must be later than `last` and within 1 ms of a point of the
-/// grid of `interval` anchored at `first`. The grid offset is computed from
-/// `first` directly, so the check does not accumulate rounding error over
-/// many epochs.
+/// The epoch must be later than `last`, within 1 ms of a point of the grid
+/// of `interval` anchored at `first`, and on a later grid point than `last`.
+/// Grid offsets are computed from `first` directly, so the check does not
+/// accumulate rounding error over many epochs.
 ///
 /// # Arguments
 ///
@@ -1193,10 +1195,17 @@ pub(crate) fn epoch_grid_error(
         ));
     }
     let offset = epoch - first;
-    if ((offset / interval).round() * interval - offset).abs() > GRID_TOLERANCE {
+    let index = (offset / interval).round();
+    if (index * interval - offset).abs() > GRID_TOLERANCE {
         return Some(format!(
             "epoch {} is not on the {} s grid starting at {}",
             epoch, interval, first
+        ));
+    }
+    if index <= ((last - first) / interval).round() {
+        return Some(format!(
+            "epoch {} is on the same {} s grid point as the last epoch {}",
+            epoch, interval, last
         ));
     }
     None
@@ -2319,6 +2328,24 @@ mod tests {
         sp3.header_mut().epoch_interval = 0.0;
         let err = sp3.push_epoch(t0 + 900.0).unwrap_err();
         assert!(err.to_string().contains("epoch interval"), "{err}");
+    }
+
+    #[test]
+    #[parallel]
+    fn test_SP3_push_epoch_requires_new_grid_point() {
+        let t0 = gps_t0();
+        let mut sp3 = SP3::new(vec![sid("G01")], 900.0, SP3WriteOptions::default()).unwrap();
+        sp3.push_epoch(t0).unwrap();
+        sp3.push_epoch(t0 + 900.0).unwrap();
+        let err = sp3.push_epoch(t0 + 900.0005).unwrap_err();
+        assert!(err.to_string().contains("same 900 s grid point"), "{err}");
+        assert_eq!(sp3.num_epochs(), 2);
+        assert_eq!(sp3.push_epoch(t0 + 1800.0005).unwrap(), 2);
+
+        let mut sp3 = SP3::new(vec![sid("G01")], 900.0, SP3WriteOptions::default()).unwrap();
+        sp3.push_epoch(t0).unwrap();
+        assert_eq!(sp3.push_epoch(t0 + 899.9995).unwrap(), 1);
+        assert!(sp3.push_epoch(t0 + 900.0004).is_err());
     }
 
     #[test]

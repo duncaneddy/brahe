@@ -133,19 +133,16 @@ impl SP3Satellite {
         }
 
         let runs = contiguous_runs(&samples);
-        let has_file_velocities = samples
-            .iter()
-            .all(|s| s.has_file_velocity && s.record.velocity.is_some());
         let epochs: Vec<Epoch> = samples.iter().map(|s| s.epoch).collect();
-        let velocities = if has_file_velocities {
-            samples
-                .iter()
-                .map(|s| s.record.velocity.unwrap_or([f64::NAN; 3]))
-                .collect()
-        } else {
+        let file_velocities: Option<Vec<[f64; 3]>> = samples
+            .iter()
+            .map(|s| s.record.velocity.filter(|_| s.has_file_velocity))
+            .collect();
+        let has_file_velocities = file_velocities.is_some();
+        let velocities = file_velocities.unwrap_or_else(|| {
             let positions: Vec<[f64; 3]> = samples.iter().map(|s| s.record.position).collect();
             derive_velocities(&epochs, &positions, &runs)
-        };
+        });
 
         let mut satellite = SP3Satellite {
             id,
@@ -554,14 +551,15 @@ impl SP3Satellite {
     ///
     /// The trajectory is a Cartesian ITRF [`DOrbitTrajectory`] named after the
     /// satellite, using the satellite's interpolation method. A Lagrange degree
-    /// larger than the number of samples allows is reduced to the largest
-    /// degree they support.
+    /// is raised to at least 1 and reduced to at most the number of samples
+    /// minus one.
     ///
     /// # Returns
     ///
-    /// * `Result<DOrbitTrajectory, BraheError>` - The trajectory, or an error naming the
-    ///   satellite and the gap spans if the satellite has a gap, or naming the satellite and
-    ///   epoch if it has a single sample
+    /// * `Result<DOrbitTrajectory, BraheError>` - The trajectory, or an error if the
+    ///   satellite has a gap, naming the satellite and, for each gap, the epoch of the last
+    ///   sample before it and of the first sample after it; or an error naming the
+    ///   satellite and epoch if it has a single sample
     ///
     /// # Examples
     ///
@@ -617,8 +615,8 @@ impl SP3Satellite {
     ///
     /// Each trajectory is a Cartesian ITRF [`DOrbitTrajectory`] named after
     /// the satellite, using the satellite's interpolation method with a
-    /// Lagrange degree reduced to what the run supports. Runs of a single
-    /// sample are omitted.
+    /// Lagrange degree raised to at least 1 and reduced to at most the run
+    /// length minus one. Runs of a single sample are omitted.
     ///
     /// # Returns
     ///
@@ -649,9 +647,10 @@ impl SP3Satellite {
 impl InterpolationConfig for SP3Satellite {
     /// Set the interpolation method using the builder pattern.
     ///
-    /// The method applies to the trajectories returned afterwards. A Lagrange
-    /// degree larger than a run supports is reduced for that run's trajectory.
-    /// The fit that derives velocities is not affected.
+    /// The method applies to the trajectories returned afterwards. For each
+    /// run's trajectory a Lagrange degree is raised to at least 1 and reduced
+    /// to at most the run length minus one. The fit that derives velocities is
+    /// not affected.
     ///
     /// # Arguments
     ///
@@ -689,9 +688,10 @@ impl InterpolationConfig for SP3Satellite {
 
     /// Set the interpolation method.
     ///
-    /// The method applies to the trajectories returned afterwards. A Lagrange
-    /// degree larger than a run supports is reduced for that run's trajectory.
-    /// The fit that derives velocities is not affected.
+    /// The method applies to the trajectories returned afterwards. For each
+    /// run's trajectory a Lagrange degree is raised to at least 1 and reduced
+    /// to at most the run length minus one. The fit that derives velocities is
+    /// not affected.
     ///
     /// # Arguments
     ///
@@ -729,7 +729,7 @@ impl InterpolationConfig for SP3Satellite {
     /// # Returns
     ///
     /// * `InterpolationMethod` - The method as set, before any per-run Lagrange degree
-    ///   reduction; defaults to `Lagrange { degree: SP3_DEFAULT_LAGRANGE_DEGREE }`
+    ///   adjustment; defaults to `Lagrange { degree: SP3_DEFAULT_LAGRANGE_DEGREE }`
     ///
     /// # Examples
     ///
@@ -754,12 +754,12 @@ impl InterpolationConfig for SP3Satellite {
     }
 }
 
-/// Interpolation method for a run of `run_len` samples, with a Lagrange
-/// degree reduced to at most `run_len - 1`.
+/// Interpolation method for a run of `run_len >= 2` samples, with a
+/// Lagrange degree limited to `1..=run_len - 1`.
 fn run_method(method: InterpolationMethod, run_len: usize) -> InterpolationMethod {
     match method {
         InterpolationMethod::Lagrange { degree } => InterpolationMethod::Lagrange {
-            degree: degree.min(run_len.saturating_sub(1)),
+            degree: degree.max(1).min(run_len - 1),
         },
         other => other,
     }
@@ -862,6 +862,7 @@ mod tests {
     use crate::frames::{CelestialFrame, ReferenceFrame};
     use crate::propagators::KeplerianPropagator;
     use crate::time::TimeSystem;
+    use crate::trajectories::traits::InterpolatableTrajectory;
     use crate::utils::testing::setup_global_test_eop;
     use crate::utils::{DOrbitStateProvider, Identifiable};
     use approx::assert_abs_diff_eq;
@@ -1114,6 +1115,40 @@ mod tests {
             sat.to_trajectory().unwrap().get_interpolation_method(),
             InterpolationMethod::Lagrange { degree: 2 }
         );
+    }
+
+    #[test]
+    #[parallel]
+    fn test_SP3Satellite_lagrange_degree_zero_raised_to_one() {
+        let t0 = t0();
+        let samples = (0..4)
+            .map(|k| {
+                sample(
+                    t0 + 900.0 * k as f64,
+                    quadratic_position(900.0 * k as f64),
+                    900.0,
+                )
+            })
+            .collect();
+        let sat = SP3Satellite::from_samples(sid("G14"), samples)
+            .unwrap()
+            .with_interpolation_method(InterpolationMethod::Lagrange { degree: 0 });
+        assert_eq!(
+            sat.get_interpolation_method(),
+            InterpolationMethod::Lagrange { degree: 0 }
+        );
+        let segments = sat.to_trajectory_segments().unwrap();
+        assert_eq!(segments.len(), 1);
+        assert_eq!(
+            segments[0].get_interpolation_method(),
+            InterpolationMethod::Lagrange { degree: 1 }
+        );
+        let state = segments[0].interpolate(&(t0 + 450.0)).unwrap();
+        let p0 = quadratic_position(0.0);
+        let p1 = quadratic_position(900.0);
+        for axis in 0..3 {
+            assert_abs_diff_eq!(state[axis], 0.5 * (p0[axis] + p1[axis]), epsilon = 1e-6);
+        }
     }
 
     #[test]

@@ -13,6 +13,8 @@
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 use std::collections::HashMap;
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
@@ -33,6 +35,7 @@ use pyo3::{IntoPyObjectExt, PyRefMut, exceptions, wrap_pyfunction};
 
 use rayon::prelude::*;
 
+use brahe::datafiles::sp3;
 use brahe::math::interpolation::CovarianceInterpolationConfig;
 use brahe::traits::*;
 use brahe::utils::python_interop::BraheError;
@@ -596,6 +599,7 @@ include!("events.rs"); // Must come before propagators.rs (premade events used i
 include!("propagators.rs");
 include!("attitude.rs");
 include!("trajectories.rs");
+include!("sp3.rs");
 include!("access.rs");
 include!("relative_motion.rs");
 include!("math.rs");
@@ -1642,6 +1646,18 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyITCHeader>()?;
     module.add_class::<PyITCStateVector>()?;
     module.add_class::<PyITCCovarianceFrame>()?;
+
+    //* SP3 *//
+    module.add_class::<PySP3Version>()?;
+    module.add_class::<PyGNSSSystem>()?;
+    module.add_class::<PySP3FileType>()?;
+    module.add_class::<PySP3TimeSystem>()?;
+    module.add_class::<PySP3OrbitType>()?;
+    module.add_class::<PySP3SatelliteId>()?;
+    module.add_class::<PySP3Header>()?;
+    module.add_class::<PySP3Correlation>()?;
+    module.add_class::<PySP3Record>()?;
+    module.add_class::<PySP3>()?;
     module.add_class::<PyOMM>()?;
     module.add_class::<PyOPM>()?;
     module.add_class::<PyOPMManeuver>()?;

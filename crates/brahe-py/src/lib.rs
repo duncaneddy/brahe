@@ -1644,6 +1644,9 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyIGSNameStyle>()?;
     module.add_class::<PyIGSProductFileName>()?;
     module.add_class::<PyIGSAnalysisCenter>()?;
+    module.add_class::<PyIGSProductSource>()?;
+    module.add_class::<PyIGSProduct>()?;
+    module.add_class::<PyIGSProductsClient>()?;
     module.add_function(wrap_pyfunction!(py_list_analysis_centers, module)?)?;
 
     //* CCSDS *//

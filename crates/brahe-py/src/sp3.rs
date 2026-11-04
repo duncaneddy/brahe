@@ -2249,6 +2249,7 @@ impl PySP3 {
     ///     import brahe as bh
     ///     import numpy as np
     ///
+    ///     bh.initialize_eop()
     ///     t0 = bh.Epoch(2024, 11, 10, 0, 0, 0.0, 0.0, time_system=bh.GPS)
     ///     oe = np.array([bh.R_EARTH + 800e3, 0.001, 98.0, 0.0, 0.0, 0.0])
     ///     prop = bh.KeplerianPropagator.from_keplerian(t0, oe, bh.AngleFormat.DEGREES, 60.0)
@@ -2701,6 +2702,14 @@ impl PySP3Satellite {
     ///
     /// Returns:
     ///     bool: True if every sample carries a file velocity, False if the velocities are derived from the positions.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     assert not sat.has_file_velocities()
+    ///     ```
     fn has_file_velocities(&self) -> bool {
         self.inner.has_file_velocities()
     }
@@ -2726,6 +2735,15 @@ impl PySP3Satellite {
     ///
     /// Returns:
     ///     numpy.ndarray: Array of shape (N,) with the clock rate of each sample in seconds per second, NaN where the file has a bad or missing rate.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     rates = sat.clock_rates()
+    ///     assert len(rates) == len(sat)
+    ///     ```
     fn clock_rates<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray<f64, Ix1>> {
         sp3_optionals_to_numpy(py, &self.inner.clock_rates())
     }
@@ -2738,6 +2756,15 @@ impl PySP3Satellite {
     ///
     /// Returns:
     ///     list[SP3Record]: A copy of the record of each sample.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     record = sat.records()[0]
+    ///     position = record.position
+    ///     ```
     fn records(&self) -> Vec<PySP3Record> {
         self.inner
             .records()
@@ -2752,6 +2779,15 @@ impl PySP3Satellite {
     ///
     /// Returns:
     ///     list[tuple[Epoch, Epoch]]: First and last sample epoch of each run, in time order.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     for start, end in sat.segments():
+    ///         print(start, end)
+    ///     ```
     fn segments(&self) -> Vec<(PyEpoch, PyEpoch)> {
         self.inner
             .segments()
@@ -2764,6 +2800,14 @@ impl PySP3Satellite {
     ///
     /// Returns:
     ///     bool: True if the satellite has at least one gap.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     assert not sat.has_gaps()
+    ///     ```
     fn has_gaps(&self) -> bool {
         self.inner.has_gaps()
     }
@@ -2772,6 +2816,14 @@ impl PySP3Satellite {
     ///
     /// Returns:
     ///     InterpolationMethod: The method as set, before any per-run Lagrange degree adjustment; defaults to Lagrange of degree ``SP3_DEFAULT_LAGRANGE_DEGREE``.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     method = sat.get_interpolation_method()
+    ///     ```
     fn get_interpolation_method(&self) -> PyInterpolationMethod {
         PyInterpolationMethod {
             method: self.inner.get_interpolation_method(),
@@ -2859,6 +2911,15 @@ impl PySP3Satellite {
     ///
     /// Returns:
     ///     list[OrbitTrajectory]: Trajectories in time order.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     segments = sat.to_trajectory_segments()
+    ///     assert len(segments) == 1
+    ///     ```
     fn to_trajectory_segments(&self) -> PyResult<Vec<PyOrbitalTrajectory>> {
         self.inner
             .to_trajectory_segments()
@@ -2881,6 +2942,14 @@ impl PySP3Satellite {
     ///
     /// Raises:
     ///     BraheError: If the epoch is outside the samples, inside a gap, or at a sample that forms a run on its own.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     state = sat.state(sat.start_epoch + 150.0)
+    ///     ```
     #[pyo3(text_signature = "(epoch)")]
     fn state<'py>(
         &self,
@@ -2898,6 +2967,16 @@ impl PySP3Satellite {
     ///
     /// Returns:
     ///     numpy.ndarray: ECI state [x, y, z, vx, vy, vz] (meters, m/s).
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     bh.initialize_eop()
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     state = sat.state_eci(sat.start_epoch + 150.0)
+    ///     ```
     #[pyo3(text_signature = "(epoch)")]
     fn state_eci<'py>(
         &self,
@@ -2915,6 +2994,14 @@ impl PySP3Satellite {
     ///
     /// Returns:
     ///     numpy.ndarray: ECEF state [x, y, z, vx, vy, vz] (meters, m/s).
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     state = sat.state_ecef(sat.start_epoch + 150.0)
+    ///     ```
     #[pyo3(text_signature = "(epoch)")]
     fn state_ecef<'py>(
         &self,
@@ -2932,6 +3019,16 @@ impl PySP3Satellite {
     ///
     /// Returns:
     ///     numpy.ndarray: GCRF state [x, y, z, vx, vy, vz] (meters, m/s).
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     bh.initialize_eop()
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     state = sat.state_gcrf(sat.start_epoch + 150.0)
+    ///     ```
     #[pyo3(text_signature = "(epoch)")]
     fn state_gcrf<'py>(
         &self,
@@ -2949,6 +3046,14 @@ impl PySP3Satellite {
     ///
     /// Returns:
     ///     numpy.ndarray: ITRF state [x, y, z, vx, vy, vz] (meters, m/s).
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     state = sat.state_itrf(sat.start_epoch + 150.0)
+    ///     ```
     #[pyo3(text_signature = "(epoch)")]
     fn state_itrf<'py>(
         &self,
@@ -2966,6 +3071,16 @@ impl PySP3Satellite {
     ///
     /// Returns:
     ///     numpy.ndarray: EME2000 state [x, y, z, vx, vy, vz] (meters, m/s).
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     bh.initialize_eop()
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     state = sat.state_eme2000(sat.start_epoch + 150.0)
+    ///     ```
     #[pyo3(text_signature = "(epoch)")]
     fn state_eme2000<'py>(
         &self,
@@ -2983,6 +3098,16 @@ impl PySP3Satellite {
     ///
     /// Returns:
     ///     numpy.ndarray: BCI state [x, y, z, vx, vy, vz] (meters, m/s).
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     bh.initialize_eop()
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     state = sat.state_bci(sat.start_epoch + 150.0)
+    ///     ```
     #[pyo3(text_signature = "(epoch)")]
     fn state_bci<'py>(
         &self,
@@ -3000,6 +3125,14 @@ impl PySP3Satellite {
     ///
     /// Returns:
     ///     numpy.ndarray: BCBF state [x, y, z, vx, vy, vz] (meters, m/s).
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     state = sat.state_bcbf(sat.start_epoch + 150.0)
+    ///     ```
     #[pyo3(text_signature = "(epoch)")]
     fn state_bcbf<'py>(
         &self,
@@ -3018,6 +3151,16 @@ impl PySP3Satellite {
     ///
     /// Returns:
     ///     numpy.ndarray: State [x, y, z, vx, vy, vz] in ``frame`` (meters, m/s).
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     bh.initialize_eop()
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     state = sat.state_in_frame(bh.CelestialFrame.GCRF, sat.start_epoch + 150.0)
+    ///     ```
     #[pyo3(text_signature = "(frame, epoch)")]
     fn state_in_frame<'py>(
         &self,
@@ -3037,6 +3180,16 @@ impl PySP3Satellite {
     ///
     /// Returns:
     ///     numpy.ndarray: Osculating elements [a, e, i, raan, argp, mean_anomaly].
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     bh.initialize_eop()
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     oe = sat.state_koe_osc(sat.start_epoch + 150.0, bh.AngleFormat.DEGREES)
+    ///     ```
     #[pyo3(text_signature = "(epoch, angle_format)")]
     fn state_koe_osc<'py>(
         &self,
@@ -3059,6 +3212,16 @@ impl PySP3Satellite {
     ///
     /// Returns:
     ///     numpy.ndarray: Mean elements [a, e, i, raan, argp, mean_anomaly].
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     bh.initialize_eop()
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     oe = sat.state_koe_mean(sat.start_epoch + 150.0, bh.AngleFormat.DEGREES)
+    ///     ```
     #[pyo3(text_signature = "(epoch, angle_format)")]
     fn state_koe_mean<'py>(
         &self,
@@ -3078,6 +3241,15 @@ impl PySP3Satellite {
     ///
     /// Returns:
     ///     list[numpy.ndarray]: ITRF state [x, y, z, vx, vy, vz] at each epoch (meters, m/s).
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     epochs = [sat.start_epoch + 300.0 * k for k in range(3)]
+    ///     states = sat.states(epochs)
+    ///     ```
     #[pyo3(text_signature = "(epochs)")]
     fn states<'py>(
         &self,
@@ -3099,6 +3271,17 @@ impl PySP3Satellite {
     ///
     /// Returns:
     ///     list[numpy.ndarray]: ECI state at each epoch (meters, m/s).
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     bh.initialize_eop()
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     epochs = [sat.start_epoch + 300.0 * k for k in range(3)]
+    ///     states = sat.states_eci(epochs)
+    ///     ```
     #[pyo3(text_signature = "(epochs)")]
     fn states_eci<'py>(
         &self,
@@ -3119,6 +3302,15 @@ impl PySP3Satellite {
     ///
     /// Returns:
     ///     list[numpy.ndarray]: ECEF state at each epoch (meters, m/s).
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     epochs = [sat.start_epoch + 300.0 * k for k in range(3)]
+    ///     states = sat.states_ecef(epochs)
+    ///     ```
     #[pyo3(text_signature = "(epochs)")]
     fn states_ecef<'py>(
         &self,
@@ -3139,6 +3331,17 @@ impl PySP3Satellite {
     ///
     /// Returns:
     ///     list[numpy.ndarray]: GCRF state at each epoch (meters, m/s).
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     bh.initialize_eop()
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     epochs = [sat.start_epoch + 300.0 * k for k in range(3)]
+    ///     states = sat.states_gcrf(epochs)
+    ///     ```
     #[pyo3(text_signature = "(epochs)")]
     fn states_gcrf<'py>(
         &self,
@@ -3159,6 +3362,15 @@ impl PySP3Satellite {
     ///
     /// Returns:
     ///     list[numpy.ndarray]: ITRF state at each epoch (meters, m/s).
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     epochs = [sat.start_epoch + 300.0 * k for k in range(3)]
+    ///     states = sat.states_itrf(epochs)
+    ///     ```
     #[pyo3(text_signature = "(epochs)")]
     fn states_itrf<'py>(
         &self,
@@ -3179,6 +3391,17 @@ impl PySP3Satellite {
     ///
     /// Returns:
     ///     list[numpy.ndarray]: EME2000 state at each epoch (meters, m/s).
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     bh.initialize_eop()
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     epochs = [sat.start_epoch + 300.0 * k for k in range(3)]
+    ///     states = sat.states_eme2000(epochs)
+    ///     ```
     #[pyo3(text_signature = "(epochs)")]
     fn states_eme2000<'py>(
         &self,
@@ -3199,6 +3422,17 @@ impl PySP3Satellite {
     ///
     /// Returns:
     ///     list[numpy.ndarray]: BCI state at each epoch (meters, m/s).
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     bh.initialize_eop()
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     epochs = [sat.start_epoch + 300.0 * k for k in range(3)]
+    ///     states = sat.states_bci(epochs)
+    ///     ```
     #[pyo3(text_signature = "(epochs)")]
     fn states_bci<'py>(
         &self,
@@ -3219,6 +3453,15 @@ impl PySP3Satellite {
     ///
     /// Returns:
     ///     list[numpy.ndarray]: BCBF state at each epoch (meters, m/s).
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     epochs = [sat.start_epoch + 300.0 * k for k in range(3)]
+    ///     states = sat.states_bcbf(epochs)
+    ///     ```
     #[pyo3(text_signature = "(epochs)")]
     fn states_bcbf<'py>(
         &self,
@@ -3240,6 +3483,17 @@ impl PySP3Satellite {
     ///
     /// Returns:
     ///     list[numpy.ndarray]: State in ``frame`` at each epoch (meters, m/s).
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     bh.initialize_eop()
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     epochs = [sat.start_epoch + 300.0 * k for k in range(3)]
+    ///     states = sat.states_in_frame(bh.CelestialFrame.GCRF, epochs)
+    ///     ```
     #[pyo3(text_signature = "(frame, epochs)")]
     fn states_in_frame<'py>(
         &self,
@@ -3262,6 +3516,17 @@ impl PySP3Satellite {
     ///
     /// Returns:
     ///     list[numpy.ndarray]: Osculating elements [a, e, i, raan, argp, mean_anomaly] at each epoch.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     bh.initialize_eop()
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     epochs = [sat.start_epoch + 300.0 * k for k in range(3)]
+    ///     elements = sat.states_koe_osc(epochs, bh.AngleFormat.DEGREES)
+    ///     ```
     #[pyo3(text_signature = "(epochs, angle_format)")]
     fn states_koe_osc<'py>(
         &self,
@@ -3284,6 +3549,17 @@ impl PySP3Satellite {
     ///
     /// Returns:
     ///     list[numpy.ndarray]: Mean elements [a, e, i, raan, argp, mean_anomaly] at each epoch.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     bh.initialize_eop()
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     epochs = [sat.start_epoch + 300.0 * k for k in range(3)]
+    ///     elements = sat.states_koe_mean(epochs, bh.AngleFormat.DEGREES)
+    ///     ```
     #[pyo3(text_signature = "(epochs, angle_format)")]
     fn states_koe_mean<'py>(
         &self,
@@ -3302,6 +3578,14 @@ impl PySP3Satellite {
     ///
     /// Returns:
     ///     str | None: The name; defaults to the satellite identifier, such as ``"G01"``.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     assert sat.get_name() == "G05"
+    ///     ```
     fn get_name(&self) -> Option<String> {
         Identifiable::get_name(&self.inner).map(str::to_string)
     }
@@ -3312,6 +3596,14 @@ impl PySP3Satellite {
     ///
     /// Args:
     ///     name (str | None): Name to assign, or None to clear.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     sat.set_name("GPS IIR-M G05")
+    ///     ```
     fn set_name(&mut self, name: Option<String>) {
         Identifiable::set_name(&mut self.inner, name.as_deref());
     }
@@ -3323,6 +3615,14 @@ impl PySP3Satellite {
     ///
     /// Returns:
     ///     SP3Satellite: Self with the name set.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     sat = sat.with_name("GPS IIR-M G05")
+    ///     ```
     fn with_name(mut slf: PyRefMut<'_, Self>, name: String) -> PyRefMut<'_, Self> {
         Identifiable::set_name(&mut slf.inner, Some(&name));
         slf
@@ -3332,6 +3632,15 @@ impl PySP3Satellite {
     ///
     /// Returns:
     ///     int | None: The numeric ID, or None if not set.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     sat.set_id(5)
+    ///     assert sat.get_id() == 5
+    ///     ```
     fn get_id(&self) -> Option<u64> {
         Identifiable::get_id(&self.inner)
     }
@@ -3340,6 +3649,14 @@ impl PySP3Satellite {
     ///
     /// Args:
     ///     id (int | None): Numeric ID to assign, or None to clear.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     sat.set_id(5)
+    ///     ```
     fn set_id(&mut self, id: Option<u64>) {
         Identifiable::set_id(&mut self.inner, id);
     }
@@ -3351,6 +3668,14 @@ impl PySP3Satellite {
     ///
     /// Returns:
     ///     SP3Satellite: Self with the ID set.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     sat = sat.with_id(5)
+    ///     ```
     fn with_id(mut slf: PyRefMut<'_, Self>, id: u64) -> PyRefMut<'_, Self> {
         Identifiable::set_id(&mut slf.inner, Some(id));
         slf
@@ -3360,6 +3685,15 @@ impl PySP3Satellite {
     ///
     /// Returns:
     ///     str | None: The UUID as a string, or None if not set.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     sat.generate_uuid()
+    ///     uuid = sat.get_uuid()
+    ///     ```
     fn get_uuid(&self) -> Option<String> {
         Identifiable::get_uuid(&self.inner).map(|u| u.to_string())
     }
@@ -3374,6 +3708,14 @@ impl PySP3Satellite {
     ///
     /// Raises:
     ///     ValueError: If ``uuid_str`` is not a valid UUID.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     sat = sat.with_uuid("6ba7b810-9dad-11d1-80b4-00c04fd430c8")
+    ///     ```
     fn with_uuid(mut slf: PyRefMut<'_, Self>, uuid_str: String) -> PyResult<PyRefMut<'_, Self>> {
         let uuid = sp3_parse_uuid(Some(uuid_str))?;
         let (name, id) = (
@@ -3388,12 +3730,28 @@ impl PySP3Satellite {
     ///
     /// Returns:
     ///     SP3Satellite: Self with a new UUID set.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     sat = sat.with_new_uuid()
+    ///     ```
     fn with_new_uuid(mut slf: PyRefMut<'_, Self>) -> PyRefMut<'_, Self> {
         Identifiable::generate_uuid(&mut slf.inner);
         slf
     }
 
     /// Generate a new UUID and set it in place.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     sat.generate_uuid()
+    ///     ```
     fn generate_uuid(&mut self) {
         Identifiable::generate_uuid(&mut self.inner);
     }
@@ -3410,6 +3768,14 @@ impl PySP3Satellite {
     ///
     /// Raises:
     ///     ValueError: If ``uuid_str`` is not a valid UUID.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     sat = sat.with_identity("G05", None, 5)
+    ///     ```
     fn with_identity(
         mut slf: PyRefMut<'_, Self>,
         name: Option<String>,
@@ -3430,6 +3796,14 @@ impl PySP3Satellite {
     ///
     /// Raises:
     ///     ValueError: If ``uuid_str`` is not a valid UUID.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     sat.set_identity("G05", None, 5)
+    ///     ```
     fn set_identity(
         &mut self,
         name: Option<String>,

@@ -23,7 +23,13 @@ def test_clients_namespace_exports():
         "RateLimitConfig",
         "celestrak",
         "gcat",
+        "igs",
         "spacetrack",
         "starlink",
     }
     assert "clients" in bh.__all__
+
+
+def test_clients_igs_aliases_flat_module():
+    assert bh.clients.igs is bh.igs
+    assert bh.clients.igs.IGSProductFileName is bh.IGSProductFileName

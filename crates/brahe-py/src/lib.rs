@@ -608,6 +608,7 @@ include!("earth_models.rs");
 include!("spacetrack.rs");
 include!("celestrak.rs");
 include!("starlink.rs");
+include!("igs.rs");
 include!("ccsds.rs");
 include!("itc.rs");
 include!("estimation.rs");
@@ -1699,6 +1700,16 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyStarlinkManifestEntry>()?;
     module.add_class::<PyStarlinkManifest>()?;
     module.add_class::<PyStarlinkClient>()?;
+
+    //* IGS *//
+    module.add_class::<PyIGSSolutionType>()?;
+    module.add_class::<PyIGSContentType>()?;
+    module.add_class::<PyIGSFileFormat>()?;
+    module.add_class::<PyIGSCompression>()?;
+    module.add_class::<PyIGSNameStyle>()?;
+    module.add_class::<PyIGSProductFileName>()?;
+    module.add_class::<PyIGSAnalysisCenter>()?;
+    module.add_function(wrap_pyfunction!(py_list_analysis_centers, module)?)?;
 
     //* CCSDS *//
     module.add_class::<PyOEM>()?;

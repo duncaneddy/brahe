@@ -1570,6 +1570,129 @@ impl SP3 {
         Ok(())
     }
 
+    /// Set the clock correction of a satellite at every epoch.
+    ///
+    /// `None` clears the clock at that epoch. Nothing is modified when the call
+    /// fails.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - Satellite identifier
+    /// * `clocks` - One clock correction per epoch of the file. Units: s
+    ///
+    /// # Returns
+    ///
+    /// * `Result<(), BraheError>` - An error if the satellite is not in the file,
+    ///   `clocks` does not hold one value per epoch, or a value is given at an epoch
+    ///   where the satellite has no record
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::datafiles::sp3::{SP3, SP3Record, SP3SatelliteId, SP3WriteOptions};
+    /// use brahe::time::{Epoch, TimeSystem};
+    ///
+    /// let sat: SP3SatelliteId = "G01".parse().unwrap();
+    /// let mut sp3 = SP3::new(vec![sat], 900.0, SP3WriteOptions::default()).unwrap();
+    /// let t0 = Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::GPS);
+    /// sp3.push_epoch(t0).unwrap();
+    /// sp3.push_epoch(t0 + 900.0).unwrap();
+    /// sp3.set_record(sat, 0, SP3Record::new([2.0e7, 1.0e7, 1.0e7])).unwrap();
+    ///
+    /// sp3.set_clocks(sat, &[Some(1e-5), None]).unwrap();
+    /// assert_eq!(sp3.record(sat, 0).unwrap().unwrap().clock, Some(1e-5));
+    /// assert!(sp3.set_clocks(sat, &[Some(1e-5), Some(1e-5)]).is_err());
+    /// ```
+    pub fn set_clocks(
+        &mut self,
+        id: SP3SatelliteId,
+        clocks: &[Option<f64>],
+    ) -> Result<(), BraheError> {
+        self.set_clock_field(id, clocks, "clock", |record, value| record.clock = value)
+    }
+
+    /// Set the clock rate of a satellite at every epoch.
+    ///
+    /// Clock rates are stored on velocity records, so the file must have
+    /// velocity records. `None` clears the rate at that epoch. Nothing is
+    /// modified when the call fails.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - Satellite identifier
+    /// * `rates` - One clock rate per epoch of the file. Units: s/s
+    ///
+    /// # Returns
+    ///
+    /// * `Result<(), BraheError>` - An error if the file has no velocity records, the
+    ///   satellite is not in the file, `rates` does not hold one value per epoch, or a
+    ///   value is given at an epoch where the satellite has no record
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::datafiles::sp3::{SP3, SP3Record, SP3SatelliteId, SP3WriteOptions};
+    /// use brahe::time::{Epoch, TimeSystem};
+    ///
+    /// let sat: SP3SatelliteId = "G01".parse().unwrap();
+    /// let mut sp3 = SP3::new(vec![sat], 900.0, SP3WriteOptions::default()).unwrap();
+    /// let t0 = Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::GPS);
+    /// sp3.push_epoch(t0).unwrap();
+    /// let record = SP3Record::new([2.0e7, 1.0e7, 1.0e7]).with_velocity([0.0, 3000.0, 0.0]);
+    /// sp3.set_record(sat, 0, record).unwrap();
+    ///
+    /// sp3.set_clock_rates(sat, &[Some(1e-12)]).unwrap();
+    /// assert_eq!(sp3.record(sat, 0).unwrap().unwrap().clock_rate, Some(1e-12));
+    /// ```
+    pub fn set_clock_rates(
+        &mut self,
+        id: SP3SatelliteId,
+        rates: &[Option<f64>],
+    ) -> Result<(), BraheError> {
+        if !self.header.has_velocity {
+            return Err(sp3_error(
+                "clock rates are stored on velocity records, but the file has no velocity records",
+            ));
+        }
+        self.set_clock_field(id, rates, "clock rate", |record, value| {
+            record.clock_rate = value
+        })
+    }
+
+    /// Validate `values` against the records of `id` and then apply `assign`
+    /// to each record, so a failing call leaves the file unchanged.
+    fn set_clock_field(
+        &mut self,
+        id: SP3SatelliteId,
+        values: &[Option<f64>],
+        what: &str,
+        assign: impl Fn(&mut SP3Record, Option<f64>),
+    ) -> Result<(), BraheError> {
+        let sat = self.satellite_index(id)?;
+        if values.len() != self.epochs.len() {
+            return Err(sp3_error(&format!(
+                "{} {}s given for {} epochs",
+                values.len(),
+                what,
+                self.epochs.len()
+            )));
+        }
+        for (k, value) in values.iter().enumerate() {
+            if value.is_some() && self.records[k][sat].is_none() {
+                return Err(sp3_error(&format!(
+                    "{} given for satellite {} at {}, where it has no record",
+                    what, id, self.epochs[k]
+                )));
+            }
+        }
+        for (k, value) in values.iter().enumerate() {
+            if let Some(record) = self.records[k][sat].as_mut() {
+                assign(record, *value);
+            }
+        }
+        Ok(())
+    }
+
     /// Header of the file.
     ///
     /// # Returns

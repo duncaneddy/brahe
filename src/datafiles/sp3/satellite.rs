@@ -7,8 +7,10 @@
 
 use std::ops::Range;
 
-use nalgebra::DVector;
+use nalgebra::{DVector, Vector6};
+use uuid::Uuid;
 
+use crate::constants::AngleFormat;
 use crate::datafiles::sp3::parse::sp3_error;
 use crate::datafiles::sp3::types::{SP3Record, SP3SatelliteId};
 use crate::frames::CelestialFrame;
@@ -16,7 +18,7 @@ use crate::math::interpolation::{InterpolationConfig, InterpolationMethod};
 use crate::time::Epoch;
 use crate::trajectories::dorbit_trajectory::DOrbitTrajectory;
 use crate::trajectories::traits::{OrbitRepresentation, Trajectory};
-use crate::utils::{BraheError, Identifiable};
+use crate::utils::{BraheError, DOrbitStateProvider, DStateProvider, Identifiable};
 
 /// Default degree of the Lagrange polynomials used by [`SP3Satellite`].
 ///
@@ -70,11 +72,22 @@ pub(crate) struct SP3Sample {
 /// them. Each run of at least two samples becomes one ITRF
 /// [`DOrbitTrajectory`] named after the satellite.
 ///
+/// The satellite is an orbit state provider ([`DStateProvider`] and
+/// [`DOrbitStateProvider`]) and is [`Identifiable`], with the satellite
+/// identifier string (such as `"G01"`) as its default name, so it can be passed
+/// to [`location_accesses`](crate::access::location_accesses) directly. States
+/// are interpolated in ITRF from the run containing the requested epoch, both
+/// ends of a run included, and converted to other frames on request. A request
+/// before the first sample, after the last sample, inside a gap, or at a sample
+/// that forms a run on its own is an error naming the satellite. Changing the
+/// name, ID, or UUID also changes those of the trajectories it returns.
+///
 /// # Examples
 ///
 /// ```
 /// use brahe::datafiles::sp3::{SP3, SP3Record, SP3SatelliteId, SP3WriteOptions};
 /// use brahe::time::{Epoch, TimeSystem};
+/// use brahe::utils::{DOrbitStateProvider, Identifiable};
 ///
 /// let id: SP3SatelliteId = "G01".parse().unwrap();
 /// let options = SP3WriteOptions::default().with_velocity(false);
@@ -91,6 +104,10 @@ pub(crate) struct SP3Sample {
 /// assert!(!sat.has_file_velocities());
 /// assert!((sat.velocities()[0][0] - 1.0).abs() < 1e-9);
 /// assert!(!sat.has_gaps());
+///
+/// assert_eq!(sat.get_name(), Some("G01"));
+/// let state = sat.state_itrf(t0 + 900.0).unwrap();
+/// assert!((state[0] - 2.0e7 - 900.0).abs() < 1e-6);
 /// ```
 #[derive(Debug, Clone)]
 pub struct SP3Satellite {
@@ -102,6 +119,9 @@ pub struct SP3Satellite {
     runs: Vec<Range<usize>>,
     trajectories: Vec<DOrbitTrajectory>,
     interpolation_method: InterpolationMethod,
+    name: Option<String>,
+    uuid: Option<Uuid>,
+    numeric_id: Option<u64>,
 }
 
 impl SP3Satellite {
@@ -155,6 +175,9 @@ impl SP3Satellite {
             interpolation_method: InterpolationMethod::Lagrange {
                 degree: SP3_DEFAULT_LAGRANGE_DEGREE,
             },
+            name: Some(id.to_string()),
+            uuid: None,
+            numeric_id: None,
         };
         satellite.trajectories = satellite.build_trajectories()?;
         Ok(satellite)
@@ -184,6 +207,63 @@ impl SP3Satellite {
             trajectories.push(traj);
         }
         Ok(trajectories)
+    }
+
+    /// Trajectory of the run that contains `epoch`, both ends included.
+    ///
+    /// # Arguments
+    ///
+    /// * `epoch` - Epoch to look up
+    ///
+    /// # Returns
+    ///
+    /// * `Result<&DOrbitTrajectory, BraheError>` - The segment, or an error naming the
+    ///   satellite and the span of samples when `epoch` is outside the samples, inside
+    ///   a gap, or at a sample that forms a run on its own
+    fn segment_for(&self, epoch: Epoch) -> Result<&DOrbitTrajectory, BraheError> {
+        let index = self
+            .trajectories
+            .partition_point(|traj| traj.end_epoch().is_some_and(|end| end < epoch));
+        if let Some(traj) = self.trajectories.get(index)
+            && traj.start_epoch().is_some_and(|start| start <= epoch)
+        {
+            return Ok(traj);
+        }
+        Err(self.unavailable_error(epoch))
+    }
+
+    /// Error for an epoch that no segment contains.
+    fn unavailable_error(&self, epoch: Epoch) -> BraheError {
+        let (first, last) = (self.start_epoch(), self.end_epoch());
+        let detail = if epoch < first || epoch > last {
+            format!(
+                "satellite {} has samples from {} to {}; epoch {} is outside that span",
+                self.id, first, last, epoch
+            )
+        } else {
+            let next = self.epochs.partition_point(|&e| e <= epoch);
+            let previous = next - 1;
+            if self.epochs[previous] == epoch {
+                format!(
+                    "satellite {} has a single sample at {} that is not part of a contiguous run \
+                     of at least two samples",
+                    self.id, epoch
+                )
+            } else {
+                format!(
+                    "satellite {} has no samples from {} to {}; epoch {} is inside that gap",
+                    self.id, self.epochs[previous], self.epochs[next], epoch
+                )
+            }
+        };
+        BraheError::OutOfBoundsError(format!("SP3: {}", detail))
+    }
+
+    /// Give every trajectory the satellite's name, numeric ID, and UUID.
+    fn sync_trajectory_identity(&mut self) {
+        for traj in &mut self.trajectories {
+            traj.set_identity(self.name.as_deref(), self.uuid, self.numeric_id);
+        }
     }
 
     /// Satellite identifier.
@@ -754,6 +834,133 @@ impl InterpolationConfig for SP3Satellite {
     }
 }
 
+impl Identifiable for SP3Satellite {
+    fn with_name(mut self, name: &str) -> Self {
+        self.set_name(Some(name));
+        self
+    }
+
+    fn with_uuid(mut self, uuid: Uuid) -> Self {
+        self.uuid = Some(uuid);
+        self.sync_trajectory_identity();
+        self
+    }
+
+    fn with_new_uuid(mut self) -> Self {
+        self.generate_uuid();
+        self
+    }
+
+    fn with_id(mut self, id: u64) -> Self {
+        self.set_id(Some(id));
+        self
+    }
+
+    fn with_identity(mut self, name: Option<&str>, uuid: Option<Uuid>, id: Option<u64>) -> Self {
+        self.set_identity(name, uuid, id);
+        self
+    }
+
+    fn set_identity(&mut self, name: Option<&str>, uuid: Option<Uuid>, id: Option<u64>) {
+        self.name = name.map(str::to_string);
+        self.uuid = uuid;
+        self.numeric_id = id;
+        self.sync_trajectory_identity();
+    }
+
+    fn set_id(&mut self, id: Option<u64>) {
+        self.numeric_id = id;
+        self.sync_trajectory_identity();
+    }
+
+    fn set_name(&mut self, name: Option<&str>) {
+        self.name = name.map(str::to_string);
+        self.sync_trajectory_identity();
+    }
+
+    fn generate_uuid(&mut self) {
+        self.uuid = Some(Uuid::now_v7());
+        self.sync_trajectory_identity();
+    }
+
+    fn get_id(&self) -> Option<u64> {
+        self.numeric_id
+    }
+
+    fn get_name(&self) -> Option<&str> {
+        self.name.as_deref()
+    }
+
+    fn get_uuid(&self) -> Option<Uuid> {
+        self.uuid
+    }
+}
+
+impl DStateProvider for SP3Satellite {
+    /// Returns the state in ITRF at `epoch`: position (m) then velocity (m/s).
+    fn state(&self, epoch: Epoch) -> Result<DVector<f64>, BraheError> {
+        self.segment_for(epoch)?.state(epoch)
+    }
+
+    fn state_dim(&self) -> usize {
+        6
+    }
+}
+
+impl DOrbitStateProvider for SP3Satellite {
+    fn state_eci(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
+        self.segment_for(epoch)?.state_eci(epoch)
+    }
+
+    fn state_ecef(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
+        self.segment_for(epoch)?.state_ecef(epoch)
+    }
+
+    fn state_gcrf(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
+        self.segment_for(epoch)?.state_gcrf(epoch)
+    }
+
+    fn state_itrf(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
+        self.segment_for(epoch)?.state_itrf(epoch)
+    }
+
+    fn state_eme2000(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
+        self.segment_for(epoch)?.state_eme2000(epoch)
+    }
+
+    fn state_bci(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
+        self.segment_for(epoch)?.state_bci(epoch)
+    }
+
+    fn state_bcbf(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
+        self.segment_for(epoch)?.state_bcbf(epoch)
+    }
+
+    fn state_in_frame(
+        &self,
+        frame: CelestialFrame,
+        epoch: Epoch,
+    ) -> Result<Vector6<f64>, BraheError> {
+        self.segment_for(epoch)?.state_in_frame(frame, epoch)
+    }
+
+    fn state_koe_osc(
+        &self,
+        epoch: Epoch,
+        angle_format: AngleFormat,
+    ) -> Result<Vector6<f64>, BraheError> {
+        self.segment_for(epoch)?.state_koe_osc(epoch, angle_format)
+    }
+
+    fn state_koe_mean(
+        &self,
+        epoch: Epoch,
+        angle_format: AngleFormat,
+    ) -> Result<Vector6<f64>, BraheError> {
+        self.segment_for(epoch)?.state_koe_mean(epoch, angle_format)
+    }
+}
+
 /// Interpolation method for a run of `run_len >= 2` samples, with a
 /// Lagrange degree limited to `1..=run_len - 1`.
 fn run_method(method: InterpolationMethod, run_len: usize) -> InterpolationMethod {
@@ -857,6 +1064,7 @@ fn lagrange_derivative_at_node(times: &[f64], values: &[[f64; 3]], node: usize) 
 #[allow(non_snake_case)]
 mod tests {
     use super::*;
+    use crate::access::{ElevationConstraint, PointLocation, location_accesses};
     use crate::constants::AngleFormat;
     use crate::datafiles::sp3::types::{SP3, SP3WriteOptions};
     use crate::frames::{CelestialFrame, ReferenceFrame};
@@ -864,10 +1072,11 @@ mod tests {
     use crate::time::TimeSystem;
     use crate::trajectories::traits::InterpolatableTrajectory;
     use crate::utils::testing::setup_global_test_eop;
-    use crate::utils::{DOrbitStateProvider, Identifiable};
+    use crate::utils::{DOrbitStateProvider, DStateProvider, Identifiable};
     use approx::assert_abs_diff_eq;
     use nalgebra::Vector6;
     use serial_test::{parallel, serial};
+    use uuid::Uuid;
 
     const STEP: f64 = 900.0;
     const N_EPOCHS: usize = 97;
@@ -1285,5 +1494,271 @@ mod tests {
         assert!(SP3Satellite::from_samples(sid("G13"), unordered).is_err());
         let repeated = vec![sample(t0, p, 900.0), sample(t0, p, 900.0)];
         assert!(SP3Satellite::from_samples(sid("G13"), repeated).is_err());
+    }
+
+    /// A 24 h position-only file at 900 s with three gap-free satellites,
+    /// and the propagators it was sampled from, named after the satellites.
+    fn build_clean_sp3() -> (SP3, Vec<KeplerianPropagator>) {
+        setup_global_test_eop();
+        let names = ["G01", "G02", "G03"];
+        let ids: Vec<SP3SatelliteId> = names.iter().map(|n| sid(n)).collect();
+        let propagators: Vec<KeplerianPropagator> = [(0.0, 0.0), (60.0, 30.0), (120.0, 60.0)]
+            .iter()
+            .zip(names)
+            .map(|(&(raan, anomaly), name)| gps_propagator(raan, anomaly).with_name(name))
+            .collect();
+        let mut sp3 = SP3::new(
+            ids.clone(),
+            STEP,
+            SP3WriteOptions::default().with_velocity(false),
+        )
+        .unwrap();
+        for k in 0..N_EPOCHS {
+            let epoch = t0() + k as f64 * STEP;
+            let index = sp3.push_epoch(epoch).unwrap();
+            for (id, propagator) in ids.iter().zip(&propagators) {
+                let x = propagator.state_itrf(epoch).unwrap();
+                sp3.set_record(*id, index, SP3Record::new([x[0], x[1], x[2]]))
+                    .unwrap();
+            }
+        }
+        (sp3, propagators)
+    }
+
+    #[test]
+    #[serial]
+    fn test_SP3Satellite_DOrbitStateProvider_returns_file_positions_at_run_edges() {
+        let (sp3, _) = build_sp3();
+        let g01 = sp3.satellite(sid("G01")).unwrap();
+        let positions = g01.positions();
+        let epochs = g01.epochs();
+        // First sample, both samples bordering the gap, and last sample.
+        for i in [0, 39, 40, g01.len() - 1] {
+            let state = g01.state_itrf(epochs[i]).unwrap();
+            for axis in 0..3 {
+                assert_abs_diff_eq!(state[axis], positions[i][axis], epsilon = 1e-6);
+            }
+            let velocity = g01.velocities()[i];
+            for axis in 0..3 {
+                assert_abs_diff_eq!(state[3 + axis], velocity[axis], epsilon = 1e-6);
+            }
+        }
+        assert_eq!(g01.state_dim(), 6);
+        assert_eq!(g01.state(epochs[0]).unwrap().len(), 6);
+    }
+
+    #[test]
+    #[serial]
+    fn test_SP3Satellite_DOrbitStateProvider_errors_outside_runs() {
+        let (sp3, _) = build_sp3();
+        let t0 = t0();
+        let g01 = sp3.satellite(sid("G01")).unwrap();
+
+        let gap_midpoint = t0 + 41.5 * STEP;
+        let err = g01.state_itrf(gap_midpoint).unwrap_err().to_string();
+        assert!(err.contains("G01"), "{err}");
+        let gap_start: Epoch = t0 + 39.0 * STEP;
+        let gap_end: Epoch = t0 + 44.0 * STEP;
+        assert!(
+            err.contains(&gap_start.to_string()) && err.contains(&gap_end.to_string()),
+            "{err}"
+        );
+
+        let before = g01.state_itrf(t0 - 1.0).unwrap_err().to_string();
+        assert!(
+            before.contains("G01") && before.contains(&t0.to_string()),
+            "{before}"
+        );
+        let end: Epoch = t0 + 96.0 * STEP;
+        let after = g01.state_itrf(end + 1.0).unwrap_err().to_string();
+        assert!(
+            after.contains("G01") && after.contains(&end.to_string()),
+            "{after}"
+        );
+
+        // Every provider method and batch form reports the same error.
+        assert!(g01.state(gap_midpoint).is_err());
+        assert!(g01.state_eci(gap_midpoint).is_err());
+        assert!(g01.state_gcrf(gap_midpoint).is_err());
+        assert!(g01.state_ecef(gap_midpoint).is_err());
+        assert!(g01.state_eme2000(gap_midpoint).is_err());
+        assert!(g01.state_bci(gap_midpoint).is_err());
+        assert!(g01.state_bcbf(gap_midpoint).is_err());
+        assert!(
+            g01.state_in_frame(CelestialFrame::GCRF, gap_midpoint)
+                .is_err()
+        );
+        assert!(
+            g01.state_koe_osc(gap_midpoint, AngleFormat::Degrees)
+                .is_err()
+        );
+        assert!(
+            g01.state_koe_mean(gap_midpoint, AngleFormat::Degrees)
+                .is_err()
+        );
+        assert!(g01.states_eci(&[t0, gap_midpoint]).is_err());
+    }
+
+    #[test]
+    #[serial]
+    fn test_SP3Satellite_DOrbitStateProvider_isolated_sample_errors() {
+        let (sp3, _) = build_sp3();
+        let t0 = t0();
+        let g03 = sp3.satellite(sid("G03")).unwrap();
+        let isolated: Epoch = t0 + 20.0 * STEP;
+        let err = g03.state_itrf(isolated).unwrap_err().to_string();
+        assert!(
+            err.contains("G03") && err.contains(&isolated.to_string()),
+            "{err}"
+        );
+        assert!(g03.state_itrf(t0 + 15.0 * STEP).is_err());
+        assert!(g03.state_itrf(t0 + 5.0 * STEP).is_ok());
+    }
+
+    #[test]
+    #[serial]
+    fn test_SP3Satellite_DOrbitStateProvider_matches_segment_trajectory() {
+        let (sp3, _) = build_sp3();
+        let g01 = sp3.satellite(sid("G01")).unwrap();
+        let segments = g01.to_trajectory_segments().unwrap();
+        let t = t0() + 10.0 * STEP + 137.0;
+        let from_satellite = g01.state_eci(t).unwrap();
+        let from_segment = segments[0].state_eci(t).unwrap();
+        for axis in 0..6 {
+            assert_abs_diff_eq!(from_satellite[axis], from_segment[axis], epsilon = 1e-9);
+        }
+
+        // The second run dispatches to the second segment.
+        let t = t0() + 60.0 * STEP + 11.0;
+        let from_satellite = g01.state_itrf(t).unwrap();
+        let from_segment = segments[1].state_itrf(t).unwrap();
+        for axis in 0..6 {
+            assert_abs_diff_eq!(from_satellite[axis], from_segment[axis], epsilon = 1e-9);
+        }
+
+        let epochs = [t0() + 100.0, t0() + 60.0 * STEP + 11.0];
+        let batch = g01.states_gcrf(&epochs).unwrap();
+        for (state, epoch) in batch.iter().zip(epochs) {
+            assert_eq!(*state, g01.state_gcrf(epoch).unwrap());
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_SP3Satellite_DOrbitStateProvider_follows_interpolation_method() {
+        let (sp3, _) = build_sp3();
+        let t = t0() + 10.0 * STEP + 450.0;
+        let default = sp3.satellite(sid("G01")).unwrap();
+        let low = default
+            .clone()
+            .with_interpolation_method(InterpolationMethod::Lagrange { degree: 1 });
+        let default_state = default.state_itrf(t).unwrap();
+        let low_state = low.state_itrf(t).unwrap();
+        assert!((default_state - low_state).norm() > 1.0);
+    }
+
+    #[test]
+    #[serial]
+    fn test_SP3Satellite_Identifiable() {
+        let (sp3, _) = build_sp3();
+        let mut sat = sp3.satellite(sid("G01")).unwrap();
+        assert_eq!(sat.get_name(), Some("G01"));
+        assert_eq!(sat.get_id(), None);
+        assert_eq!(sat.get_uuid(), None);
+
+        sat.set_name(Some("Block IIF"));
+        assert_eq!(sat.get_name(), Some("Block IIF"));
+        sat.set_id(Some(7));
+        assert_eq!(sat.get_id(), Some(7));
+        let uuid = Uuid::now_v7();
+        let sat = sat.with_uuid(uuid);
+        assert_eq!(sat.get_uuid(), Some(uuid));
+
+        let renamed = sp3.satellite(sid("G02")).unwrap().with_name("spare");
+        assert_eq!(renamed.get_name(), Some("spare"));
+        for traj in renamed.to_trajectory_segments().unwrap() {
+            assert_eq!(traj.get_name(), Some("spare"));
+        }
+
+        let mut sat = sp3
+            .satellite(sid("G02"))
+            .unwrap()
+            .with_new_uuid()
+            .with_id(3);
+        assert!(sat.get_uuid().is_some());
+        sat.generate_uuid();
+        sat.set_identity(Some("a"), None, Some(9));
+        assert_eq!(
+            (sat.get_name(), sat.get_uuid(), sat.get_id()),
+            (Some("a"), None, Some(9))
+        );
+        let sat = sat.with_identity(None, Some(uuid), None);
+        assert_eq!(
+            (sat.get_name(), sat.get_uuid(), sat.get_id()),
+            (None, Some(uuid), None)
+        );
+    }
+
+    fn assert_windows_match(
+        sp3_windows: &[crate::access::AccessWindow],
+        reference: &[crate::access::AccessWindow],
+    ) {
+        assert!(!reference.is_empty());
+        assert_eq!(sp3_windows.len(), reference.len());
+        for (a, b) in sp3_windows.iter().zip(reference) {
+            assert!((a.window_open - b.window_open).abs() < 1.0);
+            assert!((a.window_close - b.window_close).abs() < 1.0);
+            assert_eq!(a.satellite_name, b.satellite_name);
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_SP3Satellite_location_accesses_matches_propagator() {
+        let (sp3, propagators) = build_clean_sp3();
+        let station = PointLocation::new(10.0, 45.0, 0.0).unwrap();
+        let constraint = ElevationConstraint::new(Some(10.0), None).unwrap();
+        let (start, end) = (t0(), t0() + 86400.0);
+
+        let g01 = sp3.satellite(sid("G01")).unwrap();
+        let windows =
+            location_accesses(&station, &g01, start, end, &constraint, None, None).unwrap();
+        let reference = location_accesses(
+            &station,
+            &propagators[0],
+            start,
+            end,
+            &constraint,
+            None,
+            None,
+        )
+        .unwrap();
+        assert_windows_match(&windows, &reference);
+        assert_eq!(windows[0].satellite_name.as_deref(), Some("G01"));
+    }
+
+    #[test]
+    #[serial]
+    fn test_SP3Satellite_location_accesses_constellation() {
+        let (sp3, propagators) = build_clean_sp3();
+        let station = PointLocation::new(10.0, 45.0, 0.0).unwrap();
+        let constraint = ElevationConstraint::new(Some(10.0), None).unwrap();
+        let (start, end) = (t0(), t0() + 86400.0);
+
+        let satellites = sp3.satellites().unwrap();
+        assert_eq!(satellites.len(), 3);
+        let windows =
+            location_accesses(&station, &satellites, start, end, &constraint, None, None).unwrap();
+        let reference =
+            location_accesses(&station, &propagators, start, end, &constraint, None, None).unwrap();
+        assert_windows_match(&windows, &reference);
+        for name in ["G01", "G02", "G03"] {
+            assert!(
+                windows
+                    .iter()
+                    .any(|w| w.satellite_name.as_deref() == Some(name)),
+                "no window for {name}"
+            );
+        }
     }
 }

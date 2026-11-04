@@ -57,6 +57,7 @@ num-traits = "0.2"
 regex = "1"
 is_close = "0.1"
 ureq = { version = "3", features = ["cookies", "multipart"] }
+flate2 = "1"
 time = ">=0.3"
 strum = "0.28"
 strum_macros = "0.28"

@@ -16,6 +16,7 @@ use super::types::{
     MAX_SATELLITES, SP3, SP3Correlation, SP3Header, SP3Record, SP3SatelliteId, check_header_labels,
     epoch_grid_error, header_time_fields,
 };
+use crate::datafiles::compression::gzip;
 use crate::time::{Epoch, TimeSystem};
 use crate::utils::BraheError;
 
@@ -145,11 +146,12 @@ impl SP3 {
 
     /// Write the file to disk as SP3-d text.
     ///
-    /// The text is produced by [`SP3::to_string`].
+    /// The text is produced by [`SP3::to_string`]. It is gzip-compressed when the path
+    /// ends in `.gz`, compared case-insensitively.
     ///
     /// # Arguments
     ///
-    /// * `path` - Destination file path
+    /// * `path` - Destination file path; a `.gz` extension selects gzip output
     ///
     /// # Returns
     ///
@@ -172,11 +174,25 @@ impl SP3 {
     /// sp3.to_file(&path).unwrap();
     /// assert_eq!(SP3::from_file(&path).unwrap().num_epochs(), 1);
     /// std::fs::remove_file(&path).unwrap();
+    ///
+    /// let gz_path = std::env::temp_dir().join("brahe_sp3_to_file_example.sp3.gz");
+    /// sp3.to_file(&gz_path).unwrap();
+    /// assert_eq!(&std::fs::read(&gz_path).unwrap()[..2], &[0x1f, 0x8b]);
+    /// assert_eq!(SP3::from_file(&gz_path).unwrap().num_epochs(), 1);
+    /// std::fs::remove_file(&gz_path).unwrap();
     /// ```
     pub fn to_file<P: AsRef<Path>>(&self, path: P) -> Result<(), BraheError> {
         let path = path.as_ref();
         let text = self.to_string()?;
-        std::fs::write(path, text).map_err(|e| {
+        let is_gzip = path
+            .extension()
+            .is_some_and(|extension| extension.eq_ignore_ascii_case("gz"));
+        let bytes = if is_gzip {
+            gzip(text.as_bytes())?
+        } else {
+            text.into_bytes()
+        };
+        std::fs::write(path, bytes).map_err(|e| {
             BraheError::IoError(format!("SP3: failed to write {}: {}", path.display(), e))
         })
     }
@@ -1269,6 +1285,44 @@ mod tests {
         match sp3.to_file(dir.path().join("missing").join("out.sp3")) {
             Err(BraheError::IoError(msg)) => assert!(msg.starts_with("SP3: "), "{msg}"),
             other => panic!("expected an I/O error, got {other:?}"),
+        }
+    }
+
+    #[rstest]
+    #[case("out.sp3.gz")]
+    #[case("OUT.SP3.GZ")]
+    #[parallel]
+    fn test_SP3_to_file_gzip(#[case] name: &str) {
+        let sp3 = two_satellite_file(SP3WriteOptions::default());
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join(name);
+        sp3.to_file(&path).unwrap();
+
+        let bytes = std::fs::read(&path).unwrap();
+        assert_eq!(&bytes[..2], &[0x1f, 0x8b]);
+        assert_eq!(
+            SP3::from_file(&path).unwrap(),
+            SP3::from_str(&sp3.to_string().unwrap()).unwrap()
+        );
+        assert_eq!(
+            SP3::from_bytes(&bytes).unwrap(),
+            SP3::from_file(&path).unwrap()
+        );
+    }
+
+    #[test]
+    #[parallel]
+    fn test_SP3_to_file_plain_extension_not_compressed() {
+        let sp3 = two_satellite_file(SP3WriteOptions::default());
+        let dir = tempfile::tempdir().unwrap();
+        for name in ["out.sp3", "out.gz.sp3", "gz"] {
+            let path = dir.path().join(name);
+            sp3.to_file(&path).unwrap();
+            assert_eq!(
+                std::fs::read_to_string(&path).unwrap(),
+                sp3.to_string().unwrap(),
+                "{name}"
+            );
         }
     }
 

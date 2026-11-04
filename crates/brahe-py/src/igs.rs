@@ -1522,11 +1522,14 @@ impl PyIGSProductsClient {
     /// ``sampling`` is ignored. Uncompressed and gzip files are preferred to
     /// Unix-compressed (``.Z``) ones before sampling is compared.
     ///
-    /// Every file is chosen, and every error is raised, before anything is
-    /// downloaded. Ultra-rapid orbits are rejected because successive issues
-    /// overlap in time. A day inside the span with no file, or whose file is
-    /// only published Unix-compressed, is an error; such a padding day is
-    /// skipped.
+    /// Every file is chosen, and every listing and selection error is raised,
+    /// before anything is downloaded. Ultra-rapid orbits are rejected because
+    /// successive issues overlap in time. A day inside the span with no file,
+    /// or whose file is only published Unix-compressed, is an error; such a
+    /// padding day is skipped. A padding file that is listed but whose
+    /// download answers 404 is also skipped, and its day is left out of the
+    /// result; any other failure to download or parse a padding file, and any
+    /// failure for a file inside the span, including a 404, is an error.
     ///
     /// Args:
     ///     start (Epoch): Start of the time range.
@@ -1540,7 +1543,7 @@ impl PyIGSProductsClient {
     ///     list[SP3]: Parsed daily files in time order.
     ///
     /// Raises:
-    ///     BraheError: If ``solution`` is ultra-rapid, ``end`` is before ``start``, a week listing containing part of the span cannot be obtained, a day inside the span has no file on the source (including when its week directory answers 404) or only a Unix-compressed one, or a download or parse fails; a parse error names the product.
+    ///     BraheError: If ``solution`` is ultra-rapid, ``end`` is before ``start``, a week listing containing part of the span cannot be obtained, a day inside the span has no file on the source (including when its week directory answers 404) or only a Unix-compressed one, or a download or parse fails other than a 404 for a padding file; a parse error names the product.
     ///
     /// Example:
     ///     ```python

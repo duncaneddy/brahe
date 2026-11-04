@@ -1222,6 +1222,50 @@ def test_igs_products_client_download_sp3_range_skips_missing_padding(archive):
     assert downloaded_files(archive) == []
 
 
+def test_igs_products_client_download_sp3_range_skips_padding_file_not_found(archive):
+    """Rust: test_igs_products_client_download_sp3_range_skips_padding_file_not_found"""
+    listed = serve_cod_week_2340(archive, [315, 316, 317, 318, 319])
+    archive.missing(f"/pub/products/2340/{cod_daily(318, '15M')}")
+    client = garner_client(archive)
+
+    # Day 318, the padding day after the span, is listed but answers 404.
+    sp3s = client.download_sp3_range(
+        gps(2024, 11, 11, 0), gps(2024, 11, 12, 0), "COD", "FIN"
+    )
+    assert len(sp3s) == 3
+    expected = [cod_daily(doy, "15M") for doy in range(315, 319)]
+    assert downloaded_files(archive) == expected
+    assert_downloaded(archive, listed, expected)
+    cached = Path(client.cache_dir()) / "garner" / "2340" / cod_daily(318, "15M")
+    assert not cached.exists()
+
+    # Inside the span the same 404 is an error naming the file.
+    with pytest.raises(bh.BraheError) as error:
+        client.download_sp3_range(
+            gps(2024, 11, 12, 0), gps(2024, 11, 13, 0), "COD", "FIN"
+        )
+    message = str(error.value)
+    assert "not found" in message
+    assert "Garner" in message
+    assert cod_daily(318, "15M") in message
+
+
+def test_igs_products_client_download_sp3_range_padding_server_error_fails(archive):
+    """Rust: test_igs_products_client_download_sp3_range_padding_server_error_fails"""
+    serve_cod_week_2340(archive, [315, 316, 317, 318])
+    padding = f"/pub/products/2340/{cod_daily(318, '15M')}"
+    archive.serve(padding, b"", status=503)
+    client = garner_client(archive, max_retries=1)
+
+    with pytest.raises(bh.BraheError) as error:
+        client.download_sp3_range(
+            gps(2024, 11, 11, 0), gps(2024, 11, 12, 0), "COD", "FIN"
+        )
+    assert "503" in str(error.value)
+    assert cod_daily(318, "15M") in str(error.value)
+    assert archive.calls(padding) == 2
+
+
 def test_igs_products_client_download_sp3_range_skips_missing_padding_week(archive):
     """Rust: test_igs_products_client_download_sp3_range_skips_missing_padding_week"""
     serve_cod_week_2340(archive, [315, 316])

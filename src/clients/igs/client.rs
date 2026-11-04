@@ -616,20 +616,34 @@ impl IGSProductsClient {
     /// println!("{}", path.display());
     /// ```
     pub fn download(&self, product: &IGSProduct) -> Result<PathBuf, BraheError> {
+        self.fetch_product(product)?
+            .ok_or_else(|| self.product_not_found(product))
+    }
+
+    /// Downloads a product into the cache, reporting a 404 as absence.
+    ///
+    /// This is [`IGSProductsClient::download`] with the source's 404 for the
+    /// file returned as `Ok(None)` instead of an error.
+    ///
+    /// # Arguments
+    /// * `product` - Product to download
+    ///
+    /// # Returns
+    /// * `Ok(Some(PathBuf))`: Path of the cached file
+    /// * `Ok(None)`: If the file is not cached and the source answered 404
+    /// * `Err(BraheError)`: As for [`IGSProductsClient::download`], other than a missing file
+    fn fetch_product(&self, product: &IGSProduct) -> Result<Option<PathBuf>, BraheError> {
         let path = self.product_cache_path(product)?;
         let resource = self.product_resource(product);
         if path.is_file() {
             match cache_policy(&resource, false)? {
-                CacheDecision::Serve => return Ok(path),
+                CacheDecision::Serve => return Ok(Some(path)),
                 CacheDecision::Refresh => {}
             }
         }
-        let body = self.fetch_bytes(&product.url, &resource)?.ok_or_else(|| {
-            BraheError::Error(format!(
-                "{resource} not found: {} answered 404",
-                product.url
-            ))
-        })?;
+        let Some(body) = self.fetch_bytes(&product.url, &resource)? else {
+            return Ok(None);
+        };
         self.check_product_body(product, &body)?;
         atomic_write(&path, &body).map_err(|e| {
             BraheError::IoError(format!(
@@ -637,7 +651,22 @@ impl IGSProductsClient {
                 path.display()
             ))
         })?;
-        Ok(path)
+        Ok(Some(path))
+    }
+
+    /// Error for a product file the source answered 404 for.
+    ///
+    /// # Arguments
+    /// * `product` - Product that was not found
+    ///
+    /// # Returns
+    /// * `BraheError`: An error naming the source, the file, and its URL
+    fn product_not_found(&self, product: &IGSProduct) -> BraheError {
+        BraheError::Error(format!(
+            "{} not found: {} answered 404",
+            self.product_resource(product),
+            product.url
+        ))
     }
 
     /// Downloads a product, if it is not cached, and writes it to `destination`.
@@ -874,11 +903,15 @@ impl IGSProductsClient {
     /// In both conventions, uncompressed and gzip files are preferred to
     /// Unix-compressed (`.Z`) ones before sampling is compared.
     ///
-    /// Every file is chosen, and every error below is raised, before
-    /// anything is downloaded. Ultra-rapid orbits are rejected: their issues
-    /// every six hours overlap one another, so they do not chain into one
-    /// time series. A day inside the span with no file, or whose file is only
-    /// published Unix-compressed, is an error; such a padding day is skipped.
+    /// Every file is chosen, and every listing and selection error below is
+    /// raised, before anything is downloaded. Ultra-rapid orbits are
+    /// rejected: their issues every six hours overlap one another, so they do
+    /// not chain into one time series. A day inside the span with no file, or
+    /// whose file is only published Unix-compressed, is an error; such a
+    /// padding day is skipped. A padding file that is listed but whose
+    /// download answers 404 is also skipped, and its day is left out of the
+    /// result; any other failure to download or parse a padding file, and
+    /// any failure for a file inside the span, including a 404, is an error.
     /// A range crossing week 2238 returns short-name and long-name files
     /// together.
     ///
@@ -891,7 +924,7 @@ impl IGSProductsClient {
     ///
     /// # Returns
     /// * `Ok(Vec<SP3>)`: Parsed daily files in time order
-    /// * `Err(BraheError)`: If `solution` is ultra-rapid, `end` is before `start`, a week listing containing part of the span cannot be obtained, a day inside the span has no file on the source (including when its week directory answers 404) or only a Unix-compressed one, or a download or parse fails; a parse error names the product
+    /// * `Err(BraheError)`: If `solution` is ultra-rapid, `end` is before `start`, a week listing containing part of the span cannot be obtained, a day inside the span has no file on the source (including when its week directory answers 404) or only a Unix-compressed one, or a download or parse fails other than a 404 for a padding file; a parse error names the product
     ///
     /// # Examples
     ///
@@ -916,14 +949,17 @@ impl IGSProductsClient {
         solution: IGSSolutionType,
         options: &IGSRangeOptions,
     ) -> Result<Vec<SP3>, BraheError> {
-        let products = self.sp3_range_products(start, end, center, &solution, options)?;
-        let paths = products
+        let files = self.sp3_range_files(start, end, center, &solution, options)?;
+        let mut downloaded = Vec::with_capacity(files.len());
+        for file in &files {
+            match self.fetch_product(&file.product)? {
+                Some(path) => downloaded.push((&file.product, path)),
+                None if file.padding => {}
+                None => return Err(self.product_not_found(&file.product)),
+            }
+        }
+        downloaded
             .iter()
-            .map(|product| self.download(product))
-            .collect::<Result<Vec<_>, _>>()?;
-        products
-            .iter()
-            .zip(&paths)
             .map(|(product, path)| self.parse_sp3(product, path))
             .collect()
     }
@@ -952,7 +988,7 @@ impl IGSProductsClient {
         })
     }
 
-    /// Chooses the daily SP3 orbit products [`IGSProductsClient::download_sp3_range`]
+    /// Chooses the daily SP3 orbit files [`IGSProductsClient::download_sp3_range`]
     /// downloads, without downloading them.
     ///
     /// # Arguments
@@ -963,16 +999,16 @@ impl IGSProductsClient {
     /// * `options` - Padding and sampling selection
     ///
     /// # Returns
-    /// * `Ok(Vec<IGSProduct>)`: One product per covered day, in time order
+    /// * `Ok(Vec<SP3RangeFile>)`: One file per covered day, in time order, marked as padding or inside the span
     /// * `Err(BraheError)`: As for [`IGSProductsClient::download_sp3_range`], other than download and parse failures
-    fn sp3_range_products(
+    fn sp3_range_files(
         &self,
         start: Epoch,
         end: Epoch,
         center: &str,
         solution: &IGSSolutionType,
         options: &IGSRangeOptions,
-    ) -> Result<Vec<IGSProduct>, BraheError> {
+    ) -> Result<Vec<SP3RangeFile>, BraheError> {
         if *solution == IGSSolutionType::UltraRapid {
             return Err(BraheError::Error(format!(
                 "IGS SP3 ranges of ultra-rapid ({}) orbits are not supported: successive issues overlap in time and do not chain; download single issues with download_sp3",
@@ -1012,7 +1048,7 @@ impl IGSProductsClient {
             week_products.insert(week, products);
         }
 
-        let mut selected: Vec<IGSProduct> = Vec::new();
+        let mut selected: Vec<SP3RangeFile> = Vec::new();
         let mut missing = Vec::new();
         for day in low_day..=high_day {
             let in_span = span_days.contains(&day);
@@ -1024,7 +1060,10 @@ impl IGSProductsClient {
                         self.reject_unix_compress(product)?;
                     }
                 }
-                Some(product) => selected.push(product.clone()),
+                Some(product) => selected.push(SP3RangeFile {
+                    product: product.clone(),
+                    padding: !in_span,
+                }),
                 None if in_span => missing.push(day),
                 None => {}
             }
@@ -1033,7 +1072,7 @@ impl IGSProductsClient {
             let sampling = options.sampling.or_else(|| {
                 selected
                     .iter()
-                    .filter_map(|product| product.file_name.sampling())
+                    .filter_map(|file| file.product.file_name.sampling())
                     .max_by(f64::total_cmp)
             });
             let week = day / 7;
@@ -1719,6 +1758,15 @@ fn write_saved(
         })?;
     }
     Ok(())
+}
+
+/// A daily SP3 orbit file chosen for a range download.
+#[derive(Debug, Clone)]
+struct SP3RangeFile {
+    /// The chosen product.
+    product: IGSProduct,
+    /// Whether the file's day is a padding day outside the requested span.
+    padding: bool,
 }
 
 /// Day count since the GPS epoch of the GPS day containing `epoch`.
@@ -3728,6 +3776,24 @@ mod tests {
 
     const SP3_FIXTURE: &str = "test_assets/sp3/IGS0OPSFIN_20243150000_01D_15M_ORB_subset.SP3.gz";
 
+    impl IGSProductsClient {
+        /// The products [`IGSProductsClient::sp3_range_files`] chooses, in order.
+        fn sp3_range_products(
+            &self,
+            start: Epoch,
+            end: Epoch,
+            center: &str,
+            solution: &IGSSolutionType,
+            options: &IGSRangeOptions,
+        ) -> Result<Vec<IGSProduct>, BraheError> {
+            Ok(self
+                .sp3_range_files(start, end, center, solution, options)?
+                .into_iter()
+                .map(|file| file.product)
+                .collect())
+        }
+    }
+
     fn sp3_fixture() -> Vec<u8> {
         fs::read(SP3_FIXTURE).unwrap()
     }
@@ -3946,6 +4012,90 @@ mod tests {
             .to_string();
         assert!(err.contains(&cod_daily(315, "15M")), "{err}");
         before.assert_calls(1);
+    }
+
+    /// Replaces the file mock for `name` in `files` with one answering `status`.
+    fn fail_file<'a>(
+        server: &'a MockServer,
+        files: &mut BTreeMap<String, httpmock::Mock<'a>>,
+        name: &str,
+        status: u16,
+    ) {
+        files.remove(name).unwrap().delete();
+        let failing = server.mock(|when, then| {
+            when.method(GET).path(format!("/pub/products/2340/{name}"));
+            then.status(status);
+        });
+        files.insert(name.to_string(), failing);
+    }
+
+    #[test]
+    #[serial]
+    fn test_igs_products_client_download_sp3_range_skips_padding_file_not_found() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("online"));
+        let server = MockServer::start();
+        let mut files = mock_cod_week_2340(&server, &[315, 316, 317, 318, 319]);
+        fail_file(&server, &mut files, &cod_daily(318, "15M"), 404);
+        let client = garner_client(&server);
+        let options = IGSRangeOptions::new();
+        let (start, end) = (gps(2024, 11, 11, 0), gps(2024, 11, 12, 0));
+
+        let chosen = client
+            .sp3_range_files(start, end, "COD", &IGSSolutionType::Final, &options)
+            .unwrap();
+        let padding: Vec<bool> = chosen.iter().map(|file| file.padding).collect();
+        assert_eq!(padding, [true, false, false, true]);
+
+        // Day 318, the padding day after the span, is listed but answers 404.
+        let sp3s = client
+            .download_sp3_range(start, end, "COD", IGSSolutionType::Final, &options)
+            .unwrap();
+        assert_eq!(sp3s.len(), 3);
+        let expected: Vec<String> = (315..=318).map(|doy| cod_daily(doy, "15M")).collect();
+        assert_downloaded(&files, &expected);
+        let week_dir = client.cache_dir().unwrap().join("garner/2340");
+        assert!(!week_dir.join(cod_daily(318, "15M")).exists());
+
+        // Inside the span the same 404 is an error naming the file.
+        let err = client
+            .download_sp3_range(
+                gps(2024, 11, 12, 0),
+                gps(2024, 11, 13, 0),
+                "COD",
+                IGSSolutionType::Final,
+                &options,
+            )
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("not found"), "{err}");
+        assert!(err.contains("Garner"), "{err}");
+        assert!(err.contains(&cod_daily(318, "15M")), "{err}");
+    }
+
+    #[test]
+    #[serial]
+    fn test_igs_products_client_download_sp3_range_padding_server_error_fails() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("online"));
+        let server = MockServer::start();
+        let mut files = mock_cod_week_2340(&server, &[315, 316, 317, 318]);
+        fail_file(&server, &mut files, &cod_daily(318, "15M"), 503);
+        let client = garner_client(&server).max_retries(1);
+
+        let err = client
+            .download_sp3_range(
+                gps(2024, 11, 11, 0),
+                gps(2024, 11, 12, 0),
+                "COD",
+                IGSSolutionType::Final,
+                &IGSRangeOptions::new(),
+            )
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("503"), "{err}");
+        assert!(err.contains(&cod_daily(318, "15M")), "{err}");
+        files[&cod_daily(318, "15M")].assert_calls(2);
     }
 
     #[test]

@@ -2203,6 +2203,11 @@ def test_SP3_to_string_interval_at_written_precision():
     sp3.push_epoch(gps_t0())
     assert " 99999.00000000 " in sp3.to_string()
 
+    sp3 = SP3(["G01"], 6.0e-9)
+    sp3.push_epoch(gps_t0() + 6.0e-9)
+    sp3.push_epoch(gps_t0() + 12.0e-9)
+    assert "is not after the last epoch" in write_error(sp3)
+
 
 def test_SP3_to_string_saturates_large_standard_deviations():
     sp3 = two_satellite_file()

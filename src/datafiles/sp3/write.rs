@@ -82,7 +82,7 @@ impl SP3 {
     ///   when the file cannot be represented: no epochs, more than 999 satellites, a time system
     ///   without a Brahe equivalent (`GLO`, `QZS`, `IRN`), an epoch interval that rounds to
     ///   zero or does not fit its 14-column field at 8 decimal places, epochs that are not
-    ///   ascending or not on the grid of the interval as written, a record table that does not match the epochs and
+    ///   ascending or not on the grid of the interval as written, both as written at 1e-8 s, a record table that does not match the epochs and
     ///   satellites, an accuracy list that does not match the satellites, a comment longer
     ///   than 77 characters or containing a line break, an empty or whitespace-holding
     ///   header label, a header label longer than its field, a satellite number outside
@@ -235,8 +235,15 @@ impl SP3 {
                 "file has no epochs; an SP3 file needs at least one epoch",
             ));
         }
-        for pair in epochs.windows(2) {
-            if let Some(detail) = epoch_grid_error(epochs[0], pair[0], pair[1], interval) {
+        let written: Vec<Epoch> = epochs
+            .iter()
+            .map(|epoch| {
+                let (year, month, day, hour, minute, second) = calendar_fields(*epoch, time_system);
+                Epoch::from_datetime(year, month, day, hour, minute, second, 0.0, time_system)
+            })
+            .collect();
+        for pair in written.windows(2) {
+            if let Some(detail) = epoch_grid_error(written[0], pair[0], pair[1], interval) {
                 return Err(sp3_error(&detail));
             }
         }
@@ -1514,6 +1521,12 @@ mod tests {
         let mut sp3 = SP3::new(vec![sat("G01")], 99_999.0, SP3WriteOptions::default()).unwrap();
         sp3.push_epoch(gps_t0()).unwrap();
         assert!(sp3.to_string().unwrap().contains(" 99999.00000000 "));
+
+        let mut sp3 = SP3::new(vec![sat("G01")], 6.0e-9, SP3WriteOptions::default()).unwrap();
+        sp3.push_epoch(gps_t0() + 6.0e-9).unwrap();
+        sp3.push_epoch(gps_t0() + 12.0e-9).unwrap();
+        let msg = write_error(&sp3);
+        assert!(msg.contains("is not after the last epoch"), "{msg}");
     }
 
     #[test]

@@ -2154,6 +2154,7 @@ mod tests {
         assert_eq!(ft(&["L01", "L02"]), SP3FileType::LEO);
         assert_eq!(ft(&["G01", "E01"]), SP3FileType::Mixed);
         assert_eq!(ft(&["G01", "L01"]), SP3FileType::Mixed);
+        assert_eq!(ft(&[]), SP3FileType::Mixed);
     }
 
     #[test]

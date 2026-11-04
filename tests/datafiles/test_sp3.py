@@ -478,6 +478,7 @@ def test_SP3_new_rejects_more_than_999_satellites():
         (["L01", "L02"], SP3FileType.LEO),
         (["G01", "E01"], SP3FileType.MIXED),
         (["G01", "L01"], SP3FileType.MIXED),
+        ([], SP3FileType.MIXED),
     ],
 )
 def test_SP3_new_file_type_from_systems(ids, expected):
@@ -1095,6 +1096,9 @@ def test_SP3_from_str_malformed_header_and_epoch_fields():
 
     msg = parse_error(c1.replace(epoch, "*  2001  8  8  0  0 60.00000000", 1))
     assert msg.startswith("SP3: line 23: second out of range"), msg
+
+    msg = parse_error(c1.replace(epoch, "*  2001  8  8  0  0  nan", 1))
+    assert msg == "SP3: line 23: invalid second 'nan'"
 
 
 def test_SP3_from_str_month_rollover():

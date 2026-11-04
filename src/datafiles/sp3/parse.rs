@@ -2109,6 +2109,13 @@ mod tests {
             msg.starts_with("SP3: line 23: second out of range"),
             "{msg}"
         );
+
+        let msg = parse_error(&c1.replacen(
+            "*  2001  8  8  0  0  0.00000000",
+            "*  2001  8  8  0  0  nan",
+            1,
+        ));
+        assert_eq!(msg, "SP3: line 23: invalid second 'nan'");
     }
 
     #[test]

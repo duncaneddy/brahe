@@ -2542,11 +2542,13 @@ impl PySP3Satellite {
     /// compare as absolute instants, so files in different time systems
     /// chain directly.
     ///
-    /// Two consecutive files may share their boundary epoch. The later file's
-    /// sample is kept there when it is valid, and the earlier file's
-    /// otherwise. A file that lacks a satellite contributes no samples, which
-    /// leaves a gap in that satellite. Velocities come from the files only
-    /// when every sample comes from a file with velocity records.
+    /// Two consecutive files may share their boundary epoch; epochs within
+    /// 1 ms of each other, the tolerance of the epoch grid, are the same
+    /// boundary epoch. The later file's sample is kept there when it is
+    /// valid, and the earlier file's otherwise. A file that lacks a satellite
+    /// contributes no samples, which leaves a gap in that satellite.
+    /// Velocities come from the files only when every sample comes from a
+    /// file with velocity records.
     ///
     /// Args:
     ///     files (list[SP3]): SP3 files covering consecutive, non-overlapping spans.

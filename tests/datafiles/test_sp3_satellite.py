@@ -869,10 +869,10 @@ def test_SP3Satellite_interpolation_accuracy_cod():
 # ---------------------------------------------------------------------------
 
 
-def linear_file(ids, epochs, time_system="GPS"):
-    """A position-only file at 300 s holding ``ids`` at ``epochs``, with each
-    satellite moving linearly along x."""
-    sp3 = SP3(ids, 300.0, include_velocity=False, time_system=time_system)
+def linear_file(ids, epochs, time_system="GPS", interval=300.0):
+    """A position-only file at ``interval`` seconds holding ``ids`` at ``epochs``,
+    with each satellite moving linearly along x."""
+    sp3 = SP3(ids, interval, include_velocity=False, time_system=time_system)
     origin = t0()
     for epoch in epochs:
         index = sp3.push_epoch(epoch)
@@ -1025,14 +1025,21 @@ def test_SP3Satellite_from_files_empty_inputs():
 
 
 def test_SP3Satellite_from_files_mixed_time_systems_sort_by_instant():
-    gps_file = linear_file(["G01"], [gps(0, 10.0), gps(5, 10.0), gps(10, 10.0)])
+    gps_file = linear_file(
+        ["G01"], [gps(9, 10.0), gps(9, 40.0), gps(10, 10.0)], interval=30.0
+    )
 
-    def utc(minute):
+    def utc(minute, second):
         return bh.Epoch.from_datetime(
-            2024, 11, 10, 0, minute, 0.0, 0.0, bh.TimeSystem.UTC
+            2024, 11, 10, 0, minute, second, 0.0, bh.TimeSystem.UTC
         )
 
-    utc_file = linear_file(["G01"], [utc(10), utc(15)], time_system=SP3TimeSystem.UTC)
+    utc_file = linear_file(
+        ["G01"],
+        [utc(10, 8.0), utc(10, 38.0)],
+        time_system=SP3TimeSystem.UTC,
+        interval=30.0,
+    )
     assert utc_file.start_epoch > gps_file.end_epoch
 
     for files in ([gps_file, utc_file], [utc_file, gps_file]):
@@ -1040,7 +1047,7 @@ def test_SP3Satellite_from_files_mixed_time_systems_sort_by_instant():
         assert len(g01) == 5
         epochs = g01.epochs()
         assert epochs[2] == gps(10, 10.0)
-        assert epochs[3] == utc(10)
+        assert epochs[3] == utc(10, 8.0)
         assert all(b - a > 0.0 for a, b in itertools.pairwise(epochs))
         assert not g01.has_gaps()
 
@@ -1168,6 +1175,113 @@ def test_SP3Satellite_from_files_boundary_velocity_uses_centered_fit():
 
     assert err_chained < err_single
     assert err_chained < 0.1 * err_single
+
+
+def shifted_keplerian_day(start, code, propagator, shift):
+    """A 24 h position-only file at 900 s sampled from ``propagator`` at
+    ``start + 900 k + shift``."""
+    sp3 = SP3([code], 900.0, include_velocity=False)
+    for k in range(97):
+        epoch = start + 900.0 * k + shift
+        index = sp3.push_epoch(epoch)
+        sp3.set_record(code, index, SP3Record(propagator.state_itrf(epoch)[:3]))
+    return sp3
+
+
+def boundary_errors(files, propagator, boundary):
+    """Position errors of the chained G01 450 s before and after ``boundary``."""
+    chained = find(SP3Satellite.from_files(files), "G01")
+    assert len(chained) == 193
+    assert not chained.has_gaps()
+    return [
+        np.linalg.norm(
+            chained.state_itrf(boundary + dt)[:3]
+            - propagator.state_itrf(boundary + dt)[:3]
+        )
+        for dt in (-450.0, 450.0)
+    ]
+
+
+def test_SP3Satellite_from_files_boundary_within_grid_tolerance():
+    day1 = t0()
+    day2 = day1 + 86400.0
+    propagator = bh.KeplerianPropagator.from_keplerian(
+        day1,
+        np.array([15_000e3, 0.01, 55.0, 30.0, 0.0, 45.0]),
+        bh.AngleFormat.DEGREES,
+        60.0,
+    )
+    exact = boundary_errors(
+        [
+            keplerian_day(day1, "G01", propagator),
+            keplerian_day(day2, "G01", propagator),
+        ],
+        propagator,
+        day2,
+    )
+
+    def assert_close(errors):
+        for got, reference in zip(errors, exact):
+            assert got == pytest.approx(reference, abs=1e-3)
+
+    text = (
+        keplerian_day(day1, "G01", propagator)
+        .to_string()
+        .replace(
+            "*  2024 11 11  0  0  0.00000000", "*  2024 11 10 23 59 59.99999999", 1
+        )
+    )
+    day1_early_end = SP3.from_str(text)
+    assert day2 - day1_early_end.end_epoch == pytest.approx(1e-8, abs=1e-9)
+    assert_close(
+        boundary_errors(
+            [day1_early_end, keplerian_day(day2, "G01", propagator)], propagator, day2
+        )
+    )
+
+    day2_late = shifted_keplerian_day(day2, "G01", propagator, 1e-5)
+    assert_close(
+        boundary_errors(
+            [keplerian_day(day1, "G01", propagator), day2_late], propagator, day2
+        )
+    )
+
+    day2_early = shifted_keplerian_day(day2, "G01", propagator, -1e-8)
+    assert_close(
+        boundary_errors(
+            [day2_early, keplerian_day(day1, "G01", propagator)], propagator, day2
+        )
+    )
+
+
+def test_SP3Satellite_from_files_overlap_beyond_grid_tolerance():
+    a = linear_file(["G01"], [gps(0, 0.0), gps(5, 0.0), gps(10, 0.0)])
+    b = linear_file(
+        ["G01"], [gps(10, 0.0) - 2e-3, gps(15, 0.0) - 2e-3, gps(20, 0.0) - 2e-3]
+    )
+    with pytest.raises(bh.BraheError, match="overlap"):
+        SP3Satellite.from_files([a, b])
+
+
+def test_SP3Satellite_from_files_rejects_near_duplicate_boundary():
+    a = linear_file(["G01"], [gps(0, 0.0), gps(5, 0.0), gps(10, 0.0)])
+    b = linear_file(
+        ["G01"], [gps(10, 0.0) + 2e-3, gps(15, 0.0) + 2e-3, gps(20, 0.0) + 2e-3]
+    )
+    with pytest.raises(bh.BraheError) as excinfo:
+        SP3Satellite.from_files([a, b])
+    message = str(excinfo.value)
+    assert "G01" in message
+    assert str(gps(10, 0.0)) in message
+    assert "half the smaller of their epoch intervals" in message
+
+
+def test_SP3Satellite_id_compares_with_str():
+    sats = SP3Satellite.from_files([SP3.from_file(TRUNC)])
+    g05 = next(s for s in sats if s.id == "G05")
+    assert str(g05.id) == "G05"
+    sats = SP3.from_file(TRUNC).satellites()
+    assert next(s for s in sats if s.id == "G05").id == sid("G05")
 
 
 # ---------------------------------------------------------------------------

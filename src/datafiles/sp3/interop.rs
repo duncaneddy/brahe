@@ -9,7 +9,9 @@ use std::collections::BTreeSet;
 
 use crate::datafiles::sp3::parse::sp3_error;
 use crate::datafiles::sp3::satellite::{SP3Sample, SP3Satellite};
-use crate::datafiles::sp3::types::{SP3, SP3Record, SP3SatelliteId, SP3WriteOptions};
+use crate::datafiles::sp3::types::{
+    GRID_TOLERANCE, SP3, SP3Record, SP3SatelliteId, SP3WriteOptions,
+};
 use crate::time::Epoch;
 use crate::utils::{BraheError, DOrbitStateProvider};
 
@@ -114,7 +116,9 @@ impl SP3 {
 /// then by end epoch, so a one-epoch file precedes a longer file starting at
 /// the same epoch whatever the input order.
 /// Consecutive files may share their boundary epoch, where the later file's
-/// sample is kept when it has one; any further overlap is an error.
+/// sample is kept when it has one; any further overlap is an error. Two
+/// epochs within 1 ms of each other, the tolerance of the epoch grid, are
+/// the same boundary epoch.
 ///
 /// # Arguments
 ///
@@ -130,7 +134,7 @@ pub(crate) fn chain_files(files: &[SP3]) -> Result<Vec<SP3Satellite>, BraheError
     ordered.sort_by_key(|f| (f.start_epoch(), f.end_epoch()));
     for pair in ordered.windows(2) {
         let (a, b) = (pair[0], pair[1]);
-        if b.start_epoch() < a.end_epoch() && b.start_epoch() != a.end_epoch() {
+        if b.start_epoch() - a.end_epoch() < -GRID_TOLERANCE {
             return Err(sp3_error(&format!(
                 "files overlap: {} file from {} to {} and {} file from {} to {}; consecutive \
                  files may share only their boundary epoch",
@@ -196,14 +200,15 @@ pub(crate) fn satellite_from_files(
 
 /// Valid samples of `id` from every file, in epoch order.
 ///
-/// When a file's first sample falls on the epoch of the previous file's last
-/// sample, the later file's sample replaces the earlier one.
+/// When a file's first sample falls within 1 ms of the previous file's last
+/// sample, the two are the same boundary epoch and the later file's sample
+/// replaces the earlier one.
 fn joined_samples(files: &[&SP3], id: SP3SatelliteId) -> Vec<SP3Sample> {
     let mut samples: Vec<SP3Sample> = Vec::new();
     for file in files {
         let mut next = file.samples(id);
         if let (Some(last), Some(first)) = (samples.last(), next.first())
-            && last.epoch == first.epoch
+            && (first.epoch - last.epoch).abs() <= GRID_TOLERANCE
         {
             samples.pop();
         }
@@ -251,7 +256,18 @@ mod tests {
     /// A position-only file at 300 s holding `ids` at `epochs`, with each
     /// satellite moving linearly along x.
     fn linear_file(ids: &[SP3SatelliteId], epochs: &[Epoch], options: SP3WriteOptions) -> SP3 {
-        let mut sp3 = SP3::new(ids.to_vec(), 300.0, options.with_velocity(false)).unwrap();
+        linear_file_at(300.0, ids, epochs, options)
+    }
+
+    /// A position-only file at `interval` seconds holding `ids` at `epochs`,
+    /// with each satellite moving linearly along x.
+    fn linear_file_at(
+        interval: f64,
+        ids: &[SP3SatelliteId],
+        epochs: &[Epoch],
+        options: SP3WriteOptions,
+    ) -> SP3 {
+        let mut sp3 = SP3::new(ids.to_vec(), interval, options.with_velocity(false)).unwrap();
         let origin = Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::GPS);
         for epoch in epochs {
             let index = sp3.push_epoch(*epoch).unwrap();
@@ -487,16 +503,19 @@ mod tests {
     #[parallel]
     fn test_SP3Satellite_from_files_mixed_time_systems_sort_by_instant() {
         let id = sid("G01");
-        let gps_file = linear_file(
+        let gps_file = linear_file_at(
+            30.0,
             &[id],
-            &[gps(0, 10.0), gps(5, 10.0), gps(10, 10.0)],
+            &[gps(9, 10.0), gps(9, 40.0), gps(10, 10.0)],
             SP3WriteOptions::default(),
         );
-        let utc =
-            |minute: u8| Epoch::from_datetime(2024, 11, 10, 0, minute, 0.0, 0.0, TimeSystem::UTC);
-        let utc_file = linear_file(
+        let utc = |minute: u8, second: f64| {
+            Epoch::from_datetime(2024, 11, 10, 0, minute, second, 0.0, TimeSystem::UTC)
+        };
+        let utc_file = linear_file_at(
+            30.0,
             &[id],
-            &[utc(10), utc(15)],
+            &[utc(10, 8.0), utc(10, 38.0)],
             SP3WriteOptions::default().with_time_system(SP3TimeSystem::UTC),
         );
         assert!(utc_file.start_epoch() > gps_file.end_epoch());
@@ -510,7 +529,7 @@ mod tests {
             assert_eq!(g01.len(), 5);
             let epochs = g01.epochs();
             assert_eq!(epochs[2], gps(10, 10.0));
-            assert_eq!(epochs[3], utc(10));
+            assert_eq!(epochs[3], utc(10, 8.0));
             assert!(epochs.windows(2).all(|w| w[1] - w[0] > 0.0));
             assert!(!g01.has_gaps());
         }
@@ -718,6 +737,149 @@ mod tests {
         assert!(
             err_chained < 0.1 * err_single,
             "chained {err_chained} m/s, single {err_single} m/s"
+        );
+    }
+
+    /// A position-only 900 s file of `id` sampled from `propagator` at
+    /// `start + 900 k + shift(k)` for `k = 0..=96`.
+    fn shifted_keplerian_day(
+        start: Epoch,
+        id: SP3SatelliteId,
+        propagator: &KeplerianPropagator,
+        shift: impl Fn(usize) -> f64,
+    ) -> SP3 {
+        let mut sp3 = SP3::new(
+            vec![id],
+            900.0,
+            SP3WriteOptions::default().with_velocity(false),
+        )
+        .unwrap();
+        for k in 0..=96 {
+            let epoch = start + 900.0 * k as f64 + shift(k);
+            let index = sp3.push_epoch(epoch).unwrap();
+            let x = propagator.state_itrf(epoch).unwrap();
+            sp3.set_record(id, index, SP3Record::new([x[0], x[1], x[2]]))
+                .unwrap();
+        }
+        sp3
+    }
+
+    /// Position errors of the chained G01 450 s before and after `boundary`.
+    fn boundary_errors(
+        files: &[SP3],
+        propagator: &KeplerianPropagator,
+        boundary: Epoch,
+    ) -> [f64; 2] {
+        let sats = SP3Satellite::from_files(files).unwrap();
+        let chained = find(&sats, "G01");
+        assert_eq!(chained.len(), 193);
+        assert!(!chained.has_gaps());
+        [-450.0, 450.0].map(|dt| {
+            let q = boundary + dt;
+            let got = chained.state_itrf(q).unwrap();
+            let truth = propagator.state_itrf(q).unwrap();
+            (0..3)
+                .map(|i| (got[i] - truth[i]).powi(2))
+                .sum::<f64>()
+                .sqrt()
+        })
+    }
+
+    #[test]
+    #[serial]
+    fn test_SP3Satellite_from_files_boundary_within_grid_tolerance() {
+        setup_global_test_eop();
+        let id = sid("G01");
+        let day1 = Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::GPS);
+        let day2 = day1 + 86400.0;
+        let propagator = KeplerianPropagator::from_keplerian(
+            day1,
+            Vector6::new(15_000e3, 0.01, 55.0, 30.0, 0.0, 45.0),
+            AngleFormat::Degrees,
+            60.0,
+        )
+        .unwrap();
+        let exact = boundary_errors(
+            &[
+                keplerian_day(day1, id, &propagator),
+                keplerian_day(day2, id, &propagator),
+            ],
+            &propagator,
+            day2,
+        );
+        let assert_close = |errors: [f64; 2]| {
+            for (got, reference) in errors.iter().zip(exact) {
+                assert!(
+                    (got - reference).abs() < 1e-3,
+                    "error {got} m, exact boundary {reference} m"
+                );
+            }
+        };
+
+        let text = keplerian_day(day1, id, &propagator)
+            .to_string()
+            .unwrap()
+            .replacen(
+                "*  2024 11 11  0  0  0.00000000",
+                "*  2024 11 10 23 59 59.99999999",
+                1,
+            );
+        let day1_early_end = SP3::from_str(&text).unwrap();
+        assert_abs_diff_eq!(day2 - day1_early_end.end_epoch(), 1e-8, epsilon = 1e-9);
+        assert_close(boundary_errors(
+            &[day1_early_end, keplerian_day(day2, id, &propagator)],
+            &propagator,
+            day2,
+        ));
+
+        let day2_late = shifted_keplerian_day(day2, id, &propagator, |_| 1e-5);
+        assert_close(boundary_errors(
+            &[keplerian_day(day1, id, &propagator), day2_late],
+            &propagator,
+            day2,
+        ));
+
+        let day2_early = shifted_keplerian_day(day2, id, &propagator, |_| -1e-8);
+        assert_close(boundary_errors(
+            &[day2_early, keplerian_day(day1, id, &propagator)],
+            &propagator,
+            day2,
+        ));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_SP3Satellite_from_files_overlap_beyond_grid_tolerance() {
+        let id = sid("G01");
+        let t0 = gps(0, 0.0);
+        let mut a = SP3::new(vec![id], 300.0, SP3WriteOptions::default()).unwrap();
+        let mut b = a.clone();
+        for k in 0..3 {
+            a.push_epoch(t0 + 300.0 * k as f64).unwrap();
+            b.push_epoch(t0 + 600.0 - 2e-3 + 300.0 * k as f64).unwrap();
+        }
+        let err = SP3Satellite::from_files(&[a, b]).unwrap_err().to_string();
+        assert!(err.contains("overlap"), "{err}");
+    }
+
+    #[test]
+    #[parallel]
+    fn test_SP3Satellite_from_files_rejects_near_duplicate_boundary() {
+        let id = sid("G01");
+        let a = linear_file(
+            &[id],
+            &[gps(0, 0.0), gps(5, 0.0), gps(10, 0.0)],
+            SP3WriteOptions::default(),
+        );
+        let late: Vec<Epoch> = [10, 15, 20].iter().map(|m| gps(*m, 0.0) + 2e-3).collect();
+        let b = linear_file(&[id], &late, SP3WriteOptions::default());
+        let err = SP3Satellite::from_files(&[a, b]).unwrap_err().to_string();
+        assert!(err.contains("G01"), "{err}");
+        assert!(err.contains(&gps(10, 0.0).to_string()), "{err}");
+        assert!(err.contains(&late[0].to_string()), "{err}");
+        assert!(
+            err.contains("half the smaller of their epoch intervals"),
+            "{err}"
         );
     }
 

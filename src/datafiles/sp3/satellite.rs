@@ -144,7 +144,8 @@ impl SP3Satellite {
     /// # Returns
     ///
     /// * `Result<SP3Satellite, BraheError>` - The satellite, or an error if there are no
-    ///   samples or the epochs are not strictly increasing
+    ///   samples, the epochs are not strictly increasing, or two consecutive samples are
+    ///   closer than half the smaller of their epoch intervals
     pub(crate) fn from_samples(
         id: SP3SatelliteId,
         samples: Vec<SP3Sample>,
@@ -153,10 +154,18 @@ impl SP3Satellite {
             return Err(sp3_error(&format!("satellite {} has no valid sample", id)));
         }
         for pair in samples.windows(2) {
-            if pair[1].epoch - pair[0].epoch <= 0.0 {
+            let spacing = pair[1].epoch - pair[0].epoch;
+            if spacing <= 0.0 {
                 return Err(sp3_error(&format!(
                     "samples of satellite {} are not in increasing epoch order: {} follows {}",
                     id, pair[1].epoch, pair[0].epoch
+                )));
+            }
+            if spacing < 0.5 * pair[0].interval.min(pair[1].interval) {
+                return Err(sp3_error(&format!(
+                    "samples of satellite {} at {} and {} are {} s apart, less than half \
+                     the smaller of their epoch intervals",
+                    id, pair[0].epoch, pair[1].epoch, spacing
                 )));
             }
         }
@@ -201,8 +210,10 @@ impl SP3Satellite {
     /// next to a file boundary get centered fits. Epochs compare as absolute
     /// instants, so files in different time systems chain directly.
     ///
-    /// Two consecutive files may share their boundary epoch. The later file's
-    /// sample is kept there when it is valid, and the earlier file's otherwise.
+    /// Two consecutive files may share their boundary epoch; epochs within
+    /// 1 ms of each other, the tolerance of the epoch grid, are the same
+    /// boundary epoch. The later file's sample is kept there when it is valid,
+    /// and the earlier file's otherwise.
     /// A file that lacks a satellite contributes no samples, which leaves a
     /// gap in that satellite. Velocities come from the files only when every
     /// sample comes from a file with velocity records. Agencies, coordinate
@@ -1564,6 +1575,26 @@ mod tests {
         assert!(SP3Satellite::from_samples(sid("G13"), unordered).is_err());
         let repeated = vec![sample(t0, p, 900.0), sample(t0, p, 900.0)];
         assert!(SP3Satellite::from_samples(sid("G13"), repeated).is_err());
+
+        let (e1, e2): (Epoch, Epoch) = (t0 + 900.0, t0 + 1300.0);
+        let close = vec![
+            sample(t0, p, 900.0),
+            sample(e1, p, 900.0),
+            sample(e2, p, 900.0),
+        ];
+        let err = SP3Satellite::from_samples(sid("G13"), close)
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("G13"), "{err}");
+        assert!(err.contains(&e1.to_string()), "{err}");
+        assert!(err.contains(&e2.to_string()), "{err}");
+        assert!(
+            err.contains("half the smaller of their epoch intervals"),
+            "{err}"
+        );
+
+        let mixed = vec![sample(t0, p, 900.0), sample(t0 + 200.0, p, 300.0)];
+        assert!(SP3Satellite::from_samples(sid("G13"), mixed).is_ok());
     }
 
     /// A 24 h position-only file at 900 s with three gap-free satellites,

@@ -8,6 +8,7 @@ use std::str::FromStr;
 
 use crate::constants::{GPS_ZERO, SECONDS_PER_DAY};
 use crate::datafiles::sp3::parse::sp3_error;
+use crate::datafiles::sp3::satellite::{SP3Sample, SP3Satellite};
 use crate::time::{Epoch, TimeSystem, datetime_to_mjd};
 use crate::utils::BraheError;
 
@@ -1798,6 +1799,93 @@ impl SP3 {
         let sat = self.satellite_index(id)?;
         self.check_epoch_index(epoch_index)?;
         Ok(self.records[epoch_index][sat].as_ref())
+    }
+
+    /// Extract the valid samples of one satellite.
+    ///
+    /// The result keeps the epochs where the satellite has a record with a
+    /// non-zero position, derives velocities when the file has none, and
+    /// splits the samples into contiguous runs at gaps. See [`SP3Satellite`].
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - Satellite identifier
+    ///
+    /// # Returns
+    ///
+    /// * `Result<SP3Satellite, BraheError>` - The satellite, or an error if it is not in
+    ///   the file or has no valid sample
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::datafiles::sp3::{SP3, SP3Record, SP3SatelliteId, SP3WriteOptions};
+    /// use brahe::time::{Epoch, TimeSystem};
+    ///
+    /// let g01: SP3SatelliteId = "G01".parse().unwrap();
+    /// let g02: SP3SatelliteId = "G02".parse().unwrap();
+    /// let mut sp3 = SP3::new(vec![g01, g02], 900.0, SP3WriteOptions::default()).unwrap();
+    /// let t0 = Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::GPS);
+    /// sp3.push_epoch(t0).unwrap();
+    /// sp3.set_record(g01, 0, SP3Record::new([2.0e7, 1.0e7, 1.0e7])).unwrap();
+    ///
+    /// assert_eq!(sp3.satellite(g01).unwrap().len(), 1);
+    /// assert!(sp3.satellite(g02).is_err());
+    /// ```
+    pub fn satellite(&self, id: SP3SatelliteId) -> Result<SP3Satellite, BraheError> {
+        let sat = self.satellite_index(id)?;
+        SP3Satellite::from_samples(id, self.samples(sat))
+    }
+
+    /// Extract every satellite that has at least one valid sample.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<Vec<SP3Satellite>, BraheError>` - Satellites in header order, omitting
+    ///   satellites without a valid sample
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::datafiles::sp3::{SP3, SP3Record, SP3SatelliteId, SP3WriteOptions};
+    /// use brahe::time::{Epoch, TimeSystem};
+    ///
+    /// let g01: SP3SatelliteId = "G01".parse().unwrap();
+    /// let g02: SP3SatelliteId = "G02".parse().unwrap();
+    /// let mut sp3 = SP3::new(vec![g01, g02], 900.0, SP3WriteOptions::default()).unwrap();
+    /// let t0 = Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::GPS);
+    /// sp3.push_epoch(t0).unwrap();
+    /// sp3.set_record(g02, 0, SP3Record::new([2.0e7, 1.0e7, 1.0e7])).unwrap();
+    ///
+    /// let satellites = sp3.satellites().unwrap();
+    /// assert_eq!(satellites.len(), 1);
+    /// assert_eq!(satellites[0].id(), g02);
+    /// ```
+    pub fn satellites(&self) -> Result<Vec<SP3Satellite>, BraheError> {
+        let mut satellites = Vec::new();
+        for (sat, id) in self.satellites.iter().enumerate() {
+            let samples = self.samples(sat);
+            if !samples.is_empty() {
+                satellites.push(SP3Satellite::from_samples(*id, samples)?);
+            }
+        }
+        Ok(satellites)
+    }
+
+    /// Valid samples of the satellite at header index `sat`, in epoch order.
+    fn samples(&self, sat: usize) -> Vec<SP3Sample> {
+        self.epochs
+            .iter()
+            .zip(&self.records)
+            .filter_map(|(epoch, row)| {
+                row[sat].as_ref().map(|record| SP3Sample {
+                    epoch: *epoch,
+                    record: record.clone(),
+                    interval: self.header.epoch_interval,
+                    has_file_velocity: self.header.has_velocity,
+                })
+            })
+            .collect()
     }
 
     /// Record table indexed by epoch, then by satellite in header order.

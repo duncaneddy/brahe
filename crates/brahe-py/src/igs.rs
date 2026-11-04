@@ -1519,7 +1519,8 @@ impl PyIGSProductsClient {
     /// intervals are published, the coarsest is used unless ``sampling`` is
     /// set, in which case only that interval is used. Before GPS week 2238 it
     /// is the short-name daily SP3 file, such as ``cod21003.sp3``, and
-    /// ``sampling`` is ignored.
+    /// ``sampling`` is ignored. Uncompressed and gzip files are preferred to
+    /// Unix-compressed (``.Z``) ones before sampling is compared.
     ///
     /// Every file is chosen, and every error is raised, before anything is
     /// downloaded. Ultra-rapid orbits are rejected because successive issues
@@ -1539,7 +1540,7 @@ impl PyIGSProductsClient {
     ///     list[SP3]: Parsed daily files in time order.
     ///
     /// Raises:
-    ///     BraheError: If ``solution`` is ultra-rapid, ``end`` is before ``start``, a week listing containing part of the span cannot be obtained, a day inside the span has no file on the source or only a Unix-compressed one, or a download or parse fails.
+    ///     BraheError: If ``solution`` is ultra-rapid, ``end`` is before ``start``, a week listing containing part of the span cannot be obtained, a day inside the span has no file on the source (including when its week directory answers 404) or only a Unix-compressed one, or a download or parse fails; a parse error names the product.
     ///
     /// Example:
     ///     ```python

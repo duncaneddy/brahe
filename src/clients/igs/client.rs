@@ -56,8 +56,8 @@ const SECONDS_PER_WEEK: f64 = 7.0 * SECONDS_PER_DAY;
 /// NASA Earthdata login service that CDDIS redirects to for authentication.
 const URS_URL: &str = "https://urs.earthdata.nasa.gov/";
 
-/// Most redirects followed for one CDDIS request.
-const MAX_CDDIS_REDIRECTS: usize = 10;
+/// Most redirects followed for one request.
+const MAX_REDIRECTS: usize = 10;
 
 /// Largest response body read into memory, in bytes (1 GiB).
 const MAX_RESPONSE_BYTES: u64 = 1 << 30;
@@ -178,15 +178,13 @@ impl IGSProductsClient {
         if !base_url.ends_with('/') {
             base_url.push('/');
         }
-        // CDDIS redirects through the Earthdata login, which the client
-        // follows itself so credentials reach only the login host.
-        let agent = match source {
-            IGSProductSource::CDDIS => ureq::Agent::config_builder()
-                .max_redirects(0)
-                .build()
-                .into(),
-            IGSProductSource::Garner | IGSProductSource::BKG => ureq::Agent::new_with_defaults(),
-        };
+        // Redirects are followed by the client itself, so that the network
+        // mode is checked for every host contacted and CDDIS credentials
+        // reach only the Earthdata login service.
+        let agent = ureq::Agent::config_builder()
+            .max_redirects(0)
+            .build()
+            .into();
         Self {
             source,
             base_url,
@@ -851,7 +849,7 @@ impl IGSProductsClient {
             )));
         }
         self.reject_unix_compress(product)?;
-        SP3::from_file(self.download(product)?)
+        self.parse_sp3(product, &self.download(product)?)
     }
 
     /// Downloads and parses the daily SP3 orbit files of one analysis center
@@ -871,8 +869,10 @@ impl IGSProductsClient {
     ///   Files of the `OPS` campaign are preferred, then the lowest version.
     /// - Before GPS week 2238, the short-name daily SP3 file of `center` and
     ///   `solution`, such as `cod21003.sp3` (rapid and ultra-rapid products
-    ///   use the center's own code, such as `igr`). Uncompressed and gzip files
-    ///   are preferred to Unix-compressed (`.Z`) ones.
+    ///   use the center's own code, such as `igr`).
+    ///
+    /// In both conventions, uncompressed and gzip files are preferred to
+    /// Unix-compressed (`.Z`) ones before sampling is compared.
     ///
     /// Every file is chosen, and every error below is raised, before
     /// anything is downloaded. Ultra-rapid orbits are rejected: their issues
@@ -891,7 +891,7 @@ impl IGSProductsClient {
     ///
     /// # Returns
     /// * `Ok(Vec<SP3>)`: Parsed daily files in time order
-    /// * `Err(BraheError)`: If `solution` is ultra-rapid, `end` is before `start`, a week listing containing part of the span cannot be obtained, a day inside the span has no file on the source or only a Unix-compressed one, or a download or parse fails
+    /// * `Err(BraheError)`: If `solution` is ultra-rapid, `end` is before `start`, a week listing containing part of the span cannot be obtained, a day inside the span has no file on the source (including when its week directory answers 404) or only a Unix-compressed one, or a download or parse fails; a parse error names the product
     ///
     /// # Examples
     ///
@@ -921,7 +921,35 @@ impl IGSProductsClient {
             .iter()
             .map(|product| self.download(product))
             .collect::<Result<Vec<_>, _>>()?;
-        paths.iter().map(SP3::from_file).collect()
+        products
+            .iter()
+            .zip(&paths)
+            .map(|(product, path)| self.parse_sp3(product, path))
+            .collect()
+    }
+
+    /// Parses a downloaded SP3 product, naming the product in any error.
+    ///
+    /// # Arguments
+    /// * `product` - Product the file was downloaded for
+    /// * `path` - Cached file of the product
+    ///
+    /// # Returns
+    /// * `Ok(SP3)`: The parsed file
+    /// * `Err(BraheError)`: The parse or read error, of the same kind, with its message prefixed by the product's source and name
+    fn parse_sp3(&self, product: &IGSProduct, path: &Path) -> Result<SP3, BraheError> {
+        SP3::from_file(path).map_err(|e| {
+            let resource = self.product_resource(product);
+            match e {
+                BraheError::ParseError(message) => {
+                    BraheError::ParseError(format!("{resource}: {message}"))
+                }
+                BraheError::IoError(message) => {
+                    BraheError::IoError(format!("{resource}: {message}"))
+                }
+                other => BraheError::Error(format!("{resource}: {other}")),
+            }
+        })
     }
 
     /// Chooses the daily SP3 orbit products [`IGSProductsClient::download_sp3_range`]
@@ -972,12 +1000,12 @@ impl IGSProductsClient {
             .with_format(IGSFileFormat::SP3);
 
         let mut week_products = BTreeMap::new();
+        let mut absent_weeks = HashSet::new();
         for week in low_day / 7..=high_day / 7 {
-            let listing = if span_weeks.contains(&week) {
-                Some(self.listing(Some(week))?)
-            } else {
-                self.fetch_listing(Some(week), true)?
-            };
+            let listing = self.fetch_listing(Some(week), !span_weeks.contains(&week))?;
+            if listing.is_none() {
+                absent_weeks.insert(week);
+            }
             let products = listing
                 .map(|listing| self.products_from_listing(week, &listing, &filter))
                 .unwrap_or_default();
@@ -1009,13 +1037,23 @@ impl IGSProductsClient {
                     .max_by(f64::total_cmp)
             });
             let week = day / 7;
+            let reason = if absent_weeks.contains(&week) {
+                format!(
+                    "the GPS week {week:04} listing {} answered 404",
+                    self.listing_url(Some(week))
+                )
+            } else {
+                format!(
+                    "the GPS week {week:04} listing {} has no daily {} {} SP3 orbit file for that day",
+                    self.listing_url(Some(week)),
+                    center.to_ascii_uppercase(),
+                    solution.code()
+                )
+            };
             return Err(BraheError::Error(format!(
-                "IGS {} product {} not found: the GPS week {week:04} listing {} has no daily {} {} SP3 orbit file for that day",
+                "IGS {} product {} not found: {reason}",
                 self.source,
                 expected_daily_orbit_name(center, solution, day, sampling),
-                self.listing_url(Some(week)),
-                center.to_ascii_uppercase(),
-                solution.code()
             )));
         }
         Ok(selected)
@@ -1288,8 +1326,9 @@ impl IGSProductsClient {
     /// Checks that a downloaded body is the file its name describes before
     /// it is cached.
     ///
-    /// A `.gz` or `.Z` product must start with that format's magic bytes. An
-    /// uncompressed CDDIS product must not be an HTML page.
+    /// A `.gz` or `.Z` product must start with that format's magic bytes, and
+    /// a `.gz` product must decompress completely within the decompression
+    /// size limit. An uncompressed CDDIS product must not be an HTML page.
     ///
     /// # Arguments
     /// * `product` - Product the body was downloaded for
@@ -1308,6 +1347,9 @@ impl IGSProductsClient {
             Some((compression, format)) if compression_of(body) != compression => {
                 Some(format!("is not {format} data"))
             }
+            Some((Compression::Gzip, _)) => decompress(body)
+                .err()
+                .map(|e| format!("is not valid gzip data ({e})")),
             None if self.source == IGSProductSource::CDDIS && is_html(body) => {
                 Some("is an HTML page".to_string())
             }
@@ -1409,12 +1451,13 @@ impl IGSProductsClient {
 
     /// Sends one GET for `url`.
     ///
-    /// Garner and BKG requests follow redirects automatically. CDDIS
-    /// requests follow up to [`MAX_CDDIS_REDIRECTS`] redirects one at a
-    /// time, checking `BRAHE_NETWORK_MODE` before each, with the agent's
-    /// cookie jar carrying the Earthdata session. HTTP Basic credentials are
-    /// added only to requests for the Earthdata login service, and only a
-    /// final `200` from outside the login service is accepted.
+    /// Up to [`MAX_REDIRECTS`] redirects are followed one at a time, checking
+    /// `BRAHE_NETWORK_MODE` before each request, with the agent's cookie jar
+    /// carrying cookies between them. For CDDIS, HTTP Basic credentials are
+    /// added only to requests for the Earthdata login service, only a final
+    /// `200` from outside the login service is accepted, and a 404 during
+    /// the sign-in (from the login service until the redirect back to `url`)
+    /// is a sign-in failure rather than a missing file.
     ///
     /// # Arguments
     /// * `url` - The URL to fetch
@@ -1424,18 +1467,21 @@ impl IGSProductsClient {
     /// * `Ok(Response)`: The final `200` response, with its body unread
     /// * `Err(RequestError)`: `NotFound` for a 404, `Http` for a transport or status failure that may be retried, `Failed` for a failure that must not be
     fn request(&self, url: &str, resource: &str) -> Result<Response<ureq::Body>, RequestError> {
-        if self.source != IGSProductSource::CDDIS {
-            return self.agent.get(url).call().map_err(RequestError::from);
-        }
         let failed = |detail: String| RequestError::Failed(BraheError::Error(detail));
         let mut current = url.to_string();
-        for _ in 0..=MAX_CDDIS_REDIRECTS {
+        let mut signing_in = false;
+        for _ in 0..=MAX_REDIRECTS {
             ensure_online(&current, &format!("{resource} ({current})"))
                 .map_err(RequestError::Failed)?;
             let uri: Uri = current
                 .parse()
                 .map_err(|e| failed(format!("{resource}: invalid URL {current}: {e}")))?;
-            let login = self.is_login_service(&uri);
+            let login = self.source == IGSProductSource::CDDIS && self.is_login_service(&uri);
+            if login {
+                signing_in = true;
+            } else if current == url {
+                signing_in = false;
+            }
             let mut request = self.agent.get(&current);
             if login {
                 let (username, password) = self.credentials.as_ref().ok_or_else(|| {
@@ -1452,6 +1498,12 @@ impl IGSProductsClient {
                     return Err(failed(format!(
                         "{resource}: NASA Earthdata login at {} rejected the credentials (HTTP {status}); check {CDDIS_USERNAME_VAR} and {CDDIS_PASSWORD_VAR}",
                         self.urs_url
+                    )));
+                }
+                Err(ureq::Error::StatusCode(404)) if signing_in => {
+                    return Err(failed(format!(
+                        "{resource}: NASA Earthdata sign-in step {current} answered 404{}",
+                        self.login_hint()
                     )));
                 }
                 Err(e) => return Err(RequestError::from(e)),
@@ -1487,7 +1539,7 @@ impl IGSProductsClient {
             })?;
         }
         Err(failed(format!(
-            "{resource} request {url} redirected more than {MAX_CDDIS_REDIRECTS} times"
+            "{resource} request {url} redirected more than {MAX_REDIRECTS} times"
         )))
     }
 
@@ -1506,8 +1558,10 @@ impl IGSProductsClient {
         let (Some(host), Some(login_host)) = (uri.host(), login.host()) else {
             return false;
         };
-        uri.scheme_str().is_some()
-            && uri.scheme_str() == login.scheme_str()
+        let (Some(scheme), Some(login_scheme)) = (uri.scheme_str(), login.scheme_str()) else {
+            return false;
+        };
+        scheme.eq_ignore_ascii_case(login_scheme)
             && host.eq_ignore_ascii_case(login_host)
             && effective_port(uri) == effective_port(&login)
             && uri.path().starts_with(login.path())
@@ -1541,9 +1595,10 @@ impl From<ureq::Error> for RequestError {
 /// # Returns
 /// * `Option<u16>`: The port, or `None` for a scheme other than `http` or `https` without an explicit port
 fn effective_port(uri: &Uri) -> Option<u16> {
-    uri.port_u16().or(match uri.scheme_str() {
-        Some("https") => Some(443),
-        Some("http") => Some(80),
+    let scheme = uri.scheme_str()?.to_ascii_lowercase();
+    uri.port_u16().or(match scheme.as_str() {
+        "https" => Some(443),
+        "http" => Some(80),
         _ => None,
     })
 }
@@ -1552,13 +1607,16 @@ fn effective_port(uri: &Uri) -> Option<u16> {
 ///
 /// # Arguments
 /// * `base` - URL of the redirecting request
-/// * `location` - `Location` header value: absolute, scheme-relative (`//host/path`), absolute-path (`/path`), or relative to the base directory
+/// * `location` - `Location` header value: absolute with a scheme in any case, scheme-relative (`//host/path`), absolute-path (`/path`), query-only (`?query`, applied to the base path), or relative to the base directory
 ///
 /// # Returns
-/// * `Option<String>`: The absolute URL, or `None` if `base` has no scheme or host
+/// * `Option<String>`: The absolute URL, or `None` if `base` has no scheme or host, or the location's scheme is not `http` or `https`
 fn resolve_location(base: &Uri, location: &str) -> Option<String> {
-    if location.starts_with("http://") || location.starts_with("https://") {
-        return Some(location.to_string());
+    if let Some(scheme) = location_scheme(location) {
+        return ["http", "https"]
+            .iter()
+            .any(|supported| scheme.eq_ignore_ascii_case(supported))
+            .then(|| location.to_string());
     }
     let scheme = base.scheme_str()?;
     if location.starts_with("//") {
@@ -1569,9 +1627,32 @@ fn resolve_location(base: &Uri, location: &str) -> Option<String> {
         return Some(format!("{scheme}://{authority}{location}"));
     }
     let path = base.path();
+    if location.starts_with('?') {
+        return Some(format!("{scheme}://{authority}{path}{location}"));
+    }
     let directory = &path[..path.rfind('/').map_or(0, |i| i + 1)];
     let directory = if directory.is_empty() { "/" } else { directory };
     Some(format!("{scheme}://{authority}{directory}{location}"))
+}
+
+/// Scheme of an absolute URL reference: the text before the first `:` when
+/// it starts with a letter, holds only letters, digits, `+`, `-`, and `.`,
+/// and precedes any `/`, `?`, or `#`.
+///
+/// # Arguments
+/// * `reference` - URL reference
+///
+/// # Returns
+/// * `Option<&str>`: The scheme as written, or `None` for a relative reference
+fn location_scheme(reference: &str) -> Option<&str> {
+    let end = reference.find([':', '/', '?', '#'])?;
+    let scheme = &reference[..end];
+    (reference[end..].starts_with(':')
+        && scheme.starts_with(|c: char| c.is_ascii_alphabetic())
+        && scheme
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '+' | '-' | '.')))
+    .then_some(scheme)
 }
 
 /// Whether a body is an HTML page: its first non-whitespace byte is `<`.
@@ -1701,10 +1782,10 @@ fn daily_orbit(products: &[IGSProduct], day: u32, sampling: Option<f64>) -> Opti
         .min_by(|a, b| daily_orbit_preference(a, b))
 }
 
-/// Preference order of daily orbit files for the same day: coarsest
-/// sampling first, then files that are not Unix-compressed, then the `OPS`
-/// campaign, then the lowest version, then `.sp3` short names before other
-/// SP3 extensions, then name.
+/// Preference order of daily orbit files for the same day: files that are
+/// not Unix-compressed first, since those cannot be parsed, then coarsest
+/// sampling, then the `OPS` campaign, then the lowest version, then `.sp3`
+/// short names before other SP3 extensions, then name.
 ///
 /// # Arguments
 /// * `a` - First product
@@ -1719,10 +1800,13 @@ fn daily_orbit_preference(a: &IGSProduct, b: &IGSProduct) -> CmpOrdering {
     let other_extension = |product: &IGSProduct| {
         product.file_name.name_style() == IGSNameStyle::Short && !product.name.contains(".sp3")
     };
-    y.sampling()
-        .unwrap_or(0.0)
-        .total_cmp(&x.sampling().unwrap_or(0.0))
-        .then_with(|| unix(x).cmp(&unix(y)))
+    unix(x)
+        .cmp(&unix(y))
+        .then_with(|| {
+            y.sampling()
+                .unwrap_or(0.0)
+                .total_cmp(&x.sampling().unwrap_or(0.0))
+        })
         .then_with(|| other_campaign(x).cmp(&other_campaign(y)))
         .then_with(|| x.version().cmp(&y.version()))
         .then_with(|| other_extension(a).cmp(&other_extension(b)))
@@ -3448,7 +3532,7 @@ mod tests {
             .unwrap_err()
             .to_string();
         assert!(err.contains("redirected more than 10 times"), "{err}");
-        loop_mock.assert_calls(MAX_CDDIS_REDIRECTS + 1);
+        loop_mock.assert_calls(MAX_REDIRECTS + 1);
     }
 
     #[test]
@@ -3584,6 +3668,29 @@ mod tests {
         ] {
             assert_eq!(resolve_location(&base, location).as_deref(), Some(expected));
         }
+        for (location, expected) in [
+            (
+                "HTTPS://URS.earthdata.nasa.gov/oauth",
+                Some("HTTPS://URS.earthdata.nasa.gov/oauth"),
+            ),
+            (
+                "Http://mirror.example/a.gz",
+                Some("Http://mirror.example/a.gz"),
+            ),
+            (
+                "?list",
+                Some("https://cddis.nasa.gov/archive/gnss/products/2340/file.gz?list"),
+            ),
+            ("ftp://mirror.example/a.gz", None),
+            ("mailto:user@example.com", None),
+            ("dir:name/x.gz", None),
+        ] {
+            assert_eq!(
+                resolve_location(&base, location).as_deref(),
+                expected,
+                "{location}"
+            );
+        }
         let relative: Uri = "/no/host".parse().unwrap();
         assert_eq!(resolve_location(&relative, "/x"), None);
     }
@@ -3595,6 +3702,7 @@ mod tests {
         for (url, expected) in [
             ("https://urs.earthdata.nasa.gov/oauth/authorize", true),
             ("https://URS.earthdata.nasa.gov:443/oauth/authorize", true),
+            ("HTTPS://urs.earthdata.nasa.gov/oauth/authorize", true),
             ("http://urs.earthdata.nasa.gov/oauth/authorize", false),
             ("https://urs.earthdata.nasa.gov:8443/oauth/authorize", false),
             ("https://urs.earthdata.nasa.gov.example.com/oauth", false),
@@ -4251,5 +4359,278 @@ mod tests {
         let files = client.list_files(integration_week_2340()).unwrap();
         assert!(files.iter().any(|f| f == INTEGRATION_FINAL_ORBIT));
         assert_integration_final_orbit(&client);
+    }
+
+    #[test]
+    #[serial]
+    fn test_igs_products_client_download_rejects_truncated_gzip_without_caching() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("online"));
+        let server = MockServer::start();
+        let body = gzip(SP3_TEXT.as_bytes()).unwrap();
+        let path = format!("/pub/products/2340/{SP3_NAME}");
+        let mut truncated = mock_file(&server, &path, body[..body.len() - 8].to_vec());
+        let client = garner_client(&server);
+        let product = product(&client, SP3_NAME, 2340);
+        let cached = client
+            .cache_dir()
+            .unwrap()
+            .join("garner/2340")
+            .join(SP3_NAME);
+
+        let err = client.download(&product).unwrap_err().to_string();
+        assert!(err.contains("is not valid gzip data"), "{err}");
+        assert!(err.contains(SP3_NAME), "{err}");
+        assert!(!cached.exists());
+        truncated.assert_calls(1);
+        truncated.delete();
+
+        let complete = mock_file(&server, &path, body.clone());
+        assert_eq!(client.download(&product).unwrap(), cached);
+        assert_eq!(fs::read(&cached).unwrap(), body);
+        complete.assert_calls(1);
+    }
+
+    #[test]
+    #[serial]
+    fn test_igs_products_client_redirects_are_checked_against_network_mode() {
+        let _cache = CacheRedirect::new();
+        let online = NetworkModeGuard::set(Some("online"));
+        let server = MockServer::start();
+        let body = gzip(SP3_TEXT.as_bytes()).unwrap();
+        let moved = server.mock(|when, then| {
+            when.method(GET)
+                .path(format!("/pub/products/2340/{SP3_NAME}"));
+            then.status(302)
+                .header("Location", format!("/mirror/{SP3_NAME}"));
+        });
+        let mirror = mock_file(&server, &format!("/mirror/{SP3_NAME}"), body.clone());
+        let client = garner_client(&server);
+        let path = client.download(&product(&client, SP3_NAME, 2340)).unwrap();
+        assert_eq!(fs::read(path).unwrap(), body);
+        moved.assert_calls(1);
+        mirror.assert_calls(1);
+        drop(online);
+
+        let name = "COD0OPSFIN_20243160000_01D_05M_ORB.SP3.gz";
+        let external = server.mock(|when, then| {
+            when.method(GET).path(format!("/pub/products/2340/{name}"));
+            then.status(302).header(
+                "Location",
+                format!("http://brahe-redirect-test.invalid/{name}"),
+            );
+        });
+        for mode in ["offline", "offline-strict"] {
+            let _mode = NetworkModeGuard::set(Some(mode));
+            let err = client
+                .download(&product(&client, name, 2340))
+                .unwrap_err()
+                .to_string();
+            assert!(
+                err.contains(&format!("BRAHE_NETWORK_MODE is {mode}")),
+                "{err}"
+            );
+            assert!(err.contains("brahe-redirect-test.invalid"), "{err}");
+        }
+        external.assert_calls(2);
+    }
+
+    #[test]
+    #[serial]
+    fn test_igs_products_client_cddis_sign_in_404_is_not_missing_product() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("online"));
+        for (missing, location) in [
+            ("/oauth/authorize", "/oauth/authorize?client_id=c"),
+            ("/proxyauth", "/proxyauth?code=abc"),
+        ] {
+            let server = MockServer::start();
+            server.mock(|when, then| {
+                when.method(GET).path(format!("/archive/2340/{SP3_NAME}"));
+                then.status(302)
+                    .header("Location", "/oauth/authorize?client_id=c");
+            });
+            if missing == "/proxyauth" {
+                server.mock(|when, then| {
+                    when.method(GET).path("/oauth/authorize");
+                    then.status(302).header("Location", location);
+                });
+            }
+            server.mock(|when, then| {
+                when.method(GET).path(missing);
+                then.status(404);
+            });
+            let client = cddis_client(&server);
+            let err = client
+                .download(&product(&client, SP3_NAME, 2340))
+                .unwrap_err()
+                .to_string();
+            assert!(err.contains("sign-in step"), "{missing}: {err}");
+            assert!(err.contains(missing), "{missing}: {err}");
+            assert!(!err.contains("not found"), "{missing}: {err}");
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_igs_products_client_cddis_missing_file_after_sign_in_is_not_found() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("online"));
+        let server = MockServer::start();
+        let path = format!("/archive/2340/{SP3_NAME}");
+        server.mock(|when, then| {
+            when.method(GET).path(path.clone()).cookie_missing("s");
+            then.status(302)
+                .header("Location", "/oauth/authorize?client_id=c");
+        });
+        server.mock(|when, then| {
+            when.method(GET).path("/oauth/authorize");
+            then.status(302)
+                .header("Location", "/proxyauth?code=abc")
+                .header("Set-Cookie", "s=1; Path=/");
+        });
+        server.mock(|when, then| {
+            when.method(GET).path("/proxyauth");
+            then.status(302).header("Location", server.url(&path));
+        });
+        server.mock(|when, then| {
+            when.method(GET).path(path.clone()).cookie("s", "1");
+            then.status(404);
+        });
+        let client = cddis_client(&server);
+        let err = client
+            .download(&product(&client, SP3_NAME, 2340))
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("not found"), "{err}");
+        assert!(err.contains("CDDIS"), "{err}");
+        assert!(err.contains(SP3_NAME), "{err}");
+    }
+
+    #[test]
+    #[serial]
+    fn test_igs_products_client_download_sp3_range_prefers_parseable_finer_file() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("online"));
+        let server = MockServer::start();
+        let coarse_z = "COD0OPSFIN_20243160000_01D_15M_ORB.SP3.Z";
+        let fine_gz = cod_daily(316, "05M");
+        let only_z = "COD0OPSFIN_20243170000_01D_15M_ORB.SP3.Z";
+        mock_listing(
+            &server,
+            "/pub/products/2340/",
+            apache_listing(&[coarse_z, &fine_gz, only_z]),
+        );
+        let fine = mock_file(
+            &server,
+            &format!("/pub/products/2340/{fine_gz}"),
+            sp3_fixture(),
+        );
+        let unix = server.mock(|when, then| {
+            when.method(GET).path_suffix(".SP3.Z");
+            then.status(200).body(SHORT_Z_BYTES);
+        });
+        let client = garner_client(&server);
+        let options = IGSRangeOptions::new().with_pad(false);
+
+        let files = client
+            .download_sp3_range(
+                gps(2024, 11, 11, 6),
+                gps(2024, 11, 11, 12),
+                "COD",
+                IGSSolutionType::Final,
+                &options,
+            )
+            .unwrap();
+        assert_eq!(files, vec![SP3::from_file(SP3_FIXTURE).unwrap()]);
+        fine.assert_calls(1);
+
+        let err = client
+            .download_sp3_range(
+                gps(2024, 11, 12, 6),
+                gps(2024, 11, 12, 12),
+                "COD",
+                IGSSolutionType::Final,
+                &options,
+            )
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains(UNIX_COMPRESS_UNSUPPORTED), "{err}");
+        assert!(err.contains(only_z), "{err}");
+        unix.assert_calls(0);
+    }
+
+    #[test]
+    #[serial]
+    fn test_igs_products_client_download_sp3_range_missing_week_names_expected_file() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("online"));
+        let server = MockServer::start();
+        let week = server.mock(|when, then| {
+            when.method(GET).path("/pub/products/2341/");
+            then.status(404);
+        });
+        let client = garner_client(&server);
+
+        // Monday 2024-11-18 is day of year 323, in GPS week 2341.
+        let err = client
+            .download_sp3_range(
+                gps(2024, 11, 18, 6),
+                gps(2024, 11, 18, 12),
+                "COD",
+                IGSSolutionType::Final,
+                &IGSRangeOptions::new().with_pad(false),
+            )
+            .unwrap_err()
+            .to_string();
+        assert!(
+            err.contains("IGS Garner product COD0OPSFIN_20243230000_01D_*_ORB.SP3.gz not found"),
+            "{err}"
+        );
+        assert!(err.contains("2341"), "{err}");
+        assert!(err.contains("answered 404"), "{err}");
+        week.assert_calls(1);
+    }
+
+    #[test]
+    #[serial]
+    fn test_igs_products_client_download_sp3_parse_errors_name_product() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("online"));
+        let server = MockServer::start();
+        let name = cod_daily(316, "15M");
+        mock_listing(&server, "/pub/products/2340/", apache_listing(&[&name]));
+        mock_file(
+            &server,
+            &format!("/pub/products/2340/{name}"),
+            gzip(b"not an SP3 file\n").unwrap(),
+        );
+        let client = garner_client(&server);
+
+        let err = client
+            .download_sp3(&product(&client, &name, 2340))
+            .unwrap_err();
+        assert!(matches!(err, BraheError::ParseError(_)), "{err}");
+        assert!(
+            err.to_string()
+                .contains(&format!("IGS Garner product {name}")),
+            "{err}"
+        );
+
+        let err = client
+            .download_sp3_range(
+                gps(2024, 11, 11, 6),
+                gps(2024, 11, 11, 12),
+                "COD",
+                IGSSolutionType::Final,
+                &IGSRangeOptions::new().with_pad(false),
+            )
+            .unwrap_err();
+        assert!(matches!(err, BraheError::ParseError(_)), "{err}");
+        assert!(
+            err.to_string()
+                .contains(&format!("IGS Garner product {name}")),
+            "{err}"
+        );
     }
 }

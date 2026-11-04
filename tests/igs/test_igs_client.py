@@ -98,11 +98,15 @@ class Archive:
     def url(self, path):
         return f"{self.base}{path}"
 
-    def serve(self, path, body, status=200):
-        """Answer GET path (query ignored) with body and status."""
+    def serve(self, path, body, status=200, headers=None):
+        """Answer GET path (query ignored) with body, status, and extra headers."""
         if isinstance(body, str):
             body = body.encode()
-        self.routes[path] = (status, body)
+        self.routes[path] = (status, body, headers or {})
+
+    def redirect(self, path, location):
+        """Answer GET path with a 302 to location."""
+        self.serve(path, b"", status=302, headers={"Location": location})
 
     def missing(self, path):
         self.serve(path, b"", status=404)
@@ -130,8 +134,12 @@ def archive(tmp_path, monkeypatch):
 
         def do_GET(self):
             state.hits.append(self.path)
-            status, body = state.routes.get(urlsplit(self.path).path, (404, b""))
+            status, body, headers = state.routes.get(
+                urlsplit(self.path).path, (404, b"", {})
+            )
             self.send_response(status)
+            for name, value in headers.items():
+                self.send_header(name, value)
             self.send_header("Content-Type", "application/octet-stream")
             self.send_header("Content-Length", str(len(body)))
             self.send_header("Connection", "close")
@@ -861,6 +869,54 @@ def test_igs_products_client_download_rejects_body_not_matching_compression(arch
     assert not (Path(client.cache_dir()) / "garner" / "2340" / SP3_NAME).exists()
 
 
+def test_igs_products_client_download_rejects_truncated_gzip_without_caching(archive):
+    """Rust: test_igs_products_client_download_rejects_truncated_gzip_without_caching"""
+    body = gzip.compress(SP3_TEXT.encode())
+    path = f"/pub/products/2340/{SP3_NAME}"
+    archive.serve(path, body[:-8])
+    client = garner_client(archive)
+    product = listed_product(archive, client, SP3_NAME, 2340, week_2340())
+    cached = Path(client.cache_dir()) / "garner" / "2340" / SP3_NAME
+
+    with pytest.raises(bh.BraheError) as error:
+        client.download(product)
+    assert "is not valid gzip data" in str(error.value)
+    assert SP3_NAME in str(error.value)
+    assert not cached.exists()
+
+    archive.serve(path, body)
+    assert Path(client.download(product)) == cached
+    assert cached.read_bytes() == body
+    assert archive.calls(path) == 2
+
+
+def test_igs_products_client_redirects_are_checked_against_network_mode(
+    archive, monkeypatch
+):
+    """Rust: test_igs_products_client_redirects_are_checked_against_network_mode"""
+    body = gzip.compress(SP3_TEXT.encode())
+    name = "COD0OPSFIN_20243160000_01D_05M_ORB.SP3.gz"
+    archive.listing("/pub/products/2340/", apache_listing([SP3_NAME, name]))
+    archive.redirect(f"/pub/products/2340/{SP3_NAME}", f"/mirror/{SP3_NAME}")
+    archive.serve(f"/mirror/{SP3_NAME}", body)
+    archive.redirect(
+        f"/pub/products/2340/{name}", f"http://brahe-redirect-test.invalid/{name}"
+    )
+    client = garner_client(archive)
+    listed = {product.name: product for product in client.list_products(week_2340())}
+    assert Path(client.download(listed[SP3_NAME])).read_bytes() == body
+    assert archive.calls(f"/mirror/{SP3_NAME}") == 1
+
+    external = listed[name]
+    for mode in ("offline", "offline-strict"):
+        monkeypatch.setenv("BRAHE_NETWORK_MODE", mode)
+        with pytest.raises(bh.BraheError) as error:
+            client.download(external)
+        assert f"BRAHE_NETWORK_MODE is {mode}" in str(error.value)
+        assert "brahe-redirect-test.invalid" in str(error.value)
+    assert archive.calls(f"/pub/products/2340/{name}") == 2
+
+
 def test_igs_products_client_save_gzip_decompresses(archive, tmp_path):
     """Rust: test_igs_products_client_save_gzip_decompresses"""
     out = tmp_path / "out"
@@ -1261,6 +1317,72 @@ def test_igs_products_client_download_sp3_range_unix_compress(archive):
         )
 
 
+def test_igs_products_client_download_sp3_range_prefers_parseable_finer_file(archive):
+    """Rust: test_igs_products_client_download_sp3_range_prefers_parseable_finer_file"""
+    coarse_z = "COD0OPSFIN_20243160000_01D_15M_ORB.SP3.Z"
+    fine_gz = cod_daily(316, "05M")
+    only_z = "COD0OPSFIN_20243170000_01D_15M_ORB.SP3.Z"
+    archive.listing("/pub/products/2340/", apache_listing([coarse_z, fine_gz, only_z]))
+    archive.serve(f"/pub/products/2340/{fine_gz}", SP3_FIXTURE.read_bytes())
+    for name in (coarse_z, only_z):
+        archive.serve(f"/pub/products/2340/{name}", SHORT_Z_BYTES)
+    client = garner_client(archive)
+
+    sp3s = client.download_sp3_range(
+        gps(2024, 11, 11, 6), gps(2024, 11, 11, 12), "COD", "FIN", pad=False
+    )
+    assert len(sp3s) == 1
+    assert same_sp3(sp3s[0], bh.SP3.from_file(SP3_FIXTURE))
+    assert downloaded_files(archive) == [fine_gz]
+
+    archive.reset()
+    with pytest.raises(bh.BraheError) as error:
+        client.download_sp3_range(
+            gps(2024, 11, 12, 6), gps(2024, 11, 12, 12), "COD", "FIN", pad=False
+        )
+    assert UNIX_COMPRESS_UNSUPPORTED in str(error.value)
+    assert only_z in str(error.value)
+    assert downloaded_files(archive) == []
+
+
+def test_igs_products_client_download_sp3_range_missing_week_names_expected_file(
+    archive,
+):
+    """Rust: test_igs_products_client_download_sp3_range_missing_week_names_expected_file"""
+    archive.missing("/pub/products/2341/")
+    client = garner_client(archive)
+
+    # Monday 2024-11-18 is day of year 323, in GPS week 2341.
+    with pytest.raises(bh.BraheError) as error:
+        client.download_sp3_range(
+            gps(2024, 11, 18, 6), gps(2024, 11, 18, 12), "COD", "FIN", pad=False
+        )
+    message = str(error.value)
+    assert (
+        "IGS Garner product COD0OPSFIN_20243230000_01D_*_ORB.SP3.gz not found"
+        in message
+    )
+    assert "2341" in message
+    assert "answered 404" in message
+    assert archive.calls("/pub/products/2341/") == 1
+
+
+def test_igs_products_client_download_sp3_parse_errors_name_product(archive):
+    """Rust: test_igs_products_client_download_sp3_parse_errors_name_product"""
+    name = cod_daily(316, "15M")
+    archive.listing("/pub/products/2340/", apache_listing([name]))
+    archive.serve(f"/pub/products/2340/{name}", gzip.compress(b"not an SP3 file\n"))
+    client = garner_client(archive)
+    product = next(p for p in client.list_products(week_2340()) if p.name == name)
+
+    with pytest.raises(bh.BraheError, match=f"IGS Garner product {name}"):
+        client.download_sp3(product)
+    with pytest.raises(bh.BraheError, match=f"IGS Garner product {name}"):
+        client.download_sp3_range(
+            gps(2024, 11, 11, 6), gps(2024, 11, 11, 12), "COD", "FIN", pad=False
+        )
+
+
 def test_igs_products_client_download_sp3_range_crosses_long_name_week(archive):
     """Rust: test_igs_products_client_download_sp3_range_crosses_long_name_week"""
     plain = gzip.decompress(SP3_FIXTURE.read_bytes())
@@ -1332,7 +1454,7 @@ def test_integration_garner_raw_unix_compress_download(live_cache):
     product = next((p for p in products if p.name == "igs21000.sp3.Z"), None)
     assert product is not None, "igs21000.sp3.Z not listed"
     assert Path(client.download(product)).read_bytes()[:2] == b"\x1f\x9d"
-    with pytest.raises(Exception, match="Unix compress"):
+    with pytest.raises(bh.BraheError, match="Unix compress"):
         client.download_sp3(product)
 
 

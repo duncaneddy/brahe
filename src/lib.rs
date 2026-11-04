@@ -133,6 +133,7 @@ pub mod ccsds;
 pub mod clients;
 pub mod constants;
 pub mod coordinates;
+pub mod datafiles;
 pub mod datasets;
 pub mod earth_models;
 pub mod eop;

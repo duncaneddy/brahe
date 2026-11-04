@@ -1,0 +1,31 @@
+#cP2018  6 16  0  0  0.00000000       2 ORBIT IGS14 PRO ESOC                    
+## 2005 518400.00000000   900.00000000 58285 0.0000000000000                    
++   53   G18G14G13G28G21G11G22G20G16G19G23G02G31G17G12G15G29                    
++        G07G05G25G01G30G24G27G06G09G03G26G08G10G32R10R13R15                    
++        R19R20R01R05R22R24R23R16R04R08R03R07R02R18R21R09R17                    
++        R14R11  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0                    
++          0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0                    
+++         7  5  5  5  5  5  5  4  5  5  5  5  5  5  5  5  5                    
+++         5  5  5  5  5  5  5  5  5  5  5  5  5  5  5  5  6                    
+++         7  6  7  7  5  6  5  6  6  6  6  6  6  5  6  5  6                    
+++         7  5  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0                    
+++         0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0                    
+%c M  cc GPS ccc cccc cccc cccc cccc ccccc ccccc ccccc ccccc                    
+%c cc cc ccc ccc cccc cccc cccc cccc ccccc ccccc ccccc ccccc                    
+%f  0.0000000  0.000000000  0.00000000000  0.000000000000000                    
+%f  0.0000000  0.000000000  0.00000000000  0.000000000000000                    
+%i    0    0    0    0      0      0      0      0         0                    
+%i    0    0    0    0      0      0      0      0         0                    
+/* CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC                    
+/* CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC                    
+/* CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC                    
+/* PCV:IGS14_2000 OL/AL:FES2004  NONE     YN ORB:CoN CLK:CoN                    
+*  2018  6 16  0  0  0.00000000                                                 
+PG18   4159.846047  15452.860127 -21680.162554     22.120288                    
+PG14 -18082.409781  18533.488797  -5166.971643    -97.397148                    
+PG13  11114.573760 -22768.363792  -8073.921762    -93.440773                    
+*  2018  6 16  0 15  0.00000000                                                 
+PG18   1764.216207  15570.476498 -21911.080255     22.124415                    
+PG14 -17854.126033  17736.134049  -7899.318051    -97.397285                    
+PG13  11743.953392 -23239.622089  -5341.812669    -93.440626                    
+EOF                                                                             

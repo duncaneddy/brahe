@@ -5,12 +5,9 @@ use std::fmt;
 use std::str::FromStr;
 
 use crate::constants::{GPS_ZERO, SECONDS_PER_DAY};
+use crate::datafiles::sp3::parse::sp3_error;
 use crate::time::{Epoch, TimeSystem, datetime_to_mjd};
 use crate::utils::BraheError;
-
-fn sp3_error(detail: &str) -> BraheError {
-    BraheError::ParseError(format!("SP3: {}", detail))
-}
 
 /// SP3 format version.
 ///
@@ -1180,7 +1177,7 @@ fn header_time_fields(epoch: &Epoch, time_system: TimeSystem) -> (u32, f64, u32,
 }
 
 /// File type implied by the systems of a satellite list.
-fn file_type_from_satellites(satellites: &[SP3SatelliteId]) -> SP3FileType {
+pub(crate) fn file_type_from_satellites(satellites: &[SP3SatelliteId]) -> SP3FileType {
     let Some(first) = satellites.first() else {
         return SP3FileType::Mixed;
     };
@@ -1333,7 +1330,6 @@ impl SP3 {
     ///
     /// `records` must hold one row per epoch and one entry per satellite in
     /// each row.
-    #[allow(dead_code)]
     pub(crate) fn from_parts(
         header: SP3Header,
         epochs: Vec<Epoch>,

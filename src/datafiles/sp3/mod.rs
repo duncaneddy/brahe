@@ -9,6 +9,7 @@
  * appear only in the parser and writer.
  */
 
+mod parse;
 mod types;
 
 pub use types::{

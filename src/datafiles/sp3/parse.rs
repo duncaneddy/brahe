@@ -2076,6 +2076,78 @@ mod tests {
 
     #[test]
     #[parallel]
+    fn test_SP3_from_str_malformed_header_and_epoch_fields() {
+        let c1 = read_fixture("example-c-1.sp3");
+
+        let first_line = c1.lines().next().unwrap();
+        let msg = parse_error(&c1.replacen(first_line, "#cP2001  8  8", 1));
+        assert_eq!(
+            msg,
+            "SP3: line 1: version line has 3 fields, expected at least 10"
+        );
+
+        let second_line = c1.lines().nth(1).unwrap();
+        let msg = parse_error(&c1.replacen(second_line, "## 1126", 1));
+        assert_eq!(msg, "SP3: line 2: ## line has 1 fields, expected 5");
+
+        let msg = parse_error(&c1.replacen("*  2001  8  8  0  0  0.00000000", "*  2001  8  8", 1));
+        assert_eq!(msg, "SP3: line 23: epoch line has 3 fields, expected 6");
+
+        let msg = parse_error(&c1.replacen(
+            "*  2001  8  8  0  0  0.00000000",
+            "*  2001  8  x  0  0  0.00000000",
+            1,
+        ));
+        assert_eq!(msg, "SP3: line 23: invalid day 'x'");
+
+        let msg = parse_error(&c1.replacen(
+            "*  2001  8  8  0  0  0.00000000",
+            "*  2001  8  8  0  0 60.00000000",
+            1,
+        ));
+        assert!(
+            msg.starts_with("SP3: line 23: second out of range"),
+            "{msg}"
+        );
+    }
+
+    #[test]
+    #[parallel]
+    fn test_SP3_from_str_month_rollover() {
+        let content = |header_start: &str, epoch: &str| {
+            format!(
+                "#dP{header_start}  0  0  0.00000000       1 ORBIT IGS20 FIT  TST\n\
+                 ## 2295  86400.00000000   900.00000000 60370 0.0000000000000\n\
+                 +    1   G01\n\
+                 ++         0\n\
+                 %c G  cc GPS ccc cccc cccc cccc cccc ccccc ccccc ccccc ccccc\n\
+                 %c cc cc ccc ccc cccc cccc cccc cccc ccccc ccccc ccccc ccccc\n\
+                 %f  0.0000000  0.000000000  0.00000000000  0.000000000000000\n\
+                 %f  0.0000000  0.000000000  0.00000000000  0.000000000000000\n\
+                 %i    0    0    0    0      0      0      0      0         0\n\
+                 %i    0    0    0    0      0      0      0      0         0\n\
+                 /* MONTH ROLLOVER\n\
+                 {epoch}\n\
+                 PG01  15000.000000  20000.000000   5000.000000    100.000000\n\
+                 EOF\n"
+            )
+        };
+
+        let sp3 = SP3::from_str(&content("2024  3  1", "*  2024  2 29 24  0  0.00000000")).unwrap();
+        assert_epoch(
+            sp3.start_epoch(),
+            Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::GPS),
+        );
+
+        let sp3 = SP3::from_str(&content("2024  2 29", "*  2024  3  0  0  0  0.00000000")).unwrap();
+        assert_epoch(
+            sp3.start_epoch(),
+            Epoch::from_datetime(2024, 2, 29, 0, 0, 0.0, 0.0, TimeSystem::GPS),
+        );
+    }
+
+    #[test]
+    #[parallel]
     fn test_SP3_from_str_one_second_day() {
         let mut content = String::from(
             "#dP2024  1  1  0  0  1.00000000   86400 ORBIT IGS20 FIT  TST\n\

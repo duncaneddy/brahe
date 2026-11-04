@@ -1076,6 +1076,59 @@ def test_SP3_from_file_days_rollover():
     assert r.velocity[0] == pytest.approx(-3918.8598237, abs=1e-9)
 
 
+def test_SP3_from_str_malformed_header_and_epoch_fields():
+    c1 = read_fixture("example-c-1.sp3")
+    lines = c1.splitlines()
+
+    msg = parse_error(c1.replace(lines[0], "#cP2001  8  8", 1))
+    assert msg == "SP3: line 1: version line has 3 fields, expected at least 10"
+
+    msg = parse_error(c1.replace(lines[1], "## 1126", 1))
+    assert msg == "SP3: line 2: ## line has 1 fields, expected 5"
+
+    epoch = "*  2001  8  8  0  0  0.00000000"
+    msg = parse_error(c1.replace(epoch, "*  2001  8  8", 1))
+    assert msg == "SP3: line 23: epoch line has 3 fields, expected 6"
+
+    msg = parse_error(c1.replace(epoch, "*  2001  8  x  0  0  0.00000000", 1))
+    assert msg == "SP3: line 23: invalid day 'x'"
+
+    msg = parse_error(c1.replace(epoch, "*  2001  8  8  0  0 60.00000000", 1))
+    assert msg.startswith("SP3: line 23: second out of range"), msg
+
+
+def test_SP3_from_str_month_rollover():
+    def content(header_start, epoch):
+        return (
+            f"#dP{header_start}  0  0  0.00000000       1 ORBIT IGS20 FIT  TST\n"
+            "## 2295  86400.00000000   900.00000000 60370 0.0000000000000\n"
+            "+    1   G01\n"
+            "++         0\n"
+            "%c G  cc GPS ccc cccc cccc cccc cccc ccccc ccccc ccccc ccccc\n"
+            "%c cc cc ccc ccc cccc cccc cccc cccc ccccc ccccc ccccc ccccc\n"
+            "%f  0.0000000  0.000000000  0.00000000000  0.000000000000000\n"
+            "%f  0.0000000  0.000000000  0.00000000000  0.000000000000000\n"
+            "%i    0    0    0    0      0      0      0      0         0\n"
+            "%i    0    0    0    0      0      0      0      0         0\n"
+            "/* MONTH ROLLOVER\n"
+            f"{epoch}\n"
+            "PG01  15000.000000  20000.000000   5000.000000    100.000000\n"
+            "EOF\n"
+        )
+
+    sp3 = SP3.from_str(content("2024  3  1", "*  2024  2 29 24  0  0.00000000"))
+    assert_epoch(
+        sp3.start_epoch,
+        bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.GPS),
+    )
+
+    sp3 = SP3.from_str(content("2024  2 29", "*  2024  3  0  0  0  0.00000000"))
+    assert_epoch(
+        sp3.start_epoch,
+        bh.Epoch.from_datetime(2024, 2, 29, 0, 0, 0.0, 0.0, bh.TimeSystem.GPS),
+    )
+
+
 def test_SP3_from_file_second_digits():
     sp3 = SP3.from_file(fixture("issue895-second-digits.sp3"))
     assert_epoch(
@@ -1803,6 +1856,26 @@ def test_SP3_to_string_value_errors():
         "G02", 0, SP3Record([1.0e7, 2.0e7, 3.0e7], position_std=[-1.0, None, None])
     )
     assert "standard deviation" in write_error(sp3)
+
+
+def test_SP3_to_string_correlation_errors():
+    sp3 = two_satellite_file()
+    header = sp3.header
+    header.position_base = 1.25
+    header.clock_base = 1.025
+    sp3.header = header
+
+    def record(correlation):
+        return SP3Record([1.0e7, 2.0e7, 3.0e7], position_correlation=correlation)
+
+    sp3.set_record("G02", 0, record(SP3Correlation()))
+    assert "\nEP " in sp3.to_string()
+
+    sp3.set_record("G02", 0, record(SP3Correlation(std=(-0.1, None, None))))
+    assert "not a non-negative number" in write_error(sp3)
+
+    sp3.set_record("G02", 0, record(SP3Correlation(xy=math.nan)))
+    assert "correlation coefficient is NaN" in write_error(sp3)
 
 
 def test_SP3_to_string_epoch_second_rounding():

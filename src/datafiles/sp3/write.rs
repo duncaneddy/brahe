@@ -1282,6 +1282,47 @@ mod tests {
 
     #[test]
     #[parallel]
+    fn test_SP3_to_string_correlation_errors() {
+        let mut sp3 = two_satellite_file(SP3WriteOptions::default());
+        sp3.header_mut().position_base = Some(1.25);
+        sp3.header_mut().clock_base = Some(1.025);
+        let blank = || SP3Correlation {
+            std: [None; 3],
+            clock_std: None,
+            xy: 0.0,
+            xz: 0.0,
+            xc: 0.0,
+            yz: 0.0,
+            yc: 0.0,
+            zc: 0.0,
+        };
+        let record = |correlation: SP3Correlation| {
+            let mut record = SP3Record::new([1.0e7, 2.0e7, 3.0e7]);
+            record.position_correlation = Some(correlation);
+            record
+        };
+
+        sp3.set_record(sat("G02"), 0, record(blank())).unwrap();
+        let text = sp3.to_string().unwrap();
+        assert!(text.contains("\nEP "), "{text}");
+
+        let negative = SP3Correlation {
+            std: [Some(-0.1), None, None],
+            ..blank()
+        };
+        sp3.set_record(sat("G02"), 0, record(negative)).unwrap();
+        assert!(write_error(&sp3).contains("not a non-negative number"));
+
+        let not_a_number = SP3Correlation {
+            xy: f64::NAN,
+            ..blank()
+        };
+        sp3.set_record(sat("G02"), 0, record(not_a_number)).unwrap();
+        assert!(write_error(&sp3).contains("correlation coefficient is NaN"));
+    }
+
+    #[test]
+    #[parallel]
     fn test_SP3_to_string_epoch_second_rounding() {
         let mut sp3 = SP3::new(vec![sat("G01")], 30.0, SP3WriteOptions::default()).unwrap();
         let t0 = gps_t0() + 59.999_999_999_9;

@@ -8,9 +8,9 @@ use std::fmt::Write as _;
 use std::path::Path;
 
 use super::parse::{
-    ACCURACY_BASE, CLOCK_RATE_TO_S_PER_S, CORRELATION_CLOCK_STD_TOO_LARGE, CORRELATION_SCALE,
-    CORRELATION_STD_TOO_LARGE, DM_PER_S_TO_M_PER_S, KM_TO_M, MM_TO_M, POSITION_STD_UNITS,
-    SATELLITES_PER_LINE, StdUnits, US_TO_S, VELOCITY_STD_UNITS, sp3_error,
+    ACCURACY_BASE, BAD_CLOCK_VALUE, CLOCK_RATE_TO_S_PER_S, CORRELATION_CLOCK_STD_TOO_LARGE,
+    CORRELATION_SCALE, CORRELATION_STD_TOO_LARGE, DM_PER_S_TO_M_PER_S, KM_TO_M, MM_TO_M,
+    POSITION_STD_UNITS, SATELLITES_PER_LINE, StdUnits, US_TO_S, VELOCITY_STD_UNITS, sp3_error,
 };
 use super::types::{
     MAX_SATELLITES, SP3, SP3Correlation, SP3Header, SP3Record, SP3SatelliteId, epoch_grid_error,
@@ -33,6 +33,10 @@ const BAD_CLOCK: f64 = 999_999.999_999;
 const COMPONENT_EXPONENT_WIDTH: u32 = 2;
 /// Width of the clock standard deviation exponent field of `P` and `V` lines.
 const CLOCK_EXPONENT_WIDTH: u32 = 3;
+/// Width and precision of the `%f` position/velocity base field.
+const POSITION_BASE_FIELD: (usize, usize) = (10, 7);
+/// Width and precision of the `%f` clock/clock-rate base field.
+const CLOCK_BASE_FIELD: (usize, usize) = (12, 9);
 /// Largest `++` accuracy exponent; the field is I3 and 0 means unknown.
 const MAX_ACCURACY_EXPONENT: f64 = 999.0;
 /// Distance from an integer within which a computed exponent is taken as
@@ -60,9 +64,10 @@ impl SP3 {
     /// `has_velocity` is set.
     ///
     /// Standard deviations are written as the exponent
-    /// `ceil(log_base(sigma))` of the `%f` base, clamped to the field width;
-    /// infinity is written as the "too large" marker (99, 999, 9999, or
-    /// 9999999). Accuracies are written as `ceil(log2(sigma_mm))`, at least 1.
+    /// `ceil(log_base(sigma))` of the `%f` base as written in the file. An
+    /// exponent that reaches the field limit, and infinity, are written as
+    /// the "too large" marker (99, 999, 9999, or 9999999), so the written
+    /// value never understates the stored one. Accuracies are written as `ceil(log2(sigma_mm))`, at least 1.
     /// The header labels are right-aligned in their columns; a label longer
     /// than its column (such as the coordinate system `ITRF14`) is written in
     /// full and shifts the fields after it, which readers that split the
@@ -76,9 +81,11 @@ impl SP3 {
     ///   or not on the interval grid, a record table that does not match the epochs and
     ///   satellites, an accuracy list that does not match the satellites, a comment longer
     ///   than 77 characters or containing a line break, an empty or whitespace-holding
-    ///   header label, a first line longer than 80 characters, a standard deviation whose
-    ///   `%f` base is not set, a negative or NaN standard deviation, or a value that does
-    ///   not fit its column
+    ///   header label, a first line longer than 80 characters, a satellite number outside
+    ///   1..=99, a `%f` base that is not finite or not greater than 1 as written, a standard
+    ///   deviation whose `%f` base is not set, a negative or NaN standard deviation, a clock
+    ///   or clock rate that would read back as the missing-value marker `999999.999999`,
+    ///   or a value that does not fit its column
     ///
     /// # Examples
     ///
@@ -101,8 +108,9 @@ impl SP3 {
     pub fn to_string(&self) -> Result<String, BraheError> {
         let time_system = self.check_writable()?;
         let header = self.header();
+        let bases = Bases::new(header)?;
         let mut out = String::new();
-        self.write_header(&mut out, time_system)?;
+        self.write_header(&mut out, time_system, &bases)?;
         for (k, (epoch, row)) in self.epochs().iter().zip(self.rows()).enumerate() {
             let (year, month, day, hour, minute, second) = calendar_fields(*epoch, time_system);
             push_line(
@@ -113,15 +121,17 @@ impl SP3 {
                 ),
             );
             for (id, record) in self.satellite_ids().iter().zip(row) {
-                write_record(&mut out, header, *id, record.as_ref()).map_err(|e| match e {
-                    BraheError::ParseError(msg) => sp3_error(&format!(
-                        "{} at epoch {}: {}",
-                        id,
-                        k,
-                        msg.strip_prefix("SP3: ").unwrap_or(&msg)
-                    )),
-                    other => other,
-                })?;
+                write_record(&mut out, header.has_velocity, &bases, *id, record.as_ref()).map_err(
+                    |e| match e {
+                        BraheError::ParseError(msg) => sp3_error(&format!(
+                            "{} at epoch {}: {}",
+                            id,
+                            k,
+                            msg.strip_prefix("SP3: ").unwrap_or(&msg)
+                        )),
+                        other => other,
+                    },
+                )?;
             }
         }
         out.push_str("EOF\n");
@@ -176,6 +186,9 @@ impl SP3 {
                 "{} satellites exceeds the maximum of {}",
                 satellites, MAX_SATELLITES
             )));
+        }
+        for id in self.satellite_ids() {
+            SP3SatelliteId::new(id.system, id.number)?;
         }
         let time_system = header.time_system.to_time_system().ok_or_else(|| {
             sp3_error(&format!(
@@ -240,7 +253,12 @@ impl SP3 {
     }
 
     /// Write every line before the first epoch.
-    fn write_header(&self, out: &mut String, time_system: TimeSystem) -> Result<(), BraheError> {
+    fn write_header(
+        &self,
+        out: &mut String,
+        time_system: TimeSystem,
+        bases: &Bases,
+    ) -> Result<(), BraheError> {
         let header = self.header();
         let start = self.start_epoch();
         let (year, month, day, hour, minute, second) = calendar_fields(start, time_system);
@@ -346,15 +364,7 @@ impl SP3 {
             out,
             &format!(
                 "%f {} {} {:14.11} {:18.15}",
-                fixed(
-                    header.position_base.unwrap_or(0.0),
-                    10,
-                    7,
-                    "position/velocity base"
-                )?,
-                fixed(header.clock_base.unwrap_or(0.0), 12, 9, "clock base")?,
-                0.0,
-                0.0
+                bases.position_text, bases.clock_text, 0.0, 0.0
             ),
         );
         push_line(
@@ -372,6 +382,71 @@ impl SP3 {
         }
         Ok(())
     }
+}
+
+/// `%f` bases as written in the file.
+///
+/// The exponents of the standard deviations are computed with the base
+/// values that the written text reads back as, so a re-read file decodes
+/// them consistently.
+struct Bases {
+    /// Position/velocity base as written, `None` if the file declares none
+    position: Option<f64>,
+    /// Clock/clock-rate base as written, `None` if the file declares none
+    clock: Option<f64>,
+    /// `F10.7` text of the position/velocity base
+    position_text: String,
+    /// `F12.9` text of the clock/clock-rate base
+    clock_text: String,
+}
+
+impl Bases {
+    /// Format the bases of a header, checking that each declared base is
+    /// finite and greater than 1 both before and after formatting.
+    fn new(header: &SP3Header) -> Result<Self, BraheError> {
+        let (position_text, position) = base_field(
+            header.position_base,
+            POSITION_BASE_FIELD,
+            "position/velocity",
+        )?;
+        let (clock_text, clock) = base_field(header.clock_base, CLOCK_BASE_FIELD, "clock")?;
+        Ok(Bases {
+            position,
+            clock,
+            position_text,
+            clock_text,
+        })
+    }
+}
+
+/// Text of a `%f` base field and the base value the text reads back as.
+/// `None` is written as zero, which reads back as no base.
+fn base_field(
+    base: Option<f64>,
+    (width, precision): (usize, usize),
+    name: &str,
+) -> Result<(String, Option<f64>), BraheError> {
+    let what = format!("{} base", name);
+    let Some(base) = base else {
+        return Ok((fixed(0.0, width, precision, &what)?, None));
+    };
+    if !(base.is_finite() && base > 1.0) {
+        return Err(sp3_error(&format!(
+            "{} {} must be finite and greater than 1",
+            what, base
+        )));
+    }
+    let text = fixed(base, width, precision, &what)?;
+    let written: f64 = text.trim().parse().unwrap_or(f64::NAN);
+    if written.is_nan() || written <= 1.0 {
+        return Err(sp3_error(&format!(
+            "{} {} is written as {}, which is not greater than 1",
+            what,
+            base,
+            text.trim()
+        )));
+    }
+    Ok((text, Some(written)))
 }
 
 /// Append a line with trailing whitespace removed and a `\n` ending.
@@ -434,13 +509,15 @@ fn fixed(value: f64, width: usize, precision: usize, what: &str) -> Result<Strin
 }
 
 /// Exponent field of a `P` or `V` standard deviation: blanks for `None`,
-/// the "too large" marker `10^width - 1` for infinity, and otherwise the
-/// exponent clamped to the range of the field.
+/// and otherwise the exponent clamped to the range of the field. Infinity
+/// and any exponent reaching `10^width - 1` are written as that "too large"
+/// marker, so the written standard deviation is never below the stored one.
 ///
 /// # Arguments
 ///
 /// * `std` - Standard deviation. Units: SI
-/// * `base` - `%f` base of the exponent, `None` if the file declares none
+/// * `base` - `%f` base of the exponent as written, greater than 1, or `None` if the file
+///   declares none
 /// * `scale` - File unit of the standard deviation in SI
 /// * `width` - Width of the field
 /// * `what` - Name of the quantity, for errors
@@ -475,7 +552,7 @@ fn exponent_field(
             )));
         }
         let smallest = 1 - 10_i32.pow(width - 1);
-        exponent.clamp(f64::from(smallest), f64::from(too_large - 1)) as i32
+        exponent.clamp(f64::from(smallest), f64::from(too_large)) as i32
     };
     Ok(format!("{:width$}", exponent, width = width_chars))
 }
@@ -502,6 +579,29 @@ fn integer_std_field(
     Ok(format!("{:width$}", value, width = width))
 }
 
+/// Clock or clock-rate field in file units. `None` is the missing-value
+/// marker; a present value whose text the parser would read as that marker
+/// is an error.
+fn clock_field(clock: Option<f64>, name: &str) -> Result<String, BraheError> {
+    let Some(value) = clock else {
+        return fixed(BAD_CLOCK, 14, 6, name);
+    };
+    let text = fixed(value, 14, 6, name)?;
+    if text
+        .trim()
+        .parse::<f64>()
+        .is_ok_and(|v| v >= BAD_CLOCK_VALUE)
+    {
+        return Err(sp3_error(&format!(
+            "{} {} in file units reaches the missing-value marker {} and would read back as missing",
+            name,
+            text.trim(),
+            BAD_CLOCK_VALUE
+        )));
+    }
+    Ok(text)
+}
+
 /// Shared layout of `P` and `V` lines up to column 73.
 #[allow(clippy::too_many_arguments)]
 fn state_line(
@@ -509,21 +609,22 @@ fn state_line(
     id: SP3SatelliteId,
     values: [f64; 3],
     clock: Option<f64>,
+    clock_name: &str,
     std: [Option<f64>; 3],
     clock_std: Option<f64>,
-    header: &SP3Header,
+    bases: &Bases,
     units: StdUnits,
 ) -> Result<String, BraheError> {
     let mut line = format!("{}{}", tag, id);
     for (axis, value) in ["x", "y", "z"].iter().zip(values) {
         line.push_str(&fixed(value, 14, 6, axis)?);
     }
-    line.push_str(&fixed(clock.unwrap_or(BAD_CLOCK), 14, 6, "clock")?);
+    line.push_str(&clock_field(clock, clock_name)?);
     for s in std {
         line.push(' ');
         line.push_str(&exponent_field(
             s,
-            header.position_base,
+            bases.position,
             units.component,
             COMPONENT_EXPONENT_WIDTH,
             "position/velocity",
@@ -533,7 +634,7 @@ fn state_line(
     line.push(' ');
     line.push_str(&exponent_field(
         clock_std,
-        header.clock_base,
+        bases.clock,
         units.clock,
         CLOCK_EXPONENT_WIDTH,
         "clock",
@@ -593,7 +694,8 @@ fn correlation_line(
 /// A missing record is written as the bad value.
 fn write_record(
     out: &mut String,
-    header: &SP3Header,
+    has_velocity: bool,
+    bases: &Bases,
     id: SP3SatelliteId,
     record: Option<&SP3Record>,
 ) -> Result<(), BraheError> {
@@ -604,9 +706,10 @@ fn write_record(
         id,
         record.position.map(|p| p / KM_TO_M),
         record.clock.map(|c| c / US_TO_S),
+        "clock",
         record.position_std,
         record.clock_std,
-        header,
+        bases,
         POSITION_STD_UNITS,
     )?;
     let flag = |set: bool, c: char| if set { c } else { ' ' };
@@ -627,7 +730,7 @@ fn write_record(
         );
     }
 
-    if header.has_velocity {
+    if has_velocity {
         let line = state_line(
             'V',
             id,
@@ -636,9 +739,10 @@ fn write_record(
                 .unwrap_or([0.0; 3])
                 .map(|v| v / DM_PER_S_TO_M_PER_S),
             record.clock_rate.map(|r| r / CLOCK_RATE_TO_S_PER_S),
+            "clock rate",
             record.velocity_std,
             record.clock_rate_std,
-            header,
+            bases,
             VELOCITY_STD_UNITS,
         )?;
         push_line(out, &line);
@@ -1335,6 +1439,148 @@ mod tests {
         assert!(
             text.starts_with("#dV2024 11 10  0  1  0.00000000"),
             "{text}"
+        );
+    }
+
+    #[test]
+    #[parallel]
+    fn test_SP3_to_string_saturates_large_standard_deviations() {
+        let mut sp3 = two_satellite_file(SP3WriteOptions::default());
+        sp3.header_mut().position_base = Some(1.25);
+        sp3.header_mut().clock_base = Some(1.025);
+        let mut record = SP3Record::new([1.0e7, 2.0e7, 3.0e7])
+            .with_clock(1e-4)
+            .with_velocity([1.0, 2.0, 3.0])
+            .with_clock_rate(1e-12);
+        // 1.25^98 mm is about 3.2e6 m and 1.025^998 ps about 5.1e-2 s; larger
+        // values need the "too large" marker.
+        record.position_std = [Some(1.0e7), Some(1.25f64.powi(98) * 1e-3), None];
+        record.clock_std = Some(1.0);
+        record.velocity_std = [Some(1.0e4), None, None];
+        record.clock_rate_std = Some(1.0e-1);
+        sp3.set_record(sat("G02"), 0, record.clone()).unwrap();
+        let text = sp3.to_string().unwrap();
+        assert!(
+            text.lines().any(|l| l
+                == "PG02  10000.000000  20000.000000  30000.000000    100.000000 99 98    999"),
+            "{text}"
+        );
+        assert!(
+            text.lines().any(|l| l
+                == "VG02     10.000000     20.000000     30.000000      0.010000 99       999"),
+            "{text}"
+        );
+
+        let back = SP3::from_str(&text).unwrap();
+        let written = back.record(sat("G02"), 0).unwrap().unwrap();
+        assert_eq!(written.position_std[0], Some(f64::INFINITY));
+        assert_eq!(written.clock_std, Some(f64::INFINITY));
+        assert_eq!(written.velocity_std[0], Some(f64::INFINITY));
+        assert_eq!(written.clock_rate_std, Some(f64::INFINITY));
+        assert_quantized(
+            record.position_std[1],
+            written.position_std[1],
+            Some(1.25),
+            "position std",
+        );
+    }
+
+    #[test]
+    #[parallel]
+    fn test_SP3_to_string_invalid_bases() {
+        let with_std = |position_base: Option<f64>, clock_base: Option<f64>| {
+            let mut sp3 = two_satellite_file(SP3WriteOptions::default());
+            sp3.header_mut().position_base = position_base;
+            sp3.header_mut().clock_base = clock_base;
+            let mut record = SP3Record::new([1.0e7, 2.0e7, 3.0e7]).with_clock(1e-4);
+            record.position_std = [Some(0.010); 3];
+            record.clock_std = Some(1e-10);
+            sp3.set_record(sat("G02"), 0, record).unwrap();
+            sp3
+        };
+        for base in [0.0, 1.0, 0.5, -1.25, f64::NAN, f64::INFINITY] {
+            let msg = write_error(&with_std(Some(base), Some(1.025)));
+            assert!(msg.contains("position/velocity base"), "{base}: {msg}");
+            let msg = write_error(&with_std(Some(1.25), Some(base)));
+            assert!(msg.contains("clock base"), "{base}: {msg}");
+        }
+        let msg = write_error(&with_std(Some(1.000_000_01), Some(1.025)));
+        assert!(
+            msg.contains("position/velocity base 1.00000001 is written as 1.0000000"),
+            "{msg}"
+        );
+        let msg = write_error(&with_std(Some(1.25), Some(1.000_000_000_1)));
+        assert!(msg.contains("is written as 1.000000000"), "{msg}");
+
+        // An unused base is still validated, since the file must re-parse.
+        let mut sp3 = two_satellite_file(SP3WriteOptions::default());
+        sp3.header_mut().position_base = Some(1.0);
+        assert!(write_error(&sp3).contains("position/velocity base"));
+
+        // Exponents use the base as written, so they stay consistent on re-read.
+        let sp3 = with_std(Some(1.250_000_04), Some(1.025));
+        let back = SP3::from_str(&sp3.to_string().unwrap()).unwrap();
+        assert_eq!(back.header().position_base, Some(1.25));
+        let written = back.record(sat("G02"), 0).unwrap().unwrap();
+        assert_quantized(Some(0.010), written.position_std[0], Some(1.25), "std");
+    }
+
+    #[test]
+    #[parallel]
+    fn test_SP3_to_string_clock_in_missing_value_range() {
+        let clock_file = |clock: f64| {
+            let mut sp3 = two_satellite_file(SP3WriteOptions::default());
+            sp3.set_record(
+                sat("G02"),
+                0,
+                SP3Record::new([1.0e7, 2.0e7, 3.0e7]).with_clock(clock),
+            )
+            .unwrap();
+            sp3
+        };
+        let msg = write_error(&clock_file(1.0));
+        assert!(msg.contains("G02 at epoch 0"), "{msg}");
+        assert!(msg.contains("clock 1000000.000000"), "{msg}");
+        assert!(msg.contains("missing-value marker"), "{msg}");
+        // Rounds to 999999.000000 in the file.
+        assert!(write_error(&clock_file(0.999_998_999_999_9)).contains("missing-value marker"));
+
+        let text = clock_file(0.999_998_9).to_string().unwrap();
+        let back = SP3::from_str(&text).unwrap();
+        let clock = back.record(sat("G02"), 0).unwrap().unwrap().clock.unwrap();
+        assert_abs_diff_eq!(clock, 0.999_998_9, epsilon = 1e-12);
+
+        let mut sp3 = two_satellite_file(SP3WriteOptions::default());
+        sp3.set_record(
+            sat("G02"),
+            1,
+            SP3Record::new([1.0e7, 2.0e7, 3.0e7])
+                .with_velocity([1.0, 2.0, 3.0])
+                .with_clock_rate(1.0e-4),
+        )
+        .unwrap();
+        let msg = write_error(&sp3);
+        assert!(msg.contains("clock rate 1000000.000000"), "{msg}");
+    }
+
+    #[test]
+    #[parallel]
+    fn test_SP3_to_string_invalid_satellite_number() {
+        let template = two_satellite_file(SP3WriteOptions::default());
+        let bad = SP3SatelliteId {
+            system: GNSSSystem::GPS,
+            number: 100,
+        };
+        let sp3 = SP3::from_parts(
+            template.header().clone(),
+            template.epochs().to_vec(),
+            vec![sat("G01"), bad],
+            template.rows().to_vec(),
+        );
+        let msg = write_error(&sp3);
+        assert!(
+            msg.contains("satellite number 100 out of range 1..=99"),
+            "{msg}"
         );
     }
 }

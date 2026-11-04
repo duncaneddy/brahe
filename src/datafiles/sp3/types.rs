@@ -1170,13 +1170,20 @@ pub(crate) const GRID_TOLERANCE: f64 = 1.0e-3;
 ///
 /// # Returns
 ///
-/// * `Option<String>` - Description of the problem, or `None` if the epoch is valid
+/// * `Option<String>` - Description of the problem, or `None` if the epoch is valid. A
+///   non-positive or non-finite interval is always a problem.
 pub(crate) fn epoch_grid_error(
     first: Epoch,
     last: Epoch,
     epoch: Epoch,
     interval: f64,
 ) -> Option<String> {
+    if !(interval.is_finite() && interval > 0.0) {
+        return Some(format!(
+            "epoch interval must be positive and finite, got {}",
+            interval
+        ));
+    }
     if epoch - last <= 0.0 {
         return Some(format!(
             "epoch {} is not after the last epoch {}",
@@ -1277,7 +1284,7 @@ impl SP3 {
     ///
     /// # Arguments
     ///
-    /// * `satellites` - Satellites in header order; at most 999, no duplicates
+    /// * `satellites` - Satellites in header order; at most 999, no duplicates, numbers 1 to 99
     /// * `epoch_interval` - Spacing of the epoch grid. Units: s
     /// * `options` - Header options; the time system must have a Brahe equivalent
     ///   (GPS, GAL, BDT, TAI, or UTC)
@@ -1285,7 +1292,7 @@ impl SP3 {
     /// # Returns
     ///
     /// * `Result<SP3, BraheError>` - The empty file, or an error for duplicate satellites,
-    ///   more than 999 satellites, a non-positive or non-finite interval, or a time system
+    ///   a satellite number outside 1 to 99, more than 999 satellites, a non-positive or non-finite interval, or a time system
     ///   without a Brahe equivalent
     ///
     /// # Examples
@@ -1313,6 +1320,7 @@ impl SP3 {
         }
         let mut seen = HashSet::with_capacity(satellites.len());
         for id in &satellites {
+            SP3SatelliteId::new(id.system, id.number)?;
             if !seen.insert(*id) {
                 return Err(sp3_error(&format!("duplicate satellite {}", id)));
             }
@@ -2217,5 +2225,40 @@ mod tests {
         assert_eq!(sp3.record(sid("G01"), 0).unwrap().unwrap().position[1], 2.0);
         assert!(sp3.record(sid("G01"), 1).unwrap().is_none());
         assert!(sp3.record(sid("G01"), 2).is_err());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_SP3_new_rejects_invalid_satellite_number() {
+        let bad = SP3SatelliteId {
+            system: GNSSSystem::GPS,
+            number: 100,
+        };
+        let err = SP3::new(vec![sid("G01"), bad], 900.0, SP3WriteOptions::default()).unwrap_err();
+        assert!(
+            err.to_string()
+                .contains("satellite number 100 out of range 1..=99"),
+            "{err}"
+        );
+    }
+
+    #[test]
+    #[parallel]
+    fn test_epoch_grid_error_rejects_non_positive_interval() {
+        let t0 = gps_t0();
+        for interval in [0.0, -900.0, f64::NAN, f64::INFINITY] {
+            let detail = epoch_grid_error(t0, t0, t0 + 900.0, interval).unwrap();
+            assert!(
+                detail.contains("epoch interval must be positive and finite"),
+                "{detail}"
+            );
+        }
+        assert!(epoch_grid_error(t0, t0, t0 + 900.0, 900.0).is_none());
+
+        let mut sp3 = SP3::new(vec![sid("G01")], 900.0, SP3WriteOptions::default()).unwrap();
+        sp3.push_epoch(t0).unwrap();
+        sp3.header_mut().epoch_interval = 0.0;
+        let err = sp3.push_epoch(t0 + 900.0).unwrap_err();
+        assert!(err.to_string().contains("epoch interval"), "{err}");
     }
 }

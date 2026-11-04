@@ -465,6 +465,27 @@ def test_SP3_new_rejects_more_than_999_satellites():
     assert "999" in str(excinfo.value)
 
 
+def test_SP3_new_rejects_invalid_satellite_number():
+    # Python identifiers are always validated on construction, so an
+    # out-of-range number is rejected before it reaches the satellite list.
+    with pytest.raises(bh.BraheError):
+        SP3(["G01", "G100"], 900.0)
+    with pytest.raises(bh.BraheError):
+        SP3(["G01", SP3SatelliteId(GNSSSystem.GPS, 100)], 900.0)
+
+
+def test_epoch_grid_error_rejects_non_positive_interval():
+    for interval in [0.0, -900.0, math.nan, math.inf]:
+        sp3 = SP3(["G01"], 900.0)
+        sp3.push_epoch(gps_t0())
+        header = sp3.header
+        header.epoch_interval = interval
+        sp3.header = header
+        with pytest.raises(bh.BraheError) as excinfo:
+            sp3.push_epoch(gps_t0() + 900.0)
+        assert "epoch interval must be positive and finite" in str(excinfo.value)
+
+
 @pytest.mark.parametrize(
     "ids, expected",
     [
@@ -1378,6 +1399,13 @@ def test_SP3_from_str_one_second_day():
     assert sp3.end_epoch - t0 == pytest.approx(86_399.0, abs=1e-7)
 
 
+@pytest.mark.parametrize("interval", ["     0.00000000", "  -900.00000000"])
+def test_SP3_from_str_non_positive_epoch_interval(interval):
+    content = read_fixture("example-d-3.sp3").replace("  900.00000000", interval, 1)
+    msg = parse_error(content)
+    assert msg.startswith("SP3: line 2: epoch interval must be positive"), msg
+
+
 # ---------------------------------------------------------------------------
 # write.rs
 # ---------------------------------------------------------------------------
@@ -1889,3 +1917,104 @@ def test_SP3_to_string_epoch_second_rounding():
     text = sp3.to_string()
     assert "\n*  2024 11 10  0  1  0.00000000\n" in text
     assert text.startswith("#dV2024 11 10  0  1  0.00000000")
+
+
+def test_SP3_to_string_saturates_large_standard_deviations():
+    sp3 = two_satellite_file()
+    header = sp3.header
+    header.position_base = 1.25
+    header.clock_base = 1.025
+    sp3.header = header
+    # 1.25^98 mm is about 3.2e6 m and 1.025^998 ps about 5.1e-2 s; larger
+    # values need the "too large" marker.
+    record = SP3Record(
+        [1.0e7, 2.0e7, 3.0e7],
+        clock=1e-4,
+        velocity=[1.0, 2.0, 3.0],
+        clock_rate=1e-12,
+        position_std=(1.0e7, 1.25**98 * 1e-3, None),
+        clock_std=1.0,
+        velocity_std=(1.0e4, None, None),
+        clock_rate_std=1.0e-1,
+    )
+    sp3.set_record("G02", 0, record)
+    lines = sp3.to_string().splitlines()
+    assert (
+        "PG02  10000.000000  20000.000000  30000.000000    100.000000 99 98    999"
+        in lines
+    )
+    assert (
+        "VG02     10.000000     20.000000     30.000000      0.010000 99       999"
+        in lines
+    )
+
+    written = SP3.from_str(sp3.to_string()).record("G02", 0)
+    assert written.position_std[0] == math.inf
+    assert written.clock_std == math.inf
+    assert written.velocity_std[0] == math.inf
+    assert written.clock_rate_std == math.inf
+    assert_quantized(
+        record.position_std[1], written.position_std[1], 1.25, "position std"
+    )
+
+
+def test_SP3_to_string_invalid_bases():
+    def with_std(position_base, clock_base):
+        sp3 = two_satellite_file()
+        header = sp3.header
+        header.position_base = position_base
+        header.clock_base = clock_base
+        sp3.header = header
+        sp3.set_record(
+            "G02",
+            0,
+            SP3Record(
+                [1.0e7, 2.0e7, 3.0e7],
+                clock=1e-4,
+                position_std=[0.010] * 3,
+                clock_std=1e-10,
+            ),
+        )
+        return sp3
+
+    for base in [0.0, 1.0, 0.5, -1.25, math.nan, math.inf]:
+        assert "position/velocity base" in write_error(with_std(base, 1.025))
+        assert "clock base" in write_error(with_std(1.25, base))
+    msg = write_error(with_std(1.000_000_01, 1.025))
+    assert "position/velocity base 1.00000001 is written as 1.0000000" in msg
+    assert "is written as 1.000000000" in write_error(with_std(1.25, 1.000_000_000_1))
+
+    sp3 = two_satellite_file()
+    header = sp3.header
+    header.position_base = 1.0
+    sp3.header = header
+    assert "position/velocity base" in write_error(sp3)
+
+    back = SP3.from_str(with_std(1.250_000_04, 1.025).to_string())
+    assert back.header.position_base == 1.25
+    assert_quantized(0.010, back.record("G02", 0).position_std[0], 1.25, "std")
+
+
+def test_SP3_to_string_clock_in_missing_value_range():
+    def clock_file(clock):
+        sp3 = two_satellite_file()
+        sp3.set_record("G02", 0, SP3Record([1.0e7, 2.0e7, 3.0e7], clock=clock))
+        return sp3
+
+    msg = write_error(clock_file(1.0))
+    assert "G02 at epoch 0" in msg
+    assert "clock 1000000.000000" in msg
+    assert "missing-value marker" in msg
+    # Rounds to 999999.000000 in the file.
+    assert "missing-value marker" in write_error(clock_file(0.999_998_999_999_9))
+
+    back = SP3.from_str(clock_file(0.999_998_9).to_string())
+    assert back.record("G02", 0).clock == pytest.approx(0.999_998_9, abs=1e-12)
+
+    sp3 = two_satellite_file()
+    sp3.set_record(
+        "G02",
+        1,
+        SP3Record([1.0e7, 2.0e7, 3.0e7], velocity=[1.0, 2.0, 3.0], clock_rate=1.0e-4),
+    )
+    assert "clock rate 1000000.000000" in write_error(sp3)

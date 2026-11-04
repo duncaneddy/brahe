@@ -37,7 +37,7 @@ const CLOCK_RATE_STD_TO_S_PER_S: f64 = 1.0e-16;
 /// Scale of the integer correlation coefficients of `EP` and `EV` records.
 pub(super) const CORRELATION_SCALE: f64 = 1.0e-7;
 /// Clock and clock-rate values at or above this are the bad-value marker `999999.999999`.
-const BAD_CLOCK_VALUE: f64 = 999_999.0;
+pub(super) const BAD_CLOCK_VALUE: f64 = 999_999.0;
 /// `EP`/`EV` component standard deviation marking a value too large to represent.
 pub(super) const CORRELATION_STD_TOO_LARGE: i64 = 9999;
 /// `EP`/`EV` clock standard deviation marking a value too large to represent.
@@ -873,6 +873,15 @@ impl Parser {
         self.header.gps_week = parse_number(n, tokens[0], "GPS week")?;
         self.header.seconds_of_week = parse_f64(n, tokens[1], "seconds of week")?;
         self.header.epoch_interval = parse_f64(n, tokens[2], "epoch interval")?;
+        if self.header.epoch_interval <= 0.0 {
+            return Err(sp3_parse_error(
+                n,
+                &format!(
+                    "epoch interval must be positive, got {}",
+                    self.header.epoch_interval
+                ),
+            ));
+        }
         self.header.mjd = parse_number(n, tokens[3], "modified Julian day")?;
         self.header.fractional_day = parse_f64(n, tokens[4], "fractional day")?;
         Ok(())
@@ -2189,5 +2198,18 @@ mod tests {
         let t0 = Epoch::from_datetime(2024, 1, 1, 0, 0, 1.0, 0.0, TimeSystem::GPS);
         assert_epoch(sp3.start_epoch(), t0);
         assert_abs_diff_eq!(sp3.end_epoch() - t0, 86_399.0, epsilon = 1e-7);
+    }
+
+    #[rstest]
+    #[case("     0.00000000")]
+    #[case("  -900.00000000")]
+    #[parallel]
+    fn test_SP3_from_str_non_positive_epoch_interval(#[case] interval: &str) {
+        let content = read_fixture("example-d-3.sp3").replacen("  900.00000000", interval, 1);
+        let msg = parse_error(&content);
+        assert!(
+            msg.starts_with("SP3: line 2: epoch interval must be positive"),
+            "{msg}"
+        );
     }
 }

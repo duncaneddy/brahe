@@ -35,8 +35,8 @@ An SP3 file starts with a fixed set of header lines: the version, start epoch, e
 |---|---|---|
 | a | GPS only | Positions, optional velocities, clock corrections; time system fixed to GPS time |
 | b | Multi-GNSS | Version a with a system letter on each satellite identifier |
-| c | Up to 85 | Adds the time system label, standard deviation bases, clock event and prediction flags, and `EP` and `EV` correlation records |
-| d | Up to 999 | Version c with an extended satellite count field and additional satellite lines |
+| c | Up to 85 | Adds the time system label, standard deviation bases, the clock event, clock prediction, maneuver, and orbit prediction flags, and `EP` and `EV` correlation records; exactly four comment lines of up to 57 characters (columns 4-60) |
+| d | Up to 999 | Version c with a three-digit satellite count field, at least five `+` lines and more above 85 satellites, an unlimited number of comment lines, and comments of up to 77 characters (columns 4-80) |
 
 In version a the `%c` and `%f` placeholder lines carry no information, so the time system reads as GPS and a non-zero standard deviation base is an error.
 
@@ -119,10 +119,11 @@ The parser raises an error in these cases.
 | Unsupported version | `SP3: line 1: unsupported version 'z'` |
 | Non-zero standard deviation base in a version a file | `SP3: line 15: version a file declares a non-zero clock base 1.025` |
 | Standard deviation exponent with no declared base in a version c or d file | `SP3: line 24: clock standard deviation exponent but the %f line declares no clock base` |
+| Epoch interval of zero or less | `SP3: line 2: epoch interval must be positive, got 0` |
 | Epoch off the interval grid by more than one millisecond | `SP3: line 37: epoch ... is not on the 900 s grid starting at ...` |
 | Time system without a Brahe equivalent | `SP3: line 13: time system 'GLO' is not supported` |
 
-The parser does not enforce the comment count, comment length, or satellite count limits of the declared version. The writer enforces them.
+The parser does not enforce the comment count, comment length, or satellite count limits of the declared version listed in the version table. The writer always produces version d and enforces its limits: at most 999 satellites and comments of at most 77 characters.
 
 ## Writing a File
 
@@ -149,7 +150,7 @@ The parser does not enforce the comment count, comment length, or satellite coun
 
 `SP3(satellites, epoch_interval, ...)` creates an empty file with a fixed epoch grid. The keyword arguments set the agency, time system, coordinate system label, orbit type, data-used label, whether velocity records are written, and the comment lines. `push_epoch` appends an epoch and returns its index, and `set_record` stores an `SP3Record` for a satellite at that index. An appended epoch must be later than the last epoch and lie on the grid anchored at the first epoch, to within one millisecond; grid points may be skipped. A satellite without a record at an epoch is written with the zero position and the missing-clock value that the format defines for absent data, and reads back as `None`.
 
-`to_string` returns the file as SP3-d text with `\n` line endings, and `to_file` writes it to a path. The writer always produces version d, so a file read as version a, b, or c is upgraded when written. The writer reports an error when the file cannot be represented in SP3-d: more than 999 satellites, a time system without a Brahe equivalent, epochs that are out of order or off the grid, a record table that does not match the epochs and satellites, a comment longer than 77 characters, a header label that does not fit its column, or a value that does not fit its field width.
+`to_string` returns the file as SP3-d text with `\n` line endings, and `to_file` writes it to a path. The writer always produces version d, so a file read as version a, b, or c is upgraded when written. The writer reports an error when the file cannot be represented in SP3-d: more than 999 satellites, a satellite number outside 1 to 99, a time system without a Brahe equivalent, epochs that are out of order or off the grid, a record table that does not match the epochs and satellites, a comment longer than 77 characters, a header label that does not fit its column, a standard deviation base that is not finite and greater than 1 as written, a clock or clock rate that would read back as the missing-clock value, or a value that does not fit its field width.
 
 Standard deviations are written only when the matching base is set in the header (`position_base` for position and velocity, `clock_base` for clock and clock rate). A standard deviation $\sigma$, expressed in the column unit, is written as the exponent
 
@@ -157,7 +158,7 @@ $$
 n = \left\lceil \log_b \sigma \right\rceil
 $$
 
-and an infinite value is written as the unbounded marker. Satellite accuracies are written as $\lceil \log_2 \sigma_\mathrm{mm} \rceil$, at least 1, with an unknown accuracy written as 0. The first line of the file written above, `#dV2024 11 10  0  0  0.00000000       3 ORBIT IGS20 EXT BRHE`, shows the version `d`, the `V` flag for a file with velocity records, the start epoch, the epoch count, and the data-used, coordinate system, orbit type, and agency labels.
+computed with the base as written in the `%f` line. An infinite value, or an exponent that reaches 99 for a position or velocity component or 999 for a clock, is written as the unbounded marker, so the written standard deviation is never smaller than the stored one. Satellite accuracies are written as $\lceil \log_2 \sigma_\mathrm{mm} \rceil$, at least 1, with an unknown accuracy written as 0. The first line of the file written above, `#dV2024 11 10  0  0  0.00000000       3 ORBIT IGS20 EXT BRHE`, shows the version `d`, the `V` flag for a file with velocity records, the start epoch, the epoch count, and the data-used, coordinate system, orbit type, and agency labels.
 
 ---
 

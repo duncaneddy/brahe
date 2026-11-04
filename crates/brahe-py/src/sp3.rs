@@ -1925,7 +1925,7 @@ impl PySP3 {
     ///     str: The file text.
     ///
     /// Raises:
-    ///     BraheError: If the file cannot be represented in SP3-d, for example an off-grid epoch, a comment longer than 77 characters, a header label longer than its field (agency 4, coordinate system 5, data used 5, orbit type 3 characters; shorten it by assigning a modified ``header``), or a value that does not fit its column.
+    ///     BraheError: If the file cannot be represented in SP3-d, for example an off-grid epoch, an epoch interval that rounds to zero at 8 decimal places, a comment longer than 77 characters, a header label longer than its field (agency 4, coordinate system 5, data used 5, orbit type 3 characters; shorten it by assigning a modified ``header``), or a value that does not fit its column.
     ///
     /// Example:
     ///     ```python

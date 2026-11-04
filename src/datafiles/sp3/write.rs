@@ -80,8 +80,9 @@ impl SP3 {
     ///
     /// * `Result<String, BraheError>` - The SP3-d text with `\n` line endings, or an error
     ///   when the file cannot be represented: no epochs, more than 999 satellites, a time system
-    ///   without a Brahe equivalent (`GLO`, `QZS`, `IRN`), epochs that are not ascending
-    ///   or not on the interval grid, a record table that does not match the epochs and
+    ///   without a Brahe equivalent (`GLO`, `QZS`, `IRN`), an epoch interval that rounds to
+    ///   zero or does not fit its 14-column field at 8 decimal places, epochs that are not
+    ///   ascending or not on the grid of the interval as written, a record table that does not match the epochs and
     ///   satellites, an accuracy list that does not match the satellites, a comment longer
     ///   than 77 characters or containing a line break, an empty or whitespace-holding
     ///   header label, a header label longer than its field, a satellite number outside
@@ -212,6 +213,20 @@ impl SP3 {
             return Err(sp3_error(&format!(
                 "epoch interval must be positive and finite, got {}",
                 interval
+            )));
+        }
+        let written = format!("{:14.8}", interval);
+        if written.len() > 14 {
+            return Err(sp3_error(&format!(
+                "epoch interval {} s does not fit the 14-column ## field",
+                interval
+            )));
+        }
+        let interval: f64 = written.trim().parse().unwrap_or(0.0);
+        if interval <= 0.0 {
+            return Err(sp3_error(&format!(
+                "epoch interval {} s rounds to zero at 8 decimal places",
+                header.epoch_interval
             )));
         }
         let epochs = self.epochs();
@@ -1446,6 +1461,59 @@ mod tests {
             text.starts_with("#dV2024 11 10  0  1  0.00000000"),
             "{text}"
         );
+    }
+
+    #[test]
+    #[parallel]
+    fn test_SP3_to_string_utc_leap_second_round_trip() {
+        let options = SP3WriteOptions {
+            time_system: SP3TimeSystem::UTC,
+            ..SP3WriteOptions::default()
+        };
+        let mut sp3 = SP3::new(vec![sat("G01")], 60.0, options).unwrap();
+        let t0 = Epoch::from_datetime(2016, 12, 31, 23, 59, 0.0, 0.0, TimeSystem::UTC);
+        for k in 0..3 {
+            sp3.push_epoch(t0 + 60.0 * k as f64).unwrap();
+        }
+        let text = sp3.to_string().unwrap();
+        assert!(
+            text.contains("\n*  2016 12 31 23 59 60.00000000\n"),
+            "{text}"
+        );
+        assert!(
+            text.contains("\n*  2017  1  1  0  0 59.00000000\n"),
+            "{text}"
+        );
+
+        let parsed = SP3::from_str(&text).unwrap();
+        assert_eq!(parsed.epochs().len(), 3);
+        for (actual, expected) in parsed.epochs().iter().zip(sp3.epochs()) {
+            assert_abs_diff_eq!(*actual - *expected, 0.0, epsilon = 1e-9);
+        }
+    }
+
+    #[test]
+    #[parallel]
+    fn test_SP3_to_string_interval_at_written_precision() {
+        let mut sp3 = SP3::new(vec![sat("G01")], 1.0e-9, SP3WriteOptions::default()).unwrap();
+        sp3.push_epoch(gps_t0()).unwrap();
+        let msg = write_error(&sp3);
+        assert!(
+            msg.contains("epoch interval 0.000000001 s rounds to zero at 8 decimal places"),
+            "{msg}"
+        );
+
+        let mut sp3 = SP3::new(vec![sat("G01")], 1.0e6, SP3WriteOptions::default()).unwrap();
+        sp3.push_epoch(gps_t0()).unwrap();
+        let msg = write_error(&sp3);
+        assert!(
+            msg.contains("epoch interval 1000000 s does not fit the 14-column ## field"),
+            "{msg}"
+        );
+
+        let mut sp3 = SP3::new(vec![sat("G01")], 99_999.0, SP3WriteOptions::default()).unwrap();
+        sp3.push_epoch(gps_t0()).unwrap();
+        assert!(sp3.to_string().unwrap().contains(" 99999.00000000 "));
     }
 
     #[test]

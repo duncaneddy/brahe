@@ -497,7 +497,9 @@ impl DateTimeFields {
         }
     }
 
-    /// Check that every field is within its calendar range.
+    /// Check that every field is within its calendar range. Second 60 is
+    /// accepted here and checked against the time system by
+    /// [`DateTimeFields::check_leap_second`].
     fn validate(&self, n: usize) -> Result<(), BraheError> {
         let max_day =
             days_in_month(self.year, self.month).map_err(|_| self.out_of_range(n, "month"))?;
@@ -510,10 +512,30 @@ impl DateTimeFields {
         if self.minute > 59 {
             return Err(self.out_of_range(n, "minute"));
         }
-        if !(0.0..60.0).contains(&self.second) {
+        if !(0.0..61.0).contains(&self.second) {
             return Err(self.out_of_range(n, "second"));
         }
         Ok(())
+    }
+
+    /// Check that a second of 60 or more falls in a UTC leap second.
+    fn check_leap_second(&self, n: usize, time_system: TimeSystem) -> Result<(), BraheError> {
+        if self.second < 60.0 {
+            return Ok(());
+        }
+        let in_leap_second = time_system == TimeSystem::UTC && {
+            let (year, month, day, hour, minute, second, _) = self
+                .to_epoch(time_system)
+                .to_datetime_as_time_system(time_system);
+            (year, month, day, hour, minute)
+                == (self.year, self.month, self.day, self.hour, self.minute)
+                && second >= 60.0
+        };
+        if in_leap_second {
+            Ok(())
+        } else {
+            Err(self.out_of_range(n, "second"))
+        }
     }
 
     fn out_of_range(&self, n: usize, what: &str) -> BraheError {
@@ -974,6 +996,7 @@ impl Parser {
         let time_system = label.to_time_system().ok_or_else(|| {
             sp3_parse_error(n, &format!("time system '{}' is not supported", label))
         })?;
+        self.start.check_leap_second(1, time_system)?;
         self.header.time_system = label;
         self.header.start_epoch = self.start.to_epoch(time_system);
         self.time_system = Some(time_system);
@@ -1047,6 +1070,7 @@ impl Parser {
             .split_last()
             .ok_or_else(|| sp3_parse_error(n, "epoch line has no date"))?;
         carried.validate(n)?;
+        carried.check_leap_second(n, time_system)?;
         let interval = self.header.epoch_interval;
         let expected = self
             .epochs
@@ -1054,7 +1078,7 @@ impl Parser {
             .map_or(self.header.start_epoch, |last| *last + interval);
         let epoch = uncarried
             .iter()
-            .filter(|r| r.validate(n).is_ok())
+            .filter(|r| r.validate(n).is_ok() && r.check_leap_second(n, time_system).is_ok())
             .map(|r| r.to_epoch(time_system))
             .find(|e| (*e - expected).abs() <= GRID_TOLERANCE)
             .unwrap_or_else(|| carried.to_epoch(time_system));
@@ -1950,6 +1974,19 @@ mod tests {
         assert_eq!(sp3.header().comments.len(), 4);
     }
 
+    #[rstest]
+    #[case("example-c-1.sp3")]
+    #[case("example-d-2.sp3")]
+    #[parallel]
+    fn test_SP3_from_str_crlf_line_endings(#[case] name: &str) {
+        let content = read_fixture(name);
+        let crlf = content.replace('\n', "\r\n");
+        assert_eq!(
+            SP3::from_str(&crlf).unwrap(),
+            SP3::from_str(&content).unwrap()
+        );
+    }
+
     #[test]
     #[parallel]
     fn test_SP3_from_str_blank_partial_fields() {
@@ -2126,6 +2163,54 @@ mod tests {
             1,
         ));
         assert_eq!(msg, "SP3: line 23: invalid second 'nan'");
+    }
+
+    #[rstest]
+    #[case("UTC", "2016 12 31 23 59 60.00000000", true)]
+    #[case("UTC", "2016 12 31 23 59 60.50000000", true)]
+    #[case("UTC", "2016 12 30 23 59 60.00000000", false)]
+    #[case("UTC", "2016 12 31 23 58 60.00000000", false)]
+    #[case("GPS", "2016 12 31 23 59 60.00000000", false)]
+    #[parallel]
+    fn test_SP3_from_str_leap_second(
+        #[case] time_system: &str,
+        #[case] date: &str,
+        #[case] accepted: bool,
+    ) {
+        let content = |header: &str, epoch: &str| {
+            format!(
+                "#dP{header}       1 ORBIT IGS20 FIT  TST\n\
+                 ## 1929 604800.00000000    60.00000000 57753 0.9999884259259\n\
+                 +    1   G01\n\
+                 ++         0\n\
+                 %c G  cc {time_system} ccc cccc cccc cccc cccc ccccc ccccc ccccc ccccc\n\
+                 %c cc cc ccc ccc cccc cccc cccc cccc ccccc ccccc ccccc ccccc\n\
+                 %f  0.0000000  0.000000000  0.00000000000  0.000000000000000\n\
+                 %f  0.0000000  0.000000000  0.00000000000  0.000000000000000\n\
+                 %i    0    0    0    0      0      0      0      0         0\n\
+                 %i    0    0    0    0      0      0      0      0         0\n\
+                 /* LEAP SECOND\n\
+                 *  {epoch}\n\
+                 PG01  15000.000000  20000.000000   5000.000000    100.000000\n\
+                 EOF\n"
+            )
+        };
+
+        if accepted {
+            let sp3 = SP3::from_str(&content(date, date)).unwrap();
+            for epoch in [sp3.start_epoch(), sp3.epochs()[0]] {
+                let (_, _, _, _, _, second, _) = epoch.to_datetime_as_time_system(TimeSystem::UTC);
+                assert_eq!(second, 60.0);
+            }
+        } else {
+            let msg = parse_error(&content(date, date));
+            assert!(msg.starts_with("SP3: line 1: second out of range"), "{msg}");
+            let msg = parse_error(&content("2016 12 31 23 59  0.00000000", date));
+            assert!(
+                msg.starts_with("SP3: line 12: second out of range"),
+                "{msg}"
+            );
+        }
     }
 
     #[test]

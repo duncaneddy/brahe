@@ -1233,6 +1233,47 @@ def test_SP3_from_str_malformed_header_and_epoch_fields():
     assert msg == "SP3: line 23: invalid second 'nan'"
 
 
+@pytest.mark.parametrize(
+    "time_system, date, accepted",
+    [
+        ("UTC", "2016 12 31 23 59 60.00000000", True),
+        ("UTC", "2016 12 31 23 59 60.50000000", True),
+        ("UTC", "2016 12 30 23 59 60.00000000", False),
+        ("UTC", "2016 12 31 23 58 60.00000000", False),
+        ("GPS", "2016 12 31 23 59 60.00000000", False),
+    ],
+)
+def test_SP3_from_str_leap_second(time_system, date, accepted):
+    def content(header, epoch):
+        return (
+            f"#dP{header}       1 ORBIT IGS20 FIT  TST\n"
+            "## 1929 604800.00000000    60.00000000 57753 0.9999884259259\n"
+            "+    1   G01\n"
+            "++         0\n"
+            f"%c G  cc {time_system} ccc cccc cccc cccc cccc ccccc ccccc ccccc ccccc\n"
+            "%c cc cc ccc ccc cccc cccc cccc cccc ccccc ccccc ccccc ccccc\n"
+            "%f  0.0000000  0.000000000  0.00000000000  0.000000000000000\n"
+            "%f  0.0000000  0.000000000  0.00000000000  0.000000000000000\n"
+            "%i    0    0    0    0      0      0      0      0         0\n"
+            "%i    0    0    0    0      0      0      0      0         0\n"
+            "/* LEAP SECOND\n"
+            f"*  {epoch}\n"
+            "PG01  15000.000000  20000.000000   5000.000000    100.000000\n"
+            "EOF\n"
+        )
+
+    if accepted:
+        sp3 = SP3.from_str(content(date, date))
+        for epoch in [sp3.start_epoch, sp3.epochs[0]]:
+            second = epoch.to_datetime_as_time_system(bh.TimeSystem.UTC)[5]
+            assert second == 60.0
+    else:
+        msg = parse_error(content(date, date))
+        assert msg.startswith("SP3: line 1: second out of range"), msg
+        msg = parse_error(content("2016 12 31 23 59  0.00000000", date))
+        assert msg.startswith("SP3: line 12: second out of range"), msg
+
+
 def test_SP3_from_str_month_rollover():
     def content(header_start, epoch):
         return (
@@ -1355,6 +1396,13 @@ def test_SP3_from_str_eof_case_and_blank_lines():
     sp3 = SP3.from_str(c1.replace("\nEOF", "\n").replace("\n/*", "\n\n/*"))
     assert sp3.num_epochs == 2
     assert len(sp3.header.comments) == 4
+
+
+@pytest.mark.parametrize("name", ["example-c-1.sp3", "example-d-2.sp3"])
+def test_SP3_from_str_crlf_line_endings(name):
+    content = read_fixture(name)
+    crlf = content.replace("\n", "\r\n")
+    assert SP3.from_str(crlf).to_string() == SP3.from_str(content).to_string()
 
 
 def test_SP3_from_str_blank_partial_fields():
@@ -2121,6 +2169,39 @@ def test_SP3_to_string_epoch_second_rounding():
     text = sp3.to_string()
     assert "\n*  2024 11 10  0  1  0.00000000\n" in text
     assert text.startswith("#dV2024 11 10  0  1  0.00000000")
+
+
+def test_SP3_to_string_utc_leap_second_round_trip():
+    sp3 = SP3(["G01"], 60.0, time_system=SP3TimeSystem.UTC)
+    t0 = bh.Epoch.from_datetime(2016, 12, 31, 23, 59, 0.0, 0.0, bh.TimeSystem.UTC)
+    for k in range(3):
+        sp3.push_epoch(t0 + 60.0 * k)
+    text = sp3.to_string()
+    assert "\n*  2016 12 31 23 59 60.00000000\n" in text
+    assert "\n*  2017  1  1  0  0 59.00000000\n" in text
+
+    parsed = SP3.from_str(text)
+    assert len(parsed.epochs) == 3
+    for actual, expected in zip(parsed.epochs, sp3.epochs):
+        assert actual - expected == pytest.approx(0.0, abs=1e-9)
+
+
+def test_SP3_to_string_interval_at_written_precision():
+    sp3 = SP3(["G01"], 1.0e-9)
+    sp3.push_epoch(gps_t0())
+    assert "epoch interval 0.000000001 s rounds to zero at 8 decimal places" in (
+        write_error(sp3)
+    )
+
+    sp3 = SP3(["G01"], 1.0e6)
+    sp3.push_epoch(gps_t0())
+    assert "epoch interval 1000000 s does not fit the 14-column ## field" in (
+        write_error(sp3)
+    )
+
+    sp3 = SP3(["G01"], 99_999.0)
+    sp3.push_epoch(gps_t0())
+    assert " 99999.00000000 " in sp3.to_string()
 
 
 def test_SP3_to_string_saturates_large_standard_deviations():

@@ -9,6 +9,13 @@ Reader, writer, and in-memory builder for SP3 precise orbit files.
       show_root_heading: true
       show_root_full_path: false
 
+## SP3Satellite
+
+::: brahe.SP3Satellite
+    options:
+      show_root_heading: true
+      show_root_full_path: false
+
 ## SP3Header
 
 ::: brahe.SP3Header

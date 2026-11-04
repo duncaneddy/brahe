@@ -45,6 +45,13 @@ pub(crate) enum Compression {
 ///
 /// * `Compression` - `Gzip` for magic `1f 8b`, `UnixCompress` for `1f 9d`, and
 ///   `None` for anything else, including payloads shorter than two bytes
+///
+/// # Examples
+///
+/// ```ignore
+/// assert_eq!(compression_of(&[0x1f, 0x8b, 0x08]), Compression::Gzip);
+/// assert_eq!(compression_of(b"#dP2024"), Compression::None);
+/// ```
 pub(crate) fn compression_of(bytes: &[u8]) -> Compression {
     match bytes.get(..2) {
         Some(magic) if magic == GZIP_MAGIC => Compression::Gzip,
@@ -69,6 +76,14 @@ pub(crate) fn compression_of(bytes: &[u8]) -> Compression {
 ///   compressed, or the decoded bytes. An `Error` holding
 ///   [`UNIX_COMPRESS_UNSUPPORTED`] for Unix compress data, an `Error` describing the
 ///   failure for a corrupt gzip stream, or an `Error` when the decoded size exceeds 1 GiB.
+///
+/// # Examples
+///
+/// ```ignore
+/// let packed = gzip(b"#dP2024").unwrap();
+/// assert_eq!(&*decompress(&packed).unwrap(), b"#dP2024");
+/// assert_eq!(&*decompress(b"#dP2024").unwrap(), b"#dP2024");
+/// ```
 pub(crate) fn decompress(bytes: &[u8]) -> Result<Cow<'_, [u8]>, BraheError> {
     decompress_limited(bytes, MAX_DECOMPRESSED_BYTES)
 }
@@ -84,6 +99,14 @@ pub(crate) fn decompress(bytes: &[u8]) -> Result<Cow<'_, [u8]>, BraheError> {
 ///
 /// * `Result<Cow<[u8]>, BraheError>` - As for [`decompress`], with an `Error` when the
 ///   decoded size exceeds `limit`
+///
+/// # Examples
+///
+/// ```ignore
+/// let packed = gzip(&[0u8; 1024]).unwrap();
+/// assert_eq!(decompress_limited(&packed, 1024).unwrap().len(), 1024);
+/// assert!(decompress_limited(&packed, 1023).is_err());
+/// ```
 fn decompress_limited(bytes: &[u8], limit: u64) -> Result<Cow<'_, [u8]>, BraheError> {
     match compression_of(bytes) {
         Compression::None => Ok(Cow::Borrowed(bytes)),
@@ -114,6 +137,13 @@ fn decompress_limited(bytes: &[u8], limit: u64) -> Result<Cow<'_, [u8]>, BraheEr
 /// # Returns
 ///
 /// * `Result<Vec<u8>, BraheError>` - The gzip stream, or an `Error` if encoding fails
+///
+/// # Examples
+///
+/// ```ignore
+/// let packed = gzip(b"#dP2024").unwrap();
+/// assert_eq!(compression_of(&packed), Compression::Gzip);
+/// ```
 pub(crate) fn gzip(bytes: &[u8]) -> Result<Vec<u8>, BraheError> {
     let mut encoder = GzEncoder::new(Vec::new(), GzipLevel::default());
     encoder

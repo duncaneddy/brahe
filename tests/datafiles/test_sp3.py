@@ -1,5 +1,6 @@
 """Tests for the SP3 format — parity with src/datafiles/sp3/{types,parse,write}.rs."""
 
+import gzip
 import math
 import pathlib
 
@@ -1080,6 +1081,21 @@ def test_SP3_from_bytes():
     gzipped = SP3.from_bytes(read_bytes("nsgf.orb.stella.v00.sp3.gz"))
     reference = SP3.from_file(fixture("nsgf.orb.stella.v00.sp3"))
     assert gzipped.to_string() == reference.to_string()
+
+
+def test_SP3_from_bytes_concatenated_gzip_members():
+    content = read_bytes("example-d-2.sp3")
+    split = len(content) // 2
+    packed = gzip.compress(content[:split]) + gzip.compress(content[split:])
+    reference = SP3.from_bytes(content)
+    assert SP3.from_bytes(packed).to_string() == reference.to_string()
+
+
+def test_SP3_from_bytes_truncated_gzip():
+    packed = gzip.compress(read_bytes("example-d-2.sp3"))
+    with pytest.raises(bh.BraheError) as excinfo:
+        SP3.from_bytes(packed[: len(packed) // 2])
+    assert str(excinfo.value).startswith("SP3: invalid gzip data")
 
 
 @pytest.mark.parametrize(

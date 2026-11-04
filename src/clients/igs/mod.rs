@@ -7,11 +7,14 @@
  * `CCCVPPPTTT_YYYYDDDHHMM_LEN_SMP_CNT.FMT` names used from GPS week 2238 and
  * the short `cccwwwwd.ext` names used before it, into typed fields.
  * [`IGSAnalysisCenter`] lists the analysis centers that publish them.
+ * [`IGSProductsClient`] lists an archive's GPS week directories as
+ * [`IGSProduct`] values, selected with an [`IGSProductFilter`].
  */
 
 pub mod centers;
 pub mod client;
 pub mod file_name;
+pub mod product;
 pub mod source;
 
 pub use centers::{IGSAnalysisCenter, list_analysis_centers};
@@ -20,4 +23,5 @@ pub use file_name::{
     IGSCompression, IGSContentType, IGSFileFormat, IGSNameStyle, IGSProductFileName,
     IGSSolutionType,
 };
+pub use product::{IGSProduct, IGSProductFilter};
 pub use source::IGSProductSource;

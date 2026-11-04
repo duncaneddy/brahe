@@ -2524,3 +2524,29 @@ def test_SP3_to_string_header_labels_at_width():
     back = SP3.from_str(text).header
     assert str(back.orbit_type) == "KLM"
     assert back.agency == "NOPQ"
+
+
+@pytest.mark.parametrize("name", ["out.sp3", "out.sp3.gz"])
+def test_SP3_to_file_failure_keeps_existing_file(tmp_path, name):
+    sp3 = two_satellite_file()
+    path = tmp_path / name
+    path.write_bytes(b"previous contents")
+
+    blocked = tmp_path / "blocked"
+    blocked.mkdir()
+    (blocked / "child").write_bytes(b"x")
+    with pytest.raises(bh.BraheError):
+        sp3.to_file(blocked)
+    assert blocked.is_dir()
+
+    with pytest.raises(bh.BraheError):
+        sp3.to_file(tmp_path / "missing" / name)
+    assert not (tmp_path / "missing").exists()
+
+    with pytest.raises(bh.BraheError):
+        SP3(["G01"], 900.0).to_file(path)
+    assert path.read_bytes() == b"previous contents"
+
+    sp3.to_file(path)
+    assert SP3.from_file(path).num_epochs == 2
+    assert len(list(tmp_path.iterdir())) == 2

@@ -18,6 +18,9 @@ const GZIP_MAGIC: [u8; 2] = [0x1f, 0x8b];
 /// Magic bytes at the start of a Unix compress (`.Z`) stream.
 const UNIX_COMPRESS_MAGIC: [u8; 2] = [0x1f, 0x9d];
 
+/// Maximum number of bytes a gzip payload may decompress to (1 GiB).
+pub const MAX_DECOMPRESSED_BYTES: u64 = 1 << 30;
+
 /// Error message for Unix compress (`.Z`) data, which cannot be decoded.
 pub const UNIX_COMPRESS_UNSUPPORTED: &str = "Unix compress (.Z) data is not supported; decompress it externally (gzip -d) and read the plain file";
 
@@ -52,7 +55,9 @@ pub(crate) fn compression_of(bytes: &[u8]) -> Compression {
 
 /// Decode a payload that may be gzip-compressed.
 ///
-/// Concatenated gzip members are decoded as a single stream.
+/// Concatenated gzip members are decoded as a single stream. The decoded size
+/// is limited to [`MAX_DECOMPRESSED_BYTES`] (1 GiB) across all members, which
+/// bounds the memory used for untrusted input.
 ///
 /// # Arguments
 ///
@@ -62,16 +67,38 @@ pub(crate) fn compression_of(bytes: &[u8]) -> Compression {
 ///
 /// * `Result<Cow<[u8]>, BraheError>` - The payload borrowed unchanged when it is not
 ///   compressed, or the decoded bytes. An `Error` holding
-///   [`UNIX_COMPRESS_UNSUPPORTED`] for Unix compress data, or an `Error` describing the
-///   failure for a corrupt gzip stream.
+///   [`UNIX_COMPRESS_UNSUPPORTED`] for Unix compress data, an `Error` describing the
+///   failure for a corrupt gzip stream, or an `Error` when the decoded size exceeds 1 GiB.
 pub(crate) fn decompress(bytes: &[u8]) -> Result<Cow<'_, [u8]>, BraheError> {
+    decompress_limited(bytes, MAX_DECOMPRESSED_BYTES)
+}
+
+/// Decode a payload that may be gzip-compressed, limiting the decoded size.
+///
+/// # Arguments
+///
+/// * `bytes` - The payload, either plain or gzip-compressed
+/// * `limit` - Maximum number of decoded bytes, summed over all gzip members
+///
+/// # Returns
+///
+/// * `Result<Cow<[u8]>, BraheError>` - As for [`decompress`], with an `Error` when the
+///   decoded size exceeds `limit`
+fn decompress_limited(bytes: &[u8], limit: u64) -> Result<Cow<'_, [u8]>, BraheError> {
     match compression_of(bytes) {
         Compression::None => Ok(Cow::Borrowed(bytes)),
         Compression::Gzip => {
             let mut decoded = Vec::new();
             MultiGzDecoder::new(bytes)
+                .take(limit.saturating_add(1))
                 .read_to_end(&mut decoded)
                 .map_err(|e| BraheError::Error(format!("invalid gzip data: {}", e)))?;
+            if decoded.len() as u64 > limit {
+                return Err(BraheError::Error(format!(
+                    "decompressed gzip data exceeds the limit of {} bytes",
+                    limit
+                )));
+            }
             Ok(Cow::Owned(decoded))
         }
         Compression::UnixCompress => Err(BraheError::Error(UNIX_COMPRESS_UNSUPPORTED.to_string())),
@@ -157,6 +184,50 @@ mod tests {
             Err(BraheError::Error(msg)) => assert!(msg.starts_with("invalid gzip data"), "{msg}"),
             other => panic!("expected a gzip error, got {other:?}"),
         }
+    }
+
+    #[test]
+    #[parallel]
+    fn test_decompress_limit_single_member() {
+        const MIB: usize = 1 << 20;
+        let packed = gzip(&vec![0u8; 2 * MIB]).unwrap();
+        assert!(packed.len() < MIB);
+        match decompress_limited(&packed, MIB as u64) {
+            Err(BraheError::Error(msg)) => {
+                assert!(msg.contains("exceeds the limit of 1048576 bytes"), "{msg}")
+            }
+            other => panic!("expected a size error, got {other:?}"),
+        }
+        assert_eq!(
+            decompress_limited(&packed, 2 * MIB as u64).unwrap().len(),
+            2 * MIB
+        );
+    }
+
+    #[test]
+    #[parallel]
+    fn test_decompress_limit_exactly_at_limit() {
+        let packed = gzip(&[7u8; 1000]).unwrap();
+        assert_eq!(decompress_limited(&packed, 1000).unwrap().len(), 1000);
+        assert!(decompress_limited(&packed, 999).is_err());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_decompress_limit_across_members() {
+        let mut packed = gzip(&[1u8; 600]).unwrap();
+        packed.extend(gzip(&[2u8; 600]).unwrap());
+        assert!(matches!(
+            decompress_limited(&packed, 1000),
+            Err(BraheError::Error(_))
+        ));
+        assert_eq!(decompress_limited(&packed, 1200).unwrap().len(), 1200);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_decompress_limit_value() {
+        assert_eq!(MAX_DECOMPRESSED_BYTES, 1_073_741_824);
     }
 
     #[test]

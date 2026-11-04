@@ -237,10 +237,7 @@ impl SP3 {
         }
         let written: Vec<Epoch> = epochs
             .iter()
-            .map(|epoch| {
-                let (year, month, day, hour, minute, second) = calendar_fields(*epoch, time_system);
-                Epoch::from_datetime(year, month, day, hour, minute, second, 0.0, time_system)
-            })
+            .map(|epoch| written_epoch(*epoch, time_system))
             .collect();
         for pair in written.windows(2) {
             if let Some(detail) = epoch_grid_error(written[0], pair[0], pair[1], interval) {
@@ -319,7 +316,7 @@ impl SP3 {
         push_line(out, &first);
 
         let (gps_week, seconds_of_week, mjd, fractional_day) =
-            header_time_fields(&start, time_system);
+            header_time_fields(&written_epoch(start, time_system), time_system);
         push_line(
             out,
             &format!(
@@ -483,6 +480,13 @@ fn calendar_fields(epoch: Epoch, time_system: TimeSystem) -> (u32, u8, u8, u8, u
         ticks = (nanosecond / 10.0).round().min(1.0e8 - 1.0);
     }
     (year, month, day, hour, minute, second + ticks * 1.0e-8)
+}
+
+/// Epoch as written on an epoch line: its calendar fields in `time_system`
+/// with seconds rounded to 1e-8 s, read back as the parser reads them.
+fn written_epoch(epoch: Epoch, time_system: TimeSystem) -> Epoch {
+    let (year, month, day, hour, minute, second) = calendar_fields(epoch, time_system);
+    Epoch::from_datetime(year, month, day, hour, minute, second, 0.0, time_system)
 }
 
 /// Exponent `n` of the smallest `base^n` not below `value`.
@@ -1527,6 +1531,19 @@ mod tests {
         sp3.push_epoch(gps_t0() + 12.0e-9).unwrap();
         let msg = write_error(&sp3);
         assert!(msg.contains("is not after the last epoch"), "{msg}");
+    }
+
+    #[test]
+    #[parallel]
+    fn test_SP3_to_string_date_reference_uses_written_start() {
+        let line = |start: Epoch| {
+            let mut sp3 = SP3::new(vec![sat("G01")], 900.0, SP3WriteOptions::default()).unwrap();
+            sp3.push_epoch(start).unwrap();
+            sp3.to_string().unwrap().lines().nth(1).unwrap().to_string()
+        };
+        let rounded = line(gps_t0() - 4.0e-9);
+        assert_eq!(rounded, line(gps_t0()));
+        assert!(rounded.starts_with("## 2340      0.00000000"), "{rounded}");
     }
 
     #[test]

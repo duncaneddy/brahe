@@ -2209,6 +2209,17 @@ def test_SP3_to_string_interval_at_written_precision():
     assert "is not after the last epoch" in write_error(sp3)
 
 
+def test_SP3_to_string_date_reference_uses_written_start():
+    def line(start):
+        sp3 = SP3(["G01"], 900.0)
+        sp3.push_epoch(start)
+        return sp3.to_string().splitlines()[1]
+
+    rounded = line(gps_t0() - 4.0e-9)
+    assert rounded == line(gps_t0())
+    assert rounded.startswith("## 2340      0.00000000")
+
+
 def test_SP3_to_string_saturates_large_standard_deviations():
     sp3 = two_satellite_file()
     header = sp3.header

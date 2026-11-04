@@ -11,8 +11,9 @@ use nalgebra::{DVector, Vector6};
 use uuid::Uuid;
 
 use crate::constants::AngleFormat;
+use crate::datafiles::sp3::interop::chain_files;
 use crate::datafiles::sp3::parse::sp3_error;
-use crate::datafiles::sp3::types::{SP3Record, SP3SatelliteId};
+use crate::datafiles::sp3::types::{SP3, SP3Record, SP3SatelliteId};
 use crate::frames::CelestialFrame;
 use crate::math::interpolation::{InterpolationConfig, InterpolationMethod};
 use crate::time::Epoch;
@@ -181,6 +182,66 @@ impl SP3Satellite {
         };
         satellite.trajectories = satellite.build_trajectories()?;
         Ok(satellite)
+    }
+
+    /// Chain every satellite across several SP3 files.
+    ///
+    /// The files are sorted by start epoch, so they may be passed in any
+    /// order; files without epochs are ignored. For each satellite in the
+    /// union of the files' satellite lists, the valid samples of every file
+    /// are joined in time order before velocities are derived, so samples
+    /// next to a file boundary get centered fits. Epochs compare as absolute
+    /// instants, so files in different time systems chain directly.
+    ///
+    /// Two consecutive files may share their boundary epoch. The later file's
+    /// sample is kept there when it is valid, and the earlier file's otherwise.
+    /// A file that lacks a satellite contributes no samples, which leaves a
+    /// gap in that satellite. Velocities come from the files only when every
+    /// sample comes from a file with velocity records. Agencies, coordinate
+    /// systems, orbit types, and epoch intervals need not match; gaps use the
+    /// larger epoch interval of the two samples around them.
+    ///
+    /// # Arguments
+    ///
+    /// * `files` - SP3 files covering consecutive, non-overlapping spans
+    ///
+    /// # Returns
+    ///
+    /// * `Result<Vec<SP3Satellite>, BraheError>` - One satellite for each identifier with
+    ///   at least one valid sample, in ascending identifier order (GPS, GLONASS, Galileo,
+    ///   BeiDou, QZSS, IRNSS, SBAS, LEO, then by number), or an error naming the agency
+    ///   and span of two files that overlap by more than a shared boundary epoch
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::datafiles::sp3::{SP3, SP3Record, SP3Satellite, SP3SatelliteId, SP3WriteOptions};
+    /// use brahe::time::{Epoch, TimeSystem};
+    ///
+    /// let id: SP3SatelliteId = "G01".parse().unwrap();
+    /// let t0 = Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::GPS);
+    /// let file = |start: usize| {
+    ///     let options = SP3WriteOptions::default().with_velocity(false);
+    ///     let mut sp3 = SP3::new(vec![id], 900.0, options).unwrap();
+    ///     for k in start..start + 3 {
+    ///         let index = sp3.push_epoch(t0 + 900.0 * k as f64).unwrap();
+    ///         let x = 2.0e7 + 900.0 * k as f64;
+    ///         sp3.set_record(id, index, SP3Record::new([x, 1.0e7, 1.0e7])).unwrap();
+    ///     }
+    ///     sp3
+    /// };
+    ///
+    /// // Epochs 0-2 and 2-4 share epoch 2.
+    /// let sats = SP3Satellite::from_files(&[file(2), file(0)]).unwrap();
+    /// assert_eq!(sats.len(), 1);
+    /// assert_eq!(sats[0].len(), 5);
+    /// assert!(!sats[0].has_gaps());
+    ///
+    /// // A file passed twice overlaps itself.
+    /// assert!(SP3Satellite::from_files(&[file(0), file(0)]).is_err());
+    /// ```
+    pub fn from_files(files: &[SP3]) -> Result<Vec<SP3Satellite>, BraheError> {
+        chain_files(files)
     }
 
     /// Build one ITRF trajectory per run of at least two samples.

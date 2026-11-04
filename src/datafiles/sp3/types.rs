@@ -7,6 +7,7 @@ use std::fmt;
 use std::str::FromStr;
 
 use crate::constants::{GPS_ZERO, SECONDS_PER_DAY};
+use crate::datafiles::sp3::interop::{satellite_from_files, satellites_from_files};
 use crate::datafiles::sp3::parse::sp3_error;
 use crate::datafiles::sp3::satellite::{SP3Sample, SP3Satellite};
 use crate::time::{Epoch, TimeSystem, datetime_to_mjd};
@@ -1833,8 +1834,8 @@ impl SP3 {
     /// assert!(sp3.satellite(g02).is_err());
     /// ```
     pub fn satellite(&self, id: SP3SatelliteId) -> Result<SP3Satellite, BraheError> {
-        let sat = self.satellite_index(id)?;
-        SP3Satellite::from_samples(id, self.samples(sat))
+        self.satellite_index(id)?;
+        satellite_from_files(&[self], id)
     }
 
     /// Extract every satellite that has at least one valid sample.
@@ -1862,18 +1863,17 @@ impl SP3 {
     /// assert_eq!(satellites[0].id(), g02);
     /// ```
     pub fn satellites(&self) -> Result<Vec<SP3Satellite>, BraheError> {
-        let mut satellites = Vec::new();
-        for (sat, id) in self.satellites.iter().enumerate() {
-            let samples = self.samples(sat);
-            if !samples.is_empty() {
-                satellites.push(SP3Satellite::from_samples(*id, samples)?);
-            }
-        }
-        Ok(satellites)
+        satellites_from_files(&[self], self.satellites.iter().copied())
     }
 
-    /// Valid samples of the satellite at header index `sat`, in epoch order.
-    fn samples(&self, sat: usize) -> Vec<SP3Sample> {
+    /// Valid samples of a satellite, in epoch order.
+    ///
+    /// Each sample carries the file's epoch interval and whether the file has
+    /// velocity records. A satellite that is not in the file has no samples.
+    pub(crate) fn samples(&self, id: SP3SatelliteId) -> Vec<SP3Sample> {
+        let Some(sat) = self.satellites.iter().position(|s| *s == id) else {
+            return Vec::new();
+        };
         self.epochs
             .iter()
             .zip(&self.records)

@@ -9,6 +9,7 @@
  * appear only in the parser and writer.
  */
 
+mod interop;
 mod parse;
 mod satellite;
 mod types;

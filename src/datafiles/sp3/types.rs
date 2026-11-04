@@ -1827,6 +1827,7 @@ impl SP3 {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 #[allow(non_snake_case)]
 mod tests {
     use super::*;

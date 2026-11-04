@@ -186,8 +186,8 @@ impl SP3Satellite {
 
     /// Chain every satellite across several SP3 files.
     ///
-    /// The files are sorted by start epoch, so they may be passed in any
-    /// order; files without epochs are ignored. For each satellite in the
+    /// The files are sorted by start epoch, then by end epoch, so they may be
+    /// passed in any order; files without epochs are ignored. For each satellite in the
     /// union of the files' satellite lists, the valid samples of every file
     /// are joined in time order before velocities are derived, so samples
     /// next to a file boundary get centered fits. Epochs compare as absolute
@@ -237,7 +237,7 @@ impl SP3Satellite {
     /// assert_eq!(sats[0].len(), 5);
     /// assert!(!sats[0].has_gaps());
     ///
-    /// // A file passed twice overlaps itself.
+    /// // A file with two or more epochs passed twice overlaps itself.
     /// assert!(SP3Satellite::from_files(&[file(0), file(0)]).is_err());
     /// ```
     pub fn from_files(files: &[SP3]) -> Result<Vec<SP3Satellite>, BraheError> {

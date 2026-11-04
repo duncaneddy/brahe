@@ -14,7 +14,9 @@ use crate::utils::BraheError;
 
 /// Chain every satellite across a set of SP3 files.
 ///
-/// Files without epochs are ignored. The others are sorted by start epoch.
+/// Files without epochs are ignored. The others are sorted by start epoch,
+/// then by end epoch, so a one-epoch file precedes a longer file starting at
+/// the same epoch whatever the input order.
 /// Consecutive files may share their boundary epoch, where the later file's
 /// sample is kept when it has one; any further overlap is an error.
 ///
@@ -29,7 +31,7 @@ use crate::utils::BraheError;
 ///   identifier order, or an error naming two overlapping files
 pub(crate) fn chain_files(files: &[SP3]) -> Result<Vec<SP3Satellite>, BraheError> {
     let mut ordered: Vec<&SP3> = files.iter().filter(|f| f.num_epochs() > 0).collect();
-    ordered.sort_by_key(|f| f.start_epoch());
+    ordered.sort_by_key(|f| (f.start_epoch(), f.end_epoch()));
     for pair in ordered.windows(2) {
         let (a, b) = (pair[0], pair[1]);
         if b.start_epoch() < a.end_epoch() && b.start_epoch() != a.end_epoch() {
@@ -124,6 +126,7 @@ mod tests {
     use crate::time::{Epoch, TimeSystem};
     use crate::utils::DOrbitStateProvider;
     use crate::utils::testing::setup_global_test_eop;
+    use approx::assert_abs_diff_eq;
     use nalgebra::Vector6;
     use serial_test::{parallel, serial};
 
@@ -423,6 +426,128 @@ mod tests {
             let one = a.satellite(sat.id()).unwrap();
             assert_eq!(one.records(), sat.records());
         }
+    }
+
+    /// A file at `interval` holding `id` at `epochs`, moving at 1000 m/s
+    /// along x, with velocity records when `velocity` is true.
+    fn uniform_file(id: SP3SatelliteId, interval: f64, epochs: &[Epoch], velocity: bool) -> SP3 {
+        let options = SP3WriteOptions::default().with_velocity(velocity);
+        let mut sp3 = SP3::new(vec![id], interval, options).unwrap();
+        for epoch in epochs {
+            let index = sp3.push_epoch(*epoch).unwrap();
+            let x = 2.0e7 + 1000.0 * (*epoch - gps(0, 0.0));
+            let mut record = SP3Record::new([x, 1.0e7, 1.0e7]);
+            if velocity {
+                record = record.with_velocity([1000.0, 0.0, 0.0]);
+            }
+            sp3.set_record(id, index, record).unwrap();
+        }
+        sp3
+    }
+
+    #[test]
+    #[parallel]
+    fn test_SP3Satellite_from_files_equal_starts_independent_of_order() {
+        let id = sid("G01");
+        let long = linear_file(
+            &[id],
+            &[gps(0, 0.0), gps(5, 0.0)],
+            SP3WriteOptions::default(),
+        );
+        let mut single = SP3::new(
+            vec![id],
+            300.0,
+            SP3WriteOptions::default().with_velocity(false),
+        )
+        .unwrap();
+        single.push_epoch(gps(0, 0.0)).unwrap();
+        single
+            .set_record(id, 0, SP3Record::new([3.0e7, 1.0e7, 1.0e7]))
+            .unwrap();
+        let expected = long.record(id, 0).unwrap().unwrap().position;
+
+        let forward = SP3Satellite::from_files(&[long.clone(), single.clone()]).unwrap();
+        let reverse = SP3Satellite::from_files(&[single, long]).unwrap();
+        for sats in [&forward, &reverse] {
+            let g01 = find(sats, "G01");
+            assert_eq!(g01.epochs(), [gps(0, 0.0), gps(5, 0.0)]);
+            assert_eq!(g01.positions()[0], expected);
+        }
+        assert_eq!(
+            find(&forward, "G01").records(),
+            find(&reverse, "G01").records()
+        );
+    }
+
+    #[test]
+    #[parallel]
+    fn test_SP3Satellite_from_files_one_epoch_file_twice() {
+        let id = sid("G01");
+        let single = linear_file(&[id], &[gps(0, 0.0)], SP3WriteOptions::default());
+        let sats = SP3Satellite::from_files(&[single.clone(), single]).unwrap();
+        let g01 = find(&sats, "G01");
+        assert_eq!(g01.len(), 1);
+        assert_eq!(g01.epochs(), [gps(0, 0.0)]);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_SP3Satellite_from_files_velocity_source() {
+        let id = sid("G01");
+        let first = [gps(0, 0.0), gps(5, 0.0), gps(10, 0.0)];
+        let second = [gps(15, 0.0), gps(20, 0.0), gps(25, 0.0)];
+
+        let both = SP3Satellite::from_files(&[
+            uniform_file(id, 300.0, &first, true),
+            uniform_file(id, 300.0, &second, true),
+        ])
+        .unwrap();
+        let g01 = find(&both, "G01");
+        assert!(g01.has_file_velocities());
+        assert!(g01.velocities().iter().all(|v| *v == [1000.0, 0.0, 0.0]));
+
+        let mixed = SP3Satellite::from_files(&[
+            uniform_file(id, 300.0, &first, true),
+            uniform_file(id, 300.0, &second, false),
+        ])
+        .unwrap();
+        let g01 = find(&mixed, "G01");
+        assert_eq!(g01.len(), 6);
+        assert!(!g01.has_file_velocities());
+        assert_eq!(g01.records()[0].velocity, Some([1000.0, 0.0, 0.0]));
+        for v in g01.velocities() {
+            assert_abs_diff_eq!(v[0], 1000.0, epsilon = 1e-6);
+            assert_abs_diff_eq!(v[1], 0.0, epsilon = 1e-6);
+            assert_abs_diff_eq!(v[2], 0.0, epsilon = 1e-6);
+        }
+    }
+
+    #[test]
+    #[parallel]
+    fn test_SP3Satellite_from_files_mixed_intervals_gap_threshold() {
+        let id = sid("G01");
+        let fine = uniform_file(id, 300.0, &[gps(0, 0.0), gps(5, 0.0), gps(10, 0.0)], false);
+
+        // 900 s after the last 300 s sample: within 1.5 x 900 s.
+        let coarse = uniform_file(
+            id,
+            900.0,
+            &[gps(25, 0.0), gps(40, 0.0), gps(55, 0.0)],
+            false,
+        );
+        let sats = SP3Satellite::from_files(&[fine.clone(), coarse]).unwrap();
+        let g01 = find(&sats, "G01");
+        assert_eq!(g01.len(), 6);
+        assert!(!g01.has_gaps());
+
+        // 1500 s after the last 300 s sample: beyond 1.5 x 900 s.
+        let late = uniform_file(id, 900.0, &[gps(35, 0.0), gps(50, 0.0)], false);
+        let sats = SP3Satellite::from_files(&[fine, late]).unwrap();
+        let g01 = find(&sats, "G01");
+        assert_eq!(
+            g01.segments(),
+            vec![(gps(0, 0.0), gps(10, 0.0)), (gps(35, 0.0), gps(50, 0.0))]
+        );
     }
 
     /// A 24 h position-only file at 900 s starting at `start`, sampled from

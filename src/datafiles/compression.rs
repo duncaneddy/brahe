@@ -153,6 +153,7 @@ pub(crate) fn gzip(bytes: &[u8]) -> Result<Vec<u8>, BraheError> {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
     use rstest::rstest;

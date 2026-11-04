@@ -27,6 +27,33 @@ The Extended Standard Product 3 (SP3) format is the exchange format for precise 
 
 `SP3.from_file` reads a plain-text file and `SP3.from_str` parses text already in memory. Both return the same object and raise a parse error when the file is malformed. `sp3.record(satellite, epoch)` returns the `SP3Record` of a satellite at an epoch, or `None` when the satellite has no usable position at that epoch. The satellite argument is an `SP3SatelliteId` or, in Python, a string such as `"G01"`. In the example, the second epoch of G01 is `None` because the file tabulates the position as the format's bad-value marker `0.000000`.
 
+## Compressed Files
+
+IGS products are distributed as gzip files with a `.gz` suffix. `SP3.from_file` detects gzip data from the first bytes of the file, so the file name does not matter, and decompresses it before parsing; the result equals the object read from the plain file. `SP3.from_bytes` takes the contents of a file already held in memory, either plain text or a gzip stream, which is the entry point for data fetched over the network or read from an archive.
+
+=== "Python"
+    ``` python
+    --8<-- "./examples/datafiles/sp3_compressed.py:8"
+    ```
+
+=== "Rust"
+    ``` rust
+    --8<-- "./examples/datafiles/sp3_compressed.rs:4"
+    ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/datafiles/sp3_compressed.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/datafiles/sp3_compressed.rs.txt"
+        ```
+
+`to_file` writes gzip when the path ends in `.gz`, in any letter case, and plain text otherwise. Files compressed with the Unix `compress` utility, which carry a `.Z` suffix and are common in older IGS archives, are not supported. Reading one raises an error that asks for the file to be decompressed first. Decompress it externally with `gzip -d file.sp3.Z` and read the resulting plain file.
+
 ## Format and Versions
 
 An SP3 file starts with a fixed set of header lines: the version, start epoch, epoch count, and coordinate system on the first line; the GPS week, epoch interval, and Modified Julian Day on the second line; the satellite list with per-satellite accuracy exponents; the time system and the standard deviation bases; and free-text comments. Epoch lines starting with `*` follow, each followed by a `P` position line per satellite, optional `V` velocity lines, and for versions c and d optional `EP` and `EV` correlation lines. The file ends with `EOF`. The version is the second character of the first line.

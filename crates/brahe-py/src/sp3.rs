@@ -1822,10 +1822,40 @@ impl PySP3 {
             .map_err(sp3_py_err)
     }
 
-    /// Read and parse an SP3 file.
+    /// Parse an SP3 file from bytes that are plain text or gzip-compressed.
+    ///
+    /// Gzip data is detected from its leading bytes and decompressed. Unix compress (``.Z``) data is rejected.
     ///
     /// Args:
-    ///     path (str): Path to the file; any ``os.PathLike`` is accepted.
+    ///     data (bytes): File contents, either SP3 text or a gzip stream of SP3 text.
+    ///
+    /// Returns:
+    ///     SP3: The parsed file.
+    ///
+    /// Raises:
+    ///     BraheError: If the gzip stream is corrupt, the text is not UTF-8, the data is Unix compress data, or the header or any record is malformed.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     with open("test_assets/sp3/nsgf.orb.stella.v00.sp3.gz", "rb") as f:
+    ///         sp3 = bh.SP3.from_bytes(f.read())
+    ///     assert sp3.num_epochs > 0
+    ///     ```
+    #[staticmethod]
+    fn from_bytes(data: &[u8]) -> PyResult<Self> {
+        sp3::SP3::from_bytes(data)
+            .map(|inner| Self { inner })
+            .map_err(sp3_py_err)
+    }
+
+    /// Read and parse an SP3 file.
+    ///
+    /// Gzip-compressed files are decompressed based on their leading bytes. Unix compress (``.Z``) files are rejected.
+    ///
+    /// Args:
+    ///     path (str): Path to a plain-text or gzip-compressed file; any ``os.PathLike`` is accepted.
     ///
     /// Returns:
     ///     SP3: The parsed file.
@@ -1871,8 +1901,10 @@ impl PySP3 {
 
     /// Write the file as SP3-d text.
     ///
+    /// The text is gzip-compressed when the path ends in ``.gz``, compared case-insensitively.
+    ///
     /// Args:
-    ///     path (str): Destination path; any ``os.PathLike`` is accepted.
+    ///     path (str): Destination path; any ``os.PathLike`` is accepted. A ``.gz`` extension selects gzip output.
     ///
     /// Raises:
     ///     BraheError: If the file cannot be represented in SP3-d or cannot be written.

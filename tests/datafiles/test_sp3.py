@@ -29,7 +29,7 @@ def fixture(name):
 
 
 def read_fixture(name):
-    with open(fixture(name)) as f:
+    with open(fixture(name), encoding="utf-8") as f:
         return f.read()
 
 

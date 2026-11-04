@@ -1063,4 +1063,37 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    #[serial]
+    fn test_SP3_from_propagators_non_finite_state_errors() {
+        setup_global_test_eop();
+        let t0 = day_start();
+        let prop = leo_propagator(t0, 0.0);
+        let mut traj = DOrbitTrajectory::new(
+            6,
+            CelestialFrame::ITRF,
+            OrbitRepresentation::Cartesian,
+            None,
+        )
+        .unwrap();
+        let good = prop.state_itrf(t0).unwrap();
+        traj.add(t0, DVector::from_column_slice(good.as_slice()))
+            .unwrap();
+        traj.add(t0 + 60.0, DVector::from_element(6, f64::NAN))
+            .unwrap();
+
+        let err = SP3::from_propagators(
+            &[(sid("L01"), &traj as &dyn DOrbitStateProvider)],
+            t0,
+            t0 + 60.0,
+            60.0,
+            SP3WriteOptions::default(),
+        )
+        .unwrap_err()
+        .to_string();
+        let second: Epoch = t0 + 60.0;
+        assert!(err.contains("L01") && err.contains("non-finite"), "{err}");
+        assert!(err.contains(&second.to_string()), "{err}");
+    }
 }

@@ -1348,6 +1348,20 @@ def test_SP3_from_propagators_trajectory_outside_span_errors():
     assert "L01" in err and str(t0() + 43260.0) in err
 
 
+def test_SP3_from_propagators_non_finite_state_errors():
+    prop = leo_propagator(t0(), 0.0)
+    traj = bh.OrbitTrajectory(
+        6, bh.CelestialFrame.ITRF, bh.OrbitRepresentation.CARTESIAN, None
+    )
+    traj.add(t0(), prop.state_itrf(t0()))
+    traj.add(t0() + 60.0, np.full(6, np.nan))
+
+    with pytest.raises(bh.BraheError) as excinfo:
+        SP3.from_propagators([("L01", traj)], t0(), t0() + 60.0, 60.0)
+    err = str(excinfo.value)
+    assert "L01" in err and "non-finite" in err and str(t0() + 60.0) in err
+
+
 def test_SP3_from_propagators_resamples_sp3_satellite():
     sp3, _, _ = two_leo_sp3()
     sat = sp3.satellite("L02")

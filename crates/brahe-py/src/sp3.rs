@@ -2007,7 +2007,8 @@ impl PySP3 {
     ///     record (SP3Record): Record to store.
     ///
     /// Raises:
-    ///     BraheError: If the satellite is not in the file or the epoch index is out of range.
+    ///     BraheError: If the satellite is not in the file, the epoch index is out of range,
+    ///         or the position or velocity has a NaN or infinite component.
     ///
     /// Example:
     ///     ```python

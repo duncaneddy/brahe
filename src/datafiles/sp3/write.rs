@@ -1401,9 +1401,10 @@ mod tests {
         assert!(write_error(&sp3).contains("does not fit"));
 
         let mut sp3 = two_satellite_file(SP3WriteOptions::default());
-        sp3.set_record(sat("G02"), 0, SP3Record::new([f64::NAN, 0.0, 0.0]))
-            .unwrap();
-        assert!(write_error(&sp3).contains("does not fit"));
+        assert!(
+            sp3.set_record(sat("G02"), 0, SP3Record::new([f64::NAN, 0.0, 0.0]))
+                .is_err()
+        );
 
         let mut sp3 = two_satellite_file(SP3WriteOptions::default());
         sp3.header_mut().accuracies[0] = Some(f64::INFINITY);

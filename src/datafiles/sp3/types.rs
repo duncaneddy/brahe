@@ -1526,7 +1526,8 @@ impl SP3 {
     /// Store the record of a satellite at an epoch.
     ///
     /// A record whose position is exactly `[0, 0, 0]` marks the satellite as
-    /// absent and is stored as `None`.
+    /// absent and is stored as `None`. A record with a non-finite position or
+    /// velocity component is rejected and the file is left unchanged.
     ///
     /// # Arguments
     ///
@@ -1536,8 +1537,9 @@ impl SP3 {
     ///
     /// # Returns
     ///
-    /// * `Result<(), BraheError>` - An error if the satellite is not in the file or the
-    ///   epoch index is out of range
+    /// * `Result<(), BraheError>` - An error if the satellite is not in the file, the
+    ///   epoch index is out of range, or the position or velocity has a NaN or infinite
+    ///   component. The last error names the satellite and the epoch.
     ///
     /// # Examples
     ///
@@ -1553,6 +1555,7 @@ impl SP3 {
     /// sp3.set_record(sat, 0, SP3Record::new([2.0e7, 1.0e7, 1.0e7]).with_clock(1e-5)).unwrap();
     /// assert_eq!(sp3.record(sat, 0).unwrap().unwrap().clock, Some(1e-5));
     /// assert!(sp3.set_record(sat, 1, SP3Record::default()).is_err());
+    /// assert!(sp3.set_record(sat, 0, SP3Record::new([f64::NAN, 1.0e7, 1.0e7])).is_err());
     /// ```
     pub fn set_record(
         &mut self,
@@ -1562,6 +1565,22 @@ impl SP3 {
     ) -> Result<(), BraheError> {
         let sat = self.satellite_index(id)?;
         self.check_epoch_index(epoch_index)?;
+        let non_finite = if !record.position.iter().all(|c| c.is_finite()) {
+            Some("position")
+        } else if record
+            .velocity
+            .is_some_and(|v| !v.iter().all(|c| c.is_finite()))
+        {
+            Some("velocity")
+        } else {
+            None
+        };
+        if let Some(what) = non_finite {
+            return Err(sp3_error(&format!(
+                "satellite {} has a non-finite {} at {}",
+                id, what, self.epochs[epoch_index]
+            )));
+        }
         self.records[epoch_index][sat] = if record.position == [0.0; 3] {
             None
         } else {
@@ -2594,5 +2613,32 @@ mod tests {
             .with_orbit_type(SP3OrbitType::Other("KLM".to_string()))
             .with_agency("");
         assert!(SP3::new(vec![sid("G01")], 900.0, at_width).is_ok());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_SP3_set_record_rejects_non_finite() {
+        let id: SP3SatelliteId = "G01".parse().unwrap();
+        let mut sp3 = SP3::new(vec![id], 900.0, SP3WriteOptions::default()).unwrap();
+        let t0 = Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::GPS);
+        sp3.push_epoch(t0).unwrap();
+        let good = SP3Record::new([2.0e7, 1.0e7, 1.0e7]);
+        sp3.set_record(id, 0, good.clone()).unwrap();
+
+        let bad_records = [
+            ("position", SP3Record::new([f64::NAN, 1.0e7, 1.0e7])),
+            ("position", SP3Record::new([2.0e7, f64::INFINITY, 1.0e7])),
+            (
+                "velocity",
+                good.clone().with_velocity([0.0, f64::NEG_INFINITY, 0.0]),
+            ),
+            ("velocity", good.clone().with_velocity([f64::NAN, 0.0, 0.0])),
+        ];
+        for (what, record) in bad_records {
+            let err = sp3.set_record(id, 0, record).unwrap_err().to_string();
+            assert!(err.contains("G01") && err.contains(what), "{err}");
+            assert!(err.contains(&t0.to_string()), "{err}");
+            assert_eq!(sp3.record(id, 0).unwrap(), Some(&good));
+        }
     }
 }

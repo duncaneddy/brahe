@@ -43,6 +43,7 @@ from brahe import (
     estimation,
     events,
     frames,
+    igs,
     integrators,
     itc,
     logging,
@@ -72,6 +73,7 @@ from brahe.eop import *
 from brahe.estimation import *
 from brahe.events import *
 from brahe.frames import *
+from brahe.igs import *
 from brahe.integrators import *
 from brahe.itc import *
 from brahe.math import *
@@ -106,6 +108,7 @@ __all__ = [
     "estimation",
     "events",
     "frames",
+    "igs",
     "integrators",
     "itc",
     "logging",
@@ -148,6 +151,7 @@ __all__.extend(events.__all__)
 __all__.extend(spacetrack.__all__)
 __all__.extend(itc.__all__)
 __all__.extend(starlink.__all__)
+__all__.extend(igs.__all__)
 __all__.extend(estimation.__all__)
 __all__.extend(spice.__all__)
 

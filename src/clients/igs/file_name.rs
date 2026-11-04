@@ -1238,6 +1238,23 @@ mod tests {
     }
 
     #[rstest]
+    #[case("IGS0OPSFIN_2024A150000_01D_15M_ORB.SP3")]
+    #[case("IGS0OPSFIN_20243150000__15M_ORB.SP3")]
+    #[case("IGS0OPSFIN_20243150000_01D__ORB.SP3")]
+    #[case("IGS-OPSFIN_20243150000_01D_15M_ORB.SP3")]
+    #[case("IGS0OPSFIN_20243150000_01D_15M_OR.SP3")]
+    #[case("IGS0OPSFIN_20243150000_01D_15M_OR-.SP3")]
+    #[case("ig-21000.sp3")]
+    #[parallel]
+    fn test_igs_product_file_name_malformed_fields(#[case] input: &str) {
+        assert!(
+            IGSProductFileName::parse(input).is_err(),
+            "expected '{}' to be rejected",
+            input
+        );
+    }
+
+    #[rstest]
     #[case("cor21000.sp3.Z", "COD", IGSSolutionType::Rapid)]
     #[case("cou21000_12.sp3.Z", "COD", IGSSolutionType::UltraRapid)]
     #[case("esr21000.sp3.Z", "ESA", IGSSolutionType::Rapid)]

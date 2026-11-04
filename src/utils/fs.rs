@@ -331,6 +331,44 @@ pub fn copy_file(source: &Path, target: &Path) -> Result<(), BraheError> {
     Ok(())
 }
 
+/// Resolves where a file saved to `destination` should be written.
+///
+/// An existing directory, or a path whose last component has no extension,
+/// is treated as a directory (created if missing) and `file_name` is
+/// appended; otherwise `destination` itself is the target file (its parent
+/// directories are created).
+///
+/// # Arguments
+/// * `destination` - Caller-supplied directory or file path
+/// * `file_name` - Name to use when `destination` is a directory
+///
+/// # Returns
+/// * `Ok(PathBuf)`: The file path to write
+/// * `Err(BraheError)`: If a directory cannot be created
+pub(crate) fn resolve_destination(
+    destination: &Path,
+    file_name: &str,
+) -> Result<PathBuf, BraheError> {
+    let is_directory =
+        destination.is_dir() || (!destination.exists() && destination.extension().is_none());
+    let target = if is_directory {
+        fs::create_dir_all(destination).map_err(|e| {
+            BraheError::IoError(format!("Failed to create {}: {}", destination.display(), e))
+        })?;
+        destination.join(file_name)
+    } else {
+        if let Some(parent) = destination.parent()
+            && !parent.as_os_str().is_empty()
+        {
+            fs::create_dir_all(parent).map_err(|e| {
+                BraheError::IoError(format!("Failed to create {}: {}", parent.display(), e))
+            })?;
+        }
+        destination.to_path_buf()
+    };
+    Ok(target)
+}
+
 /// Sets a file's modification time to now, so a `304 Not Modified` answer
 /// restarts a cache's freshness window without rewriting its content.
 ///

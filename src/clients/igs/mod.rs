@@ -8,7 +8,8 @@
  * the short `cccwwwwd.ext` names used before it, into typed fields.
  * [`IGSAnalysisCenter`] lists the analysis centers that publish them.
  * [`IGSProductsClient`] lists an archive's GPS week directories as
- * [`IGSProduct`] values, selected with an [`IGSProductFilter`].
+ * [`IGSProduct`] values, selected with an [`IGSProductFilter`], and
+ * downloads them into a cache or saves them to a chosen location.
  */
 
 pub mod centers;

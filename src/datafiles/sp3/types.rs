@@ -1152,7 +1152,7 @@ impl SP3WriteOptions {
 const MAX_SATELLITES: usize = 999;
 
 /// Tolerance for an epoch to be considered on the epoch grid. Units: s
-const GRID_TOLERANCE: f64 = 1.0e-3;
+pub(crate) const GRID_TOLERANCE: f64 = 1.0e-3;
 
 /// Check that an epoch can follow the last epoch of a file.
 ///

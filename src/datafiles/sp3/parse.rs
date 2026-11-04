@@ -11,8 +11,8 @@ use std::path::Path;
 use std::str::FromStr;
 
 use super::types::{
-    SP3, SP3Correlation, SP3FileType, SP3Header, SP3OrbitType, SP3Record, SP3SatelliteId,
-    SP3TimeSystem, SP3Version, epoch_grid_error, file_type_from_satellites,
+    GRID_TOLERANCE, SP3, SP3Correlation, SP3FileType, SP3Header, SP3OrbitType, SP3Record,
+    SP3SatelliteId, SP3TimeSystem, SP3Version, epoch_grid_error, file_type_from_satellites,
 };
 use crate::time::conversions::days_in_month;
 use crate::time::{Epoch, TimeSystem};
@@ -93,9 +93,11 @@ impl SP3 {
     /// `QZS`, `IRN`) is an error. Header fields are stored as read.
     ///
     /// Epoch lines with minute 60, hour 24, or day 0 are normalised by
-    /// carrying into the neighbouring field; when the writer has already
-    /// carried into the next field, the reading closest to the previous epoch
-    /// plus the interval is used. Every epoch must lie on the interval grid
+    /// carrying into the neighbouring field. A reading without the carry of
+    /// minute 60 or hour 24 is used instead only when it lies within 1 ms of
+    /// the expected epoch (the previous epoch plus the interval, or the header
+    /// start epoch for the first epoch), which covers writers that already
+    /// carried into the next field. Every epoch must lie on the interval grid
     /// anchored at the first epoch, to within 1 ms, and the number of epochs
     /// must match the header. `%/*` lines are comments, blank lines are
     /// skipped, `EOF` is matched case-insensitively, and a file without `EOF`
@@ -1003,9 +1005,11 @@ impl Parser {
 
     /// `*` line: a new epoch, split on whitespace.
     ///
-    /// Of the readings of a rollover field, the one closest to the previous
-    /// epoch plus the interval (the header start epoch for the first epoch)
-    /// is used. The epoch must follow the previous one on the interval grid.
+    /// A rollover field is read with the carry into the next field, unless a
+    /// reading without the carry lies within 1 ms of the expected epoch: the
+    /// previous epoch plus the interval, or the header start epoch for the
+    /// first epoch. The epoch must follow the previous one on the interval
+    /// grid.
     fn epoch(&mut self, n: usize, line: &str) -> Result<(), BraheError> {
         self.flush();
         let time_system = self
@@ -1025,18 +1029,20 @@ impl Parser {
             ],
         )?
         .rollover_readings();
-        let carried = readings[readings.len() - 1];
+        let (carried, uncarried) = readings
+            .split_last()
+            .ok_or_else(|| sp3_parse_error(n, "epoch line has no date"))?;
         carried.validate(n)?;
         let interval = self.header.epoch_interval;
         let expected = self
             .epochs
             .last()
             .map_or(self.header.start_epoch, |last| *last + interval);
-        let epoch = readings
+        let epoch = uncarried
             .iter()
             .filter(|r| r.validate(n).is_ok())
             .map(|r| r.to_epoch(time_system))
-            .min_by(|a, b| (*a - expected).abs().total_cmp(&(*b - expected).abs()))
+            .find(|e| (*e - expected).abs() <= GRID_TOLERANCE)
             .unwrap_or_else(|| carried.to_epoch(time_system));
         if let (Some(first), Some(last)) = (self.epochs.first(), self.epochs.last())
             && let Some(detail) = epoch_grid_error(*first, *last, epoch, interval)
@@ -2023,6 +2029,45 @@ mod tests {
 
         let msg = parse_error(&c1.replacen("*  2001  8  9 23 45", "*  4294967295 12 31 24 45", 1));
         assert!(msg.starts_with("SP3: line 50: "), "{msg}");
+    }
+
+    #[test]
+    #[parallel]
+    fn test_SP3_from_str_first_epoch_rollover_with_distant_header_start() {
+        let content = read_fixture("issue895-minutes-increment.sp3").replacen(
+            "*  2016  7  6 16  0  0.00000000",
+            "*  2016  7  6 15 60  0.00000000",
+            1,
+        );
+        let sp3 = SP3::from_str(&content).unwrap();
+        assert_epoch(
+            sp3.start_epoch(),
+            Epoch::from_datetime(2016, 7, 6, 16, 0, 0.0, 0.0, TimeSystem::UTC),
+        );
+
+        let content = read_fixture("example-c-1.sp3")
+            .replacen("#cP2001  8  8", "#cP2001  8  5", 1)
+            .replacen("*  2001  8  8  0  0", "*  2001  8  7 24  0", 1);
+        let sp3 = SP3::from_str(&content).unwrap();
+        assert_epoch(
+            sp3.start_epoch(),
+            Epoch::from_datetime(2001, 8, 8, 0, 0, 0.0, 0.0, TimeSystem::GPS),
+        );
+    }
+
+    #[test]
+    #[parallel]
+    fn test_SP3_from_str_rollover_after_gap() {
+        let content = read_fixture("example-c-1.sp3").replacen(
+            "*  2001  8  9 23 45",
+            "*  2001  8  9 22 60",
+            1,
+        );
+        let sp3 = SP3::from_str(&content).unwrap();
+        assert_epoch(
+            sp3.epochs()[1],
+            Epoch::from_datetime(2001, 8, 9, 23, 0, 0.0, 0.0, TimeSystem::GPS),
+        );
     }
 
     #[test]

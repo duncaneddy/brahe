@@ -19,15 +19,15 @@ use crate::time::{Epoch, TimeSystem};
 use crate::utils::BraheError;
 
 /// Kilometers to meters.
-const KM_TO_M: f64 = 1.0e3;
+pub(super) const KM_TO_M: f64 = 1.0e3;
 /// Decimeters per second to meters per second.
-const DM_PER_S_TO_M_PER_S: f64 = 1.0e-1;
+pub(super) const DM_PER_S_TO_M_PER_S: f64 = 1.0e-1;
 /// Microseconds to seconds.
-const US_TO_S: f64 = 1.0e-6;
+pub(super) const US_TO_S: f64 = 1.0e-6;
 /// Clock rate unit of 1e-4 microseconds per second to seconds per second.
-const CLOCK_RATE_TO_S_PER_S: f64 = 1.0e-10;
+pub(super) const CLOCK_RATE_TO_S_PER_S: f64 = 1.0e-10;
 /// Millimeters to meters.
-const MM_TO_M: f64 = 1.0e-3;
+pub(super) const MM_TO_M: f64 = 1.0e-3;
 /// Velocity standard deviation unit of 1e-4 millimeters per second to meters per second.
 const VELOCITY_STD_TO_M_PER_S: f64 = 1.0e-7;
 /// Picoseconds to seconds.
@@ -35,13 +35,17 @@ const PS_TO_S: f64 = 1.0e-12;
 /// Clock rate standard deviation unit of 1e-4 picoseconds per second to seconds per second.
 const CLOCK_RATE_STD_TO_S_PER_S: f64 = 1.0e-16;
 /// Scale of the integer correlation coefficients of `EP` and `EV` records.
-const CORRELATION_SCALE: f64 = 1.0e-7;
+pub(super) const CORRELATION_SCALE: f64 = 1.0e-7;
 /// Clock and clock-rate values at or above this are the bad-value marker `999999.999999`.
 const BAD_CLOCK_VALUE: f64 = 999_999.0;
+/// `EP`/`EV` component standard deviation marking a value too large to represent.
+pub(super) const CORRELATION_STD_TOO_LARGE: i64 = 9999;
+/// `EP`/`EV` clock standard deviation marking a value too large to represent.
+pub(super) const CORRELATION_CLOCK_STD_TOO_LARGE: i64 = 9_999_999;
 /// Base of the header accuracy exponents. Units: mm
-const ACCURACY_BASE: f64 = 2.0;
+pub(super) const ACCURACY_BASE: f64 = 2.0;
 /// Number of satellite fields on one `+` or `++` line.
-const SATELLITES_PER_LINE: usize = 17;
+pub(super) const SATELLITES_PER_LINE: usize = 17;
 /// Column (zero-based) of the first satellite field on `+` and `++` lines.
 const FIRST_SATELLITE_COLUMN: usize = 9;
 
@@ -539,21 +543,21 @@ impl DateTimeFields {
 
 /// Unit scales of the standard deviations of one record type.
 #[derive(Debug, Clone, Copy)]
-struct StdUnits {
+pub(super) struct StdUnits {
     /// File unit of the x, y, z standard deviations to SI
-    component: f64,
+    pub(super) component: f64,
     /// File unit of the clock standard deviation to SI
-    clock: f64,
+    pub(super) clock: f64,
 }
 
 /// Standard deviation units of `P` and `EP` records: mm and ps.
-const POSITION_STD_UNITS: StdUnits = StdUnits {
+pub(super) const POSITION_STD_UNITS: StdUnits = StdUnits {
     component: MM_TO_M,
     clock: PS_TO_S,
 };
 
 /// Standard deviation units of `V` and `EV` records: 1e-4 mm/s and 1e-4 ps/s.
-const VELOCITY_STD_UNITS: StdUnits = StdUnits {
+pub(super) const VELOCITY_STD_UNITS: StdUnits = StdUnits {
     component: VELOCITY_STD_TO_M_PER_S,
     clock: CLOCK_RATE_STD_TO_S_PER_S,
 };
@@ -684,11 +688,11 @@ fn parse_correlation(n: usize, line: &str, units: StdUnits) -> Result<SP3Correla
 
     Ok(SP3Correlation {
         std: [
-            std_value(4, 8, 9999, units.component)?,
-            std_value(9, 13, 9999, units.component)?,
-            std_value(14, 18, 9999, units.component)?,
+            std_value(4, 8, CORRELATION_STD_TOO_LARGE, units.component)?,
+            std_value(9, 13, CORRELATION_STD_TOO_LARGE, units.component)?,
+            std_value(14, 18, CORRELATION_STD_TOO_LARGE, units.component)?,
         ],
-        clock_std: std_value(19, 26, 9_999_999, units.clock)?,
+        clock_std: std_value(19, 26, CORRELATION_CLOCK_STD_TOO_LARGE, units.clock)?,
         xy: correlation(0)?,
         xz: correlation(1)?,
         xc: correlation(2)?,

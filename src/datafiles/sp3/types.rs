@@ -1149,7 +1149,7 @@ impl SP3WriteOptions {
 }
 
 /// Maximum number of satellites an SP3 file can declare.
-const MAX_SATELLITES: usize = 999;
+pub(crate) const MAX_SATELLITES: usize = 999;
 
 /// Tolerance for an epoch to be considered on the epoch grid. Units: s
 pub(crate) const GRID_TOLERANCE: f64 = 1.0e-3;
@@ -1197,7 +1197,7 @@ pub(crate) fn epoch_grid_error(
 ///
 /// Returns the GPS week, seconds of week, modified Julian day number, and
 /// fractional day of the epoch, all in `time_system`.
-fn header_time_fields(epoch: &Epoch, time_system: TimeSystem) -> (u32, f64, u32, f64) {
+pub(crate) fn header_time_fields(epoch: &Epoch, time_system: TimeSystem) -> (u32, f64, u32, f64) {
     let (year, month, day, hour, minute, second, nanosecond) =
         epoch.to_datetime_as_time_system(time_system);
     let mjd = datetime_to_mjd(year, month, day, 0, 0, 0.0, 0.0).round() as i64;
@@ -1722,6 +1722,11 @@ impl SP3 {
         let sat = self.satellite_index(id)?;
         self.check_epoch_index(epoch_index)?;
         Ok(self.records[epoch_index][sat].as_ref())
+    }
+
+    /// Record table indexed by epoch, then by satellite in header order.
+    pub(crate) fn rows(&self) -> &[Vec<Option<SP3Record>>] {
+        &self.records
     }
 
     /// Index of a satellite in the header satellite list.

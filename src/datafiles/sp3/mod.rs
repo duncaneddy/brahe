@@ -11,6 +11,7 @@
 
 mod parse;
 mod types;
+mod write;
 
 pub use types::{
     GNSSSystem, SP3, SP3Correlation, SP3FileType, SP3Header, SP3OrbitType, SP3Record,

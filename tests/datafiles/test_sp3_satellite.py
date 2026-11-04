@@ -1194,6 +1194,31 @@ def test_SP3_set_clocks_and_rates():
     assert parsed.record("L01", 5).clock is None
 
 
+def test_SP3_set_clocks_nan_is_none():
+    sp3, _, _ = two_leo_sp3()
+    n = sp3.num_epochs
+    clocks = [math.nan if k == 5 else 1e-5 for k in range(n)]
+    sp3.set_clocks("L01", clocks)
+    rates = np.full(n, 1e-12)
+    rates[6] = np.nan
+    sp3.set_clock_rates("L01", rates)
+    assert sp3.record("L01", 5).clock is None
+    assert sp3.record("L01", 6).clock_rate is None
+    assert sp3.record("L01", 6).clock == 1e-5
+    assert sp3.record("L01", 5).clock_rate == 1e-12
+    parsed = SP3.from_str(sp3.to_string())
+    assert parsed.record("L01", 5).clock is None
+    assert parsed.record("L01", 6).clock_rate is None
+
+    sat = sp3.satellite("L01")
+    sp3.set_clocks("L02", sat.clocks())
+    sp3.set_clock_rates("L02", sat.clock_rates())
+    assert sp3.record("L02", 5).clock is None
+    assert sp3.record("L02", 6).clock == 1e-5
+    assert sp3.record("L02", 6).clock_rate is None
+    sp3.to_string()
+
+
 def test_SP3_set_clocks_errors():
     sp3, _, _ = two_leo_sp3()
     n = sp3.num_epochs

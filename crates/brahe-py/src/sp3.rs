@@ -803,6 +803,14 @@ fn extract_sp3_optional_triple(obj: &Bound<'_, PyAny>, name: &str) -> PyResult<[
     })
 }
 
+/// Treat NaN values as absent, matching the NaN-for-None convention of the array accessors.
+fn sp3_nan_to_none(values: Vec<Option<f64>>) -> Vec<Option<f64>> {
+    values
+        .into_iter()
+        .map(|v| v.filter(|x| !x.is_nan()))
+        .collect()
+}
+
 fn sp3_vector_to_numpy<'py>(py: Python<'py>, v: [f64; 3]) -> Bound<'py, PyArray<f64, Ix1>> {
     v.to_vec().into_pyarray(py)
 }
@@ -2133,12 +2141,13 @@ impl PySP3 {
 
     /// Set the clock correction of a satellite at every epoch.
     ///
-    /// ``None`` clears the clock at that epoch. Nothing is modified when the
-    /// call fails.
+    /// ``None`` or NaN clears the clock at that epoch, so the ``clocks()``
+    /// array of an ``SP3Satellite`` can be passed back. Nothing is modified
+    /// when the call fails.
     ///
     /// Args:
     ///     satellite (str | SP3SatelliteId): Satellite.
-    ///     clocks (list[float | None]): One clock correction per epoch of the file, seconds.
+    ///     clocks (list[float | None]): One clock correction per epoch of the file, seconds. NaN is treated as None.
     ///
     /// Raises:
     ///     BraheError: If the satellite is not in the file, ``clocks`` does not hold one value per epoch, or a value is given at an epoch where the satellite has no record.
@@ -2163,18 +2172,20 @@ impl PySP3 {
         clocks: Vec<Option<f64>>,
     ) -> PyResult<()> {
         let id = extract_sp3_satellite_id(satellite)?;
-        self.inner.set_clocks(id, &clocks).map_err(sp3_py_err)
+        self.inner
+            .set_clocks(id, &sp3_nan_to_none(clocks))
+            .map_err(sp3_py_err)
     }
 
     /// Set the clock rate of a satellite at every epoch.
     ///
     /// Clock rates are stored on velocity records, so the file must have
-    /// velocity records. ``None`` clears the rate at that epoch. Nothing is
-    /// modified when the call fails.
+    /// velocity records. ``None`` or NaN clears the rate at that epoch.
+    /// Nothing is modified when the call fails.
     ///
     /// Args:
     ///     satellite (str | SP3SatelliteId): Satellite.
-    ///     rates (list[float | None]): One clock rate per epoch of the file, seconds per second.
+    ///     rates (list[float | None]): One clock rate per epoch of the file, seconds per second. NaN is treated as None.
     ///
     /// Raises:
     ///     BraheError: If the file has no velocity records, the satellite is not in the file, ``rates`` does not hold one value per epoch, or a value is given at an epoch where the satellite has no record.
@@ -2198,7 +2209,9 @@ impl PySP3 {
         rates: Vec<Option<f64>>,
     ) -> PyResult<()> {
         let id = extract_sp3_satellite_id(satellite)?;
-        self.inner.set_clock_rates(id, &rates).map_err(sp3_py_err)
+        self.inner
+            .set_clock_rates(id, &sp3_nan_to_none(rates))
+            .map_err(sp3_py_err)
     }
 
     /// Build an SP3 file by sampling orbit state providers on a regular grid.

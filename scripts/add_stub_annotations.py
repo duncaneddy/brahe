@@ -522,9 +522,10 @@ def generate_class_stub(name: str, cls: type) -> str:
 
             # Check if it's a classmethod (PyO3 classmethods are often builtin_function_or_method)
             if is_classmethod(cls, member_name, member):
-                return_type = (
-                    name  # Constructor classmethods return instance of the class
-                )
+                # Constructor classmethods return an instance of the class
+                # unless the docstring names another return type.
+                doc_type = parse_return_type_from_docstring(member_doc or "")
+                return_type = doc_type if doc_type != "Any" else name
                 # Parse parameters from docstring
                 params_str = parse_classmethod_params_from_docstring(member_doc or "")
                 lines.append("    @classmethod")

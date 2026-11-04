@@ -28,6 +28,11 @@ use crate::utils::{BraheError, DOrbitStateProvider, DStateProvider, Identifiable
 /// derives velocities for files without velocity records. A degree of 9 fits
 /// 10 samples.
 ///
+/// For GPS orbits sampled every 900 s, it interpolates positions to within
+/// 1 mm and derives velocities to within 0.1 mm/s, except within four samples
+/// of either end of a run. There the fit is one-sided, and the errors grow to
+/// about 1 cm and 0.12 mm/s.
+///
 /// # Examples
 ///
 /// ```
@@ -162,7 +167,7 @@ impl SP3Satellite {
         let has_file_velocities = file_velocities.is_some();
         let velocities = file_velocities.unwrap_or_else(|| {
             let positions: Vec<[f64; 3]> = samples.iter().map(|s| s.record.position).collect();
-            derive_velocities(&epochs, &positions, &runs)
+            derive_velocities(&epochs, &positions, &runs, SP3_DEFAULT_LAGRANGE_DEGREE)
         });
 
         let mut satellite = SP3Satellite {
@@ -1053,13 +1058,14 @@ fn contiguous_runs(samples: &[SP3Sample]) -> Vec<Range<usize>> {
 
 /// Velocity at each sample from a Lagrange fit within its run.
 ///
-/// Each sample uses the `min(SP3_DEFAULT_LAGRANGE_DEGREE + 1, n)` samples of
-/// its run of length `n` that are most nearly centered on it. Samples in runs
-/// of one sample get `NaN`.
+/// Each sample uses the `min(degree + 1, n)` samples of its run of length `n`
+/// that are most nearly centered on it. Samples in runs of one sample get
+/// `NaN`.
 fn derive_velocities(
     epochs: &[Epoch],
     positions: &[[f64; 3]],
     runs: &[Range<usize>],
+    degree: usize,
 ) -> Vec<[f64; 3]> {
     let mut velocities = vec![[f64::NAN; 3]; epochs.len()];
     for run in runs {
@@ -1067,7 +1073,7 @@ fn derive_velocities(
         if n < 2 {
             continue;
         }
-        let m = (SP3_DEFAULT_LAGRANGE_DEGREE + 1).min(n);
+        let m = (degree + 1).min(n);
         for i in 0..n {
             let offset = i.saturating_sub(m / 2).min(n - m);
             let window = (run.start + offset)..(run.start + offset + m);
@@ -1126,16 +1132,16 @@ fn lagrange_derivative_at_node(times: &[f64], values: &[[f64; 3]], node: usize) 
 mod tests {
     use super::*;
     use crate::access::{ElevationConstraint, PointLocation, location_accesses};
-    use crate::constants::AngleFormat;
+    use crate::constants::{AngleFormat, MJD_ZERO};
     use crate::datafiles::sp3::types::{SP3, SP3WriteOptions};
-    use crate::frames::{CelestialFrame, ReferenceFrame};
+    use crate::frames::{CelestialFrame, ReferenceFrame, bias_precession_nutation, polar_motion};
     use crate::propagators::KeplerianPropagator;
     use crate::time::TimeSystem;
     use crate::trajectories::traits::InterpolatableTrajectory;
     use crate::utils::testing::setup_global_test_eop;
     use crate::utils::{DOrbitStateProvider, DStateProvider, Identifiable};
     use approx::assert_abs_diff_eq;
-    use nalgebra::Vector6;
+    use nalgebra::{Matrix3, Vector3, Vector6};
     use serial_test::{parallel, serial};
     use uuid::Uuid;
 
@@ -1821,5 +1827,290 @@ mod tests {
                 "no window for {name}"
             );
         }
+    }
+
+    /// ITRF position of `propagator` at `epoch`, computed as
+    /// `state_gcrf_to_itrf` does but with the Earth rotation angle evaluated
+    /// from a two-part UT1 Julian date.
+    ///
+    /// `earth_rotation` evaluates the angle from a single `f64` MJD, which
+    /// resolves the instant only in steps of about 0.6 µs. At GPS radius that
+    /// moves `state_itrf` positions by up to 6.0e-4 m, differently at each
+    /// epoch, so they are not smooth in time below that level. This position
+    /// is smooth, and differs from `state_itrf` by at most 6.0e-4 m over the
+    /// test orbits.
+    fn smooth_itrf_position(propagator: &KeplerianPropagator, epoch: Epoch) -> Vector3<f64> {
+        let (year, month, day, hour, minute, second, nanosecond) =
+            epoch.to_datetime_as_time_system(TimeSystem::UT1);
+        let mjd_day = Epoch::from_date(year, month, day, TimeSystem::UT1)
+            .mjd_as_time_system(TimeSystem::UT1)
+            .round();
+        let day_fraction =
+            (3600.0 * hour as f64 + 60.0 * minute as f64 + second + 1e-9 * nanosecond) / 86400.0;
+        // SAFETY: iauEra00 is a pure function of its two scalar arguments.
+        let era = unsafe { rsofa::iauEra00(MJD_ZERO + mjd_day, day_fraction) };
+        let (c, s) = (era.cos(), era.sin());
+        let rotation = Matrix3::new(c, s, 0.0, -s, c, 0.0, 0.0, 0.0, 1.0);
+        let gcrf = propagator.state_gcrf(epoch).unwrap();
+        polar_motion(epoch)
+            * rotation
+            * bias_precession_nutation(epoch)
+            * Vector3::new(gcrf[0], gcrf[1], gcrf[2])
+    }
+
+    /// ITRF velocity of `propagator` at `epoch`: the fourth-order central
+    /// difference, with step `h` (s), of [`smooth_itrf_position`].
+    ///
+    /// The truncation error scales as `h^4` and the roundoff as `1/h`. Over
+    /// the test orbits the steps 10 s and 20 s agree to 1.6e-7 m/s, while
+    /// 20 s and 40 s differ by 2.1e-6 m/s, so at `h = 10 s` the reference
+    /// is accurate to about 2e-7 m/s. This is the time derivative of the ITRF
+    /// position. The `state_itrf` velocity is not: `state_gcrf_to_itrf` uses
+    /// the constant `OMEGA_EARTH` and omits the precession-nutation and polar
+    /// motion rates, and differs from this reference by up to 8.8e-5 m/s.
+    fn reference_itrf_velocity(
+        propagator: &KeplerianPropagator,
+        epoch: Epoch,
+        h: f64,
+    ) -> Vector3<f64> {
+        let p = |dt: f64| smooth_itrf_position(propagator, epoch + dt);
+        (p(-2.0 * h) - 8.0 * p(-h) + 8.0 * p(h) - p(2.0 * h)) / (12.0 * h)
+    }
+
+    /// Maximum interpolation and derived-velocity errors of one Lagrange
+    /// degree, split into the interior of a run and its edges.
+    #[derive(Debug, Default)]
+    struct AccuracyErrors {
+        itrf_position_interior: f64,
+        itrf_position_edge: f64,
+        itrf_velocity_interior: f64,
+        itrf_velocity_edge: f64,
+        gcrf_position_interior: f64,
+        gcrf_position_edge: f64,
+        gcrf_velocity_interior: f64,
+        gcrf_velocity_edge: f64,
+    }
+
+    fn update_max(interior: bool, error: f64, interior_max: &mut f64, edge_max: &mut f64) {
+        let target = if interior { interior_max } else { edge_max };
+        *target = target.max(error);
+    }
+
+    // Measured over the three GPS-like orbits of `build_clean_sp3` (a = 26560
+    // km, e = 0.01, i = 55 deg), 97 samples at 900 s, positions from
+    // `state_itrf`. Positions are compared at mid-sample epochs and derived
+    // velocities at the samples. The interior holds the samples and
+    // mid-samples at least `degree / 2` samples from both run edges; the edge
+    // holds the rest. ITRF errors are against `smooth_itrf_position` and
+    // `reference_itrf_velocity`; GCRF errors compare `to_gcrf()` trajectories
+    // against the exact `state_gcrf` of the propagators. Units: m and m/s.
+    //
+    // degree | ITRF position     | ITRF velocity     | GCRF position     | GCRF velocity
+    //        | interior  edge    | interior  edge    | interior  edge    | interior  edge
+    //      5 | 1.8e0     7.6e0   | 6.9e-3    6.9e-2  | 8.9e-1    3.7e0   | 6.9e-3    6.9e-2
+    //      7 | 1.8e-2    2.2e-1  | 6.8e-5    2.4e-3  | 6.3e-3    7.7e-2  | 1.3e-4    2.4e-3
+    //      9 | 8.1e-4    1.0e-2  | 1.5e-6    1.2e-4  | 8.2e-5    3.2e-3  | 8.8e-5    1.2e-4
+    //     11 | 6.8e-4    4.8e-3  | 8.5e-7    5.2e-5  | 1.8e-6    2.2e-4  | 8.7e-5    8.9e-5
+    //
+    // Degree 9 is the smallest degree with interior errors within 1e-3 m and
+    // 1e-4 m/s; degree 7 misses the position bound by a factor of 18.
+    //
+    // ITRF position errors level off near 7e-4 m: the samples carry the up
+    // to 6.0e-4 m Earth-rotation-angle noise of `state_itrf`, and interpolating
+    // samples taken from `smooth_itrf_position` instead gives 2.4e-4 m at
+    // degree 9 and 5.3e-6 m at degree 11. `to_gcrf()` rotates each sample
+    // back with the same angle, which cancels that noise, so GCRF positions
+    // keep improving with degree. Interpolating in GCRF is 10 times more
+    // accurate in the interior at degree 9 (8.2e-5 m against 8.1e-4 m). GCRF
+    // velocities carry the up to 8.8e-5 m/s error of the ITRF-to-GCRF velocity
+    // transform (see `reference_itrf_velocity`), which dominates their
+    // interior error from degree 9 up.
+    #[test]
+    #[serial]
+    fn test_SP3Satellite_interpolation_accuracy_keplerian() {
+        let (sp3, propagators) = build_clean_sp3();
+        let degrees = [5, 7, 9, 11];
+        assert!(degrees.contains(&SP3_DEFAULT_LAGRANGE_DEGREE));
+        let mut errors: Vec<AccuracyErrors> =
+            degrees.iter().map(|_| AccuracyErrors::default()).collect();
+        let mut reference_step_difference = 0.0_f64;
+
+        for (id, propagator) in sp3.satellite_ids().iter().zip(&propagators) {
+            let sat = sp3.satellite(*id).unwrap();
+            let epochs = sat.epochs();
+            let positions = sat.positions();
+            let n = epochs.len();
+            let run = 0..n;
+            let mid_epochs: Vec<Epoch> = epochs[..n - 1].iter().map(|&t| t + 0.5 * STEP).collect();
+
+            let reference_velocities: Vec<Vector3<f64>> = epochs
+                .iter()
+                .map(|&t| {
+                    let v = reference_itrf_velocity(propagator, t, 10.0);
+                    let check = reference_itrf_velocity(propagator, t, 20.0);
+                    reference_step_difference = reference_step_difference.max((v - check).norm());
+                    v
+                })
+                .collect();
+            let gcrf_states: Vec<Vector6<f64>> = epochs
+                .iter()
+                .map(|&t| propagator.state_gcrf(t).unwrap())
+                .collect();
+            let mid_itrf_positions: Vec<Vector3<f64>> = mid_epochs
+                .iter()
+                .map(|&t| smooth_itrf_position(propagator, t))
+                .collect();
+            let mid_gcrf_states: Vec<Vector6<f64>> = mid_epochs
+                .iter()
+                .map(|&t| propagator.state_gcrf(t).unwrap())
+                .collect();
+
+            for (&degree, e) in degrees.iter().zip(errors.iter_mut()) {
+                let velocities =
+                    derive_velocities(epochs, &positions, std::slice::from_ref(&run), degree);
+                if degree == SP3_DEFAULT_LAGRANGE_DEGREE {
+                    assert_eq!(velocities, sat.velocities());
+                }
+                let mut itrf = DOrbitTrajectory::new(
+                    6,
+                    CelestialFrame::ITRF,
+                    OrbitRepresentation::Cartesian,
+                    None,
+                )
+                .unwrap()
+                .with_interpolation_method(InterpolationMethod::Lagrange { degree });
+                for ((&epoch, p), v) in epochs.iter().zip(&positions).zip(&velocities) {
+                    itrf.add(
+                        epoch,
+                        DVector::from_column_slice(&[p[0], p[1], p[2], v[0], v[1], v[2]]),
+                    )
+                    .unwrap();
+                }
+                let gcrf = itrf.to_gcrf().unwrap();
+
+                let half = degree / 2;
+                for i in 0..n {
+                    let interior = i >= half && i + half < n;
+                    let velocity_error =
+                        (Vector3::from(velocities[i]) - reference_velocities[i]).norm();
+                    update_max(
+                        interior,
+                        velocity_error,
+                        &mut e.itrf_velocity_interior,
+                        &mut e.itrf_velocity_edge,
+                    );
+                    let state = gcrf.interpolate(&epochs[i]).unwrap();
+                    let gcrf_velocity_error = (state.rows(3, 3) - gcrf_states[i].rows(3, 3)).norm();
+                    update_max(
+                        interior,
+                        gcrf_velocity_error,
+                        &mut e.gcrf_velocity_interior,
+                        &mut e.gcrf_velocity_edge,
+                    );
+                }
+                for (i, &t) in mid_epochs.iter().enumerate() {
+                    let interior = i >= half && i + 1 + half < n;
+                    let state = itrf.interpolate(&t).unwrap();
+                    let position_error = (state.rows(0, 3) - mid_itrf_positions[i]).norm();
+                    update_max(
+                        interior,
+                        position_error,
+                        &mut e.itrf_position_interior,
+                        &mut e.itrf_position_edge,
+                    );
+                    let state = gcrf.interpolate(&t).unwrap();
+                    let gcrf_position_error =
+                        (state.rows(0, 3) - mid_gcrf_states[i].rows(0, 3)).norm();
+                    update_max(
+                        interior,
+                        gcrf_position_error,
+                        &mut e.gcrf_position_interior,
+                        &mut e.gcrf_position_edge,
+                    );
+                }
+            }
+        }
+
+        assert!(
+            reference_step_difference < 1e-6,
+            "{reference_step_difference}"
+        );
+        let meets_bounds = |e: &AccuracyErrors| {
+            e.itrf_position_interior <= 1e-3 && e.itrf_velocity_interior <= 1e-4
+        };
+        for (&degree, e) in degrees.iter().zip(&errors) {
+            if degree < SP3_DEFAULT_LAGRANGE_DEGREE {
+                assert!(
+                    !meets_bounds(e),
+                    "degree {degree} also meets the bounds: {e:?}"
+                );
+            }
+            if degree == SP3_DEFAULT_LAGRANGE_DEGREE {
+                assert!(meets_bounds(e), "{e:?}");
+                assert!(e.gcrf_position_interior <= 1e-3, "{e:?}");
+                assert!(e.gcrf_velocity_interior <= 1e-4, "{e:?}");
+                assert!(
+                    e.itrf_position_edge <= 2e-2 && e.gcrf_position_edge <= 2e-2,
+                    "{e:?}"
+                );
+                assert!(
+                    e.itrf_velocity_edge <= 5e-4 && e.gcrf_velocity_edge <= 5e-4,
+                    "{e:?}"
+                );
+            }
+        }
+    }
+
+    // CODE final orbits at 300 s for G02, G05, and E11, subsampled to 900 s
+    // and interpolated at the withheld epochs. The file positions are rounded
+    // to 1 mm, which sets a floor near 1e-3 m. Maximum position errors (m):
+    //
+    // degree | G02 interior  edge   | G05 interior  edge   | E11 interior  edge
+    //      7 | 1.2e-2        2.1e-1 | 1.2e-2        2.0e-1 | 6.9e-3        1.0e-1
+    //      9 | 1.4e-3        4.7e-3 | 1.1e-3        6.0e-3 | 1.1e-3        4.0e-3
+    //     11 | 1.3e-3        2.0e-2 | 1.1e-3        5.0e-3 | 1.2e-3        6.2e-3
+    #[test]
+    #[parallel]
+    fn test_SP3Satellite_interpolation_accuracy_cod() {
+        let file = SP3::from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3")
+            .unwrap();
+        let ids = file.satellite_ids().to_vec();
+        assert_eq!(ids, vec![sid("G02"), sid("G05"), sid("E11")]);
+        assert_eq!(file.num_epochs(), 72);
+
+        let mut subsampled = SP3::new(
+            ids.clone(),
+            900.0,
+            SP3WriteOptions::default().with_velocity(false),
+        )
+        .unwrap();
+        for k in (0..file.num_epochs()).step_by(3) {
+            let index = subsampled.push_epoch(file.epochs()[k]).unwrap();
+            for id in &ids {
+                let record = file.record(*id, k).unwrap().unwrap().clone();
+                subsampled.set_record(*id, index, record).unwrap();
+            }
+        }
+
+        let n = subsampled.num_epochs();
+        let half = SP3_DEFAULT_LAGRANGE_DEGREE / 2;
+        let mut max_interior_error = 0.0_f64;
+        for id in &ids {
+            let sat = subsampled.satellite(*id).unwrap();
+            for k in (0..file.num_epochs()).filter(|k| k % 3 != 0) {
+                let before = k / 3;
+                if before < half || before + 1 + half >= n {
+                    continue;
+                }
+                let state = sat.state(file.epochs()[k]).unwrap();
+                let truth = file.record(*id, k).unwrap().unwrap().position;
+                let error = (0..3)
+                    .map(|axis| (state[axis] - truth[axis]).powi(2))
+                    .sum::<f64>()
+                    .sqrt();
+                max_interior_error = max_interior_error.max(error);
+            }
+        }
+        assert!(max_interior_error <= 1e-2, "{max_interior_error}");
     }
 }

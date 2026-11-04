@@ -18,7 +18,7 @@ use crate::time::Epoch;
 use crate::utils::cache::is_older_than;
 use crate::utils::download::{backoff_delay, is_retryable_error};
 use crate::utils::fs::validate_path_component;
-use crate::utils::network::{CacheDecision, cache_policy, ensure_online};
+use crate::utils::network::{CacheDecision, cache_policy, ensure_online, network_mode};
 use crate::utils::{BraheError, atomic_write, get_igs_cache_dir};
 
 /// Default seconds a cached directory listing is served before it is refreshed.
@@ -240,6 +240,9 @@ impl IGSProductsClient {
 
     /// Creates a client for a source served from a different base URL, for
     /// mirrors and tests.
+    ///
+    /// Listings are cached per source, so a client with a different base URL
+    /// shares the listing cache of the source it stands in for.
     ///
     /// A trailing `/` is added to `base_url` when it is missing. A CDDIS
     /// client takes its credentials from the environment variables
@@ -465,6 +468,12 @@ impl IGSProductsClient {
     /// ultra-rapid products begin a day before their named time). Such an
     /// extra week that does not exist on the source is skipped.
     ///
+    /// When `BRAHE_NETWORK_MODE` forbids fetching a listing, the extra weeks
+    /// are served only from the cache and skipped when they are not cached,
+    /// so offline results are limited to cached listings: a product filed in
+    /// an uncached extra week can be absent. A week containing part of the
+    /// range must still be cached.
+    ///
     /// # Arguments
     /// * `start` - Start of the time range
     /// * `end` - End of the time range, inclusive
@@ -507,7 +516,7 @@ impl IGSProductsClient {
             let listing = if (first_week..=last_week).contains(&week) {
                 self.listing(Some(week))?
             } else {
-                match self.fetch_listing(Some(week))? {
+                match self.fetch_listing(Some(week), true)? {
                     Some(listing) => listing,
                     None => continue,
                 }
@@ -661,7 +670,7 @@ impl IGSProductsClient {
     /// * `Ok(String)`: The listing body
     /// * `Err(BraheError)`: If the directory does not exist, or the listing cannot be served from the cache or fetched
     fn listing(&self, week: Option<u32>) -> Result<String, BraheError> {
-        self.fetch_listing(week)?.ok_or_else(|| {
+        self.fetch_listing(week, false)?.ok_or_else(|| {
             BraheError::Error(format!(
                 "{} not found: {} answered 404",
                 self.listing_resource(week),
@@ -679,26 +688,42 @@ impl IGSProductsClient {
     ///
     /// # Arguments
     /// * `week` - GPS week of the directory, or `None` for the top level
+    /// * `optional` - Whether a listing the network mode does not allow to be served or fetched is reported as absent instead of as an error
     ///
     /// # Returns
     /// * `Ok(Some(String))`: The listing body
-    /// * `Ok(None)`: If the source answered 404
-    /// * `Err(BraheError)`: If the network mode forbids the request, every attempt fails, or the cache cannot be read or written
-    fn fetch_listing(&self, week: Option<u32>) -> Result<Option<String>, BraheError> {
+    /// * `Ok(None)`: If the source answered 404, or `optional` is set and the network mode forbids serving or fetching the listing
+    /// * `Err(BraheError)`: If the network mode forbids the request and `optional` is not set, `BRAHE_NETWORK_MODE` holds an unrecognized value, every attempt fails, or the cache cannot be read or written
+    fn fetch_listing(
+        &self,
+        week: Option<u32>,
+        optional: bool,
+    ) -> Result<Option<String>, BraheError> {
         let resource = self.listing_resource(week);
         let path = self.listing_cache_path(week)?;
+        let url = self.listing_url(week);
+        // Surface an unrecognized mode before refusals are treated as absence.
+        network_mode()?;
         if path.is_file() {
             let stale = is_older_than(&path, self.listing_max_age)?;
-            if cache_policy(&resource, stale)? == CacheDecision::Serve {
-                return fs::read_to_string(&path).map(Some).map_err(|e| {
-                    BraheError::IoError(format!(
-                        "Failed to read cached {resource} {}: {e}",
-                        path.display()
-                    ))
-                });
+            match cache_policy(&resource, stale) {
+                Ok(CacheDecision::Serve) => {
+                    return fs::read_to_string(&path).map(Some).map_err(|e| {
+                        BraheError::IoError(format!(
+                            "Failed to read cached {resource} {}: {e}",
+                            path.display()
+                        ))
+                    });
+                }
+                Ok(CacheDecision::Refresh) => {}
+                Err(_) if optional => return Ok(None),
+                Err(e) => return Err(e),
             }
         }
-        let Some(body) = self.fetch_text(&self.listing_url(week), &resource)? else {
+        if optional && ensure_online(&url, &format!("{resource} ({url})")).is_err() {
+            return Ok(None);
+        }
+        let Some(body) = self.fetch_text(&url, &resource)? else {
             return Ok(None);
         };
         if let Some(parent) = path.parent() {
@@ -805,9 +830,9 @@ fn html_hrefs(html: &str) -> Vec<&str> {
 
 /// Whether a listed name is a file inside the listed directory.
 ///
-/// Sort links (`?C=N;O=D`), fragments, and anything containing a path
-/// separator, such as the parent-directory link or a subdirectory `name/`,
-/// are not.
+/// Sort links (`?C=N;O=D`), fragments, scheme links such as `mailto:`, and
+/// anything containing a path separator, such as the parent-directory link or
+/// a subdirectory `name/`, are not.
 ///
 /// # Arguments
 /// * `name` - Listed name
@@ -817,6 +842,7 @@ fn html_hrefs(html: &str) -> Vec<&str> {
 fn is_listed_file(name: &str) -> bool {
     !name.is_empty()
         && !name.starts_with(['?', '#'])
+        && !name.contains(':')
         && validate_path_component("listed file name", name).is_ok()
 }
 
@@ -1703,5 +1729,110 @@ mod tests {
         assert!(covers(&daily, gps(2024, 11, 10, 0), gps(2024, 11, 10, 0)));
         assert!(covers(&daily, gps(2024, 11, 9, 0), gps(2024, 11, 10, 0)));
         assert!(!covers(&daily, gps(2024, 11, 11, 0), gps(2024, 11, 12, 0)));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_igs_listed_file_rejects_scheme_links() {
+        assert!(!is_listed_file("mailto:igs@example.org"));
+        assert!(!is_listed_file("javascript:void(0)"));
+        assert!(is_listed_file("igr23400.sp3.Z"));
+        let html = "<a href=\"mailto:igs@example.org\">mail</a><a href=\"readme.txt\">readme</a>";
+        assert_eq!(
+            html_listing_files(html),
+            vec![("readme.txt".to_string(), None)]
+        );
+    }
+
+    fn offline_garner_client() -> IGSProductsClient {
+        IGSProductsClient::with_base_url(
+            IGSProductSource::Garner,
+            "https://brahe-network-mode-test.invalid/pub/products/",
+        )
+        .max_retries(0)
+    }
+
+    #[test]
+    #[serial]
+    fn test_igs_products_client_list_products_between_offline_repeats_online_query() {
+        let _cache = CacheRedirect::new();
+        let online = NetworkModeGuard::set(Some("online"));
+        let server = MockServer::start();
+        mock_listing(&server, "/pub/products/2340/", asset("garner_2340.html"));
+        let missing = server.mock(|when, then| {
+            when.method(GET).path("/pub/products/2341/");
+            then.status(404);
+        });
+        let filter = IGSProductFilter::new().with_center("COD");
+        let (start, end) = (gps(2024, 11, 16, 6), gps(2024, 11, 16, 12));
+        let expected = garner_client(&server)
+            .list_products_between(start, end, &filter)
+            .unwrap();
+        assert!(names(&expected).contains(&"COD0OPSFIN_20243210000_01D_05M_ORB.SP3.gz"));
+        missing.assert_calls(1);
+        drop(online);
+
+        let _mode = NetworkModeGuard::set(Some("offline"));
+        let offline = offline_garner_client()
+            .list_products_between(start, end, &filter)
+            .unwrap();
+        assert_eq!(names(&offline), names(&expected));
+    }
+
+    #[test]
+    #[serial]
+    fn test_igs_products_client_list_products_between_offline_skips_uncached_padding_week() {
+        let _cache = CacheRedirect::new();
+        let online = NetworkModeGuard::set(Some("online"));
+        let server = MockServer::start();
+        mock_listing(&server, "/pub/products/2340/", asset("garner_2340.html"));
+        garner_client(&server)
+            .list_products(week_2340(), &IGSProductFilter::new())
+            .unwrap();
+        drop(online);
+
+        let filter = IGSProductFilter::new().with_center("COD");
+        let (start, end) = (gps(2024, 11, 11, 0), gps(2024, 11, 12, 0));
+        let client = offline_garner_client();
+        let mode = NetworkModeGuard::set(Some("offline"));
+        let products = client.list_products_between(start, end, &filter).unwrap();
+        assert!(names(&products).contains(&"COD0OPSFIN_20243160000_01D_05M_ORB.SP3.gz"));
+        drop(mode);
+
+        // A stale cached padding week is skipped under offline-strict, while
+        // the fresh in-range week is served.
+        let padding = client.cache_dir().unwrap().join("listings/garner/2339.txt");
+        fs::write(
+            &padding,
+            apache_listing(&["COD0OPSFIN_20243140000_01D_05M_ORB.SP3.gz"]),
+        )
+        .unwrap();
+        age_file(&padding, 7200);
+        let _mode = NetworkModeGuard::set(Some("offline-strict"));
+        let strict = client.list_products_between(start, end, &filter).unwrap();
+        assert_eq!(names(&strict), names(&products));
+    }
+
+    #[test]
+    #[serial]
+    fn test_igs_products_client_list_products_between_offline_uncached_range_week_errors() {
+        let _cache = CacheRedirect::new();
+        let online = NetworkModeGuard::set(Some("online"));
+        let server = MockServer::start();
+        mock_listing(&server, "/pub/products/2340/", asset("garner_2340.html"));
+        garner_client(&server).list_files(week_2340()).unwrap();
+        drop(online);
+
+        let _mode = NetworkModeGuard::set(Some("offline"));
+        let err = offline_garner_client()
+            .list_products_between(
+                gps(2024, 11, 13, 0),
+                gps(2024, 11, 20, 0),
+                &IGSProductFilter::new(),
+            )
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("BRAHE_NETWORK_MODE is offline"), "{err}");
+        assert!(err.contains("GPS week 2341"), "{err}");
     }
 }

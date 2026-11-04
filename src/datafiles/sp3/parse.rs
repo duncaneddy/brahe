@@ -12,7 +12,7 @@ use std::str::FromStr;
 
 use super::types::{
     SP3, SP3Correlation, SP3FileType, SP3Header, SP3OrbitType, SP3Record, SP3SatelliteId,
-    SP3TimeSystem, SP3Version, file_type_from_satellites,
+    SP3TimeSystem, SP3Version, epoch_grid_error, file_type_from_satellites,
 };
 use crate::time::conversions::days_in_month;
 use crate::time::{Epoch, TimeSystem};
@@ -92,6 +92,15 @@ impl SP3 {
     /// `%c` time system label; a label without a Brahe equivalent (`GLO`,
     /// `QZS`, `IRN`) is an error. Header fields are stored as read.
     ///
+    /// Epoch lines with minute 60, hour 24, or day 0 are normalised by
+    /// carrying into the neighbouring field; when the writer has already
+    /// carried into the next field, the reading closest to the previous epoch
+    /// plus the interval is used. Every epoch must lie on the interval grid
+    /// anchored at the first epoch, to within 1 ms, and the number of epochs
+    /// must match the header. `%/*` lines are comments, blank lines are
+    /// skipped, `EOF` is matched case-insensitively, and a file without `EOF`
+    /// is accepted when its epoch count matches the header.
+    ///
     /// # Arguments
     ///
     /// * `content` - SP3 file contents
@@ -141,6 +150,9 @@ impl SP3 {
 
         let mut previous = LineKind::Version;
         for (n, line) in lines {
+            if line.trim().is_empty() {
+                continue;
+            }
             let kind = classify(line).ok_or_else(|| {
                 let prefix: String = line.chars().take(2).collect();
                 sp3_parse_error(n, &format!("unrecognized line identifier '{}'", prefix))
@@ -156,6 +168,7 @@ impl SP3 {
                 ));
             }
             if kind == LineKind::EndOfFile {
+                parser.end_of_file = true;
                 break;
             }
             parser.handle(kind, n, line)?;
@@ -227,7 +240,7 @@ enum LineKind {
     Bases,
     /// `%i` custom integer parameters
     CustomParameters,
-    /// `/*` comment
+    /// `/*` comment, or `%/*` as written by ILRS
     Comment,
     /// `*` epoch header
     Epoch,
@@ -317,7 +330,7 @@ fn classify(line: &str) -> Option<LineKind> {
         LineKind::Bases
     } else if line.starts_with("%i") {
         LineKind::CustomParameters
-    } else if line.starts_with("/*") {
+    } else if line.starts_with("/*") || line.starts_with("%/*") {
         LineKind::Comment
     } else if line.starts_with('*') {
         LineKind::Epoch
@@ -325,7 +338,7 @@ fn classify(line: &str) -> Option<LineKind> {
         LineKind::PositionCorrelation
     } else if line.starts_with("EV") {
         LineKind::VelocityCorrelation
-    } else if line.trim_end() == "EOF" {
+    } else if line.trim_end().eq_ignore_ascii_case("EOF") {
         LineKind::EndOfFile
     } else if line.starts_with('P') {
         LineKind::Position
@@ -340,13 +353,16 @@ fn classify(line: &str) -> Option<LineKind> {
 /// Fixed-column field `[start, end)` of an ASCII line.
 ///
 /// A line ending at or before `start` yields an empty field. A line ending
-/// strictly inside the field is truncated and is an error.
+/// strictly inside the field yields the blank part of the field it holds; a
+/// non-blank part is a truncated value and is an error.
 fn field(n: usize, line: &str, start: usize, end: usize) -> Result<&str, BraheError> {
     let len = line.len();
     if len <= start {
         Ok("")
     } else if len >= end {
         Ok(&line[start..end])
+    } else if line[start..].trim().is_empty() {
+        Ok(&line[start..])
     } else {
         Err(sp3_parse_error(
             n,
@@ -407,17 +423,72 @@ struct DateTimeFields {
 impl DateTimeFields {
     /// Parse and validate year, month, day, hour, minute, and second fields.
     fn parse(n: usize, fields: [&str; 6]) -> Result<Self, BraheError> {
+        let dt = Self::read(n, fields)?;
+        dt.validate(n)?;
+        Ok(dt)
+    }
+
+    /// Parse year, month, day, hour, minute, and second fields without
+    /// checking their calendar ranges.
+    fn read(n: usize, fields: [&str; 6]) -> Result<Self, BraheError> {
         let [year, month, day, hour, minute, second] = fields;
-        let dt = DateTimeFields {
+        Ok(DateTimeFields {
             year: parse_number(n, year, "year")?,
             month: parse_number(n, month, "month")?,
             day: parse_number(n, day, "day")?,
             hour: parse_number(n, hour, "hour")?,
             minute: parse_number(n, minute, "minute")?,
             second: parse_f64(n, second, "second")?,
-        };
-        dt.validate(n)?;
-        Ok(dt)
+        })
+    }
+
+    /// Readings of fields that may hold a rollover value.
+    ///
+    /// Day 0 is the last day of the previous month. Minute 60 and hour 24
+    /// are set to zero, and each yields one reading without and one with a
+    /// carry into the next field, because writers differ in whether they have
+    /// already carried. The fully carried reading is last; fields without a
+    /// rollover value yield a single reading.
+    fn rollover_readings(mut self) -> Vec<DateTimeFields> {
+        if self.day == 0 && (1..=12).contains(&self.month) {
+            if self.month == 1 {
+                self.year = self.year.saturating_sub(1);
+                self.month = 12;
+            } else {
+                self.month -= 1;
+            }
+            self.day = days_in_month(self.year, self.month).unwrap_or(0);
+        }
+        let mut readings = Vec::new();
+        if self.minute == 60 {
+            self.minute = 0;
+            readings.push(self);
+            self.hour = self.hour.saturating_add(1);
+        }
+        if self.hour == 24 {
+            self.hour = 0;
+            readings.push(self);
+            self.next_day();
+        }
+        readings.push(self);
+        readings
+    }
+
+    /// Advance the date by one day. An out-of-range day or month is left
+    /// out of range.
+    fn next_day(&mut self) {
+        match days_in_month(self.year, self.month) {
+            Ok(last) if self.day == last => {
+                self.day = 1;
+                if self.month == 12 {
+                    self.month = 1;
+                    self.year = self.year.saturating_add(1);
+                } else {
+                    self.month += 1;
+                }
+            }
+            _ => self.day = self.day.saturating_add(1),
+        }
     }
 
     /// Check that every field is within its calendar range.
@@ -654,6 +725,7 @@ struct Parser {
     index: HashMap<SP3SatelliteId, usize>,
     accuracy_started: bool,
     bases_read: bool,
+    end_of_file: bool,
     epochs: Vec<Epoch>,
     records: Vec<Vec<Option<SP3Record>>>,
     seen: Vec<bool>,
@@ -739,6 +811,7 @@ impl Parser {
             index: HashMap::new(),
             accuracy_started: false,
             bases_read: false,
+            end_of_file: false,
             epochs: Vec::new(),
             records: Vec::new(),
             seen: Vec::new(),
@@ -766,7 +839,10 @@ impl Parser {
             LineKind::Bases => self.bases(n, line),
             LineKind::CustomParameters => Ok(()),
             LineKind::Comment => {
-                let body = &line[2..];
+                let body = line
+                    .strip_prefix("%/*")
+                    .or_else(|| line.strip_prefix("/*"))
+                    .unwrap_or(line);
                 let body = body.strip_prefix(' ').unwrap_or(body);
                 self.header.comments.push(body.trim_end().to_string());
                 Ok(())
@@ -890,7 +966,8 @@ impl Parser {
 
     /// `%f` line: bases of the position/velocity (columns 4-13) and
     /// clock/clock-rate (columns 15-26) standard deviation exponents. Only
-    /// the first `%f` line carries values; a zero base means none.
+    /// the first `%f` line carries values; a zero base means none. Version a
+    /// has no standard deviations, so a non-zero base is an error.
     fn bases(&mut self, n: usize, line: &str) -> Result<(), BraheError> {
         if self.bases_read {
             return Ok(());
@@ -907,10 +984,28 @@ impl Parser {
             field(n, line, 14, 26)?,
             "clock base",
         )?);
+        if self.header.version == SP3Version::A {
+            let bases = [
+                ("position/velocity", self.header.position_base),
+                ("clock", self.header.clock_base),
+            ];
+            for (name, base) in bases {
+                if let Some(base) = base {
+                    return Err(sp3_parse_error(
+                        n,
+                        &format!("version a file declares a non-zero {} base {}", name, base),
+                    ));
+                }
+            }
+        }
         Ok(())
     }
 
     /// `*` line: a new epoch, split on whitespace.
+    ///
+    /// Of the readings of a rollover field, the one closest to the previous
+    /// epoch plus the interval (the header start epoch for the first epoch)
+    /// is used. The epoch must follow the previous one on the interval grid.
     fn epoch(&mut self, n: usize, line: &str) -> Result<(), BraheError> {
         self.flush();
         let time_system = self
@@ -923,13 +1018,32 @@ impl Parser {
                 &format!("epoch line has {} fields, expected 6", tokens.len()),
             ));
         }
-        let fields = DateTimeFields::parse(
+        let readings = DateTimeFields::read(
             n,
             [
                 tokens[0], tokens[1], tokens[2], tokens[3], tokens[4], tokens[5],
             ],
-        )?;
-        self.epochs.push(fields.to_epoch(time_system));
+        )?
+        .rollover_readings();
+        let carried = readings[readings.len() - 1];
+        carried.validate(n)?;
+        let interval = self.header.epoch_interval;
+        let expected = self
+            .epochs
+            .last()
+            .map_or(self.header.start_epoch, |last| *last + interval);
+        let epoch = readings
+            .iter()
+            .filter(|r| r.validate(n).is_ok())
+            .map(|r| r.to_epoch(time_system))
+            .min_by(|a, b| (*a - expected).abs().total_cmp(&(*b - expected).abs()))
+            .unwrap_or_else(|| carried.to_epoch(time_system));
+        if let (Some(first), Some(last)) = (self.epochs.first(), self.epochs.last())
+            && let Some(detail) = epoch_grid_error(*first, *last, epoch, interval)
+        {
+            return Err(sp3_parse_error(n, &detail));
+        }
+        self.epochs.push(epoch);
         self.records.push(vec![None; self.satellites.len()]);
         self.seen.clear();
         self.seen.resize(self.satellites.len(), false);
@@ -1058,6 +1172,18 @@ impl Parser {
         self.flush();
         if self.time_system.is_none() {
             return Err(sp3_error("file ends before the %c time system line"));
+        }
+        if self.epochs.len() != self.header.number_of_epochs {
+            return Err(sp3_error(&format!(
+                "header declares {} epochs but the file has {}{}",
+                self.header.number_of_epochs,
+                self.epochs.len(),
+                if self.end_of_file {
+                    ""
+                } else {
+                    " and no EOF line"
+                }
+            )));
         }
         self.header.accuracies.resize(self.satellites.len(), None);
         Ok(SP3::from_parts(
@@ -1611,5 +1737,329 @@ mod tests {
         assert_eq!(sp3.header().file_type, SP3FileType::Mixed);
         let sp3 = SP3::from_file(fixture("example-a-2.sp3")).unwrap();
         assert_eq!(sp3.header().file_type, SP3FileType::GPS);
+    }
+
+    #[rstest]
+    #[case("issue895-hours-increment.sp3", 1, 61)]
+    #[case("issue895-minutes-increment.sp3", 1, 91)]
+    #[case("issue1014-days-increment.sp3", 1, 62)]
+    #[case("issue895-second-digits.sp3", 1, 1)]
+    #[case("issue895-no-eof.sp3", 1, 1)]
+    #[case("issue895-clock-record.sp3", 1, 1)]
+    #[case("issue895-header-comment.sp3", 1, 1)]
+    #[case("three-hours.sp3", 2, 36)]
+    #[case("missing-agency.sp3", 26, 1)]
+    #[case("issue1327-136-sats.sp3", 136, 4)]
+    #[case("missing-standard-deviation.sp3", 32, 21)]
+    #[case("truncated-nsgf.orb.lageos2.160305.v35.sp3", 1, 1)]
+    #[case("esaBHN.sp3", 53, 2)]
+    #[case("esaPRO.sp3", 53, 2)]
+    #[case("unknownType.sp3", 53, 2)]
+    #[case("nsgf.orb.stella.v00.sp3", 1, 100)]
+    #[case("too-many-comments-a.sp3", 25, 3)]
+    #[case("too-long-comment-a.sp3", 25, 3)]
+    #[case("too-long-comment-d.sp3", 26, 1)]
+    #[case("exceeded-sat-count.sp3", 140, 3)]
+    #[parallel]
+    fn test_SP3_from_file_quirks(#[case] f: &str, #[case] nsat: usize, #[case] nep: usize) {
+        let sp3 = SP3::from_file(fixture(f)).unwrap();
+        assert_eq!((sp3.num_satellites(), sp3.num_epochs()), (nsat, nep));
+        assert_eq!(sp3.header().number_of_epochs, nep);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_SP3_from_file_minutes_rollover() {
+        let sp3 = SP3::from_file(fixture("issue895-minutes-increment.sp3")).unwrap();
+        let at = |h, m| Epoch::from_datetime(2016, 7, 6, h, m, 0.0, 0.0, TimeSystem::UTC);
+        assert_epoch(sp3.epochs()[29], at(16, 58));
+        assert_epoch(sp3.epochs()[30], at(17, 0));
+        assert_epoch(sp3.epochs()[31], at(17, 2));
+        assert_epoch(sp3.epochs()[60], at(18, 0));
+        let r = sp3.record(sat("L51"), 30).unwrap().unwrap();
+        assert_abs_diff_eq!(r.position[0], 11948228.978, epsilon = 1e-6);
+        assert_abs_diff_eq!(r.velocity.unwrap()[2], -5331.6820671, epsilon = 1e-9);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_SP3_from_file_hours_rollover() {
+        let sp3 = SP3::from_file(fixture("issue895-hours-increment.sp3")).unwrap();
+        assert_epoch(
+            sp3.epochs()[29],
+            Epoch::from_datetime(2016, 7, 6, 23, 58, 0.0, 0.0, TimeSystem::UTC),
+        );
+        assert_epoch(
+            sp3.epochs()[30],
+            Epoch::from_datetime(2016, 7, 7, 0, 0, 0.0, 0.0, TimeSystem::UTC),
+        );
+        assert_epoch(
+            sp3.epochs()[31],
+            Epoch::from_datetime(2016, 7, 7, 0, 2, 0.0, 0.0, TimeSystem::UTC),
+        );
+        let r = sp3.record(sat("L51"), 30).unwrap().unwrap();
+        assert_abs_diff_eq!(r.position[0], 2989229.334, epsilon = 1e-6);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_SP3_from_file_days_rollover() {
+        let sp3 = SP3::from_file(fixture("issue1014-days-increment.sp3")).unwrap();
+        let h = sp3.header();
+        assert_eq!(h.coordinate_system, "ITRF14");
+        assert_eq!(h.agency, "JCET");
+        assert_eq!(h.time_system, SP3TimeSystem::UTC);
+        let at = |d, h, m| Epoch::from_datetime(2021, 12, d, h, m, 0.0, 0.0, TimeSystem::UTC);
+        assert_epoch(sp3.epochs()[30], at(31, 0, 0));
+        assert_epoch(sp3.epochs()[59], at(31, 0, 58));
+        assert_epoch(sp3.epochs()[60], at(31, 1, 0));
+        assert_epoch(sp3.epochs()[61], at(31, 1, 2));
+        let r = sp3.record(sat("L51"), 61).unwrap().unwrap();
+        assert_abs_diff_eq!(r.position[0], -5691093.473, epsilon = 1e-6);
+        assert_abs_diff_eq!(r.velocity.unwrap()[0], -3918.8598237, epsilon = 1e-9);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_SP3_from_file_second_digits() {
+        let sp3 = SP3::from_file(fixture("issue895-second-digits.sp3")).unwrap();
+        assert_epoch(
+            sp3.start_epoch(),
+            Epoch::from_datetime(2016, 7, 3, 0, 0, 0.1234, 0.0, TimeSystem::UTC),
+        );
+    }
+
+    #[test]
+    #[parallel]
+    fn test_SP3_from_file_136_satellites() {
+        let sp3 = SP3::from_file(fixture("issue1327-136-sats.sp3")).unwrap();
+        assert_eq!(sp3.num_satellites(), 136);
+        assert_eq!(sp3.header().accuracies.len(), 136);
+        assert_eq!(sp3.header().gps_week, 0);
+        assert_eq!(sp3.header().mjd, 0);
+        assert_epoch(
+            sp3.start_epoch(),
+            Epoch::from_datetime(2024, 2, 20, 0, 0, 0.0, 0.0, TimeSystem::GPS),
+        );
+    }
+
+    #[test]
+    #[parallel]
+    fn test_SP3_from_file_missing_agency() {
+        let sp3 = SP3::from_file(fixture("missing-agency.sp3")).unwrap();
+        assert_eq!(sp3.header().version, SP3Version::C);
+        assert_eq!(sp3.header().agency, "");
+    }
+
+    #[test]
+    #[parallel]
+    fn test_SP3_from_file_truncated_clock_columns() {
+        let sp3 = SP3::from_file(fixture("truncated-nsgf.orb.lageos2.160305.v35.sp3")).unwrap();
+        assert_eq!(sp3.header().file_type, SP3FileType::LEO);
+        let r = sp3.record(sat("L52"), 0).unwrap().unwrap();
+        assert_abs_diff_eq!(r.position[0], 2228470.946, epsilon = 1e-6);
+        assert_abs_diff_eq!(r.velocity.unwrap()[2], -711.62228, epsilon = 1e-9);
+        assert_eq!(r.clock, None);
+        assert_eq!(r.clock_rate, None);
+    }
+
+    #[rstest]
+    #[case("esaBHN.sp3", "BHN")]
+    #[case("esaPRO.sp3", "PRO")]
+    #[case("unknownType.sp3", "UKN")]
+    #[parallel]
+    fn test_SP3_from_file_other_orbit_types(#[case] f: &str, #[case] label: &str) {
+        let sp3 = SP3::from_file(fixture(f)).unwrap();
+        assert_eq!(
+            sp3.header().orbit_type,
+            SP3OrbitType::Other(label.to_string())
+        );
+        assert!(sp3.record(sat("G18"), 0).unwrap().is_some());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_SP3_from_file_missing_standard_deviation() {
+        let sp3 = SP3::from_file(fixture("missing-standard-deviation.sp3")).unwrap();
+        let g06 = sat("G06");
+        for i in [7, 8] {
+            let r = sp3.record(g06, i).unwrap().unwrap();
+            assert!(r.position_std[0].is_some());
+            assert_eq!(r.position_std[1], None);
+            assert!(r.position_std[2].is_some());
+            assert!(r.clock_std.is_some());
+        }
+        let r = sp3.record(g06, 6).unwrap().unwrap();
+        assert!(r.position_std.iter().all(Option::is_some));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_SP3_from_file_zero_padded_satellite_ids() {
+        let sp3 = SP3::from_file(fixture("three-hours.sp3")).unwrap();
+        assert_eq!(sp3.satellite_ids(), &[sat("C01"), sat("C02")]);
+        assert_eq!(sp3.header().accuracies.len(), 2);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_SP3_from_file_ilrs_comments_and_no_eof() {
+        let sp3 = SP3::from_file(fixture("issue895-no-eof.sp3")).unwrap();
+        let h = sp3.header();
+        assert_eq!(h.file_type, SP3FileType::LEO);
+        assert_eq!(h.time_system, SP3TimeSystem::UTC);
+        assert_eq!(
+            h.comments[0],
+            "ilrsa.orb.lageos1.220101.v70.sp3 Reference TRF: SLRF2008"
+        );
+        assert_eq!(h.comments.len(), 4);
+        let r = sp3.record(sat("L51"), 0).unwrap().unwrap();
+        assert_abs_diff_eq!(r.position[2], -11075527.276, epsilon = 1e-6);
+        assert_abs_diff_eq!(r.velocity.unwrap()[0], -1772.0521773, epsilon = 1e-9);
+        assert_eq!(r.clock, None);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_SP3_from_str_eof_case_and_blank_lines() {
+        let c1 = read_fixture("example-c-1.sp3");
+        let sp3 = SP3::from_str(&c1.replace("\nEOF", "\neof  ")).unwrap();
+        assert_eq!(sp3.num_epochs(), 2);
+        let sp3 = SP3::from_str(&c1.replace("\nEOF", "\n").replace("\n/*", "\n\n/*")).unwrap();
+        assert_eq!(sp3.num_epochs(), 2);
+        assert_eq!(sp3.header().comments.len(), 4);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_SP3_from_str_blank_partial_fields() {
+        let content = read_fixture("example-d-2.sp3")
+            .replacen("    189.163300 18 18 18 219\n", "    189.163300  \n", 1)
+            .replacen(
+                "PG02 -12593.593500  10170.327650 -20354.534400    -55.976000 18 18 18 219     M\n",
+                "PG02 -12593.593500  10170.327650 -20354.534400    \n",
+                1,
+            );
+        let sp3 = SP3::from_str(&content).unwrap();
+        let r = sp3.record(sat("G01"), 0).unwrap().unwrap();
+        assert_abs_diff_eq!(r.clock.unwrap(), 189.1633e-6, epsilon = 1e-15);
+        assert_eq!(r.position_std, [None; 3]);
+        assert_eq!(r.clock_std, None);
+        let r = sp3.record(sat("G02"), 0).unwrap().unwrap();
+        assert_abs_diff_eq!(r.position[2], -20354534.4, epsilon = 1e-6);
+        assert_eq!(r.clock, None);
+    }
+
+    #[rstest]
+    #[case(
+        "truncated-line.sp3",
+        "SP3: line 27: ",
+        "record truncated in columns 47-60"
+    )]
+    #[case(
+        "missing-eof.sp3",
+        "SP3: ",
+        "header declares 192 epochs but the file has 1"
+    )]
+    #[case(
+        "wrong-number-of-epochs.sp3",
+        "SP3: ",
+        "header declares 192 epochs but the file has 2"
+    )]
+    #[case(
+        "wrong-line-identifier.sp3",
+        "SP3: line 13: ",
+        "unrecognized line identifier"
+    )]
+    #[case("unsupported-version.sp3", "SP3: line 1: ", "unsupported version 'z'")]
+    #[case("wrong-clock-base-a.sp3", "SP3: line 15: ", "clock base")]
+    #[case("wrong-pos-vel-base-a.sp3", "SP3: line 15: ", "position/velocity base")]
+    #[case("wrong-clock-base-d.sp3", "SP3: line 24: ", "clock base")]
+    #[case("wrong-pos-vel-base-d.sp3", "SP3: line 24: ", "position/velocity base")]
+    #[case(
+        "inconsistent-sampling-dates.sp3",
+        "SP3: line 37: ",
+        "is not on the 900 s grid"
+    )]
+    #[case(
+        "example-d-2-glo.sp3",
+        "SP3: line 13: ",
+        "time system 'GLO' is not supported"
+    )]
+    #[parallel]
+    fn test_SP3_from_file_errors(#[case] f: &str, #[case] prefix: &str, #[case] detail: &str) {
+        match SP3::from_file(fixture(f)) {
+            Err(BraheError::ParseError(msg)) => {
+                assert!(msg.starts_with("SP3"), "{msg}");
+                assert!(msg.starts_with(prefix), "{msg}");
+                assert!(msg.contains(detail), "{msg}");
+            }
+            other => panic!("expected a parse error, got {other:?}"),
+        }
+    }
+
+    #[test]
+    #[parallel]
+    fn test_SP3_from_str_epoch_order_and_rollover_errors() {
+        let c1 = read_fixture("example-c-1.sp3");
+        let msg = parse_error(&c1.replacen("*  2001  8  9 23 45", "*  2001  8  7 23 45", 1));
+        assert!(msg.starts_with("SP3: line 50: "), "{msg}");
+        assert!(msg.contains("is not after the last epoch"), "{msg}");
+
+        let msg = parse_error(&c1.replacen("*  2001  8  9 23 45", "*  2001  8  9 23 61", 1));
+        assert!(
+            msg.starts_with("SP3: line 50: minute out of range"),
+            "{msg}"
+        );
+
+        let msg = parse_error(&c1.replacen("*  2001  8  9 23 45", "*  2001  8  9 25 45", 1));
+        assert!(msg.starts_with("SP3: line 50: hour out of range"), "{msg}");
+
+        let msg = parse_error(&c1.replacen("*  2001  8  9 23 45", "*  2001  0  0 23 45", 1));
+        assert!(msg.starts_with("SP3: line 50: month out of range"), "{msg}");
+
+        let msg = parse_error(&c1.replacen("*  2001  8  9 23 45", "*  2001  8  9 255 60", 1));
+        assert!(msg.starts_with("SP3: line 50: hour out of range"), "{msg}");
+
+        let msg = parse_error(&c1.replacen("*  2001  8  9 23 45", "*  4294967295 12 31 24 45", 1));
+        assert!(msg.starts_with("SP3: line 50: "), "{msg}");
+    }
+
+    #[test]
+    #[parallel]
+    fn test_SP3_from_str_one_second_day() {
+        let mut content = String::from(
+            "#dP2024  1  1  0  0  1.00000000   86400 ORBIT IGS20 FIT  TST\n\
+             ## 2295  86401.00000000     1.00000000 60310 0.0000115740741\n\
+             +    1   G01\n\
+             ++         0\n\
+             %c G  cc GPS ccc cccc cccc cccc cccc ccccc ccccc ccccc ccccc\n\
+             %c cc cc ccc ccc cccc cccc cccc cccc ccccc ccccc ccccc ccccc\n\
+             %f  0.0000000  0.000000000  0.00000000000  0.000000000000000\n\
+             %f  0.0000000  0.000000000  0.00000000000  0.000000000000000\n\
+             %i    0    0    0    0      0      0      0      0         0\n\
+             %i    0    0    0    0      0      0      0      0         0\n\
+             /* ONE-SECOND GRID\n",
+        );
+        for i in 1..=86_400u32 {
+            if i == 86_400 {
+                content.push_str("*  2024  1  1 23 59 59.99999999\n");
+            } else {
+                content.push_str(&format!(
+                    "*  2024  1  1 {:2} {:2} {:11.8}\n",
+                    i / 3600,
+                    (i % 3600) / 60,
+                    f64::from(i % 60)
+                ));
+            }
+            content.push_str("PG01  15000.000000  20000.000000   5000.000000    100.000000\n");
+        }
+        content.push_str("EOF\n");
+
+        let sp3 = SP3::from_str(&content).unwrap();
+        assert_eq!(sp3.num_epochs(), 86_400);
+        let t0 = Epoch::from_datetime(2024, 1, 1, 0, 0, 1.0, 0.0, TimeSystem::GPS);
+        assert_epoch(sp3.start_epoch(), t0);
+        assert_abs_diff_eq!(sp3.end_epoch() - t0, 86_399.0, epsilon = 1e-7);
     }
 }

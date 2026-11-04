@@ -864,9 +864,8 @@ impl SP3Record {
 /// `position_base` and `clock_base` are the bases of the standard deviation
 /// exponents in millimeters (or 1e-4 mm/s) and picoseconds (or 1e-4 ps/s)
 /// respectively, and are `None` when the file declares none. `accuracies`
-/// holds one entry per satellite in header order, in meters, with
-/// `f64::INFINITY` for the "too large" marker and `None` for an unknown
-/// accuracy.
+/// holds one entry per satellite in header order, in meters, with `None`
+/// for an unknown accuracy (a `++` exponent of 0).
 ///
 /// # Examples
 ///
@@ -1155,6 +1154,45 @@ const MAX_SATELLITES: usize = 999;
 /// Tolerance for an epoch to be considered on the epoch grid. Units: s
 const GRID_TOLERANCE: f64 = 1.0e-3;
 
+/// Check that an epoch can follow the last epoch of a file.
+///
+/// The epoch must be later than `last` and within 1 ms of a point of the
+/// grid of `interval` anchored at `first`. The grid offset is computed from
+/// `first` directly, so the check does not accumulate rounding error over
+/// many epochs.
+///
+/// # Arguments
+///
+/// * `first` - First epoch of the file
+/// * `last` - Last epoch of the file
+/// * `epoch` - Epoch to check
+/// * `interval` - Epoch interval. Units: s
+///
+/// # Returns
+///
+/// * `Option<String>` - Description of the problem, or `None` if the epoch is valid
+pub(crate) fn epoch_grid_error(
+    first: Epoch,
+    last: Epoch,
+    epoch: Epoch,
+    interval: f64,
+) -> Option<String> {
+    if epoch - last <= 0.0 {
+        return Some(format!(
+            "epoch {} is not after the last epoch {}",
+            epoch, last
+        ));
+    }
+    let offset = epoch - first;
+    if ((offset / interval).round() * interval - offset).abs() > GRID_TOLERANCE {
+        return Some(format!(
+            "epoch {} is not on the {} s grid starting at {}",
+            epoch, interval, first
+        ));
+    }
+    None
+}
+
 /// Calendar-derived header fields for an epoch expressed in a time system.
 ///
 /// Returns the GPS week, seconds of week, modified Julian day number, and
@@ -1377,19 +1415,9 @@ impl SP3 {
     /// ```
     pub fn push_epoch(&mut self, epoch: Epoch) -> Result<usize, BraheError> {
         if let (Some(first), Some(last)) = (self.epochs.first(), self.epochs.last()) {
-            if epoch - *last <= 0.0 {
-                return Err(sp3_error(&format!(
-                    "epoch {} is not after the last epoch {}",
-                    epoch, last
-                )));
-            }
-            let interval = self.header.epoch_interval;
-            let offset = epoch - *first;
-            if ((offset / interval).round() * interval - offset).abs() > GRID_TOLERANCE {
-                return Err(sp3_error(&format!(
-                    "epoch {} is not on the {} s grid starting at {}",
-                    epoch, interval, first
-                )));
+            if let Some(detail) = epoch_grid_error(*first, *last, epoch, self.header.epoch_interval)
+            {
+                return Err(sp3_error(&detail));
             }
         } else {
             self.set_start_epoch(epoch);

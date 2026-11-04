@@ -1149,6 +1149,7 @@ fn lagrange_derivative_at_node(times: &[f64], values: &[[f64; 3]], node: usize) 
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 #[allow(non_snake_case)]
 mod tests {
     use super::*;

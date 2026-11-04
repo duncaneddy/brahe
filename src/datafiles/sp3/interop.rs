@@ -223,6 +223,7 @@ fn joined_samples(files: &[&SP3], id: SP3SatelliteId) -> Vec<SP3Sample> {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 #[allow(non_snake_case)]
 mod tests {
     use super::*;

@@ -1,9 +1,11 @@
 //! SP3 enums and satellite identifiers.
 
+use std::collections::HashSet;
 use std::fmt;
 use std::str::FromStr;
 
-use crate::time::TimeSystem;
+use crate::constants::{GPS_ZERO, SECONDS_PER_DAY};
+use crate::time::{Epoch, TimeSystem, datetime_to_mjd};
 use crate::utils::BraheError;
 
 fn sp3_error(detail: &str) -> BraheError {
@@ -671,6 +673,1054 @@ impl FromStr for SP3SatelliteId {
     }
 }
 
+/// Correlation record accompanying an SP3 `EP` or `EV` line.
+///
+/// Holds the standard deviations and the six off-diagonal correlation
+/// coefficients of the position-clock (`EP`) or velocity-clock-rate (`EV`)
+/// covariance. Standard deviations are in SI units; the correlation
+/// coefficients are dimensionless.
+///
+/// # Examples
+///
+/// ```
+/// use brahe::datafiles::sp3::SP3Correlation;
+///
+/// let corr = SP3Correlation {
+///     std: [Some(0.01), Some(0.01), Some(0.02)],
+///     clock_std: Some(1e-11),
+///     xy: 0.1, xz: 0.0, xc: 0.0,
+///     yz: -0.1, yc: 0.0, zc: 0.0,
+/// };
+/// assert_eq!(corr.std[2], Some(0.02));
+/// ```
+#[derive(Debug, Clone, PartialEq)]
+pub struct SP3Correlation {
+    /// Standard deviation of x, y, z. Units: m (`EP`) or m/s (`EV`)
+    pub std: [Option<f64>; 3],
+    /// Standard deviation of the clock. Units: s (`EP`) or s/s (`EV`)
+    pub clock_std: Option<f64>,
+    /// Correlation between x and y
+    pub xy: f64,
+    /// Correlation between x and z
+    pub xz: f64,
+    /// Correlation between x and the clock
+    pub xc: f64,
+    /// Correlation between y and z
+    pub yz: f64,
+    /// Correlation between y and the clock
+    pub yc: f64,
+    /// Correlation between z and the clock
+    pub zc: f64,
+}
+
+/// One satellite state at one epoch of an SP3 file.
+///
+/// All quantities are SI. Optional fields are `None` when the file leaves
+/// them blank or does not carry them.
+///
+/// # Examples
+///
+/// ```
+/// use brahe::datafiles::sp3::SP3Record;
+///
+/// let record = SP3Record::new([15_000_000.0, 20_000_000.0, 5_000_000.0])
+///     .with_velocity([1000.0, -2000.0, 500.0])
+///     .with_clock(2.5e-5)
+///     .with_clock_rate(1e-12);
+/// assert_eq!(record.clock, Some(2.5e-5));
+/// assert_eq!(record.velocity, Some([1000.0, -2000.0, 500.0]));
+/// ```
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct SP3Record {
+    /// Position in the file's coordinate system. Units: m
+    pub position: [f64; 3],
+    /// Satellite clock correction. Units: s
+    pub clock: Option<f64>,
+    /// Standard deviation of the position. Units: m
+    pub position_std: [Option<f64>; 3],
+    /// Standard deviation of the clock correction. Units: s
+    pub clock_std: Option<f64>,
+    /// Velocity in the file's coordinate system. Units: m/s
+    pub velocity: Option<[f64; 3]>,
+    /// Rate of change of the clock correction. Units: s/s
+    pub clock_rate: Option<f64>,
+    /// Standard deviation of the velocity. Units: m/s
+    pub velocity_std: [Option<f64>; 3],
+    /// Standard deviation of the clock rate. Units: s/s
+    pub clock_rate_std: Option<f64>,
+    /// Clock event flag
+    pub clock_event: bool,
+    /// Clock prediction flag
+    pub clock_predicted: bool,
+    /// Maneuver flag
+    pub maneuver: bool,
+    /// Orbit prediction flag
+    pub orbit_predicted: bool,
+    /// Position-clock correlation record (`EP` line)
+    pub position_correlation: Option<SP3Correlation>,
+    /// Velocity-clock-rate correlation record (`EV` line)
+    pub velocity_correlation: Option<SP3Correlation>,
+}
+
+impl SP3Record {
+    /// Create a record holding only a position.
+    ///
+    /// # Arguments
+    ///
+    /// * `position` - Position `[x, y, z]`. Units: m
+    ///
+    /// # Returns
+    ///
+    /// * `SP3Record` - Record with all other fields unset
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::datafiles::sp3::SP3Record;
+    ///
+    /// let record = SP3Record::new([1.0, 2.0, 3.0]);
+    /// assert_eq!(record.position, [1.0, 2.0, 3.0]);
+    /// assert!(record.velocity.is_none() && record.clock.is_none());
+    /// ```
+    pub fn new(position: [f64; 3]) -> Self {
+        SP3Record {
+            position,
+            ..Default::default()
+        }
+    }
+
+    /// Set the velocity.
+    ///
+    /// # Arguments
+    ///
+    /// * `velocity` - Velocity `[vx, vy, vz]`. Units: m/s
+    ///
+    /// # Returns
+    ///
+    /// * `SP3Record` - The record with the velocity set
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::datafiles::sp3::SP3Record;
+    ///
+    /// let record = SP3Record::new([1.0, 2.0, 3.0]).with_velocity([4.0, 5.0, 6.0]);
+    /// assert_eq!(record.velocity, Some([4.0, 5.0, 6.0]));
+    /// ```
+    pub fn with_velocity(mut self, velocity: [f64; 3]) -> Self {
+        self.velocity = Some(velocity);
+        self
+    }
+
+    /// Set the clock correction.
+    ///
+    /// # Arguments
+    ///
+    /// * `clock` - Satellite clock correction. Units: s
+    ///
+    /// # Returns
+    ///
+    /// * `SP3Record` - The record with the clock correction set
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::datafiles::sp3::SP3Record;
+    ///
+    /// let record = SP3Record::new([1.0, 2.0, 3.0]).with_clock(1e-6);
+    /// assert_eq!(record.clock, Some(1e-6));
+    /// ```
+    pub fn with_clock(mut self, clock: f64) -> Self {
+        self.clock = Some(clock);
+        self
+    }
+
+    /// Set the clock rate.
+    ///
+    /// # Arguments
+    ///
+    /// * `clock_rate` - Rate of change of the clock correction. Units: s/s
+    ///
+    /// # Returns
+    ///
+    /// * `SP3Record` - The record with the clock rate set
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::datafiles::sp3::SP3Record;
+    ///
+    /// let record = SP3Record::new([1.0, 2.0, 3.0]).with_clock_rate(1e-12);
+    /// assert_eq!(record.clock_rate, Some(1e-12));
+    /// ```
+    pub fn with_clock_rate(mut self, clock_rate: f64) -> Self {
+        self.clock_rate = Some(clock_rate);
+        self
+    }
+}
+
+/// SP3 file header.
+///
+/// Quantities are SI. `start_epoch`, `number_of_epochs`, `gps_week`,
+/// `seconds_of_week`, `mjd`, and `fractional_day` describe the first epoch of
+/// the file and are stored as read or as set by [`SP3::push_epoch`].
+/// `position_base` and `clock_base` are the bases of the standard deviation
+/// exponents in millimeters (or 1e-4 mm/s) and picoseconds (or 1e-4 ps/s)
+/// respectively, and are `None` when the file declares none. `accuracies`
+/// holds one entry per satellite in header order, in meters, with
+/// `f64::INFINITY` for the "too large" marker and `None` for an unknown
+/// accuracy.
+///
+/// # Examples
+///
+/// ```
+/// use brahe::datafiles::sp3::{GNSSSystem, SP3, SP3SatelliteId, SP3Version, SP3WriteOptions};
+///
+/// let sat = SP3SatelliteId::new(GNSSSystem::GPS, 1).unwrap();
+/// let sp3 = SP3::new(vec![sat], 900.0, SP3WriteOptions::default()).unwrap();
+/// assert_eq!(sp3.header().version, SP3Version::D);
+/// assert_eq!(sp3.header().agency, "BRHE");
+/// ```
+#[derive(Debug, Clone, PartialEq)]
+pub struct SP3Header {
+    /// SP3 format version
+    pub version: SP3Version,
+    /// Whether the file carries velocity records
+    pub has_velocity: bool,
+    /// First epoch of the file
+    pub start_epoch: Epoch,
+    /// Number of epochs in the file
+    pub number_of_epochs: usize,
+    /// Data used descriptor
+    pub data_used: String,
+    /// Coordinate system label
+    pub coordinate_system: String,
+    /// Orbit type
+    pub orbit_type: SP3OrbitType,
+    /// Producing agency
+    pub agency: String,
+    /// GPS week of the first epoch
+    pub gps_week: u32,
+    /// Seconds of the GPS week of the first epoch. Units: s
+    pub seconds_of_week: f64,
+    /// Epoch interval. Units: s
+    pub epoch_interval: f64,
+    /// Modified Julian day number of the first epoch
+    pub mjd: u32,
+    /// Fractional day of the first epoch
+    pub fractional_day: f64,
+    /// File type
+    pub file_type: SP3FileType,
+    /// Time system of the epochs
+    pub time_system: SP3TimeSystem,
+    /// Base of the position standard deviation exponent. Units: mm
+    pub position_base: Option<f64>,
+    /// Base of the clock standard deviation exponent. Units: ps
+    pub clock_base: Option<f64>,
+    /// Satellite accuracies in header order. Units: m
+    pub accuracies: Vec<Option<f64>>,
+    /// Comment lines
+    pub comments: Vec<String>,
+}
+
+/// Options controlling the header of an SP3 file built in memory.
+///
+/// # Examples
+///
+/// ```
+/// use brahe::datafiles::sp3::{SP3OrbitType, SP3WriteOptions};
+///
+/// let options = SP3WriteOptions::new()
+///     .with_agency("ABC")
+///     .with_orbit_type(SP3OrbitType::FIT)
+///     .with_velocity(false);
+/// assert_eq!(options.agency, "ABC");
+/// assert_eq!(options.coordinate_system, "IGS20");
+/// assert!(!options.include_velocity);
+/// ```
+#[derive(Debug, Clone, PartialEq)]
+pub struct SP3WriteOptions {
+    /// Producing agency, at most 4 characters
+    pub agency: String,
+    /// Time system of the epochs
+    pub time_system: SP3TimeSystem,
+    /// Coordinate system label, at most 5 characters
+    pub coordinate_system: String,
+    /// Orbit type
+    pub orbit_type: SP3OrbitType,
+    /// Data used descriptor, at most 5 characters
+    pub data_used: String,
+    /// Whether velocity records are written
+    pub include_velocity: bool,
+    /// Comment lines
+    pub comments: Vec<String>,
+}
+
+impl Default for SP3WriteOptions {
+    fn default() -> Self {
+        SP3WriteOptions {
+            agency: "BRHE".to_string(),
+            time_system: SP3TimeSystem::GPS,
+            coordinate_system: "IGS20".to_string(),
+            orbit_type: SP3OrbitType::EXT,
+            data_used: "ORBIT".to_string(),
+            include_velocity: true,
+            comments: Vec::new(),
+        }
+    }
+}
+
+impl SP3WriteOptions {
+    /// Create options with the default values: agency `BRHE`, GPS time,
+    /// coordinate system `IGS20`, orbit type `EXT`, data used `ORBIT`,
+    /// velocity records included, and no comments.
+    ///
+    /// # Returns
+    ///
+    /// * `SP3WriteOptions` - Default options
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::datafiles::sp3::SP3WriteOptions;
+    ///
+    /// let options = SP3WriteOptions::new();
+    /// assert_eq!(options.agency, "BRHE");
+    /// assert!(options.include_velocity);
+    /// ```
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Set the producing agency.
+    ///
+    /// # Arguments
+    ///
+    /// * `agency` - Agency label, at most 4 characters
+    ///
+    /// # Returns
+    ///
+    /// * `SP3WriteOptions` - The options with the agency set
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::datafiles::sp3::SP3WriteOptions;
+    ///
+    /// assert_eq!(SP3WriteOptions::new().with_agency("ESA").agency, "ESA");
+    /// ```
+    pub fn with_agency(mut self, agency: &str) -> Self {
+        self.agency = agency.to_string();
+        self
+    }
+
+    /// Set the time system of the epochs.
+    ///
+    /// # Arguments
+    ///
+    /// * `time_system` - Time system label
+    ///
+    /// # Returns
+    ///
+    /// * `SP3WriteOptions` - The options with the time system set
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::datafiles::sp3::{SP3TimeSystem, SP3WriteOptions};
+    ///
+    /// let options = SP3WriteOptions::new().with_time_system(SP3TimeSystem::UTC);
+    /// assert_eq!(options.time_system, SP3TimeSystem::UTC);
+    /// ```
+    pub fn with_time_system(mut self, time_system: SP3TimeSystem) -> Self {
+        self.time_system = time_system;
+        self
+    }
+
+    /// Set the coordinate system label.
+    ///
+    /// # Arguments
+    ///
+    /// * `label` - Coordinate system label, at most 5 characters
+    ///
+    /// # Returns
+    ///
+    /// * `SP3WriteOptions` - The options with the coordinate system set
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::datafiles::sp3::SP3WriteOptions;
+    ///
+    /// let options = SP3WriteOptions::new().with_coordinate_system("IGb14");
+    /// assert_eq!(options.coordinate_system, "IGb14");
+    /// ```
+    pub fn with_coordinate_system(mut self, label: &str) -> Self {
+        self.coordinate_system = label.to_string();
+        self
+    }
+
+    /// Set the orbit type.
+    ///
+    /// # Arguments
+    ///
+    /// * `orbit_type` - Orbit type
+    ///
+    /// # Returns
+    ///
+    /// * `SP3WriteOptions` - The options with the orbit type set
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::datafiles::sp3::{SP3OrbitType, SP3WriteOptions};
+    ///
+    /// let options = SP3WriteOptions::new().with_orbit_type(SP3OrbitType::FIT);
+    /// assert_eq!(options.orbit_type, SP3OrbitType::FIT);
+    /// ```
+    pub fn with_orbit_type(mut self, orbit_type: SP3OrbitType) -> Self {
+        self.orbit_type = orbit_type;
+        self
+    }
+
+    /// Set the data used descriptor.
+    ///
+    /// # Arguments
+    ///
+    /// * `data_used` - Data used descriptor, at most 5 characters
+    ///
+    /// # Returns
+    ///
+    /// * `SP3WriteOptions` - The options with the data used descriptor set
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::datafiles::sp3::SP3WriteOptions;
+    ///
+    /// let options = SP3WriteOptions::new().with_data_used("DOPPL");
+    /// assert_eq!(options.data_used, "DOPPL");
+    /// ```
+    pub fn with_data_used(mut self, data_used: &str) -> Self {
+        self.data_used = data_used.to_string();
+        self
+    }
+
+    /// Set whether velocity records are included.
+    ///
+    /// # Arguments
+    ///
+    /// * `include_velocity` - `true` to include velocity records
+    ///
+    /// # Returns
+    ///
+    /// * `SP3WriteOptions` - The options with the velocity flag set
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::datafiles::sp3::SP3WriteOptions;
+    ///
+    /// assert!(!SP3WriteOptions::new().with_velocity(false).include_velocity);
+    /// ```
+    pub fn with_velocity(mut self, include_velocity: bool) -> Self {
+        self.include_velocity = include_velocity;
+        self
+    }
+
+    /// Set the comment lines.
+    ///
+    /// # Arguments
+    ///
+    /// * `comments` - Comment lines
+    ///
+    /// # Returns
+    ///
+    /// * `SP3WriteOptions` - The options with the comments set
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::datafiles::sp3::SP3WriteOptions;
+    ///
+    /// let options = SP3WriteOptions::new().with_comments(vec!["generated".to_string()]);
+    /// assert_eq!(options.comments.len(), 1);
+    /// ```
+    pub fn with_comments(mut self, comments: Vec<String>) -> Self {
+        self.comments = comments;
+        self
+    }
+}
+
+/// Maximum number of satellites an SP3 file can declare.
+const MAX_SATELLITES: usize = 999;
+
+/// Tolerance for an epoch to be considered on the epoch grid. Units: s
+const GRID_TOLERANCE: f64 = 1.0e-3;
+
+/// Calendar-derived header fields for an epoch expressed in a time system.
+///
+/// Returns the GPS week, seconds of week, modified Julian day number, and
+/// fractional day of the epoch, all in `time_system`.
+fn header_time_fields(epoch: &Epoch, time_system: TimeSystem) -> (u32, f64, u32, f64) {
+    let (year, month, day, hour, minute, second, nanosecond) =
+        epoch.to_datetime_as_time_system(time_system);
+    let mjd = datetime_to_mjd(year, month, day, 0, 0, 0.0, 0.0).round() as i64;
+    let seconds_of_day =
+        f64::from(hour) * 3600.0 + f64::from(minute) * 60.0 + second + nanosecond * 1.0e-9;
+    let days_since_gps_zero = mjd - GPS_ZERO as i64;
+    let week = days_since_gps_zero.div_euclid(7);
+    let day_of_week = days_since_gps_zero.rem_euclid(7);
+    (
+        week as u32,
+        day_of_week as f64 * SECONDS_PER_DAY + seconds_of_day,
+        mjd as u32,
+        seconds_of_day / SECONDS_PER_DAY,
+    )
+}
+
+/// File type implied by the systems of a satellite list.
+fn file_type_from_satellites(satellites: &[SP3SatelliteId]) -> SP3FileType {
+    let Some(first) = satellites.first() else {
+        return SP3FileType::Mixed;
+    };
+    if satellites.iter().any(|s| s.system != first.system) {
+        return SP3FileType::Mixed;
+    }
+    match first.system {
+        GNSSSystem::GPS => SP3FileType::GPS,
+        GNSSSystem::GLONASS => SP3FileType::GLONASS,
+        GNSSSystem::Galileo => SP3FileType::Galileo,
+        GNSSSystem::BeiDou => SP3FileType::BeiDou,
+        GNSSSystem::QZSS => SP3FileType::QZSS,
+        GNSSSystem::IRNSS => SP3FileType::IRNSS,
+        GNSSSystem::SBAS => SP3FileType::SBAS,
+        GNSSSystem::LEO => SP3FileType::LEO,
+    }
+}
+
+/// An SP3 precise orbit file held in memory.
+///
+/// Stores the header, an ascending list of epochs, the satellites in header
+/// order, and a dense table of optional [`SP3Record`] values indexed by epoch
+/// then satellite. A `None` entry means the satellite is absent at that epoch
+/// or its position is the format's bad-value marker. All quantities are SI.
+///
+/// # Examples
+///
+/// ```
+/// use brahe::datafiles::sp3::{GNSSSystem, SP3, SP3Record, SP3SatelliteId, SP3WriteOptions};
+/// use brahe::time::{Epoch, TimeSystem};
+///
+/// let sat = SP3SatelliteId::new(GNSSSystem::GPS, 1).unwrap();
+/// let mut sp3 = SP3::new(vec![sat], 900.0, SP3WriteOptions::default()).unwrap();
+///
+/// let t0 = Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::GPS);
+/// let k = sp3.push_epoch(t0).unwrap();
+/// sp3.set_record(sat, k, SP3Record::new([2.0e7, 1.0e7, 1.0e7])).unwrap();
+///
+/// assert_eq!(sp3.num_epochs(), 1);
+/// assert!(sp3.record(sat, 0).unwrap().is_some());
+/// ```
+#[derive(Debug, Clone, PartialEq)]
+pub struct SP3 {
+    header: SP3Header,
+    epochs: Vec<Epoch>,
+    satellites: Vec<SP3SatelliteId>,
+    records: Vec<Vec<Option<SP3Record>>>,
+}
+
+impl SP3 {
+    /// Create an empty SP3 file with a fixed epoch grid.
+    ///
+    /// The header is filled from `options`: version D, a file type derived
+    /// from the satellite systems (the common system when all satellites
+    /// share one, `Mixed` otherwise), velocity records according to
+    /// `include_velocity`, no standard deviation bases, and unknown
+    /// accuracies. The start epoch and GPS week fields are set by the first
+    /// call to [`SP3::push_epoch`]; until then they describe GPS epoch zero.
+    ///
+    /// # Arguments
+    ///
+    /// * `satellites` - Satellites in header order; at most 999, no duplicates
+    /// * `epoch_interval` - Spacing of the epoch grid. Units: s
+    /// * `options` - Header options; the time system must have a Brahe equivalent
+    ///   (GPS, GAL, BDT, TAI, or UTC)
+    ///
+    /// # Returns
+    ///
+    /// * `Result<SP3, BraheError>` - The empty file, or an error for duplicate satellites,
+    ///   more than 999 satellites, a non-positive or non-finite interval, or a time system
+    ///   without a Brahe equivalent
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::datafiles::sp3::{GNSSSystem, SP3, SP3FileType, SP3SatelliteId, SP3WriteOptions};
+    ///
+    /// let g01 = SP3SatelliteId::new(GNSSSystem::GPS, 1).unwrap();
+    /// let e01 = SP3SatelliteId::new(GNSSSystem::Galileo, 1).unwrap();
+    /// let sp3 = SP3::new(vec![g01, e01], 300.0, SP3WriteOptions::default()).unwrap();
+    /// assert_eq!(sp3.header().file_type, SP3FileType::Mixed);
+    /// assert_eq!(sp3.num_satellites(), 2);
+    /// ```
+    pub fn new(
+        satellites: Vec<SP3SatelliteId>,
+        epoch_interval: f64,
+        options: SP3WriteOptions,
+    ) -> Result<Self, BraheError> {
+        if satellites.len() > MAX_SATELLITES {
+            return Err(sp3_error(&format!(
+                "{} satellites exceeds the maximum of {}",
+                satellites.len(),
+                MAX_SATELLITES
+            )));
+        }
+        let mut seen = HashSet::with_capacity(satellites.len());
+        for id in &satellites {
+            if !seen.insert(*id) {
+                return Err(sp3_error(&format!("duplicate satellite {}", id)));
+            }
+        }
+        if !(epoch_interval.is_finite() && epoch_interval > 0.0) {
+            return Err(sp3_error(&format!(
+                "epoch interval must be positive and finite, got {}",
+                epoch_interval
+            )));
+        }
+        let time_system = options.time_system.to_time_system().ok_or_else(|| {
+            sp3_error(&format!(
+                "time system {} has no Brahe equivalent",
+                options.time_system
+            ))
+        })?;
+
+        let start_epoch = Epoch::from_gps_date(0, 0.0);
+        let (gps_week, seconds_of_week, mjd, fractional_day) =
+            header_time_fields(&start_epoch, time_system);
+
+        let header = SP3Header {
+            version: SP3Version::D,
+            has_velocity: options.include_velocity,
+            start_epoch,
+            number_of_epochs: 0,
+            data_used: options.data_used,
+            coordinate_system: options.coordinate_system,
+            orbit_type: options.orbit_type,
+            agency: options.agency,
+            gps_week,
+            seconds_of_week,
+            epoch_interval,
+            mjd,
+            fractional_day,
+            file_type: file_type_from_satellites(&satellites),
+            time_system: options.time_system,
+            position_base: None,
+            clock_base: None,
+            accuracies: vec![None; satellites.len()],
+            comments: options.comments,
+        };
+
+        Ok(SP3 {
+            header,
+            epochs: Vec::new(),
+            satellites,
+            records: Vec::new(),
+        })
+    }
+
+    /// Assemble a file from already validated parts.
+    ///
+    /// `records` must hold one row per epoch and one entry per satellite in
+    /// each row.
+    #[allow(dead_code)]
+    pub(crate) fn from_parts(
+        header: SP3Header,
+        epochs: Vec<Epoch>,
+        satellites: Vec<SP3SatelliteId>,
+        records: Vec<Vec<Option<SP3Record>>>,
+    ) -> SP3 {
+        SP3 {
+            header,
+            epochs,
+            satellites,
+            records,
+        }
+    }
+
+    /// Append an epoch to the file.
+    ///
+    /// The epoch must be later than the last epoch and lie on the grid of
+    /// `epoch_interval` anchored at the first epoch, to within 1 ms. Grid
+    /// points may be skipped. The first epoch sets the start epoch, GPS week,
+    /// seconds of week, MJD, and fractional day of the header. Every satellite
+    /// is absent at the new epoch until [`SP3::set_record`] is called.
+    ///
+    /// # Arguments
+    ///
+    /// * `epoch` - Epoch to append
+    ///
+    /// # Returns
+    ///
+    /// * `Result<usize, BraheError>` - Index of the new epoch, or an error if the epoch
+    ///   is not after the last epoch or is off the grid
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::datafiles::sp3::{GNSSSystem, SP3, SP3SatelliteId, SP3WriteOptions};
+    /// use brahe::time::{Epoch, TimeSystem};
+    ///
+    /// let sat = SP3SatelliteId::new(GNSSSystem::GPS, 1).unwrap();
+    /// let mut sp3 = SP3::new(vec![sat], 900.0, SP3WriteOptions::default()).unwrap();
+    /// let t0 = Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::GPS);
+    ///
+    /// assert_eq!(sp3.push_epoch(t0).unwrap(), 0);
+    /// assert_eq!(sp3.push_epoch(t0 + 2700.0).unwrap(), 1);
+    /// assert!(sp3.push_epoch(t0 + 3000.0).is_err());
+    /// ```
+    pub fn push_epoch(&mut self, epoch: Epoch) -> Result<usize, BraheError> {
+        if let (Some(first), Some(last)) = (self.epochs.first(), self.epochs.last()) {
+            if epoch - *last <= 0.0 {
+                return Err(sp3_error(&format!(
+                    "epoch {} is not after the last epoch {}",
+                    epoch, last
+                )));
+            }
+            let interval = self.header.epoch_interval;
+            let offset = epoch - *first;
+            if ((offset / interval).round() * interval - offset).abs() > GRID_TOLERANCE {
+                return Err(sp3_error(&format!(
+                    "epoch {} is not on the {} s grid starting at {}",
+                    epoch, interval, first
+                )));
+            }
+        } else {
+            self.set_start_epoch(epoch);
+        }
+
+        self.epochs.push(epoch);
+        self.records.push(vec![None; self.satellites.len()]);
+        self.header.number_of_epochs = self.epochs.len();
+        Ok(self.epochs.len() - 1)
+    }
+
+    /// Set the header fields derived from the first epoch.
+    fn set_start_epoch(&mut self, epoch: Epoch) {
+        let time_system = self
+            .header
+            .time_system
+            .to_time_system()
+            .unwrap_or(TimeSystem::GPS);
+        let (gps_week, seconds_of_week, mjd, fractional_day) =
+            header_time_fields(&epoch, time_system);
+        self.header.start_epoch = epoch;
+        self.header.gps_week = gps_week;
+        self.header.seconds_of_week = seconds_of_week;
+        self.header.mjd = mjd;
+        self.header.fractional_day = fractional_day;
+    }
+
+    /// Store the record of a satellite at an epoch.
+    ///
+    /// A record whose position is exactly `[0, 0, 0]` marks the satellite as
+    /// absent and is stored as `None`.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - Satellite identifier
+    /// * `epoch_index` - Index of the epoch, as returned by [`SP3::push_epoch`]
+    /// * `record` - Record to store
+    ///
+    /// # Returns
+    ///
+    /// * `Result<(), BraheError>` - An error if the satellite is not in the file or the
+    ///   epoch index is out of range
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::datafiles::sp3::{GNSSSystem, SP3, SP3Record, SP3SatelliteId, SP3WriteOptions};
+    /// use brahe::time::{Epoch, TimeSystem};
+    ///
+    /// let sat = SP3SatelliteId::new(GNSSSystem::GPS, 1).unwrap();
+    /// let mut sp3 = SP3::new(vec![sat], 900.0, SP3WriteOptions::default()).unwrap();
+    /// let t0 = Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::GPS);
+    /// sp3.push_epoch(t0).unwrap();
+    ///
+    /// sp3.set_record(sat, 0, SP3Record::new([2.0e7, 1.0e7, 1.0e7]).with_clock(1e-5)).unwrap();
+    /// assert_eq!(sp3.record(sat, 0).unwrap().unwrap().clock, Some(1e-5));
+    /// assert!(sp3.set_record(sat, 1, SP3Record::default()).is_err());
+    /// ```
+    pub fn set_record(
+        &mut self,
+        id: SP3SatelliteId,
+        epoch_index: usize,
+        record: SP3Record,
+    ) -> Result<(), BraheError> {
+        let sat = self.satellite_index(id)?;
+        self.check_epoch_index(epoch_index)?;
+        self.records[epoch_index][sat] = if record.position == [0.0; 3] {
+            None
+        } else {
+            Some(record)
+        };
+        Ok(())
+    }
+
+    /// Header of the file.
+    ///
+    /// # Returns
+    ///
+    /// * `&SP3Header` - The header
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::datafiles::sp3::{GNSSSystem, SP3, SP3SatelliteId, SP3WriteOptions};
+    ///
+    /// let sat = SP3SatelliteId::new(GNSSSystem::GPS, 1).unwrap();
+    /// let sp3 = SP3::new(vec![sat], 900.0, SP3WriteOptions::default()).unwrap();
+    /// assert_eq!(sp3.header().epoch_interval, 900.0);
+    /// ```
+    pub fn header(&self) -> &SP3Header {
+        &self.header
+    }
+
+    /// Mutable header of the file.
+    ///
+    /// # Returns
+    ///
+    /// * `&mut SP3Header` - The header
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::datafiles::sp3::{GNSSSystem, SP3, SP3SatelliteId, SP3WriteOptions};
+    ///
+    /// let sat = SP3SatelliteId::new(GNSSSystem::GPS, 1).unwrap();
+    /// let mut sp3 = SP3::new(vec![sat], 900.0, SP3WriteOptions::default()).unwrap();
+    /// sp3.header_mut().agency = "XYZ".to_string();
+    /// assert_eq!(sp3.header().agency, "XYZ");
+    /// ```
+    pub fn header_mut(&mut self) -> &mut SP3Header {
+        &mut self.header
+    }
+
+    /// Epochs of the file in ascending order.
+    ///
+    /// # Returns
+    ///
+    /// * `&[Epoch]` - The epochs
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::datafiles::sp3::{GNSSSystem, SP3, SP3SatelliteId, SP3WriteOptions};
+    /// use brahe::time::{Epoch, TimeSystem};
+    ///
+    /// let sat = SP3SatelliteId::new(GNSSSystem::GPS, 1).unwrap();
+    /// let mut sp3 = SP3::new(vec![sat], 900.0, SP3WriteOptions::default()).unwrap();
+    /// let t0 = Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::GPS);
+    /// sp3.push_epoch(t0).unwrap();
+    /// assert_eq!(sp3.epochs(), &[t0]);
+    /// ```
+    pub fn epochs(&self) -> &[Epoch] {
+        &self.epochs
+    }
+
+    /// Satellites of the file in header order.
+    ///
+    /// # Returns
+    ///
+    /// * `&[SP3SatelliteId]` - The satellite identifiers
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::datafiles::sp3::{GNSSSystem, SP3, SP3SatelliteId, SP3WriteOptions};
+    ///
+    /// let sat = SP3SatelliteId::new(GNSSSystem::GPS, 1).unwrap();
+    /// let sp3 = SP3::new(vec![sat], 900.0, SP3WriteOptions::default()).unwrap();
+    /// assert_eq!(sp3.satellite_ids(), &[sat]);
+    /// ```
+    pub fn satellite_ids(&self) -> &[SP3SatelliteId] {
+        &self.satellites
+    }
+
+    /// Number of epochs in the file.
+    ///
+    /// # Returns
+    ///
+    /// * `usize` - The epoch count
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::datafiles::sp3::{GNSSSystem, SP3, SP3SatelliteId, SP3WriteOptions};
+    ///
+    /// let sat = SP3SatelliteId::new(GNSSSystem::GPS, 1).unwrap();
+    /// let sp3 = SP3::new(vec![sat], 900.0, SP3WriteOptions::default()).unwrap();
+    /// assert_eq!(sp3.num_epochs(), 0);
+    /// ```
+    pub fn num_epochs(&self) -> usize {
+        self.epochs.len()
+    }
+
+    /// Number of satellites in the file.
+    ///
+    /// # Returns
+    ///
+    /// * `usize` - The satellite count
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::datafiles::sp3::{GNSSSystem, SP3, SP3SatelliteId, SP3WriteOptions};
+    ///
+    /// let sat = SP3SatelliteId::new(GNSSSystem::GPS, 1).unwrap();
+    /// let sp3 = SP3::new(vec![sat], 900.0, SP3WriteOptions::default()).unwrap();
+    /// assert_eq!(sp3.num_satellites(), 1);
+    /// ```
+    pub fn num_satellites(&self) -> usize {
+        self.satellites.len()
+    }
+
+    /// First epoch of the file.
+    ///
+    /// # Returns
+    ///
+    /// * `Epoch` - The first epoch, or the header start epoch when the file has no epochs
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::datafiles::sp3::{GNSSSystem, SP3, SP3SatelliteId, SP3WriteOptions};
+    /// use brahe::time::{Epoch, TimeSystem};
+    ///
+    /// let sat = SP3SatelliteId::new(GNSSSystem::GPS, 1).unwrap();
+    /// let mut sp3 = SP3::new(vec![sat], 900.0, SP3WriteOptions::default()).unwrap();
+    /// let t0 = Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::GPS);
+    /// sp3.push_epoch(t0).unwrap();
+    /// assert_eq!(sp3.start_epoch(), t0);
+    /// ```
+    pub fn start_epoch(&self) -> Epoch {
+        self.epochs
+            .first()
+            .copied()
+            .unwrap_or(self.header.start_epoch)
+    }
+
+    /// Last epoch of the file.
+    ///
+    /// # Returns
+    ///
+    /// * `Epoch` - The last epoch, or the header start epoch when the file has no epochs
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::datafiles::sp3::{GNSSSystem, SP3, SP3SatelliteId, SP3WriteOptions};
+    /// use brahe::time::{Epoch, TimeSystem};
+    ///
+    /// let sat = SP3SatelliteId::new(GNSSSystem::GPS, 1).unwrap();
+    /// let mut sp3 = SP3::new(vec![sat], 900.0, SP3WriteOptions::default()).unwrap();
+    /// let t0 = Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::GPS);
+    /// sp3.push_epoch(t0).unwrap();
+    /// sp3.push_epoch(t0 + 900.0).unwrap();
+    /// assert_eq!(sp3.end_epoch(), t0 + 900.0);
+    /// ```
+    pub fn end_epoch(&self) -> Epoch {
+        self.epochs
+            .last()
+            .copied()
+            .unwrap_or(self.header.start_epoch)
+    }
+
+    /// Whether the file declares a satellite.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - Satellite identifier
+    ///
+    /// # Returns
+    ///
+    /// * `bool` - `true` if the satellite is in the header satellite list
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::datafiles::sp3::{GNSSSystem, SP3, SP3SatelliteId, SP3WriteOptions};
+    ///
+    /// let g01 = SP3SatelliteId::new(GNSSSystem::GPS, 1).unwrap();
+    /// let g02 = SP3SatelliteId::new(GNSSSystem::GPS, 2).unwrap();
+    /// let sp3 = SP3::new(vec![g01], 900.0, SP3WriteOptions::default()).unwrap();
+    /// assert!(sp3.contains(g01));
+    /// assert!(!sp3.contains(g02));
+    /// ```
+    pub fn contains(&self, id: SP3SatelliteId) -> bool {
+        self.satellites.contains(&id)
+    }
+
+    /// Record of a satellite at an epoch of the file grid.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - Satellite identifier
+    /// * `epoch_index` - Index into [`SP3::epochs`]
+    ///
+    /// # Returns
+    ///
+    /// * `Result<Option<&SP3Record>, BraheError>` - The record, `None` if the satellite is
+    ///   absent at that epoch, or an error if the satellite is not in the file or the epoch
+    ///   index is out of range
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::datafiles::sp3::{GNSSSystem, SP3, SP3Record, SP3SatelliteId, SP3WriteOptions};
+    /// use brahe::time::{Epoch, TimeSystem};
+    ///
+    /// let sat = SP3SatelliteId::new(GNSSSystem::GPS, 1).unwrap();
+    /// let mut sp3 = SP3::new(vec![sat], 900.0, SP3WriteOptions::default()).unwrap();
+    /// let t0 = Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::GPS);
+    /// sp3.push_epoch(t0).unwrap();
+    /// assert!(sp3.record(sat, 0).unwrap().is_none());
+    ///
+    /// sp3.set_record(sat, 0, SP3Record::new([2.0e7, 1.0e7, 1.0e7])).unwrap();
+    /// assert_eq!(sp3.record(sat, 0).unwrap().unwrap().position[0], 2.0e7);
+    /// ```
+    pub fn record(
+        &self,
+        id: SP3SatelliteId,
+        epoch_index: usize,
+    ) -> Result<Option<&SP3Record>, BraheError> {
+        let sat = self.satellite_index(id)?;
+        self.check_epoch_index(epoch_index)?;
+        Ok(self.records[epoch_index][sat].as_ref())
+    }
+
+    /// Index of a satellite in the header satellite list.
+    pub(crate) fn satellite_index(&self, id: SP3SatelliteId) -> Result<usize, BraheError> {
+        self.satellites
+            .iter()
+            .position(|s| *s == id)
+            .ok_or_else(|| sp3_error(&format!("satellite {} is not in the file", id)))
+    }
+
+    fn check_epoch_index(&self, epoch_index: usize) -> Result<(), BraheError> {
+        if epoch_index < self.epochs.len() {
+            Ok(())
+        } else {
+            Err(sp3_error(&format!(
+                "epoch index {} out of range for {} epochs",
+                epoch_index,
+                self.epochs.len()
+            )))
+        }
+    }
+}
+
 #[cfg(test)]
 #[allow(non_snake_case)]
 mod tests {
@@ -856,5 +1906,286 @@ mod tests {
             assert_eq!(ft.to_string(), name);
         }
         assert!(SP3FileType::from_code('X').is_err());
+    }
+
+    fn gps_t0() -> Epoch {
+        Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::GPS)
+    }
+
+    fn sid(s: &str) -> SP3SatelliteId {
+        s.parse().unwrap()
+    }
+
+    #[test]
+    #[parallel]
+    fn test_SP3_new_and_push_epoch() {
+        let sats = vec![sid("G01"), sid("G02")];
+        let mut sp3 = SP3::new(sats, 900.0, SP3WriteOptions::default()).unwrap();
+        let t0 = gps_t0();
+        assert_eq!(sp3.push_epoch(t0).unwrap(), 0);
+        assert_eq!(sp3.push_epoch(t0 + 900.0).unwrap(), 1);
+        assert!(sp3.push_epoch(t0 + 1000.0).is_err());
+        assert!(sp3.push_epoch(t0).is_err());
+        assert_eq!(sp3.push_epoch(t0 + 2700.0).unwrap(), 2);
+        let id = sid("G02");
+        sp3.set_record(id, 1, SP3Record::new([1.0, 2.0, 3.0]).with_clock(1e-6))
+            .unwrap();
+        assert_eq!(sp3.record(id, 1).unwrap().unwrap().clock, Some(1e-6));
+        assert!(sp3.record(id, 0).unwrap().is_none());
+        assert!(sp3.record(sid("G03"), 0).is_err());
+        assert!(sp3.set_record(id, 9, SP3Record::default()).is_err());
+        assert!(sp3.set_record(sid("G03"), 0, SP3Record::default()).is_err());
+        assert_eq!(sp3.header().agency, "BRHE");
+        assert_eq!(sp3.header().time_system, SP3TimeSystem::GPS);
+        assert!(sp3.header().has_velocity);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_SP3_new_header_fields() {
+        let sp3 = SP3::new(
+            vec![sid("G01"), sid("G02"), sid("G03")],
+            300.0,
+            SP3WriteOptions::default(),
+        )
+        .unwrap();
+        let h = sp3.header();
+        assert_eq!(h.version, SP3Version::D);
+        assert_eq!(h.file_type, SP3FileType::GPS);
+        assert_eq!(h.epoch_interval, 300.0);
+        assert_eq!(h.number_of_epochs, 0);
+        assert_eq!(h.accuracies, vec![None, None, None]);
+        assert_eq!(h.position_base, None);
+        assert_eq!(h.clock_base, None);
+        assert_eq!(h.orbit_type, SP3OrbitType::EXT);
+        assert_eq!(h.coordinate_system, "IGS20");
+        assert_eq!(h.data_used, "ORBIT");
+        assert_eq!(sp3.num_satellites(), 3);
+        assert_eq!(sp3.num_epochs(), 0);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_SP3_empty_start_end_epoch() {
+        let sp3 = SP3::new(vec![sid("G01")], 900.0, SP3WriteOptions::default()).unwrap();
+        let zero = Epoch::from_gps_date(0, 0.0);
+        assert_eq!(sp3.start_epoch(), zero);
+        assert_eq!(sp3.end_epoch(), zero);
+        assert_eq!(sp3.header().start_epoch, zero);
+        assert_eq!(sp3.header().gps_week, 0);
+        assert_eq!(sp3.header().seconds_of_week, 0.0);
+        assert_eq!(sp3.header().mjd, 44244);
+        assert_eq!(sp3.header().fractional_day, 0.0);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_SP3_first_push_epoch_sets_header_fields() {
+        let mut sp3 = SP3::new(vec![sid("G01")], 900.0, SP3WriteOptions::default()).unwrap();
+        let t0 = Epoch::from_datetime(2024, 11, 10, 6, 0, 0.0, 0.0, TimeSystem::GPS);
+        sp3.push_epoch(t0).unwrap();
+        sp3.push_epoch(t0 + 900.0).unwrap();
+        let h = sp3.header();
+        assert_eq!(h.start_epoch, t0);
+        assert_eq!(h.number_of_epochs, 2);
+        assert_eq!(h.gps_week, 2340);
+        assert_eq!(h.seconds_of_week, 6.0 * 3600.0);
+        assert_eq!(h.mjd, 60624);
+        assert_eq!(h.fractional_day, 0.25);
+        assert_eq!(sp3.start_epoch(), t0);
+        assert_eq!(sp3.end_epoch(), t0 + 900.0);
+        assert_eq!(sp3.epochs(), &[t0, t0 + 900.0]);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_SP3_set_record_zero_position_is_absent() {
+        let mut sp3 = SP3::new(vec![sid("G01")], 900.0, SP3WriteOptions::default()).unwrap();
+        sp3.push_epoch(gps_t0()).unwrap();
+        sp3.set_record(sid("G01"), 0, SP3Record::new([1.0, 2.0, 3.0]))
+            .unwrap();
+        assert!(sp3.record(sid("G01"), 0).unwrap().is_some());
+        sp3.set_record(sid("G01"), 0, SP3Record::new([0.0, 0.0, 0.0]))
+            .unwrap();
+        assert!(sp3.record(sid("G01"), 0).unwrap().is_none());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_SP3_contains_and_satellite_ids() {
+        let sp3 = SP3::new(
+            vec![sid("G02"), sid("G01")],
+            900.0,
+            SP3WriteOptions::default(),
+        )
+        .unwrap();
+        assert!(sp3.contains(sid("G01")));
+        assert!(!sp3.contains(sid("G03")));
+        assert_eq!(sp3.satellite_ids(), &[sid("G02"), sid("G01")]);
+        assert_eq!(sp3.satellite_index(sid("G01")).unwrap(), 1);
+        assert!(sp3.satellite_index(sid("E01")).is_err());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_SP3_header_mut() {
+        let mut sp3 = SP3::new(vec![sid("G01")], 900.0, SP3WriteOptions::default()).unwrap();
+        sp3.header_mut().agency = "XYZ".to_string();
+        assert_eq!(sp3.header().agency, "XYZ");
+    }
+
+    #[test]
+    #[parallel]
+    fn test_SP3_new_options_applied() {
+        let opts = SP3WriteOptions::new()
+            .with_agency("ABC")
+            .with_time_system(SP3TimeSystem::UTC)
+            .with_coordinate_system("ITRF2")
+            .with_orbit_type(SP3OrbitType::FIT)
+            .with_data_used("DOPPL")
+            .with_velocity(false)
+            .with_comments(vec!["note".to_string()]);
+        let sp3 = SP3::new(vec![sid("G01")], 60.0, opts).unwrap();
+        let h = sp3.header();
+        assert_eq!(h.agency, "ABC");
+        assert_eq!(h.time_system, SP3TimeSystem::UTC);
+        assert_eq!(h.coordinate_system, "ITRF2");
+        assert_eq!(h.orbit_type, SP3OrbitType::FIT);
+        assert_eq!(h.data_used, "DOPPL");
+        assert!(!h.has_velocity);
+        assert_eq!(h.comments, vec!["note".to_string()]);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_SP3_new_errors() {
+        let opts = SP3WriteOptions::default;
+        assert!(SP3::new(vec![sid("G01"), sid("G01")], 900.0, opts()).is_err());
+        assert!(SP3::new(vec![sid("G01")], 0.0, opts()).is_err());
+        assert!(SP3::new(vec![sid("G01")], -900.0, opts()).is_err());
+        assert!(SP3::new(vec![sid("G01")], f64::NAN, opts()).is_err());
+        assert!(
+            SP3::new(
+                vec![sid("G01")],
+                900.0,
+                opts().with_time_system(SP3TimeSystem::GLO)
+            )
+            .is_err()
+        );
+
+        let many: Vec<SP3SatelliteId> = [GNSSSystem::GPS, GNSSSystem::GLONASS, GNSSSystem::Galileo]
+            .iter()
+            .flat_map(|&s| (1..=99u16).map(move |n| SP3SatelliteId::new(s, n).unwrap()))
+            .chain(
+                [
+                    GNSSSystem::BeiDou,
+                    GNSSSystem::QZSS,
+                    GNSSSystem::IRNSS,
+                    GNSSSystem::SBAS,
+                ]
+                .iter()
+                .flat_map(|&s| (1..=99u16).map(move |n| SP3SatelliteId::new(s, n).unwrap())),
+            )
+            .chain((1..=99u16).map(|n| SP3SatelliteId::new(GNSSSystem::LEO, n).unwrap()))
+            .collect();
+        assert_eq!(many.len(), 792);
+        assert!(SP3::new(many, 900.0, opts()).is_ok());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_SP3_new_rejects_more_than_999_satellites() {
+        // Only 8 systems x 99 numbers = 792 distinct identifiers exist, so the
+        // limit is checked on the input length before duplicates.
+        let ids: Vec<SP3SatelliteId> = std::iter::repeat_n(sid("G01"), 1000).collect();
+        let err = SP3::new(ids, 900.0, SP3WriteOptions::default()).unwrap_err();
+        assert!(err.to_string().contains("999"));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_SP3_new_file_type_from_systems() {
+        let ft = |ids: &[&str]| {
+            SP3::new(
+                ids.iter().map(|s| sid(s)).collect(),
+                900.0,
+                SP3WriteOptions::default(),
+            )
+            .unwrap()
+            .header()
+            .file_type
+        };
+        assert_eq!(ft(&["G01", "G02"]), SP3FileType::GPS);
+        assert_eq!(ft(&["R01"]), SP3FileType::GLONASS);
+        assert_eq!(ft(&["E01"]), SP3FileType::Galileo);
+        assert_eq!(ft(&["C01"]), SP3FileType::BeiDou);
+        assert_eq!(ft(&["J01"]), SP3FileType::QZSS);
+        assert_eq!(ft(&["I01"]), SP3FileType::IRNSS);
+        assert_eq!(ft(&["S01"]), SP3FileType::SBAS);
+        assert_eq!(ft(&["L01", "L02"]), SP3FileType::LEO);
+        assert_eq!(ft(&["G01", "E01"]), SP3FileType::Mixed);
+        assert_eq!(ft(&["G01", "L01"]), SP3FileType::Mixed);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_SP3_push_epoch_non_gps_time_system() {
+        let opts = SP3WriteOptions::default().with_time_system(SP3TimeSystem::UTC);
+        let mut sp3 = SP3::new(vec![sid("G01")], 900.0, opts).unwrap();
+        let t0 = Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        sp3.push_epoch(t0).unwrap();
+        assert_eq!(sp3.header().mjd, 60624);
+        assert_eq!(sp3.header().fractional_day, 0.0);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_SP3WriteOptions_defaults() {
+        let o = SP3WriteOptions::default();
+        assert_eq!(
+            (
+                o.agency.as_str(),
+                o.coordinate_system.as_str(),
+                o.data_used.as_str()
+            ),
+            ("BRHE", "IGS20", "ORBIT")
+        );
+        assert_eq!(o.orbit_type, SP3OrbitType::EXT);
+        assert_eq!(o.time_system, SP3TimeSystem::GPS);
+        assert!(o.include_velocity && o.comments.is_empty());
+        assert_eq!(SP3WriteOptions::new(), o);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_SP3Record_builders() {
+        let r = SP3Record::new([1.0, 2.0, 3.0])
+            .with_velocity([4.0, 5.0, 6.0])
+            .with_clock(1e-6)
+            .with_clock_rate(1e-12);
+        assert_eq!(r.position, [1.0, 2.0, 3.0]);
+        assert_eq!(r.velocity, Some([4.0, 5.0, 6.0]));
+        assert_eq!(r.clock, Some(1e-6));
+        assert_eq!(r.clock_rate, Some(1e-12));
+        assert_eq!(r.position_std, [None, None, None]);
+        assert!(!r.clock_event && !r.clock_predicted && !r.maneuver && !r.orbit_predicted);
+        assert!(r.position_correlation.is_none() && r.velocity_correlation.is_none());
+        assert_eq!(SP3Record::default().position, [0.0; 3]);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_SP3_from_parts() {
+        let header = SP3::new(vec![sid("G01")], 900.0, SP3WriteOptions::default())
+            .unwrap()
+            .header()
+            .clone();
+        let t0 = gps_t0();
+        let records = vec![vec![Some(SP3Record::new([1.0, 2.0, 3.0]))], vec![None]];
+        let sp3 = SP3::from_parts(header, vec![t0, t0 + 900.0], vec![sid("G01")], records);
+        assert_eq!(sp3.num_epochs(), 2);
+        assert_eq!(sp3.record(sid("G01"), 0).unwrap().unwrap().position[1], 2.0);
+        assert!(sp3.record(sid("G01"), 1).unwrap().is_none());
+        assert!(sp3.record(sid("G01"), 2).is_err());
     }
 }

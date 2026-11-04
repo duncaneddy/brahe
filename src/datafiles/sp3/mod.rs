@@ -11,4 +11,7 @@
 
 mod types;
 
-pub use types::{GNSSSystem, SP3FileType, SP3OrbitType, SP3SatelliteId, SP3TimeSystem, SP3Version};
+pub use types::{
+    GNSSSystem, SP3, SP3Correlation, SP3FileType, SP3Header, SP3OrbitType, SP3Record,
+    SP3SatelliteId, SP3TimeSystem, SP3Version, SP3WriteOptions,
+};

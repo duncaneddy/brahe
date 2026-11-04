@@ -28,10 +28,13 @@ use crate::utils::{BraheError, DOrbitStateProvider, DStateProvider, Identifiable
 /// derives velocities for files without velocity records. A degree of 9 fits
 /// 10 samples.
 ///
-/// For GPS orbits sampled every 900 s, it interpolates positions to within
-/// 1 mm and derives velocities to within 0.1 mm/s, except within four samples
-/// of either end of a run. There the fit is one-sided, and the errors grow to
-/// about 1 cm and 0.12 mm/s.
+/// For GPS orbits sampled every 900 s, away from the first and last four
+/// samples of a run, exact positions interpolate to within 0.8 mm and give
+/// derived velocities within 2e-6 m/s. With positions at SP3 file precision
+/// (1 mm) the errors are within 1.4 mm and 2.2e-6 m/s, and CODE final orbits
+/// subsampled from 300 s to 900 s reproduce the withheld positions to within
+/// 1.4 mm. Within four samples of either end of a run the fit is one-sided,
+/// and the errors grow to about 1 cm and 0.14 mm/s.
 ///
 /// # Examples
 ///
@@ -1863,8 +1866,15 @@ mod tests {
     ///
     /// The truncation error scales as `h^4` and the roundoff as `1/h`. Over
     /// the test orbits the steps 10 s and 20 s agree to 1.6e-7 m/s, while
-    /// 20 s and 40 s differ by 2.1e-6 m/s, so at `h = 10 s` the reference
-    /// is accurate to about 2e-7 m/s. This is the time derivative of the ITRF
+    /// 20 s and 40 s differ by 2.1e-6 m/s, so away from the daily Earth
+    /// orientation nodes the reference is accurate to about 2e-7 m/s. The
+    /// Earth orientation parameters are interpolated linearly between daily
+    /// nodes, so at each node the UT1 rate changes and the ITRF velocity jumps
+    /// by up to 8e-6 m/s over the test orbits. Step doubling cannot see that
+    /// jump: within `2 h` of a node the reference falls between the two
+    /// one-sided derivatives, up to 4e-6 m/s from either. The samples at
+    /// 00:00 GPS lie 18 s from 00:00 UTC and are run edges, so the interior
+    /// error figures are unaffected. This is the time derivative of the ITRF
     /// position. The `state_itrf` velocity is not: `state_gcrf_to_itrf` uses
     /// the constant `OMEGA_EARTH` and omits the precession-nutation and polar
     /// motion rates, and differs from this reference by up to 8.8e-5 m/s.
@@ -1915,10 +1925,9 @@ mod tests {
     // Degree 9 is the smallest degree with interior errors within 1e-3 m and
     // 1e-4 m/s; degree 7 misses the position bound by a factor of 18.
     //
-    // ITRF position errors level off near 7e-4 m: the samples carry the up
-    // to 6.0e-4 m Earth-rotation-angle noise of `state_itrf`, and interpolating
-    // samples taken from `smooth_itrf_position` instead gives 2.4e-4 m at
-    // degree 9 and 5.3e-6 m at degree 11. `to_gcrf()` rotates each sample
+    // ITRF position errors level off near 7e-4 m because the samples carry
+    // the up to 6.0e-4 m Earth-rotation-angle noise of `state_itrf` (see
+    // `smooth_itrf_position`), which dominates from degree 9 up. `to_gcrf()` rotates each sample
     // back with the same angle, which cancels that noise, so GCRF positions
     // keep improving with degree. Interpolating in GCRF is 10 times more
     // accurate in the interior at degree 9 (8.2e-5 m against 8.1e-4 m). GCRF
@@ -2061,11 +2070,130 @@ mod tests {
         }
     }
 
+    /// Interior and edge errors of `sat` at its default interpolation
+    /// method: positions at mid-sample epochs against `smooth_itrf_position`
+    /// and velocities at the samples against `reference_itrf_velocity`.
+    ///
+    /// # Returns
+    ///
+    /// * `[f64; 4]` - Position interior, position edge (m), velocity interior,
+    ///   velocity edge (m/s)
+    fn itrf_errors(sat: &SP3Satellite, propagator: &KeplerianPropagator) -> [f64; 4] {
+        let epochs = sat.epochs();
+        let n = epochs.len();
+        let half = SP3_DEFAULT_LAGRANGE_DEGREE / 2;
+        let mut errors = [0.0_f64; 4];
+        let [
+            position_interior,
+            position_edge,
+            velocity_interior,
+            velocity_edge,
+        ] = &mut errors;
+        for (i, &epoch) in epochs.iter().enumerate() {
+            let reference = reference_itrf_velocity(propagator, epoch, 10.0);
+            let error = (Vector3::from(sat.velocities()[i]) - reference).norm();
+            update_max(
+                i >= half && i + half < n,
+                error,
+                velocity_interior,
+                velocity_edge,
+            );
+            if i + 1 < n {
+                let t = epoch + 0.5 * STEP;
+                let state = sat.state(t).unwrap();
+                let error = (state.rows(0, 3) - smooth_itrf_position(propagator, t)).norm();
+                update_max(
+                    i >= half && i + 1 + half < n,
+                    error,
+                    position_interior,
+                    position_edge,
+                );
+            }
+        }
+        errors
+    }
+
+    // The orbits of `test_SP3Satellite_interpolation_accuracy_keplerian` at
+    // SP3 file precision: written with `to_string` and parsed back, which
+    // rounds each position component to the 1 mm grid of the format. Maximum
+    // errors at degree 9 (m and m/s):
+    //
+    // samples      | position interior  edge   | velocity interior  edge
+    // exact        | 8.1e-4             1.0e-2 | 1.5e-6             1.2e-4
+    // file (1 mm)  | 1.4e-3             1.2e-2 | 2.2e-6             1.4e-4
+    //
+    // Interpolation and the velocity fit are linear in the samples, so the
+    // rounding adds at most its own interpolant to the exact-sample error.
+    // Each rounded component is within 0.5 mm, so each rounding vector is
+    // within sqrt(3) * 0.5 mm = 8.7e-4 m. Every interior mid-sample sits at
+    // the center of a 10-sample equispaced window, where the Lagrange basis
+    // has Lebesgue constant sum_j |l_j| = 1.563, so the rounding adds at most
+    // 1.563 * 8.7e-4 = 1.35e-3 m to the position error. Every interior sample
+    // is node 4 or 5 of its 10-sample window, where the derivative weights
+    // sum to sum_j |l_j'| = 2.48 / 900 s = 2.76e-3 1/s, so the rounding adds
+    // at most 2.4e-6 m/s to the velocity error. The bounds asserted, per
+    // satellite, are the exact-sample error plus these terms: 2.1e-3 m to
+    // 2.2e-3 m and 3.8e-6 m/s to 3.9e-6 m/s.
+    #[test]
+    #[serial]
+    fn test_SP3Satellite_interpolation_accuracy_file_precision() {
+        let (sp3, propagators) = build_clean_sp3();
+        let parsed = SP3::from_str(&sp3.to_string().unwrap()).unwrap();
+
+        let m = SP3_DEFAULT_LAGRANGE_DEGREE + 1;
+        let times: Vec<f64> = (0..m).map(|k| STEP * k as f64).collect();
+        let basis = |j: usize, t: f64| {
+            (0..m)
+                .filter(|&k| k != j)
+                .map(|k| (t - times[k]) / (times[j] - times[k]))
+                .product::<f64>()
+        };
+        let center = 0.5 * (times[m / 2 - 1] + times[m / 2]);
+        let lebesgue: f64 = (0..m).map(|j| basis(j, center).abs()).sum();
+        let derivative_weights = |node: usize| -> f64 {
+            (0..m)
+                .map(|j| {
+                    let mut unit = vec![[0.0; 3]; m];
+                    unit[j] = [1.0, 0.0, 0.0];
+                    lagrange_derivative_at_node(&times, &unit, node)[0].abs()
+                })
+                .sum()
+        };
+        let derivative_lebesgue = derivative_weights(m / 2 - 1).max(derivative_weights(m / 2));
+        let rounding = 3.0_f64.sqrt() * 0.5e-3;
+
+        for (id, propagator) in sp3.satellite_ids().iter().zip(&propagators) {
+            let exact = itrf_errors(&sp3.satellite(*id).unwrap(), propagator);
+            let rounded_sat = parsed.satellite(*id).unwrap();
+            let rounded = itrf_errors(&rounded_sat, propagator);
+            for (p, q) in rounded_sat
+                .positions()
+                .iter()
+                .zip(sp3.satellite(*id).unwrap().positions())
+            {
+                for axis in 0..3 {
+                    assert!((p[axis] - q[axis]).abs() <= 0.5e-3 + 1e-9);
+                }
+            }
+            let position_bound = exact[0] + lebesgue * rounding;
+            let velocity_bound = exact[2] + derivative_lebesgue * rounding;
+            assert!(
+                rounded[0] <= position_bound,
+                "{id}: {rounded:?} {position_bound}"
+            );
+            assert!(
+                rounded[2] <= velocity_bound,
+                "{id}: {rounded:?} {velocity_bound}"
+            );
+        }
+    }
+
     // CODE final orbits at 300 s for G02, G05, and E11, subsampled to 900 s
     // and interpolated at the withheld epochs. The file positions are rounded
     // to 1 mm, which sets a floor near 1e-3 m. Maximum position errors (m):
     //
     // degree | G02 interior  edge   | G05 interior  edge   | E11 interior  edge
+    //      5 | 1.5e0         8.0e0  | 1.4e0         7.9e0  | 9.1e-1        5.0e0
     //      7 | 1.2e-2        2.1e-1 | 1.2e-2        2.0e-1 | 6.9e-3        1.0e-1
     //      9 | 1.4e-3        4.7e-3 | 1.1e-3        6.0e-3 | 1.1e-3        4.0e-3
     //     11 | 1.3e-3        2.0e-2 | 1.1e-3        5.0e-3 | 1.2e-3        6.2e-3

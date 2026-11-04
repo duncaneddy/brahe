@@ -42,10 +42,10 @@ jobs:
             -   uses: actions/checkout@v7.0.1
             # Cargo cache scheme: restore-only against test_rust.yml's per-OS
             # cache, which every python-version leg on an OS shares. The
-            # coverage leg reuses its instrumented dependency build and the
-            # macOS and Windows legs its plain one, recompiling only the
-            # crates whose features differ; the remaining ubuntu legs reuse
-            # the registry. The job saves nothing: a saved entry per OS here
+            # plain legs reuse its dependency build, recompiling only the
+            # crates whose features differ; the ubuntu coverage leg builds
+            # instrumented under target/llvm-cov-target and reuses only the
+            # registry. The job saves nothing: a saved entry per OS here
             # would duplicate that cache and push the repository past its
             # cache budget.
             -   name: Set up Rust toolchain

@@ -32,11 +32,11 @@ jobs:
             # integration_tests.yml, test_python.yml and warm_data_cache.yml
             # restore it read-only: their dependency sets are subsets of this
             # job's, and a saved entry per job would multiply the footprint
-            # past the repository's 10 GB cache budget. On ubuntu the coverage
-            # run compiles its dependencies instrumented under
-            # target/llvm-cov-target, so only the other llvm-cov jobs reuse
-            # them there; every sharer still reuses the registry, and the
-            # macOS and Windows entries hold the plain dependency build.
+            # past the repository's 10 GB cache budget. Every entry holds the
+            # plain dependency build, so the cargo-llvm-cov sharers
+            # (test_python.yml, integration_tests.yml) reuse only the registry
+            # and compile their instrumented dependencies under
+            # target/llvm-cov-target themselves.
             # rust-cache folds every CARGO*/RUST*-prefixed environment
             # variable into the key, so a job can share this key only if it
             # exports the same set.
@@ -50,11 +50,16 @@ jobs:
                 run: |
                     rustup update ${{ matrix.rust-toolchain }}
                     rustup default ${{ matrix.rust-toolchain }}
-            # Coverage is only uploaded from ubuntu, so only ubuntu pays for the
-            # instrumented build and its slower binaries.
-            -   name: Install cargo-llvm-cov
-                if: matrix.os == 'ubuntu-latest'
-                uses: taiki-e/install-action@cargo-llvm-cov
+            # Coverage is collected by the coverage-rust job below on a nightly
+            # toolchain, where cargo-llvm-cov sets cfg(coverage_nightly) and the
+            # #[coverage(off)] attributes on test modules take effect. On stable
+            # those attributes are inert and test code is counted as library
+            # code.
+            # Uncomment once the `coverage_attribute` feature (rust-lang/rust#84605)
+            # is stabilized, and remove the nightly-specific coverage-rust job.
+            # -   name: Install cargo-llvm-cov
+            #     if: matrix.os == 'ubuntu-latest'
+            #     uses: taiki-e/install-action@cargo-llvm-cov
             # Every SPICE kernel the unit suites auto-load is a committed test
             # asset, so the suites run offline straight from a clone with no
             # download step and no cache to warm.
@@ -65,27 +70,33 @@ jobs:
                     cp test_assets/de440s.bsp ~/.cache/brahe/naif/
                     cp test_assets/mar099s.bsp ~/.cache/brahe/naif/
                     cp test_assets/moon_pa_de440_200625.bpc ~/.cache/brahe/naif/
-            -   name: Run Rust tests with coverage
-                # Limit rust-unit coverage to the core `brahe` crate. The `brahe-py`
-                # workspace member has no Rust unit tests (it's exercised by pytest),
-                # so its coverage is measured in the python-rust combined flag below.
-                if: matrix.os == 'ubuntu-latest'
-                run: cargo llvm-cov -p brahe --lcov --output-path lcov.info
+            # Uncomment once the `coverage_attribute` feature (rust-lang/rust#84605)
+            # is stabilized, and remove the nightly-specific coverage-rust job.
+            # -   name: Run Rust tests with coverage
+            #     # Limit rust-unit coverage to the core `brahe` crate. The `brahe-py`
+            #     # workspace member has no Rust unit tests (it's exercised by pytest),
+            #     # so its coverage is measured in the python-rust combined flag below.
+            #     if: matrix.os == 'ubuntu-latest'
+            #     run: cargo llvm-cov -p brahe --lcov --output-path lcov.info
             -   name: Run Rust tests
-                if: matrix.os != 'ubuntu-latest'
+                # Uncomment once the `coverage_attribute` feature
+                # (rust-lang/rust#84605) is stabilized.
+                # if: matrix.os != 'ubuntu-latest'
                 run: cargo test -p brahe
-            -   name: Upload coverage to Codecov
-                if: matrix.os == 'ubuntu-latest'
-                uses: codecov/codecov-action@v7.1.1
-                env:
-                    CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-                with:
-                    files: lcov.info
-                    flags: rust-unit
-                    fail_ci_if_error: false
-                    verbose: true
-                    use_oidc: true
-                    
+            # Uncomment once the `coverage_attribute` feature (rust-lang/rust#84605)
+            # is stabilized, and remove the nightly-specific coverage-rust job.
+            # -   name: Upload coverage to Codecov
+            #     if: matrix.os == 'ubuntu-latest'
+            #     uses: codecov/codecov-action@v7.1.1
+            #     env:
+            #         CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+            #     with:
+            #         files: lcov.info
+            #         flags: rust-unit
+            #         fail_ci_if_error: false
+            #         verbose: true
+            #         use_oidc: true
+
             -   name: Upload Brahe cache directory (Unix)
                 if: runner.os != 'Windows'
                 uses: actions/upload-artifact@v7
@@ -102,6 +113,61 @@ jobs:
                     path: ~\\.cache\\brahe\\
                     retention-days: 1
                     if-no-files-found: ignore
+    # Rust unit-test coverage on the nightly toolchain, so the
+    # #[coverage(off)] attributes on test modules exclude test code from the
+    # report. The stable test-rust job above validates the same suite on every
+    # OS. Remove this job, and uncomment the coverage steps in test-rust, once
+    # the `coverage_attribute` feature (rust-lang/rust#84605) is stabilized.
+    #
+    # The job saves no cargo cache: a nightly build cannot reuse the stable
+    # test-rust entries, and another saved entry would push the repository past
+    # its 10 GB Actions cache budget and evict the data caches.
+    coverage-rust:
+        runs-on: ubuntu-latest
+        timeout-minutes: 60
+        permissions:
+            id-token: write
+        env:
+            CARGO_TERM_COLOR: always
+            BRAHE_NETWORK_MODE: ${{ inputs.network_mode }}
+        steps:
+            -   uses: actions/checkout@v7.0.1
+            # rust-toolchain.toml pins the directory to stable, which takes
+            # precedence over `rustup default`, so every cargo call below
+            # selects the nightly toolchain explicitly with `+toolchain`.
+            -   name: Set up nightly Rust toolchain
+                uses: actions-rust-lang/setup-rust-toolchain@v2.0.0
+                with:
+                    toolchain: nightly
+                    components: llvm-tools-preview
+                    cache: false
+            -   name: Install cargo-llvm-cov
+                uses: taiki-e/install-action@cargo-llvm-cov
+            # Every SPICE kernel the unit suites auto-load is a committed test
+            # asset, so the suites run offline straight from a clone with no
+            # download step and no cache to warm.
+            -   name: Seed the SPICE test kernels
+                shell: bash
+                run: |
+                    mkdir -p ~/.cache/brahe/naif
+                    cp test_assets/de440s.bsp ~/.cache/brahe/naif/
+                    cp test_assets/mar099s.bsp ~/.cache/brahe/naif/
+                    cp test_assets/moon_pa_de440_200625.bpc ~/.cache/brahe/naif/
+            -   name: Run Rust tests with coverage
+                # Limit rust-unit coverage to the core `brahe` crate. The `brahe-py`
+                # workspace member has no Rust unit tests (it's exercised by pytest),
+                # so its coverage is measured in the python-rust combined flag.
+                run: cargo +nightly llvm-cov -p brahe --lcov --output-path lcov.info
+            -   name: Upload coverage to Codecov
+                uses: codecov/codecov-action@v7.1.1
+                env:
+                    CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+                with:
+                    files: lcov.info
+                    flags: rust-unit
+                    fail_ci_if_error: false
+                    verbose: true
+                    use_oidc: true
     test-rust-docs:
         runs-on: ${{ matrix.os }}
         timeout-minutes: 60
@@ -116,8 +182,7 @@ jobs:
             -   uses: actions/checkout@v7.0.1
             # Restore-only against the test-rust cache above: the doc tests
             # build the same dependency set, so a second saved entry per OS
-            # would only duplicate it. On ubuntu this reuses the registry and
-            # recompiles the dependencies uninstrumented.
+            # would only duplicate it.
             -   name: Set up Rust toolchain with cache
                 uses: actions-rust-lang/setup-rust-toolchain@v2.0.0
                 with:

@@ -5415,7 +5415,8 @@ fn py_location_accesses(
         return Ok(windows.into_iter().map(|w| PyAccessWindow { window: w }).collect());
     }
 
-    // Check for SP3Satellite (handled like OrbitTrajectory: borrow guards, no GIL release)
+    // Check for SP3Satellite (cloned like SGP/Keplerian so the search runs with the GIL
+    // released, letting worker threads call Python constraints and property computers)
     let is_sp3_satellite = if prop_is_list {
         let list = propagators.cast::<PyList>()?;
         !list.is_empty() && list.get_item(0)?.is_instance_of::<PySP3Satellite>()
@@ -5424,24 +5425,22 @@ fn py_location_accesses(
     };
 
     if is_sp3_satellite {
-        let borrow_guards: Vec<pyo3::PyRef<'_, PySP3Satellite>> = if prop_is_list {
+        let satellites: Vec<sp3::SP3Satellite> = if prop_is_list {
             let list = propagators.cast::<PyList>()?;
-            let mut guards = Vec::new();
+            let mut satellites = Vec::with_capacity(list.len());
             for item in list.iter() {
                 if let Ok(sat) = item.cast::<PySP3Satellite>() {
-                    guards.push(sat.borrow());
+                    satellites.push(sat.borrow().inner.clone());
                 } else {
                     return Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
                         "propagators list must contain only SP3Satellite objects (cannot mix types)"
                     ));
                 }
             }
-            guards
+            satellites
         } else {
-            vec![propagators.cast::<PySP3Satellite>()?.borrow()]
+            vec![propagators.cast::<PySP3Satellite>()?.borrow().inner.clone()]
         };
-
-        let sat_refs: Vec<&sp3::SP3Satellite> = borrow_guards.iter().map(|g| &g.inner).collect();
 
         let rust_property_computers = process_property_computers(property_computers);
 
@@ -5456,10 +5455,10 @@ fn py_location_accesses(
             Some(property_computer_refs.as_slice())
         };
 
-        let windows = match &locations_vec {
+        let windows = py.detach(|| match &locations_vec {
             LocationVec::Point(locs) => location_accesses(
                 locs,
-                sat_refs.as_slice(),
+                &satellites,
                 search_start.obj,
                 search_end.obj,
                 constraint_trait,
@@ -5468,14 +5467,14 @@ fn py_location_accesses(
             ),
             LocationVec::Polygon(locs) => location_accesses(
                 locs,
-                sat_refs.as_slice(),
+                &satellites,
                 search_start.obj,
                 search_end.obj,
                 constraint_trait,
                 property_computers_option,
                 Some(&search_config),
             ),
-        }?;
+        })?;
 
         return Ok(windows.into_iter().map(|w| PyAccessWindow { window: w }).collect());
     }

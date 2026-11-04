@@ -1,5 +1,6 @@
 //! Compute ground station access windows directly from the satellites in an SP3 file.
 
+#[allow(unused_imports)]
 use brahe as bh;
 use bh::datafiles::sp3::SP3;
 use bh::utils::Identifiable;

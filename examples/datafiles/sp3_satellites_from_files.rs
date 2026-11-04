@@ -1,5 +1,6 @@
 //! Chain consecutive SP3 files into one continuous series of samples for each satellite.
 
+#[allow(unused_imports)]
 use brahe as bh;
 use bh::datafiles::sp3::{SP3, SP3Satellite};
 use bh::traits::Trajectory;

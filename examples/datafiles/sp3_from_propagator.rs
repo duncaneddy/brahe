@@ -1,5 +1,6 @@
 //! Sample two numerical propagators on a regular grid and write them as an SP3-d file.
 
+#[allow(unused_imports)]
 use brahe as bh;
 use bh::datafiles::sp3::{SP3, SP3SatelliteId, SP3WriteOptions};
 use bh::traits::DStatePropagator;

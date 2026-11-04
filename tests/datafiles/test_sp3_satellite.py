@@ -3,6 +3,10 @@ src/datafiles/sp3/{satellite,interop}.rs."""
 
 import itertools
 import math
+import pathlib
+import subprocess
+import sys
+import textwrap
 import uuid
 
 import numpy as np
@@ -592,6 +596,87 @@ def test_sp3_satellite_location_accesses():
     )
     assert len(windows) > 0
     assert {w.satellite_name for w in windows} <= {str(s.id) for s in sats}
+
+
+REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
+
+ACCESS_CALLBACK_SCRIPT = textwrap.dedent(
+    """
+    import sys
+
+    import brahe as bh
+
+    bh.set_global_eop_provider(
+        bh.FileEOPProvider.from_standard_file(
+            "test_assets/finals.all.iau2000.txt", True, "Hold"
+        )
+    )
+
+
+    class AboveHorizon(bh.AccessConstraintComputer):
+        def evaluate(self, epoch, satellite_state_ecef, location_ecef):
+            relative = satellite_state_ecef[:3] - location_ecef
+            return bool(relative @ location_ecef > 0.0)
+
+        def name(self):
+            return "AboveHorizon"
+
+
+    class MidpointZ(bh.AccessPropertyComputer):
+        def compute(
+            self, window, sample_epochs, sample_states_ecef, location_ecef, location_geodetic
+        ):
+            return {"mid_z": float(sample_states_ecef[len(sample_states_ecef) // 2, 2])}
+
+        def property_names(self):
+            return ["mid_z"]
+
+
+    callback, provider, path = sys.argv[1:4]
+    sp3 = bh.SP3.from_file(path)
+    satellites = sp3.satellites()
+    propagators = satellites if provider == "sp3" else [s.to_trajectory() for s in satellites]
+    elevation = bh.ElevationConstraint(min_elevation_deg=10.0)
+    if callback == "constraint":
+        constraint = AboveHorizon()
+        computers = None
+    else:
+        constraint = elevation
+        computers = [MidpointZ()]
+    config = bh.AccessSearchConfig(initial_time_step=60.0, parallel=True)
+    windows = bh.location_accesses(
+        [bh.PointLocation(-122.17, 37.43, 30.0), bh.PointLocation(10.0, 45.0, 0.0)],
+        propagators,
+        sp3.start_epoch,
+        sp3.end_epoch,
+        constraint,
+        property_computers=computers,
+        config=config,
+    )
+    assert len(windows) > 0
+    if computers is not None:
+        assert all("mid_z" in w.properties.additional for w in windows)
+    print(len(windows))
+    """
+)
+
+
+def run_access_callback_script(callback, provider):
+    return subprocess.run(
+        [sys.executable, "-c", ACCESS_CALLBACK_SCRIPT, callback, provider, COD_SUBSET],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=False,
+    )
+
+
+@pytest.mark.parametrize("callback", ["constraint", "property_computer"])
+def test_SP3Satellite_location_accesses_python_callbacks_parallel(callback):
+    result = run_access_callback_script(callback, "sp3")
+    assert result.returncode == 0, result.stderr
+    assert int(result.stdout.strip()) > 0
 
 
 def smooth_itrf_position(propagator, epoch):

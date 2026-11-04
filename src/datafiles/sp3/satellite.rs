@@ -208,12 +208,17 @@ impl SP3Satellite {
     /// union of the files' satellite lists, the valid samples of every file
     /// are joined in time order before velocities are derived, so samples
     /// next to a file boundary get centered fits. Epochs compare as absolute
-    /// instants, so files in different time systems chain directly.
+    /// instants, so files in different time systems chain when their boundary
+    /// epochs satisfy the spacing rule below.
     ///
     /// Two consecutive files may share their boundary epoch; epochs within
     /// 1 ms of each other, the tolerance of the epoch grid, are the same
     /// boundary epoch. The later file's sample is kept there when it is valid,
-    /// and the earlier file's otherwise.
+    /// and the earlier file's otherwise. Boundary epochs that do not coincide
+    /// must be at least half the epoch interval apart: consecutive samples
+    /// closer than half the smaller of their two intervals are rejected. A GPS-time
+    /// file ending at 00:00 GPS chained to a UTC-time file starting at 00:00 UTC,
+    /// 18 s apart at a 900 s interval, is therefore an error.
     /// A file that lacks a satellite contributes no samples, which leaves a
     /// gap in that satellite. Velocities come from the files only when every
     /// sample comes from a file with velocity records. Agencies, coordinate
@@ -229,7 +234,9 @@ impl SP3Satellite {
     /// * `Result<Vec<SP3Satellite>, BraheError>` - One satellite for each identifier with
     ///   at least one valid sample, in ascending identifier order (GPS, GLONASS, Galileo,
     ///   BeiDou, QZSS, IRNSS, SBAS, LEO, then by number), or an error naming the agency
-    ///   and span of two files that overlap by more than a shared boundary epoch
+    ///   and span of two files that overlap by more than a shared boundary epoch, or an
+    ///   error when two consecutive samples are closer than half the smaller of their
+    ///   epoch intervals
     ///
     /// # Examples
     ///

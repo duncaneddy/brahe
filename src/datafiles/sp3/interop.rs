@@ -118,7 +118,11 @@ impl SP3 {
 /// Consecutive files may share their boundary epoch, where the later file's
 /// sample is kept when it has one; any further overlap is an error. Two
 /// epochs within 1 ms of each other, the tolerance of the epoch grid, are
-/// the same boundary epoch.
+/// the same boundary epoch. Boundary epochs that do not coincide must be at
+/// least half the epoch interval apart, because consecutive samples closer
+/// than half the smaller of their two intervals are rejected; a GPS-time file
+/// ending at 00:00 GPS chained to a UTC-time file starting at 00:00 UTC, 18 s
+/// apart at a 900 s interval, is an error.
 ///
 /// # Arguments
 ///
@@ -128,7 +132,8 @@ impl SP3 {
 ///
 /// * `Result<Vec<SP3Satellite>, BraheError>` - One satellite per identifier in the union
 ///   of the files' satellite lists that has at least one valid sample, in ascending
-///   identifier order, or an error naming two overlapping files
+///   identifier order, or an error naming two overlapping files or reporting two
+///   consecutive samples closer than half the smaller of their epoch intervals
 pub(crate) fn chain_files(files: &[SP3]) -> Result<Vec<SP3Satellite>, BraheError> {
     let mut ordered: Vec<&SP3> = files.iter().filter(|f| f.num_epochs() > 0).collect();
     ordered.sort_by_key(|f| (f.start_epoch(), f.end_epoch()));

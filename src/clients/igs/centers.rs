@@ -135,6 +135,7 @@ pub fn list_analysis_centers() -> &'static [IGSAnalysisCenter] {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
     use serial_test::parallel;

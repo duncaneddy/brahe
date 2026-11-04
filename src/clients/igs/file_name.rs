@@ -48,10 +48,14 @@ const MJD_UNIX_EPOCH: i64 = 40587;
 /// own code, as `(short code, center)`.
 ///
 /// Codes absent from this table and from [`SHORT_ULTRA_CODES`] are final
-/// products of the center named by the uppercased code. The combination codes
-/// and the individual-center codes follow the file-name listings in the CDDIS
-/// orbit products documentation,
-/// <https://cddis.nasa.gov/Data_and_Derived_Products/GNSS/orbit_products.html>.
+/// products of the center named by the uppercased code. The IGS combination
+/// codes (`igs`, `igr`, `igu`, `igl`, `igv`) follow the pre-week-2237 code
+/// list at
+/// <https://www.earthdata.nasa.gov/data/space-geodesy-techniques/gnss/precise-orbits-product>.
+/// That page does not list the individual-center rapid and ultra-rapid codes
+/// `cor`, `cou`, `emp`, `esr`, `esu`, `gfr` and `gfu`, so those entries are
+/// unconfirmed. The GLONASS-only combinations `igl` and `igv` keep their own
+/// center codes `IGL` and `IGV`.
 const SHORT_RAPID_CODES: &[(&str, &str)] = &[
     ("igr", "IGS"),
     ("cor", "COD"),
@@ -64,6 +68,7 @@ const SHORT_RAPID_CODES: &[(&str, &str)] = &[
 /// their own code, as `(short code, center)`. See [`SHORT_RAPID_CODES`].
 const SHORT_ULTRA_CODES: &[(&str, &str)] = &[
     ("igu", "IGS"),
+    ("igv", "IGV"),
     ("cou", "COD"),
     ("esu", "ESA"),
     ("gfu", "GFZ"),
@@ -982,7 +987,6 @@ fn parse_short(
 }
 
 #[cfg(test)]
-#[allow(clippy::too_many_arguments)]
 mod tests {
     use super::*;
     use rstest::rstest;
@@ -999,12 +1003,7 @@ mod tests {
         "IGS",
         IGSSolutionType::Final,
         gps(2024, 11, 10, 0),
-        2340,
-        Some(86400.0),
-        Some(900.0),
-        IGSContentType::Orbit,
-        IGSFileFormat::SP3,
-        IGSCompression::Gzip
+        2340
     )]
     #[case(
         "COD0OPSFIN_20243150000_01D_05M_ORB.SP3.gz",
@@ -1012,12 +1011,7 @@ mod tests {
         "COD",
         IGSSolutionType::Final,
         gps(2024, 11, 10, 0),
-        2340,
-        Some(86400.0),
-        Some(300.0),
-        IGSContentType::Orbit,
-        IGSFileFormat::SP3,
-        IGSCompression::Gzip
+        2340
     )]
     #[case(
         "IGS0OPSULT_20243150600_02D_15M_ORB.SP3.gz",
@@ -1025,12 +1019,7 @@ mod tests {
         "IGS",
         IGSSolutionType::UltraRapid,
         gps(2024, 11, 10, 6),
-        2340,
-        Some(172800.0),
-        Some(900.0),
-        IGSContentType::Orbit,
-        IGSFileFormat::SP3,
-        IGSCompression::Gzip
+        2340
     )]
     #[case(
         "COD0OPSFIN_20243150000_01D_30S_CLK.CLK.gz",
@@ -1038,12 +1027,7 @@ mod tests {
         "COD",
         IGSSolutionType::Final,
         gps(2024, 11, 10, 0),
-        2340,
-        Some(86400.0),
-        Some(30.0),
-        IGSContentType::Clock,
-        IGSFileFormat::CLK,
-        IGSCompression::Gzip
+        2340
     )]
     #[case(
         "IGS0OPSFIN_20243150000_07D_01D_ERP.ERP.gz",
@@ -1051,12 +1035,7 @@ mod tests {
         "IGS",
         IGSSolutionType::Final,
         gps(2024, 11, 10, 0),
-        2340,
-        Some(604800.0),
-        Some(86400.0),
-        IGSContentType::EarthRotation,
-        IGSFileFormat::ERP,
-        IGSCompression::Gzip
+        2340
     )]
     #[case(
         "igs21000.sp3.Z",
@@ -1064,12 +1043,7 @@ mod tests {
         "IGS",
         IGSSolutionType::Final,
         gps(2020, 4, 5, 0),
-        2100,
-        Some(86400.0),
-        None,
-        IGSContentType::Orbit,
-        IGSFileFormat::SP3,
-        IGSCompression::UnixCompress
+        2100
     )]
     #[case(
         "igr21003.clk.Z",
@@ -1077,12 +1051,7 @@ mod tests {
         "IGS",
         IGSSolutionType::Rapid,
         gps(2020, 4, 8, 0),
-        2100,
-        Some(86400.0),
-        None,
-        IGSContentType::Clock,
-        IGSFileFormat::CLK,
-        IGSCompression::UnixCompress
+        2100
     )]
     #[case(
         "igu21000_06.sp3.Z",
@@ -1090,12 +1059,7 @@ mod tests {
         "IGS",
         IGSSolutionType::UltraRapid,
         gps(2020, 4, 5, 6),
-        2100,
-        Some(172800.0),
-        None,
-        IGSContentType::Orbit,
-        IGSFileFormat::SP3,
-        IGSCompression::UnixCompress
+        2100
     )]
     #[case(
         "igs21007.erp.Z",
@@ -1103,12 +1067,7 @@ mod tests {
         "IGS",
         IGSSolutionType::Final,
         gps(2020, 4, 5, 0),
-        2100,
-        None,
-        None,
-        IGSContentType::EarthRotation,
-        IGSFileFormat::ERP,
-        IGSCompression::UnixCompress
+        2100
     )]
     #[case(
         "cod21000.sp3",
@@ -1116,26 +1075,16 @@ mod tests {
         "COD",
         IGSSolutionType::Final,
         gps(2020, 4, 5, 0),
-        2100,
-        Some(86400.0),
-        None,
-        IGSContentType::Orbit,
-        IGSFileFormat::SP3,
-        IGSCompression::None
+        2100
     )]
     #[parallel]
-    fn test_igs_product_file_name_parse(
+    fn test_igs_product_file_name_parse_identity(
         #[case] input: &str,
         #[case] style: IGSNameStyle,
         #[case] center: &str,
         #[case] solution: IGSSolutionType,
         #[case] start: Epoch,
         #[case] week: u32,
-        #[case] span: Option<f64>,
-        #[case] sampling: Option<f64>,
-        #[case] content: IGSContentType,
-        #[case] format: IGSFileFormat,
-        #[case] compression: IGSCompression,
     ) {
         let name = IGSProductFileName::parse(input).unwrap();
         assert_eq!(name.name_style(), style);
@@ -1144,12 +1093,6 @@ mod tests {
         assert_eq!(name.start_epoch(), start);
         assert_eq!(name.gps_week(), week);
         assert_eq!(name.start_epoch().gps_date().0, week);
-        assert_eq!(name.span(), span);
-        assert_eq!(name.sampling(), sampling);
-        assert_eq!(name.content(), &content);
-        assert_eq!(name.format(), &format);
-        assert_eq!(name.compression(), compression);
-        assert!(name.is_sp3() == (format == IGSFileFormat::SP3));
         assert_eq!(name.to_string(), input);
         assert_eq!(input.parse::<IGSProductFileName>().unwrap(), name);
         match style {
@@ -1162,6 +1105,105 @@ mod tests {
                 assert_eq!(name.campaign(), None);
             }
         }
+    }
+
+    #[rstest]
+    #[case(
+        "IGS0OPSFIN_20243150000_01D_15M_ORB.SP3.gz",
+        Some(86400.0),
+        Some(900.0),
+        IGSContentType::Orbit,
+        IGSFileFormat::SP3,
+        IGSCompression::Gzip
+    )]
+    #[case(
+        "COD0OPSFIN_20243150000_01D_05M_ORB.SP3.gz",
+        Some(86400.0),
+        Some(300.0),
+        IGSContentType::Orbit,
+        IGSFileFormat::SP3,
+        IGSCompression::Gzip
+    )]
+    #[case(
+        "IGS0OPSULT_20243150600_02D_15M_ORB.SP3.gz",
+        Some(172800.0),
+        Some(900.0),
+        IGSContentType::Orbit,
+        IGSFileFormat::SP3,
+        IGSCompression::Gzip
+    )]
+    #[case(
+        "COD0OPSFIN_20243150000_01D_30S_CLK.CLK.gz",
+        Some(86400.0),
+        Some(30.0),
+        IGSContentType::Clock,
+        IGSFileFormat::CLK,
+        IGSCompression::Gzip
+    )]
+    #[case(
+        "IGS0OPSFIN_20243150000_07D_01D_ERP.ERP.gz",
+        Some(604800.0),
+        Some(86400.0),
+        IGSContentType::EarthRotation,
+        IGSFileFormat::ERP,
+        IGSCompression::Gzip
+    )]
+    #[case(
+        "igs21000.sp3.Z",
+        Some(86400.0),
+        None,
+        IGSContentType::Orbit,
+        IGSFileFormat::SP3,
+        IGSCompression::UnixCompress
+    )]
+    #[case(
+        "igr21003.clk.Z",
+        Some(86400.0),
+        None,
+        IGSContentType::Clock,
+        IGSFileFormat::CLK,
+        IGSCompression::UnixCompress
+    )]
+    #[case(
+        "igu21000_06.sp3.Z",
+        Some(172800.0),
+        None,
+        IGSContentType::Orbit,
+        IGSFileFormat::SP3,
+        IGSCompression::UnixCompress
+    )]
+    #[case(
+        "igs21007.erp.Z",
+        None,
+        None,
+        IGSContentType::EarthRotation,
+        IGSFileFormat::ERP,
+        IGSCompression::UnixCompress
+    )]
+    #[case(
+        "cod21000.sp3",
+        Some(86400.0),
+        None,
+        IGSContentType::Orbit,
+        IGSFileFormat::SP3,
+        IGSCompression::None
+    )]
+    #[parallel]
+    fn test_igs_product_file_name_parse_product(
+        #[case] input: &str,
+        #[case] span: Option<f64>,
+        #[case] sampling: Option<f64>,
+        #[case] content: IGSContentType,
+        #[case] format: IGSFileFormat,
+        #[case] compression: IGSCompression,
+    ) {
+        let name = IGSProductFileName::parse(input).unwrap();
+        assert_eq!(name.span(), span);
+        assert_eq!(name.sampling(), sampling);
+        assert_eq!(name.content(), &content);
+        assert_eq!(name.format(), &format);
+        assert_eq!(name.compression(), compression);
+        assert_eq!(name.is_sp3(), format == IGSFileFormat::SP3);
     }
 
     #[rstest]
@@ -1200,6 +1242,8 @@ mod tests {
     #[case("gfr21000.sp3.Z", "GFZ", IGSSolutionType::Rapid)]
     #[case("gfu21000_00.sp3.Z", "GFZ", IGSSolutionType::UltraRapid)]
     #[case("jpl21000.sp3.Z", "JPL", IGSSolutionType::Final)]
+    #[case("igl21000.sp3.Z", "IGL", IGSSolutionType::Final)]
+    #[case("igv21000_06.sp3.Z", "IGV", IGSSolutionType::UltraRapid)]
     #[parallel]
     fn test_igs_product_file_name_short_center_codes(
         #[case] input: &str,
@@ -1274,6 +1318,37 @@ mod tests {
     fn test_igs_product_file_name_long_leap_day() {
         let name = IGSProductFileName::parse("IGS0OPSFIN_20243660000_01D_15M_ORB.SP3").unwrap();
         assert_eq!(name.start_epoch(), gps(2024, 12, 31, 0));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_igs_product_file_name_igv_ultra_rapid_span() {
+        let name = IGSProductFileName::parse("igv21000_06.sp3").unwrap();
+        assert_eq!(name.start_epoch(), gps(2020, 4, 5, 6));
+        assert_eq!(name.span(), Some(172800.0));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_igs_product_file_name_compression_suffix_by_style() {
+        let long = IGSProductFileName::parse("IGS0OPSFIN_20243150000_01D_15M_ORB.SP3.Z").unwrap();
+        assert_eq!(long.compression(), IGSCompression::UnixCompress);
+        assert_eq!(long.format(), &IGSFileFormat::SP3);
+        assert_eq!(long.to_string(), "IGS0OPSFIN_20243150000_01D_15M_ORB.SP3.Z");
+
+        let short = IGSProductFileName::parse("igs21000.sp3.gz").unwrap();
+        assert_eq!(short.compression(), IGSCompression::Gzip);
+        assert_eq!(short.format(), &IGSFileFormat::SP3);
+        assert_eq!(short.to_string(), "igs21000.sp3.gz");
+    }
+
+    #[rstest]
+    #[case("igs21000é.sp3")]
+    #[case("IGS0OPSFIN_20243150000_01D_15M_ORB.SP3.gz\u{00e9}")]
+    #[case("IGé0OPSFIN_20243150000_01D_15M_ORB.SP3")]
+    #[parallel]
+    fn test_igs_product_file_name_non_ascii(#[case] input: &str) {
+        assert!(IGSProductFileName::parse(input).is_err());
     }
 
     #[test]

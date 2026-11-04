@@ -9,7 +9,9 @@
  * [`IGSAnalysisCenter`] lists the analysis centers that publish them.
  * [`IGSProductsClient`] lists an archive's GPS week directories as
  * [`IGSProduct`] values, selected with an [`IGSProductFilter`], and
- * downloads them into a cache or saves them to a chosen location.
+ * downloads them into a cache or saves them to a chosen location. SP3 orbit
+ * products are also downloaded and parsed directly, singly or as the daily
+ * files covering a time range selected with [`IGSRangeOptions`].
  */
 
 pub mod centers;
@@ -24,5 +26,5 @@ pub use file_name::{
     IGSCompression, IGSContentType, IGSFileFormat, IGSNameStyle, IGSProductFileName,
     IGSSolutionType,
 };
-pub use product::{IGSProduct, IGSProductFilter};
+pub use product::{IGSProduct, IGSProductFilter, IGSRangeOptions};
 pub use source::IGSProductSource;

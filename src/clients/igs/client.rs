@@ -2,7 +2,8 @@
  * Blocking client for IGS precise-product archives.
  */
 
-use std::collections::HashSet;
+use std::cmp::Ordering as CmpOrdering;
+use std::collections::{BTreeMap, HashSet};
 use std::env;
 use std::fmt;
 use std::fs;
@@ -14,12 +15,18 @@ use base64::Engine;
 use base64::engine::general_purpose::STANDARD as BASE64;
 use ureq::http::{Response, Uri};
 
-use crate::clients::igs::file_name::{IGSCompression, IGSProductFileName};
-use crate::clients::igs::product::{IGSProduct, IGSProductFilter};
+use crate::clients::igs::file_name::{
+    IGS_LONG_NAME_FIRST_WEEK, IGSCompression, IGSContentType, IGSFileFormat, IGSNameStyle,
+    IGSProductFileName, IGSSolutionType, short_code,
+};
+use crate::clients::igs::product::{IGSProduct, IGSProductFilter, IGSRangeOptions};
 use crate::clients::igs::source::IGSProductSource;
 use crate::constants::SECONDS_PER_DAY;
-use crate::datafiles::compression::{Compression, compression_of, decompress};
-use crate::time::Epoch;
+use crate::datafiles::compression::{
+    Compression, UNIX_COMPRESS_UNSUPPORTED, compression_of, decompress,
+};
+use crate::datafiles::sp3::SP3;
+use crate::time::{Epoch, TimeSystem};
 use crate::utils::cache::is_older_than;
 use crate::utils::download::{backoff_delay, is_retryable_error};
 use crate::utils::fs::{
@@ -804,6 +811,234 @@ impl IGSProductsClient {
             .collect()
     }
 
+    /// Downloads an SP3 orbit product, if it is not cached, and parses it.
+    ///
+    /// The product is downloaded as [`IGSProductsClient::download`] does and
+    /// read with [`SP3::from_file`], which decompresses gzip data. Unix
+    /// compress (`.Z`) data cannot be decompressed, so a `.Z` product is
+    /// rejected before anything is downloaded; download it with
+    /// [`IGSProductsClient::save`] and decompress it externally.
+    ///
+    /// # Arguments
+    /// * `product` - SP3 product to download, as returned by a listing
+    ///
+    /// # Returns
+    /// * `Ok(SP3)`: The parsed file
+    /// * `Err(BraheError)`: If the product is not an SP3 file or is Unix-compressed, both checked before anything is downloaded, or if the download or parse fails
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use brahe::igs::{IGSContentType, IGSProductFilter, IGSProductSource, IGSProductsClient, IGSSolutionType};
+    /// use brahe::time::{Epoch, TimeSystem};
+    ///
+    /// let client = IGSProductsClient::with_source(IGSProductSource::Garner);
+    /// let epoch = Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::GPS);
+    /// let filter = IGSProductFilter::new()
+    ///     .with_center("IGS")
+    ///     .with_solution(IGSSolutionType::Final)
+    ///     .with_content(IGSContentType::Orbit);
+    /// let product = &client.list_products(epoch, &filter).unwrap()[0];
+    /// let sp3 = client.download_sp3(product).unwrap();
+    /// println!("{} satellites", sp3.num_satellites());
+    /// ```
+    pub fn download_sp3(&self, product: &IGSProduct) -> Result<SP3, BraheError> {
+        if !product.file_name.is_sp3() {
+            return Err(BraheError::Error(format!(
+                "{} is not an SP3 file (format {})",
+                self.product_resource(product),
+                product.file_name.format().code()
+            )));
+        }
+        self.reject_unix_compress(product)?;
+        SP3::from_file(self.download(product)?)
+    }
+
+    /// Downloads and parses the daily SP3 orbit files of one analysis center
+    /// and solution that cover `[start, end]`.
+    ///
+    /// The files are the daily orbit files of every GPS day from the day
+    /// containing `start` through the day containing `end`. With
+    /// `options.pad` set, the days before and after are added when the source
+    /// has their files, so that [`SP3Satellite::from_files`](crate::datafiles::sp3::SP3Satellite::from_files)
+    /// uses centered fits at the span edges. Each day's file is found in its
+    /// GPS week listing:
+    ///
+    /// - From GPS week 2238, the long-name one-day (`01D`) `ORB` SP3 file of
+    ///   `center` and `solution` starting at 00:00. When several sampling
+    ///   intervals are published, the coarsest is used unless
+    ///   `options.sampling` is set, in which case only that interval is used.
+    ///   Files of the `OPS` campaign are preferred, then the lowest version.
+    /// - Before GPS week 2238, the short-name daily SP3 file of `center` and
+    ///   `solution`, such as `cod21003.sp3` (rapid and ultra-rapid products
+    ///   use the center's own code, such as `igr`). Uncompressed and gzip files
+    ///   are preferred to Unix-compressed (`.Z`) ones.
+    ///
+    /// Every file is chosen, and every error below is raised, before
+    /// anything is downloaded. Ultra-rapid orbits are rejected: their issues
+    /// every six hours overlap one another, so they do not chain into one
+    /// time series. A day inside the span with no file, or whose file is only
+    /// published Unix-compressed, is an error; such a padding day is skipped.
+    /// A range crossing week 2238 returns short-name and long-name files
+    /// together.
+    ///
+    /// # Arguments
+    /// * `start` - Start of the time range
+    /// * `end` - End of the time range, inclusive
+    /// * `center` - Analysis center code, in any case, for example `"COD"`
+    /// * `solution` - Solution type, for example [`IGSSolutionType::Final`]
+    /// * `options` - Padding and sampling selection
+    ///
+    /// # Returns
+    /// * `Ok(Vec<SP3>)`: Parsed daily files in time order
+    /// * `Err(BraheError)`: If `solution` is ultra-rapid, `end` is before `start`, a week listing containing part of the span cannot be obtained, a day inside the span has no file on the source or only a Unix-compressed one, or a download or parse fails
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use brahe::datafiles::sp3::SP3Satellite;
+    /// use brahe::igs::{IGSProductSource, IGSProductsClient, IGSRangeOptions, IGSSolutionType};
+    /// use brahe::time::{Epoch, TimeSystem};
+    ///
+    /// let client = IGSProductsClient::with_source(IGSProductSource::Garner);
+    /// let start = Epoch::from_datetime(2024, 11, 11, 0, 0, 0.0, 0.0, TimeSystem::GPS);
+    /// let end = Epoch::from_datetime(2024, 11, 12, 0, 0, 0.0, 0.0, TimeSystem::GPS);
+    /// let files = client
+    ///     .download_sp3_range(start, end, "COD", IGSSolutionType::Final, &IGSRangeOptions::new())
+    ///     .unwrap();
+    /// let satellites = SP3Satellite::from_files(&files).unwrap();
+    /// ```
+    pub fn download_sp3_range(
+        &self,
+        start: Epoch,
+        end: Epoch,
+        center: &str,
+        solution: IGSSolutionType,
+        options: &IGSRangeOptions,
+    ) -> Result<Vec<SP3>, BraheError> {
+        let products = self.sp3_range_products(start, end, center, &solution, options)?;
+        let paths = products
+            .iter()
+            .map(|product| self.download(product))
+            .collect::<Result<Vec<_>, _>>()?;
+        paths.iter().map(SP3::from_file).collect()
+    }
+
+    /// Chooses the daily SP3 orbit products [`IGSProductsClient::download_sp3_range`]
+    /// downloads, without downloading them.
+    ///
+    /// # Arguments
+    /// * `start` - Start of the time range
+    /// * `end` - End of the time range, inclusive
+    /// * `center` - Analysis center code, in any case
+    /// * `solution` - Solution type
+    /// * `options` - Padding and sampling selection
+    ///
+    /// # Returns
+    /// * `Ok(Vec<IGSProduct>)`: One product per covered day, in time order
+    /// * `Err(BraheError)`: As for [`IGSProductsClient::download_sp3_range`], other than download and parse failures
+    fn sp3_range_products(
+        &self,
+        start: Epoch,
+        end: Epoch,
+        center: &str,
+        solution: &IGSSolutionType,
+        options: &IGSRangeOptions,
+    ) -> Result<Vec<IGSProduct>, BraheError> {
+        if *solution == IGSSolutionType::UltraRapid {
+            return Err(BraheError::Error(format!(
+                "IGS SP3 ranges of ultra-rapid ({}) orbits are not supported: successive issues overlap in time and do not chain; download single issues with download_sp3",
+                solution.code()
+            )));
+        }
+        if end < start {
+            return Err(BraheError::Error(format!(
+                "IGS SP3 range end {end} is before its start {start}"
+            )));
+        }
+        let first_day = gps_day(start);
+        let last_day = gps_day(end);
+        let span_days = first_day..=last_day;
+        let (low_day, high_day) = if options.pad {
+            (first_day.saturating_sub(1), last_day + 1)
+        } else {
+            (first_day, last_day)
+        };
+        let span_weeks = first_day / 7..=last_day / 7;
+        let filter = IGSProductFilter::new()
+            .with_center(center)
+            .with_solution(solution.clone())
+            .with_content(IGSContentType::Orbit)
+            .with_format(IGSFileFormat::SP3);
+
+        let mut week_products = BTreeMap::new();
+        for week in low_day / 7..=high_day / 7 {
+            let listing = if span_weeks.contains(&week) {
+                Some(self.listing(Some(week))?)
+            } else {
+                self.fetch_listing(Some(week), true)?
+            };
+            let products = listing
+                .map(|listing| self.products_from_listing(week, &listing, &filter))
+                .unwrap_or_default();
+            week_products.insert(week, products);
+        }
+
+        let mut selected: Vec<IGSProduct> = Vec::new();
+        let mut missing = Vec::new();
+        for day in low_day..=high_day {
+            let in_span = span_days.contains(&day);
+            match daily_orbit(&week_products[&(day / 7)], day, options.sampling) {
+                Some(product)
+                    if product.file_name.compression() == IGSCompression::UnixCompress =>
+                {
+                    if in_span {
+                        self.reject_unix_compress(product)?;
+                    }
+                }
+                Some(product) => selected.push(product.clone()),
+                None if in_span => missing.push(day),
+                None => {}
+            }
+        }
+        if let Some(&day) = missing.first() {
+            let sampling = options.sampling.or_else(|| {
+                selected
+                    .iter()
+                    .filter_map(|product| product.file_name.sampling())
+                    .max_by(f64::total_cmp)
+            });
+            let week = day / 7;
+            return Err(BraheError::Error(format!(
+                "IGS {} product {} not found: the GPS week {week:04} listing {} has no daily {} {} SP3 orbit file for that day",
+                self.source,
+                expected_daily_orbit_name(center, solution, day, sampling),
+                self.listing_url(Some(week)),
+                center.to_ascii_uppercase(),
+                solution.code()
+            )));
+        }
+        Ok(selected)
+    }
+
+    /// Fails for a Unix-compressed (`.Z`) product, which cannot be parsed.
+    ///
+    /// # Arguments
+    /// * `product` - Product to check
+    ///
+    /// # Returns
+    /// * `Ok(())`: The product is not Unix-compressed
+    /// * `Err(BraheError)`: An error naming the product and stating [`UNIX_COMPRESS_UNSUPPORTED`]
+    fn reject_unix_compress(&self, product: &IGSProduct) -> Result<(), BraheError> {
+        if product.file_name.compression() == IGSCompression::UnixCompress {
+            return Err(BraheError::Error(format!(
+                "{}: {UNIX_COMPRESS_UNSUPPORTED}",
+                self.product_resource(product)
+            )));
+        }
+        Ok(())
+    }
+
     /// Lists the files of a week directory with their sizes.
     ///
     /// # Arguments
@@ -1403,6 +1638,152 @@ fn write_saved(
         })?;
     }
     Ok(())
+}
+
+/// Day count since the GPS epoch of the GPS day containing `epoch`.
+///
+/// # Arguments
+/// * `epoch` - Instant to locate
+///
+/// # Returns
+/// * `u32`: `7 * week + day of week`
+fn gps_day(epoch: Epoch) -> u32 {
+    let (week, seconds) = epoch.gps_date();
+    week * 7 + ((seconds / SECONDS_PER_DAY).floor() as u32).min(6)
+}
+
+/// Start of a GPS day.
+///
+/// # Arguments
+/// * `day` - Day count since the GPS epoch
+///
+/// # Returns
+/// * `Epoch`: 00:00 GPS time of that day
+fn gps_day_start(day: u32) -> Epoch {
+    Epoch::from_gps_date(day / 7, f64::from(day % 7) * SECONDS_PER_DAY)
+}
+
+/// The daily SP3 orbit file for `day` among one week's orbit products.
+///
+/// Products in the naming convention of the day's week are considered: long
+/// names from week 2238, short names before it. A candidate spans one day,
+/// starts at the day's 00:00, and, for long names when `sampling` is set,
+/// has that sampling interval. The first candidate in [`daily_orbit_preference`]
+/// order is returned.
+///
+/// # Arguments
+/// * `products` - SP3 orbit products of the day's week listing
+/// * `day` - Day count since the GPS epoch
+/// * `sampling` - Required sampling interval of long-name files, in seconds
+///
+/// # Returns
+/// * `Option<&IGSProduct>`: The chosen file, or `None` when there is none
+fn daily_orbit(products: &[IGSProduct], day: u32, sampling: Option<f64>) -> Option<&IGSProduct> {
+    let style = if day / 7 >= IGS_LONG_NAME_FIRST_WEEK {
+        IGSNameStyle::Long
+    } else {
+        IGSNameStyle::Short
+    };
+    let day_start = gps_day_start(day);
+    products
+        .iter()
+        .filter(|product| {
+            let name = &product.file_name;
+            name.name_style() == style
+                && name.span() == Some(SECONDS_PER_DAY)
+                && (name.start_epoch() - day_start).abs() < 1.0
+                && (style == IGSNameStyle::Short
+                    || sampling.is_none_or(|sampling| {
+                        name.sampling()
+                            .is_some_and(|published| (published - sampling).abs() < 1e-6)
+                    }))
+        })
+        .min_by(|a, b| daily_orbit_preference(a, b))
+}
+
+/// Preference order of daily orbit files for the same day: coarsest
+/// sampling first, then files that are not Unix-compressed, then the `OPS`
+/// campaign, then the lowest version, then `.sp3` short names before other
+/// SP3 extensions, then name.
+///
+/// # Arguments
+/// * `a` - First product
+/// * `b` - Second product
+///
+/// # Returns
+/// * `Ordering`: `Less` when `a` is preferred
+fn daily_orbit_preference(a: &IGSProduct, b: &IGSProduct) -> CmpOrdering {
+    let (x, y) = (&a.file_name, &b.file_name);
+    let unix = |name: &IGSProductFileName| name.compression() == IGSCompression::UnixCompress;
+    let other_campaign = |name: &IGSProductFileName| name.campaign().is_some_and(|c| c != "OPS");
+    let other_extension = |product: &IGSProduct| {
+        product.file_name.name_style() == IGSNameStyle::Short && !product.name.contains(".sp3")
+    };
+    y.sampling()
+        .unwrap_or(0.0)
+        .total_cmp(&x.sampling().unwrap_or(0.0))
+        .then_with(|| unix(x).cmp(&unix(y)))
+        .then_with(|| other_campaign(x).cmp(&other_campaign(y)))
+        .then_with(|| x.version().cmp(&y.version()))
+        .then_with(|| other_extension(a).cmp(&other_extension(b)))
+        .then_with(|| a.name.cmp(&b.name))
+}
+
+/// Name of the daily SP3 orbit file expected for `day`, used in errors.
+///
+/// From week 2238 this is the operational long name,
+/// `CCC0OPSTTT_YYYYDDD0000_01D_SMP_ORB.SP3.gz`, with `*` for an unknown
+/// sampling. Before it, the short name `cccwwwwd.sp3`, followed by
+/// `[.gz|.Z]`.
+///
+/// # Arguments
+/// * `center` - Analysis center code, in any case
+/// * `solution` - Solution type
+/// * `day` - Day count since the GPS epoch
+/// * `sampling` - Sampling interval in seconds, if known
+///
+/// # Returns
+/// * `String`: The expected name
+fn expected_daily_orbit_name(
+    center: &str,
+    solution: &IGSSolutionType,
+    day: u32,
+    sampling: Option<f64>,
+) -> String {
+    let week = day / 7;
+    if week < IGS_LONG_NAME_FIRST_WEEK {
+        return format!(
+            "{}{week:04}{}.sp3[.gz|.Z]",
+            short_code(center, solution),
+            day % 7
+        );
+    }
+    // Read the calendar date at noon so that rounding cannot move it a day.
+    let noon = gps_day_start(day) + SECONDS_PER_DAY / 2.0;
+    let year = noon.to_datetime_as_time_system(TimeSystem::GPS).0;
+    let day_of_year = noon.day_of_year_as_time_system(TimeSystem::GPS).floor() as u32;
+    let sampling = sampling.map_or_else(|| "*".to_string(), duration_code);
+    format!(
+        "{}0OPS{}_{year:04}{day_of_year:03}0000_01D_{sampling}_ORB.SP3.gz",
+        center.to_ascii_uppercase(),
+        solution.code()
+    )
+}
+
+/// Long-name duration code of an interval, such as `15M` for 900 seconds.
+///
+/// # Arguments
+/// * `seconds` - Interval in seconds
+///
+/// # Returns
+/// * `String`: Two-digit count and unit (`D`, `H`, `M`, or `S`), using the largest unit that divides the interval
+fn duration_code(seconds: f64) -> String {
+    let seconds = seconds.round() as u64;
+    let (count, unit) = [(86400, 'D'), (3600, 'H'), (60, 'M')]
+        .into_iter()
+        .find(|(size, _)| seconds > 0 && seconds.is_multiple_of(*size))
+        .map_or((seconds, 'S'), |(size, unit)| (seconds / size, unit));
+    format!("{count:02}{unit}")
 }
 
 /// Whether a product's coverage overlaps `[start, end]`.
@@ -3128,5 +3509,551 @@ mod tests {
         assert!(is_html(b" \n\t<!DOCTYPE html>"));
         assert!(!is_html(b"#dP2024"));
         assert!(!is_html(b""));
+    }
+
+    const SP3_FIXTURE: &str = "test_assets/sp3/IGS0OPSFIN_20243150000_01D_15M_ORB_subset.SP3.gz";
+
+    fn sp3_fixture() -> Vec<u8> {
+        fs::read(SP3_FIXTURE).unwrap()
+    }
+
+    /// Name of the COD final daily orbit for 2024 day of year `doy` at
+    /// sampling code `sampling`.
+    fn cod_daily(doy: u32, sampling: &str) -> String {
+        format!("COD0OPSFIN_2024{doy:03}0000_01D_{sampling}_ORB.SP3.gz")
+    }
+
+    /// Mocks a Garner week 2340 listing holding COD final daily orbits at
+    /// 05M and 15M for each 2024 day of year in `days`, plus products of other
+    /// solutions, contents, spans, and centers, and serves the SP3 fixture
+    /// for each listed file. Returns the file mocks keyed by name.
+    fn mock_cod_week_2340<'a>(
+        server: &'a MockServer,
+        days: &[u32],
+    ) -> BTreeMap<String, httpmock::Mock<'a>> {
+        let mut listed: Vec<String> = days
+            .iter()
+            .flat_map(|&doy| [cod_daily(doy, "05M"), cod_daily(doy, "15M")])
+            .collect();
+        listed.extend(
+            [
+                "COD0OPSRAP_20243160000_01D_15M_ORB.SP3.gz",
+                "COD0OPSULT_20243160000_02D_05M_ORB.SP3.gz",
+                "COD0OPSFIN_20243160000_01D_30S_CLK.CLK.gz",
+                "COD0OPSFIN_20243150000_07D_01D_ERP.ERP.gz",
+                "ESA0OPSFIN_20243160000_01D_15M_ORB.SP3.gz",
+            ]
+            .map(String::from),
+        );
+        let refs: Vec<&str> = listed.iter().map(String::as_str).collect();
+        mock_listing(server, "/pub/products/2340/", apache_listing(&refs));
+        listed
+            .iter()
+            .map(|name| {
+                let mock = mock_file(server, &format!("/pub/products/2340/{name}"), sp3_fixture());
+                (name.clone(), mock)
+            })
+            .collect()
+    }
+
+    /// Asserts that each file mock in `files` was requested once when its
+    /// name is in `expected` and never otherwise.
+    fn assert_downloaded(files: &BTreeMap<String, httpmock::Mock<'_>>, expected: &[String]) {
+        for (name, mock) in files {
+            let calls = usize::from(expected.contains(name));
+            assert_eq!(mock.calls(), calls, "{name}");
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_igs_products_client_download_sp3_parses_file() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("online"));
+        let server = MockServer::start();
+        let name = "IGS0OPSFIN_20243150000_01D_15M_ORB.SP3.gz";
+        let file = mock_file(
+            &server,
+            &format!("/pub/products/2340/{name}"),
+            sp3_fixture(),
+        );
+        let client = garner_client(&server);
+
+        let sp3 = client.download_sp3(&product(&client, name, 2340)).unwrap();
+        assert_eq!(sp3, SP3::from_file(SP3_FIXTURE).unwrap());
+        file.assert_calls(1);
+    }
+
+    #[test]
+    #[serial]
+    fn test_igs_products_client_download_sp3_rejects_before_download() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("online"));
+        let server = MockServer::start();
+        let any = server.mock(|when, then| {
+            when.any_request();
+            then.status(200).body(sp3_fixture());
+        });
+        let client = garner_client(&server);
+
+        let err = client
+            .download_sp3(&product(&client, "cod21000.sp3.Z", 2100))
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains(UNIX_COMPRESS_UNSUPPORTED), "{err}");
+        assert!(err.contains("cod21000.sp3.Z"), "{err}");
+
+        let err = client
+            .download_sp3(&product(
+                &client,
+                "COD0OPSFIN_20243150000_01D_30S_CLK.CLK.gz",
+                2340,
+            ))
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("not an SP3"), "{err}");
+        any.assert_calls(0);
+    }
+
+    #[test]
+    #[serial]
+    fn test_igs_products_client_download_sp3_range_pads_with_coarsest_sampling() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("online"));
+        let server = MockServer::start();
+        let files = mock_cod_week_2340(&server, &[315, 316, 317, 318]);
+        let client = garner_client(&server);
+        let (start, end) = (gps(2024, 11, 11, 0), gps(2024, 11, 12, 0));
+        let options = IGSRangeOptions::new();
+
+        let sp3s = client
+            .download_sp3_range(start, end, "cod", IGSSolutionType::Final, &options)
+            .unwrap();
+        let expected: Vec<String> = (315..=318).map(|doy| cod_daily(doy, "15M")).collect();
+        assert_eq!(sp3s.len(), 4);
+        assert!(sp3s.iter().all(|sp3| *sp3 == sp3s[0]));
+        assert_downloaded(&files, &expected);
+        let chosen = client
+            .sp3_range_products(start, end, "COD", &IGSSolutionType::Final, &options)
+            .unwrap();
+        assert_eq!(names(&chosen), expected);
+
+        let fine = options.with_sampling(300.0);
+        let sp3s = client
+            .download_sp3_range(start, end, "COD", IGSSolutionType::Final, &fine)
+            .unwrap();
+        assert_eq!(sp3s.len(), 4);
+        let chosen = client
+            .sp3_range_products(start, end, "COD", &IGSSolutionType::Final, &fine)
+            .unwrap();
+        let expected_fine: Vec<String> = (315..=318).map(|doy| cod_daily(doy, "05M")).collect();
+        assert_eq!(names(&chosen), expected_fine);
+        let both: Vec<String> = expected.into_iter().chain(expected_fine).collect();
+        assert_downloaded(&files, &both);
+    }
+
+    #[test]
+    #[serial]
+    fn test_igs_products_client_download_sp3_range_without_padding() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("online"));
+        let server = MockServer::start();
+        let files = mock_cod_week_2340(&server, &[315, 316, 317, 318]);
+        let client = garner_client(&server);
+        let (start, end) = (gps(2024, 11, 11, 0), gps(2024, 11, 12, 0));
+        let options = IGSRangeOptions::new().with_pad(false);
+
+        let sp3s = client
+            .download_sp3_range(start, end, "COD", IGSSolutionType::Final, &options)
+            .unwrap();
+        assert_eq!(sp3s.len(), 2);
+        let expected = vec![cod_daily(316, "15M"), cod_daily(317, "15M")];
+        assert_downloaded(&files, &expected);
+        let chosen = client
+            .sp3_range_products(start, end, "COD", &IGSSolutionType::Final, &options)
+            .unwrap();
+        assert_eq!(names(&chosen), expected);
+    }
+
+    #[test]
+    #[serial]
+    fn test_igs_products_client_download_sp3_range_skips_missing_padding() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("online"));
+        let server = MockServer::start();
+        let files = mock_cod_week_2340(&server, &[316, 317, 318]);
+        let before = server.mock(|when, then| {
+            when.method(GET).path("/pub/products/2339/");
+            then.status(404);
+        });
+        let client = garner_client(&server);
+        let options = IGSRangeOptions::new();
+
+        // Day 315, the padding day before Monday 2024-11-11, is missing.
+        let sp3s = client
+            .download_sp3_range(
+                gps(2024, 11, 11, 0),
+                gps(2024, 11, 12, 0),
+                "COD",
+                IGSSolutionType::Final,
+                &options,
+            )
+            .unwrap();
+        assert_eq!(sp3s.len(), 3);
+        let expected: Vec<String> = (316..=318).map(|doy| cod_daily(doy, "15M")).collect();
+        assert_downloaded(&files, &expected);
+        before.assert_calls(0);
+
+        // Inside the span, the missing day 315 is an error. The padding day
+        // before it is in week 2339, whose 404 is skipped.
+        let chosen = client
+            .sp3_range_products(
+                gps(2024, 11, 11, 6),
+                gps(2024, 11, 11, 12),
+                "COD",
+                &IGSSolutionType::Final,
+                &options,
+            )
+            .unwrap();
+        assert_eq!(
+            names(&chosen),
+            [cod_daily(316, "15M"), cod_daily(317, "15M")]
+        );
+        let err = client
+            .sp3_range_products(
+                gps(2024, 11, 10, 6),
+                gps(2024, 11, 11, 12),
+                "COD",
+                &IGSSolutionType::Final,
+                &options,
+            )
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains(&cod_daily(315, "15M")), "{err}");
+        before.assert_calls(1);
+    }
+
+    #[test]
+    #[serial]
+    fn test_igs_products_client_download_sp3_range_skips_missing_padding_week() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("online"));
+        let server = MockServer::start();
+        mock_cod_week_2340(&server, &[315, 316]);
+        let before = server.mock(|when, then| {
+            when.method(GET).path("/pub/products/2339/");
+            then.status(404);
+        });
+        let client = garner_client(&server);
+
+        let chosen = client
+            .sp3_range_products(
+                gps(2024, 11, 10, 6),
+                gps(2024, 11, 10, 12),
+                "COD",
+                &IGSSolutionType::Final,
+                &IGSRangeOptions::new(),
+            )
+            .unwrap();
+        assert_eq!(
+            names(&chosen),
+            [cod_daily(315, "15M"), cod_daily(316, "15M")]
+        );
+        before.assert_calls(1);
+    }
+
+    #[test]
+    #[serial]
+    fn test_igs_products_client_download_sp3_range_missing_day_names_file_and_source() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("online"));
+        let server = MockServer::start();
+        let files = mock_cod_week_2340(&server, &[315, 316, 318]);
+        let client = garner_client(&server);
+        let (start, end) = (gps(2024, 11, 11, 0), gps(2024, 11, 12, 0));
+
+        let err = client
+            .download_sp3_range(
+                start,
+                end,
+                "COD",
+                IGSSolutionType::Final,
+                &IGSRangeOptions::new(),
+            )
+            .unwrap_err()
+            .to_string();
+        assert!(
+            err.contains("COD0OPSFIN_20243170000_01D_15M_ORB.SP3.gz"),
+            "{err}"
+        );
+        assert!(err.contains("Garner"), "{err}");
+
+        let err = client
+            .download_sp3_range(
+                start,
+                end,
+                "COD",
+                IGSSolutionType::Final,
+                &IGSRangeOptions::new().with_sampling(30.0),
+            )
+            .unwrap_err()
+            .to_string();
+        assert!(
+            err.contains("COD0OPSFIN_20243160000_01D_30S_ORB.SP3.gz"),
+            "{err}"
+        );
+        assert_downloaded(&files, &[]);
+    }
+
+    #[test]
+    #[serial]
+    fn test_igs_products_client_download_sp3_range_rejects_ultra_rapid_before_request() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("online"));
+        let server = MockServer::start();
+        let any = server.mock(|when, then| {
+            when.any_request();
+            then.status(200).body(apache_listing(&[]));
+        });
+        let client = garner_client(&server);
+
+        let err = client
+            .download_sp3_range(
+                gps(2024, 11, 11, 0),
+                gps(2024, 11, 12, 0),
+                "IGS",
+                IGSSolutionType::UltraRapid,
+                &IGSRangeOptions::new(),
+            )
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("ultra-rapid"), "{err}");
+
+        let err = client
+            .download_sp3_range(
+                gps(2024, 11, 12, 0),
+                gps(2024, 11, 11, 0),
+                "IGS",
+                IGSSolutionType::Final,
+                &IGSRangeOptions::new(),
+            )
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("before its start"), "{err}");
+        any.assert_calls(0);
+    }
+
+    #[test]
+    #[serial]
+    fn test_igs_products_client_download_sp3_range_unix_compress() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("online"));
+        let server = MockServer::start();
+        mock_listing(
+            &server,
+            "/pub/products/2100/",
+            apache_listing(&[
+                "cod21000.sp3.Z",
+                "cod21001.sp3.gz",
+                "cod21002.sp3.Z",
+                "cod21003.sp3.Z",
+                "cod21003.sp3.gz",
+                "cod21003.clk.Z",
+            ]),
+        );
+        let files = server.mock(|when, then| {
+            when.method(GET).path_prefix("/pub/products/2100/cod");
+            then.status(200).body(sp3_fixture());
+        });
+        let client = garner_client(&server);
+        let options = IGSRangeOptions::new();
+
+        // Sunday 2020-04-05 is day 0 of week 2100.
+        let err = client
+            .download_sp3_range(
+                gps(2020, 4, 5, 6),
+                gps(2020, 4, 6, 6),
+                "cod",
+                IGSSolutionType::Final,
+                &options,
+            )
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains(UNIX_COMPRESS_UNSUPPORTED), "{err}");
+        assert!(err.contains("cod21000.sp3.Z"), "{err}");
+        files.assert_calls(0);
+
+        // The `.Z` padding days are skipped, and gzip is preferred to `.Z`.
+        let chosen = client
+            .sp3_range_products(
+                gps(2020, 4, 6, 6),
+                gps(2020, 4, 6, 12),
+                "COD",
+                &IGSSolutionType::Final,
+                &options,
+            )
+            .unwrap();
+        assert_eq!(names(&chosen), ["cod21001.sp3.gz"]);
+        let chosen = client
+            .sp3_range_products(
+                gps(2020, 4, 8, 6),
+                gps(2020, 4, 8, 12),
+                "COD",
+                &IGSSolutionType::Final,
+                &options.clone().with_pad(false),
+            )
+            .unwrap();
+        assert_eq!(names(&chosen), ["cod21003.sp3.gz"]);
+        files.assert_calls(0);
+
+        // A missing short-name day names the expected short file.
+        let err = client
+            .sp3_range_products(
+                gps(2020, 4, 9, 6),
+                gps(2020, 4, 9, 12),
+                "COD",
+                &IGSSolutionType::Rapid,
+                &options,
+            )
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("cor21004.sp3"), "{err}");
+    }
+
+    #[test]
+    #[serial]
+    fn test_igs_products_client_download_sp3_range_crosses_long_name_week() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("online"));
+        let server = MockServer::start();
+        let plain = decompress(&sp3_fixture()).unwrap().into_owned();
+        let short = ["cod22375.sp3", "cod22376.sp3"];
+        let long = [
+            "COD0OPSFIN_20223310000_01D_05M_ORB.SP3.gz",
+            "COD0OPSFIN_20223320000_01D_05M_ORB.SP3.gz",
+        ];
+        // Each week also lists a file in the other convention, which is not
+        // used.
+        mock_listing(
+            &server,
+            "/pub/products/2237/",
+            apache_listing(&[
+                short[0],
+                short[1],
+                "COD0OPSFIN_20223300000_01D_05M_ORB.SP3.gz",
+            ]),
+        );
+        mock_listing(
+            &server,
+            "/pub/products/2238/",
+            apache_listing(&[long[0], long[1], "cod22380.sp3.Z"]),
+        );
+        let short_files: Vec<_> = short
+            .iter()
+            .map(|name| {
+                mock_file(
+                    &server,
+                    &format!("/pub/products/2237/{name}"),
+                    plain.clone(),
+                )
+            })
+            .collect();
+        let long_files: Vec<_> = long
+            .iter()
+            .map(|name| {
+                mock_file(
+                    &server,
+                    &format!("/pub/products/2238/{name}"),
+                    sp3_fixture(),
+                )
+            })
+            .collect();
+        let client = garner_client(&server);
+        // Saturday 2022-11-26 is the last day of week 2237.
+        let (start, end) = (gps(2022, 11, 26, 12), gps(2022, 11, 27, 12));
+        let options = IGSRangeOptions::new();
+
+        let sp3s = client
+            .download_sp3_range(start, end, "COD", IGSSolutionType::Final, &options)
+            .unwrap();
+        assert_eq!(sp3s.len(), 4);
+        let fixture = SP3::from_file(SP3_FIXTURE).unwrap();
+        assert!(sp3s.iter().all(|sp3| *sp3 == fixture));
+        for mock in short_files.iter().chain(&long_files) {
+            mock.assert_calls(1);
+        }
+        let chosen = client
+            .sp3_range_products(start, end, "COD", &IGSSolutionType::Final, &options)
+            .unwrap();
+        assert_eq!(names(&chosen), [short[0], short[1], long[0], long[1]]);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_igs_gps_day_and_expected_daily_orbit_name() {
+        assert_eq!(gps_day(gps(2024, 11, 10, 0)), 2340 * 7);
+        assert_eq!(gps_day(gps(2024, 11, 16, 23)), 2340 * 7 + 6);
+        assert_eq!(gps_day_start(2340 * 7 + 2), gps(2024, 11, 12, 0));
+        assert_eq!(
+            expected_daily_orbit_name("cod", &IGSSolutionType::Final, 2340 * 7 + 2, Some(900.0)),
+            "COD0OPSFIN_20243170000_01D_15M_ORB.SP3.gz"
+        );
+        assert_eq!(
+            expected_daily_orbit_name("IGS", &IGSSolutionType::Rapid, 2238 * 7, None),
+            "IGS0OPSRAP_20223310000_01D_*_ORB.SP3.gz"
+        );
+        assert_eq!(
+            expected_daily_orbit_name("IGS", &IGSSolutionType::Rapid, 2237 * 7 + 6, None),
+            "igr22376.sp3[.gz|.Z]"
+        );
+        assert_eq!(duration_code(900.0), "15M");
+        assert_eq!(duration_code(30.0), "30S");
+        assert_eq!(duration_code(7200.0), "02H");
+        assert_eq!(duration_code(86400.0), "01D");
+    }
+
+    #[test]
+    #[parallel]
+    fn test_igs_daily_orbit_preference() {
+        let listed = |name: &str| IGSProduct {
+            file_name: IGSProductFileName::parse(name).unwrap(),
+            name: name.to_string(),
+            url: String::new(),
+            size: None,
+            gps_week: 2340,
+        };
+        let products: Vec<IGSProduct> = [
+            "GFZ0MGXRAP_20243150000_01D_05M_ORB.SP3.gz",
+            "GFZ1OPSRAP_20243150000_01D_05M_ORB.SP3.gz",
+            "GFZ0OPSRAP_20243150000_01D_05M_ORB.SP3.gz",
+            "GFZ0OPSRAP_20243150600_01D_15M_ORB.SP3.gz",
+            "GFZ0MGXRAP_20243160000_01D_15M_ORB.SP3.gz",
+        ]
+        .into_iter()
+        .map(listed)
+        .collect();
+        let day = 2340 * 7;
+        assert_eq!(
+            daily_orbit(&products, day, None).unwrap().name,
+            "GFZ0OPSRAP_20243150000_01D_05M_ORB.SP3.gz"
+        );
+        assert!(daily_orbit(&products, day, Some(900.0)).is_none());
+        assert_eq!(
+            daily_orbit(&products, day + 1, None).unwrap().name,
+            "GFZ0MGXRAP_20243160000_01D_15M_ORB.SP3.gz"
+        );
+
+        let short: Vec<IGSProduct> = ["cod21000.eph.Z", "cod21000.sp3.Z", "cod21000.eph"]
+            .into_iter()
+            .map(listed)
+            .collect();
+        assert_eq!(
+            daily_orbit(&short, 2100 * 7, None).unwrap().name,
+            "cod21000.eph"
+        );
+        assert_eq!(
+            daily_orbit(&short[..2], 2100 * 7, None).unwrap().name,
+            "cod21000.sp3.Z"
+        );
     }
 }

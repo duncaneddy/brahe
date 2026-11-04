@@ -293,6 +293,9 @@ nav:
           - CelesTrak: learn/ephemeris/celestrak.md
           - Starlink: learn/ephemeris/starlink.md
           - Modified ITC Format: learn/ephemeris/itc.md
+      - Data Files:
+          - learn/datafiles/index.md
+          - SP3 Precise Orbits: learn/datafiles/sp3.md
       - Space Weather:
           - learn/space_weather/index.md
           - learn/space_weather/managing_space_weather_data.md
@@ -496,6 +499,9 @@ nav:
               - Enumerations: library_api/ephemeris/spacetrack/enums.md
               - Operators: library_api/ephemeris/spacetrack/operators.md
               - Rate Limiting: library_api/ephemeris/spacetrack/rate_limiting.md
+      - Data Files:
+          - library_api/datafiles/index.md
+          - SP3: library_api/datafiles/sp3.md
       - Space Weather:
           - library_api/space_weather/index.md
           - Functions: library_api/space_weather/functions.md

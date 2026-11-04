@@ -3452,6 +3452,113 @@ mod tests {
     }
 
     #[test]
+    #[serial]
+    fn test_igs_products_client_cddis_unexpected_responses_are_errors() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("online"));
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET).path("/archive/2340/igr23400.sp3.Z");
+            then.status(204);
+        });
+        server.mock(|when, then| {
+            when.method(GET).path("/archive/2340/igr23401.sp3.Z");
+            then.status(302);
+        });
+        let client = cddis_client(&server);
+
+        let err = client
+            .download(&product(&client, "igr23400.sp3.Z", 2340))
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("unexpected HTTP status 204"), "{err}");
+
+        let err = client
+            .download(&product(&client, "igr23401.sp3.Z", 2340))
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("without a Location header"), "{err}");
+    }
+
+    #[test]
+    #[serial]
+    fn test_igs_products_client_cddis_html_product_is_rejected() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("online"));
+        let server = MockServer::start();
+        mock_file(
+            &server,
+            "/archive/2340/igr23400.sp3",
+            b"<html>Earthdata Login</html>".to_vec(),
+        );
+        let client = cddis_client(&server);
+
+        let err = client
+            .download(&product(&client, "igr23400.sp3", 2340))
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("is an HTML page"), "{err}");
+        assert!(err.contains("CDDIS_EARTHDATA_USERNAME"), "{err}");
+        assert!(
+            !client
+                .cache_dir()
+                .unwrap()
+                .join("cddis/2340/igr23400.sp3")
+                .exists()
+        );
+    }
+
+    #[test]
+    #[serial]
+    fn test_igs_products_client_listing_rejects_non_utf8_body() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("online"));
+        let server = MockServer::start();
+        mock_file(&server, "/pub/products/2340/", vec![0xff, 0xfe, 0x00]);
+        let client = garner_client(&server);
+
+        let err = client.list_files(week_2340()).unwrap_err().to_string();
+        assert!(err.contains("is not UTF-8 text"), "{err}");
+        assert!(
+            !client
+                .cache_dir()
+                .unwrap()
+                .join("listings/garner/2340.txt")
+                .exists()
+        );
+    }
+
+    #[test]
+    #[serial]
+    fn test_igs_products_client_save_unix_compress_keep_cached_copies() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("online"));
+        let out = tempfile::tempdir().unwrap();
+        let server = MockServer::start();
+        mock_file(
+            &server,
+            &format!("/pub/products/2340/{SHORT_Z_NAME}"),
+            SHORT_Z_BYTES.to_vec(),
+        );
+        let client = garner_client(&server);
+        let product = product(&client, SHORT_Z_NAME, 2340);
+
+        let saved = client.save(&product, out.path(), true).unwrap();
+        assert_eq!(fs::read(&saved).unwrap(), SHORT_Z_BYTES);
+        assert_eq!(
+            fs::read(
+                client
+                    .cache_dir()
+                    .unwrap()
+                    .join("garner/2340")
+                    .join(SHORT_Z_NAME)
+            )
+            .unwrap(),
+            SHORT_Z_BYTES
+        );
+    }
+
+    #[test]
     #[parallel]
     fn test_igs_resolve_location() {
         let base: Uri = "https://cddis.nasa.gov/archive/gnss/products/2340/file.gz?x=1"
@@ -4055,5 +4162,94 @@ mod tests {
             daily_orbit(&short[..2], 2100 * 7, None).unwrap().name,
             "cod21000.sp3.Z"
         );
+    }
+
+    const INTEGRATION_FINAL_ORBIT: &str = "IGS0OPSFIN_20243150000_01D_15M_ORB.SP3.gz";
+
+    fn integration_week_2340() -> Epoch {
+        Epoch::from_datetime(2024, 11, 12, 12, 0, 0.0, 0.0, TimeSystem::GPS)
+    }
+
+    fn assert_integration_final_orbit(client: &IGSProductsClient) {
+        let products = client
+            .list_products(
+                integration_week_2340(),
+                &IGSProductFilter::new()
+                    .with_center("IGS")
+                    .with_solution(IGSSolutionType::Final)
+                    .with_content(IGSContentType::Orbit)
+                    .with_format(IGSFileFormat::SP3),
+            )
+            .unwrap();
+        let product = products
+            .iter()
+            .find(|p| p.name == INTEGRATION_FINAL_ORBIT)
+            .unwrap_or_else(|| panic!("{INTEGRATION_FINAL_ORBIT} not listed"));
+        let sp3 = client.download_sp3(product).unwrap();
+        assert_eq!(sp3.num_epochs(), 96);
+        assert!(!sp3.satellite_ids().is_empty());
+    }
+
+    #[test]
+    #[serial]
+    #[cfg_attr(not(feature = "integration"), ignore)]
+    fn test_integration_garner_listing_and_download() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(None);
+        let client = IGSProductsClient::with_source(IGSProductSource::Garner);
+        let files = client.list_files(integration_week_2340()).unwrap();
+        assert!(files.iter().any(|f| f == INTEGRATION_FINAL_ORBIT));
+        assert_integration_final_orbit(&client);
+    }
+
+    #[test]
+    #[serial]
+    #[cfg_attr(not(feature = "integration"), ignore)]
+    fn test_integration_garner_raw_unix_compress_download() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(None);
+        let client = IGSProductsClient::with_source(IGSProductSource::Garner);
+        let epoch = Epoch::from_datetime(2020, 4, 8, 12, 0, 0.0, 0.0, TimeSystem::GPS);
+        let products = client
+            .list_products(epoch, &IGSProductFilter::new().with_center("IGS"))
+            .unwrap();
+        let product = products
+            .iter()
+            .find(|p| p.name == "igs21000.sp3.Z")
+            .unwrap_or_else(|| panic!("igs21000.sp3.Z not listed"));
+        let path = client.download(product).unwrap();
+        let bytes = fs::read(path).unwrap();
+        assert_eq!(&bytes[..2], &[0x1f, 0x9d]);
+        assert!(client.download_sp3(product).is_err());
+    }
+
+    #[test]
+    #[serial]
+    #[cfg_attr(not(feature = "integration"), ignore)]
+    fn test_integration_bkg_listing_and_download() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(None);
+        let client = IGSProductsClient::with_source(IGSProductSource::BKG);
+        let files = client.list_files(integration_week_2340()).unwrap();
+        assert!(files.iter().any(|f| f == INTEGRATION_FINAL_ORBIT));
+        assert_integration_final_orbit(&client);
+    }
+
+    #[test]
+    #[serial]
+    #[cfg_attr(not(feature = "integration"), ignore)]
+    fn test_integration_cddis_listing_and_download() {
+        let username = env::var(CDDIS_USERNAME_VAR).unwrap_or_default();
+        let password = env::var(CDDIS_PASSWORD_VAR).unwrap_or_default();
+        if username.is_empty() || password.is_empty() {
+            eprintln!("skipping: CDDIS credentials not set");
+            return;
+        }
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(None);
+        let client = IGSProductsClient::with_cddis_credentials(&username, &password);
+        let files = client.list_files(integration_week_2340()).unwrap();
+        assert!(files.iter().any(|f| f == INTEGRATION_FINAL_ORBIT));
+        assert_integration_final_orbit(&client);
     }
 }

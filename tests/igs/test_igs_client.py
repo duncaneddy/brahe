@@ -907,6 +907,45 @@ def test_igs_products_client_save_into_cache_errors_before_download(archive):
     assert archive.hits == []
 
 
+def test_igs_products_client_save_unix_compress_keep_cached_copies(archive, tmp_path):
+    """Rust: test_igs_products_client_save_unix_compress_keep_cached_copies"""
+    archive.serve(f"/pub/products/2340/{SHORT_Z_NAME}", SHORT_Z_BYTES)
+    client = garner_client(archive)
+    product = listed_product(archive, client, SHORT_Z_NAME, 2340, week_2340())
+
+    saved = client.save(product, tmp_path, keep_cached=True)
+    assert Path(saved).read_bytes() == SHORT_Z_BYTES
+    cached = Path(client.cache_dir()) / "garner" / "2340" / SHORT_Z_NAME
+    assert cached.read_bytes() == SHORT_Z_BYTES
+
+
+def test_igs_products_client_listing_rejects_non_utf8_body(archive):
+    """Rust: test_igs_products_client_listing_rejects_non_utf8_body"""
+    archive.serve("/pub/products/2340/", b"\xff\xfe\x00")
+    client = garner_client(archive)
+
+    with pytest.raises(bh.BraheError, match="is not UTF-8 text"):
+        client.list_files(week_2340())
+    assert not (Path(client.cache_dir()) / "listings" / "garner" / "2340.txt").exists()
+
+
+def test_igs_products_client_cddis_html_product_is_rejected(archive):
+    """Rust: test_igs_products_client_cddis_html_product_is_rejected"""
+    archive.listing("/archive/gnss/products/2340/*", "igr23400.sp3 1024\n")
+    archive.serve(
+        "/archive/gnss/products/2340/igr23400.sp3", "<html>Earthdata Login</html>"
+    )
+    client = bh.IGSProductsClient(
+        source="CDDIS", base_url=archive.url("/archive/gnss/products/")
+    )
+    product = client.list_products(week_2340())[0]
+
+    with pytest.raises(bh.BraheError, match="is an HTML page") as error:
+        client.download(product)
+    assert "CDDIS_EARTHDATA_USERNAME" in str(error.value)
+    assert not (Path(client.cache_dir()) / "cddis" / "2340" / "igr23400.sp3").exists()
+
+
 ORDERED_ORBITS = [
     "COD0OPSFIN_20243150000_01D_05M_ORB.SP3.gz",
     "COD0OPSFIN_20243160000_01D_05M_ORB.SP3.gz",
@@ -1250,3 +1289,70 @@ def test_igs_products_client_download_sp3_range_crosses_long_name_week(archive):
     assert len(sp3s) == 4
     assert all(same_sp3(sp3, fixture) for sp3 in sp3s)
     assert downloaded_files(archive) == [*short, *long]
+
+
+INTEGRATION_FINAL_ORBIT = "IGS0OPSFIN_20243150000_01D_15M_ORB.SP3.gz"
+
+
+@pytest.fixture
+def live_cache(tmp_path, monkeypatch):
+    """A new, empty cache with network access enabled."""
+    monkeypatch.setenv("BRAHE_CACHE", str(tmp_path))
+    monkeypatch.delenv("BRAHE_NETWORK_MODE", raising=False)
+
+
+def assert_integration_final_orbit(client):
+    products = client.list_products(
+        week_2340(),
+        center="IGS",
+        solution=bh.IGSSolutionType.FINAL,
+        content=bh.IGSContentType.ORBIT,
+        format=bh.IGSFileFormat.SP3,
+    )
+    product = next((p for p in products if p.name == INTEGRATION_FINAL_ORBIT), None)
+    assert product is not None, f"{INTEGRATION_FINAL_ORBIT} not listed"
+    sp3 = client.download_sp3(product)
+    assert sp3.num_epochs == 96
+    assert len(sp3.satellite_ids) > 0
+
+
+@pytest.mark.integration
+def test_integration_garner_listing_and_download(live_cache):
+    """Rust: test_integration_garner_listing_and_download"""
+    client = bh.IGSProductsClient(source="GARNER")
+    assert INTEGRATION_FINAL_ORBIT in client.list_files(week_2340())
+    assert_integration_final_orbit(client)
+
+
+@pytest.mark.integration
+def test_integration_garner_raw_unix_compress_download(live_cache):
+    """Rust: test_integration_garner_raw_unix_compress_download"""
+    client = bh.IGSProductsClient(source="GARNER")
+    products = client.list_products(gps(2020, 4, 8, 12), center="IGS")
+    product = next((p for p in products if p.name == "igs21000.sp3.Z"), None)
+    assert product is not None, "igs21000.sp3.Z not listed"
+    assert Path(client.download(product)).read_bytes()[:2] == b"\x1f\x9d"
+    with pytest.raises(Exception, match="Unix compress"):
+        client.download_sp3(product)
+
+
+@pytest.mark.integration
+def test_integration_bkg_listing_and_download(live_cache):
+    """Rust: test_integration_bkg_listing_and_download"""
+    client = bh.IGSProductsClient(source="BKG")
+    assert INTEGRATION_FINAL_ORBIT in client.list_files(week_2340())
+    assert_integration_final_orbit(client)
+
+
+@pytest.mark.integration
+def test_integration_cddis_listing_and_download(live_cache):
+    """Rust: test_integration_cddis_listing_and_download"""
+    username = os.environ.get("CDDIS_EARTHDATA_USERNAME", "")
+    password = os.environ.get("CDDIS_EARTHDATA_PASSWORD", "")
+    if not username or not password:
+        pytest.skip("CDDIS credentials not set")
+    client = bh.IGSProductsClient(
+        source="CDDIS", cddis_username=username, cddis_password=password
+    )
+    assert INTEGRATION_FINAL_ORBIT in client.list_files(week_2340())
+    assert_integration_final_orbit(client)

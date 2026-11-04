@@ -8,6 +8,7 @@ API reference for the satellite ephemeris data source clients. Both CelesTrak an
 - [CelesTrak](celestrak.md) -- `CelestrakClient`, `CelestrakQuery`, and CelesTrak-specific types
 - [Space-Track](spacetrack/index.md) -- `SpaceTrackClient`, `SpaceTrackQuery`, and Space-Track-specific types
 - [Starlink](starlink.md) -- `StarlinkClient` and the Starlink manifest types
+- [IGS Products](igs.md) -- `IGSProductsClient` and the IGS product file name types
 - [Modified ITC](itc.md) -- `ITC` and the Modified ITC ephemeris format
 
 ---

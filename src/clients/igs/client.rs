@@ -2274,6 +2274,7 @@ fn listed_weeks(html: &str) -> Vec<u32> {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
     use crate::clients::igs::file_name::{IGSContentType, IGSFileFormat, IGSSolutionType};

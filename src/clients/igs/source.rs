@@ -71,6 +71,7 @@ impl fmt::Display for IGSProductSource {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
     use serial_test::parallel;

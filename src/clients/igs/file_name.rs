@@ -54,14 +54,17 @@ const MJD_UNIX_EPOCH: i64 = 40587;
 /// <https://www.earthdata.nasa.gov/data/space-geodesy-techniques/gnss/precise-orbits-product>.
 /// That page does not list the individual-center rapid and ultra-rapid codes
 /// `cor`, `cou`, `emp`, `esr`, `esu`, `gfr` and `gfu`, so those entries are
-/// unconfirmed. The GLONASS-only combinations `igl` and `igv` keep their own
-/// center codes `IGL` and `IGV`.
+/// unconfirmed. The SIO codes `sir` and `siu` come from the Garner archive
+/// listing for GPS week 2100, <http://garner.ucsd.edu/pub/products/2100/>.
+/// The GLONASS-only combinations `igl` and `igv` keep their own center codes
+/// `IGL` and `IGV`.
 const SHORT_RAPID_CODES: &[(&str, &str)] = &[
     ("igr", "IGS"),
     ("cor", "COD"),
     ("esr", "ESA"),
     ("emp", "EMR"),
     ("gfr", "GFZ"),
+    ("sir", "SIO"),
 ];
 
 /// Short-name codes of centers whose ultra-rapid products are published under
@@ -72,6 +75,7 @@ const SHORT_ULTRA_CODES: &[(&str, &str)] = &[
     ("cou", "COD"),
     ("esu", "ESA"),
     ("gfu", "GFZ"),
+    ("siu", "SIO"),
 ];
 
 /// Product latency class of an IGS solution.
@@ -883,11 +887,12 @@ fn parse_long(
 /// Maps a short-name extension to its content type and file format.
 fn short_content_and_format(extension: &str) -> (IGSContentType, IGSFileFormat) {
     match extension.to_ascii_lowercase().as_str() {
-        "sp3" => (IGSContentType::Orbit, IGSFileFormat::SP3),
+        "sp3" | "eph" => (IGSContentType::Orbit, IGSFileFormat::SP3),
         "clk" | "clk_30s" | "clk_05s" => (IGSContentType::Clock, IGSFileFormat::CLK),
         "erp" => (IGSContentType::EarthRotation, IGSFileFormat::ERP),
         "snx" => (IGSContentType::Solution, IGSFileFormat::SNX),
         "sum" => (IGSContentType::Summary, IGSFileFormat::SUM),
+        "tro" => (IGSContentType::Troposphere, IGSFileFormat::TRO),
         _ => (
             IGSContentType::Other(extension.to_ascii_uppercase()),
             IGSFileFormat::Other(extension.to_ascii_uppercase()),
@@ -1244,6 +1249,9 @@ mod tests {
     #[case("jpl21000.sp3.Z", "JPL", IGSSolutionType::Final)]
     #[case("igl21000.sp3.Z", "IGL", IGSSolutionType::Final)]
     #[case("igv21000_06.sp3.Z", "IGV", IGSSolutionType::UltraRapid)]
+    #[case("siu21000_02.sp3.Z", "SIO", IGSSolutionType::UltraRapid)]
+    #[case("sir21003.erp.Z", "SIO", IGSSolutionType::Rapid)]
+    #[case("cof21000.eph.Z", "COF", IGSSolutionType::Final)]
     #[parallel]
     fn test_igs_product_file_name_short_center_codes(
         #[case] input: &str,
@@ -1279,6 +1287,7 @@ mod tests {
     #[case("igs21000.clk_05s.Z", IGSContentType::Clock, IGSFileFormat::CLK)]
     #[case("igs21000.snx.Z", IGSContentType::Solution, IGSFileFormat::SNX)]
     #[case("igs21000.sum", IGSContentType::Summary, IGSFileFormat::SUM)]
+    #[case("cof21000.tro.Z", IGSContentType::Troposphere, IGSFileFormat::TRO)]
     #[case("igs21000.xyz", IGSContentType::Other("XYZ".to_string()), IGSFileFormat::Other("XYZ".to_string()))]
     #[parallel]
     fn test_igs_product_file_name_short_extensions(
@@ -1326,6 +1335,34 @@ mod tests {
         let name = IGSProductFileName::parse("igv21000_06.sp3").unwrap();
         assert_eq!(name.start_epoch(), gps(2020, 4, 5, 6));
         assert_eq!(name.span(), Some(172800.0));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_igs_product_file_name_siu_ultra_rapid() {
+        let name = IGSProductFileName::parse("siu21000_02.sp3.Z").unwrap();
+        assert_eq!(name.start_epoch(), gps(2020, 4, 5, 2));
+        assert_eq!(name.span(), Some(172800.0));
+        assert_eq!(name.compression(), IGSCompression::UnixCompress);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_igs_product_file_name_sir_earth_rotation() {
+        let name = IGSProductFileName::parse("sir21003.erp.Z").unwrap();
+        assert_eq!(name.content(), &IGSContentType::EarthRotation);
+        assert_eq!(name.format(), &IGSFileFormat::ERP);
+        assert_eq!(name.start_epoch(), gps(2020, 4, 8, 0));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_igs_product_file_name_eph_extension_is_sp3() {
+        let name = IGSProductFileName::parse("cof21000.eph.Z").unwrap();
+        assert_eq!(name.content(), &IGSContentType::Orbit);
+        assert_eq!(name.format(), &IGSFileFormat::SP3);
+        assert!(name.is_sp3());
+        assert_eq!(name.to_string(), "cof21000.eph.Z");
     }
 
     #[test]

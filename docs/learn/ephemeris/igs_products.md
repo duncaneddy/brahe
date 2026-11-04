@@ -34,7 +34,7 @@ Both typed listings accept the filters `center`, `solution`, `content`, and `for
 
 Two conventions name the files. Long names, used from GPS week 2238, look like `IGS0OPSFIN_20243150000_01D_15M_ORB.SP3.gz` and encode the center, version, campaign, solution, start epoch, span, sampling, content, format, and compression. Short names, used before week 2238, look like `igs21000.sp3.Z` and encode the center, GPS week, day of week, and an optional ultra-rapid hour, with the content and format taken from the extension. The center and solution of a short name come from a three-letter code: `igr` is the IGS rapid product, `igu` the IGS ultra-rapid product, and unlisted codes are final products. `IGSProductFileName.parse` decodes either form, and `list_analysis_centers` returns the table of centers.
 
-An ultra-rapid product covers 48 hours: 24 hours fitted to observations and 24 hours predicted. A short-name ultra-rapid file is filed under the week of its named time, but its coverage begins 24 hours before that time. For this reason `list_products_between` also lists the week after `end`, and the weeks up to three days before `start`; a neighboring week that does not exist on the source is skipped.
+An ultra-rapid product covers 48 hours: 24 hours fitted to observations and 24 hours predicted. A short-name ultra-rapid file is filed under the week of its named time, but its coverage begins 24 hours before that time. For this reason `list_products_between` lists, besides the weeks containing `start` through `end`, the weeks that can hold products filed up to one day after `end` or beginning up to three days before `start`. Such an extra week that does not exist on the source is skipped.
 
 Listings are cached under `$BRAHE_CACHE/igs/listings/` for one hour by default, so a product published during the day appears on the next listing. The `cache_max_age` argument sets that age in seconds.
 
@@ -58,11 +58,11 @@ Listings are cached under `$BRAHE_CACHE/igs/listings/` for one hour by default, 
 
 ## Downloading a Range of Orbit Files
 
-`download_sp3_range(start, end, center, solution, ...)` returns the daily orbit files of one center and solution that cover `[start, end]` as a list of `SP3` objects in time order, ready for `SP3Satellite.from_files`. With `pad=True`, the default, it adds the day before `start` and the day after `end`, so that velocities derived for the samples at the ends of the range come from centered fits. A padding file that is missing, or that is a `.Z` file, is skipped, while a missing file inside the range is an error that names the expected file and the source. For long names the client selects the daily `01D` orbit file; when a center publishes several samplings, for example COD at 5 and 15 minutes, it chooses the coarsest unless `sampling` gives an interval in seconds. For short names it selects `cccwwwwd.sp3`, and `sampling` does not apply because those names do not encode one. A range that crosses GPS week 2238 returns short-name and long-name files together, and chaining them works.
+`download_sp3_range(start, end, center, solution, ...)` returns the daily orbit files of one center and solution that cover `[start, end]` as a list of `SP3` objects in time order, ready for `SP3Satellite.from_files`. With `pad=True`, the default, it adds the day before `start` and the day after `end`, so that velocities derived for the samples at the ends of the range come from centered fits. A padding file that is missing, or that is a `.Z` file, is skipped, while a missing file inside the range is an error that names the expected file and the source. For long names the client selects the daily `01D` orbit file; when a center publishes several samplings, for example COD at 5 and 15 minutes, it chooses the coarsest unless `sampling` gives an interval in seconds. In either convention a gzip or uncompressed file is chosen over a `.Z` file for the same day, whatever their samplings. For short names it selects `cccwwwwd.sp3`, and `sampling` does not apply because those names do not encode one. A range that crosses GPS week 2238 returns short-name and long-name files together, and chaining them works.
 
 === "Python"
     ``` python
-    --8<-- "./examples/igs/igs_download_range.py:15"
+    --8<-- "./examples/igs/igs_download_range.py:12"
     ```
 
 === "Rust"

@@ -67,6 +67,14 @@ impl PyIGSSolutionType {
     ///
     /// Returns:
     ///     IGSSolutionType: The parsed solution type.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     assert bh.IGSSolutionType.parse("fin") == bh.IGSSolutionType.FINAL
+    ///     assert bh.IGSSolutionType.parse("xyz").code == "XYZ"
+    ///     ```
     #[staticmethod]
     fn parse(code: &str) -> Self {
         Self { inner: igs::IGSSolutionType::parse(code) }
@@ -196,6 +204,13 @@ impl PyIGSContentType {
     ///
     /// Returns:
     ///     IGSContentType: The parsed content type.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     assert bh.IGSContentType.parse("orb") == bh.IGSContentType.ORBIT
+    ///     ```
     #[staticmethod]
     fn parse(code: &str) -> Self {
         Self { inner: igs::IGSContentType::parse(code) }
@@ -330,6 +345,13 @@ impl PyIGSFileFormat {
     ///
     /// Returns:
     ///     IGSFileFormat: The parsed file format.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     assert bh.IGSFileFormat.parse("sp3") == bh.IGSFileFormat.SP3
+    ///     ```
     #[staticmethod]
     fn parse(code: &str) -> Self {
         Self { inner: igs::IGSFileFormat::parse(code) }
@@ -536,6 +558,19 @@ impl PyIGSProductFileName {
     ///
     /// Raises:
     ///     BraheError: If the name matches neither convention or a field is out of range.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     name = bh.IGSProductFileName.parse("IGS0OPSFIN_20243150000_01D_15M_ORB.SP3.gz")
+    ///     assert name.center == "IGS"
+    ///     assert name.gps_week == 2340
+    ///     assert name.is_sp3
+    ///
+    ///     short = bh.IGSProductFileName.parse("igs23400.sp3.Z")
+    ///     assert short.name_style == bh.IGSNameStyle.SHORT
+    ///     ```
     #[staticmethod]
     fn parse(name: &str) -> PyResult<Self> {
         igs::IGSProductFileName::parse(name)
@@ -717,6 +752,15 @@ impl PyIGSAnalysisCenter {
     ///
     /// Returns:
     ///     IGSAnalysisCenter | None: The matching center, or None if the code is not in the table.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     center = bh.IGSAnalysisCenter.from_code("cod")
+    ///     assert center.code == "COD"
+    ///     assert bh.IGSAnalysisCenter.from_code("IGV") is None
+    ///     ```
     #[staticmethod]
     fn from_code(code: &str) -> Option<Self> {
         igs::IGSAnalysisCenter::from_code(code).map(|center| Self { inner: *center })

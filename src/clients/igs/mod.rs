@@ -10,10 +10,14 @@
  */
 
 pub mod centers;
+pub mod client;
 pub mod file_name;
+pub mod source;
 
 pub use centers::{IGSAnalysisCenter, list_analysis_centers};
+pub use client::{DEFAULT_IGS_LISTING_MAX_AGE, IGSProductsClient};
 pub use file_name::{
     IGSCompression, IGSContentType, IGSFileFormat, IGSNameStyle, IGSProductFileName,
     IGSSolutionType,
 };
+pub use source::IGSProductSource;

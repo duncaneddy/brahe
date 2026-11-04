@@ -170,6 +170,36 @@ pub fn py_get_starlink_cache_dir() -> PyResult<String> {
     get_starlink_cache_dir().map_err(|e| exceptions::PyIOError::new_err(format!("{}", e)))
 }
 
+/// Get the IGS product cache directory path.
+///
+/// Returns the path to the IGS cache subdirectory used for storing downloaded
+/// IGS products. Defaults to `~/.cache/brahe/igs` (or `$BRAHE_CACHE/igs`
+/// if environment variable is set).
+///
+/// The directory is created if it doesn't exist.
+///
+/// Returns:
+///     str: Path to the IGS cache directory.
+///
+/// Raises:
+///     IOError: If the cache directory cannot be created or accessed.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     path = bh.get_igs_cache_dir()
+///     print(f"IGS cache: {path}")
+///     ```
+///
+/// Note:
+///     The directory will be created on first access if it doesn't exist.
+#[pyfunction]
+#[pyo3(name = "get_igs_cache_dir")]
+pub fn py_get_igs_cache_dir() -> PyResult<String> {
+    get_igs_cache_dir().map_err(|e| exceptions::PyIOError::new_err(format!("{}", e)))
+}
+
 // ================================
 // Threading Functions
 // ================================

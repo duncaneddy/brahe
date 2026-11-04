@@ -12,6 +12,7 @@ from brahe._brahe import (
     get_brahe_cache_dir_with_subdir,
     get_celestrak_cache_dir,
     get_eop_cache_dir,
+    get_igs_cache_dir,
     get_max_threads,
     get_starlink_cache_dir,
     # Threading
@@ -32,6 +33,7 @@ __all__ = [
     "get_brahe_cache_dir_with_subdir",
     "get_celestrak_cache_dir",
     "get_eop_cache_dir",
+    "get_igs_cache_dir",
     "get_max_threads",
     "get_starlink_cache_dir",
     # Threading

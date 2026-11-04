@@ -162,6 +162,26 @@ pub fn get_starlink_cache_dir() -> Result<String, BraheError> {
     get_brahe_cache_dir_with_subdir(Some("starlink"))
 }
 
+/// Get the IGS product cache directory path.
+///
+/// Returns `~/.cache/brahe/igs` (or `$BRAHE_CACHE/igs`), creating it if needed.
+///
+/// # Returns
+/// * `Ok(String)`: Absolute path of the directory
+/// * `Err(BraheError)`: If the directory cannot be created
+///
+/// # Examples
+///
+/// ```
+/// use brahe::utils::get_igs_cache_dir;
+///
+/// let dir = get_igs_cache_dir().unwrap();
+/// assert!(dir.ends_with("igs"));
+/// ```
+pub fn get_igs_cache_dir() -> Result<String, BraheError> {
+    get_brahe_cache_dir_with_subdir(Some("igs"))
+}
+
 /// Get the NAIF cache directory path.
 ///
 /// Returns `~/.cache/brahe/naif` (or `$BRAHE_CACHE/naif` if environment variable is set).
@@ -322,6 +342,16 @@ pub fn short_hash(input: &str) -> String {
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
+    #[test]
+    #[serial]
+    fn test_get_igs_cache_dir() {
+        let redirect = crate::utils::testing::CacheRedirect::new();
+        let dir = get_igs_cache_dir().unwrap();
+        assert!(dir.ends_with("igs"));
+        assert!(std::path::Path::new(&dir).is_dir());
+        assert!(std::path::Path::new(&dir).starts_with(redirect.cache_path()));
+    }
+
     use serial_test::{parallel, serial};
 
     /// Restore `BRAHE_CACHE` to `original`: set it back if it was

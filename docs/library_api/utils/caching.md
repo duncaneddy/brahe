@@ -14,6 +14,8 @@ Functions for managing cache directories where Brahe stores downloaded data.
 
 ::: brahe.get_celestrak_cache_dir
 
+::: brahe.get_igs_cache_dir
+
 ## Network Mode
 
 ::: brahe.network_mode

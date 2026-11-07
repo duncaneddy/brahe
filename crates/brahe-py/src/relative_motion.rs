@@ -2884,3 +2884,297 @@ fn py_state_eqw_to_eci<'py>(
         relative_motion::states_eqw_to_eci,
     )
 }
+
+/// Computes the rotation matrix transforming a vector in the Nadir, Sun, Normal (NSW) frame
+/// to the Earth-Centered Inertial (ECI) frame.
+///
+/// The ECI frame can be any inertial frame centered on the orbited body, such as GCRF or EME2000.
+///
+/// The NSW frame follows the SANA definition:
+/// - X: Unit vector toward nadir, opposite the position vector.
+/// - Y: As close to the direction of the Sun as possible while normal to X: the unit vector
+///   from the spacecraft to the Sun with its X component removed.
+/// - Z: `X x Y`, completing the right-handed set.
+///
+/// `x_sun` is the Sun's state relative to the same center as `x_eci`. Because X lies along the
+/// position vector, the frame is identical whether the Sun direction is taken from the center or
+/// from the spacecraft. When the Sun lies along the nadir line (projected norm below 1e-9) the Y
+/// axis falls back to the along-track direction.
+///
+/// Args:
+///     x_eci (numpy.ndarray or list): 6D state vector in the ECI frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
+///         vectors with the 6 components along `axis` (for example shape (n, 6)).
+///     x_sun (numpy.ndarray or list): 6D state vector of the Sun relative to the same center [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
+///         vectors with the 6 components along `axis`; only the position is used here.
+///     axis (int, optional): The axis along which the 6 components of a single vector
+///         lie; the remaining axes enumerate the batch. For a batch of shape (n, 6)
+///         the components lie along the last axis, so the default `-1` applies; a
+///         (6, n) column layout uses `axis=0`.
+///         A single vector in one argument is broadcast across a batch in the other.
+///
+/// Returns:
+///     numpy.ndarray: 3x3 rotation matrix transforming from NSW to ECI frame, shape (3, 3), or the batch dimensions
+///         followed by (3, 3) for batched input.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     oe = np.array([bh.R_EARTH + 700e3, 0.01, 97.8, 15.0, 30.0, 45.0])
+///     x_eci = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
+///     x_sun = np.array([bh.AU, 0.0, 0.0, 0.0, 0.0, 0.0])
+///
+///     R = bh.rotation_nsw_to_eci(x_eci, x_sun)
+///     print(f"NSW to ECI rotation matrix:\n{R}")
+///     ```
+#[pyfunction]
+#[pyo3(signature = (x_eci, x_sun, axis=-1))]
+#[pyo3(text_signature = "(x_eci, x_sun, axis=-1)")]
+#[pyo3(name = "rotation_nsw_to_eci")]
+fn py_rotation_nsw_to_eci<'py>(
+    py: Python<'py>,
+    x_eci: &Bound<'py, PyAny>,
+    x_sun: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_vec_pair_matrix::<6, 3>(
+        py,
+        x_eci,
+        x_sun,
+        axis,
+        relative_motion::rotation_nsw_to_eci,
+        relative_motion::rotations_nsw_to_eci,
+    )
+}
+
+/// Computes the rotation matrix transforming a vector in the Earth-Centered Inertial (ECI)
+/// frame to the Nadir, Sun, Normal (NSW) frame.
+///
+/// This is the transpose (inverse) of the NSW-to-ECI rotation matrix.
+///
+/// The NSW frame follows the SANA definition:
+/// - X: Unit vector toward nadir, opposite the position vector.
+/// - Y: As close to the direction of the Sun as possible while normal to X: the unit vector
+///   from the spacecraft to the Sun with its X component removed.
+/// - Z: `X x Y`, completing the right-handed set.
+///
+/// `x_sun` is the Sun's state relative to the same center as `x_eci`. Because X lies along the
+/// position vector, the frame is identical whether the Sun direction is taken from the center or
+/// from the spacecraft. When the Sun lies along the nadir line (projected norm below 1e-9) the Y
+/// axis falls back to the along-track direction.
+///
+/// Args:
+///     x_eci (numpy.ndarray or list): 6D state vector in the ECI frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
+///         vectors with the 6 components along `axis` (for example shape (n, 6)).
+///     x_sun (numpy.ndarray or list): 6D state vector of the Sun relative to the same center [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
+///         vectors with the 6 components along `axis`; only the position is used here.
+///     axis (int, optional): The axis along which the 6 components of a single vector
+///         lie; the remaining axes enumerate the batch. For a batch of shape (n, 6)
+///         the components lie along the last axis, so the default `-1` applies; a
+///         (6, n) column layout uses `axis=0`.
+///         A single vector in one argument is broadcast across a batch in the other.
+///
+/// Returns:
+///     numpy.ndarray: 3x3 rotation matrix transforming from ECI to NSW frame, shape (3, 3), or the batch dimensions
+///         followed by (3, 3) for batched input.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     oe = np.array([bh.R_EARTH + 700e3, 0.01, 97.8, 15.0, 30.0, 45.0])
+///     x_eci = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
+///     x_sun = np.array([bh.AU, 0.0, 0.0, 0.0, 0.0, 0.0])
+///
+///     R = bh.rotation_eci_to_nsw(x_eci, x_sun)
+///     print(f"ECI to NSW rotation matrix:\n{R}")
+///     ```
+#[pyfunction]
+#[pyo3(signature = (x_eci, x_sun, axis=-1))]
+#[pyo3(text_signature = "(x_eci, x_sun, axis=-1)")]
+#[pyo3(name = "rotation_eci_to_nsw")]
+fn py_rotation_eci_to_nsw<'py>(
+    py: Python<'py>,
+    x_eci: &Bound<'py, PyAny>,
+    x_sun: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_vec_pair_matrix::<6, 3>(
+        py,
+        x_eci,
+        x_sun,
+        axis,
+        relative_motion::rotation_eci_to_nsw,
+        relative_motion::rotations_eci_to_nsw,
+    )
+}
+
+/// Computes the angular velocity of the Nadir, Sun, Normal (NSW) frame with respect to the
+/// Earth-Centered Inertial (ECI) frame, expressed in NSW axes.
+///
+/// The rate follows from the time derivatives of the NSW basis vectors and is purely
+/// kinematic; it needs no gravitational parameter. Passing a Sun state with zero velocity
+/// gives the fixed-Sun approximation, which omits a term of order 2e-7 rad/s for an Earth
+/// orbit.
+///
+/// Args:
+///     x_eci (numpy.ndarray or list): 6D state vector in the ECI frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
+///         vectors with the 6 components along `axis` (for example shape (n, 6)).
+///     x_sun (numpy.ndarray or list): 6D state vector of the Sun relative to the same center [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
+///         vectors with the 6 components along `axis`.
+///     axis (int, optional): The axis along which the 6 components of a single vector
+///         lie; the remaining axes enumerate the batch. For a batch of shape (n, 6)
+///         the components lie along the last axis, so the default `-1` applies; a
+///         (6, n) column layout uses `axis=0`.
+///         A single vector in one argument is broadcast across a batch in the other.
+///
+/// Returns:
+///     numpy.ndarray: Angular velocity of the NSW frame relative to ECI, expressed in NSW axes (rad/s), shape (3,), or the batch dimensions
+///         with 3 components along `axis` for batched input.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     oe = np.array([bh.R_EARTH + 700e3, 0.01, 97.8, 15.0, 30.0, 45.0])
+///     x_eci = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
+///     x_sun = np.array([bh.AU, 0.0, 0.0, 0.0, 0.0, 0.0])
+///     omega = bh.omega_nsw(x_eci, x_sun)
+///     ```
+#[pyfunction]
+#[pyo3(signature = (x_eci, x_sun, axis=-1))]
+#[pyo3(text_signature = "(x_eci, x_sun, axis=-1)")]
+#[pyo3(name = "omega_nsw")]
+fn py_omega_nsw<'py>(
+    py: Python<'py>,
+    x_eci: &Bound<'py, PyAny>,
+    x_sun: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_vec_pair_map::<6, 3>(
+        py,
+        x_eci,
+        x_sun,
+        axis,
+        relative_motion::omega_nsw,
+        relative_motion::omegas_nsw,
+    )
+}
+
+/// Transforms the absolute states of a chief and deputy satellite from the Earth-Centered
+/// Inertial (ECI) frame to the relative state of the deputy with respect to the chief in the
+/// rotating Nadir, Sun, Normal (NSW) frame.
+///
+/// Args:
+///     x_chief (numpy.ndarray or list): 6D state vector of the chief satellite in the ECI frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
+///         vectors with the 6 components along `axis` (for example shape (n, 6)).
+///     x_deputy (numpy.ndarray or list): 6D state vector of the deputy satellite in the ECI frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
+///         vectors with the 6 components along `axis` (for example shape (n, 6)).
+///     x_sun (numpy.ndarray or list): 6D state vector of the Sun relative to the same center [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
+///         vectors with the 6 components along `axis`.
+///     axis (int, optional): The axis along which the 6 components of a single vector
+///         lie; the remaining axes enumerate the batch. For a batch of shape (n, 6)
+///         the components lie along the last axis, so the default `-1` applies; a
+///         (6, n) column layout uses `axis=0`.
+///         A single vector in one argument is broadcast across a batch in the others.
+///
+/// Returns:
+///     numpy.ndarray: 6D relative state of the deputy with respect to the chief in the NSW frame [rho_X, rho_Y, rho_Z, rho_dot_X, rho_dot_Y, rho_dot_Z] (m, m/s), shape (6,), or the layout of the batched
+///         argument for batched input.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     oe_chief = np.array([bh.R_EARTH + 700e3, 0.001, 97.8, 15.0, 30.0, 45.0])
+///     oe_deputy = np.array([bh.R_EARTH + 701e3, 0.0015, 97.85, 15.05, 30.05, 45.05])
+///
+///     x_chief = bh.state_koe_to_eci(oe_chief, bh.AngleFormat.DEGREES)
+///     x_deputy = bh.state_koe_to_eci(oe_deputy, bh.AngleFormat.DEGREES)
+///     x_sun = np.array([bh.AU, 0.0, 0.0, 0.0, 0.0, 0.0])
+///
+///     x_rel_nsw = bh.state_eci_to_nsw(x_chief, x_deputy, x_sun)
+///     print(f"Relative state in NSW: {x_rel_nsw}")
+///     ```
+#[pyfunction]
+#[pyo3(signature = (x_chief, x_deputy, x_sun, axis=-1))]
+#[pyo3(text_signature = "(x_chief, x_deputy, x_sun, axis=-1)")]
+#[pyo3(name = "state_eci_to_nsw")]
+fn py_state_eci_to_nsw<'py>(
+    py: Python<'py>,
+    x_chief: &Bound<'py, PyAny>,
+    x_deputy: &Bound<'py, PyAny>,
+    x_sun: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_vec_triple::<6>(
+        py,
+        x_chief,
+        x_deputy,
+        x_sun,
+        axis,
+        relative_motion::state_eci_to_nsw,
+        relative_motion::states_eci_to_nsw,
+    )
+}
+
+/// Transforms the relative state of a deputy satellite with respect to a chief satellite from
+/// the rotating Nadir, Sun, Normal (NSW) frame to the absolute state of the deputy in the
+/// Earth-Centered Inertial (ECI) frame.
+///
+/// Args:
+///     x_chief (numpy.ndarray or list): 6D state vector of the chief satellite in the ECI frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
+///         vectors with the 6 components along `axis` (for example shape (n, 6)).
+///     x_rel_nsw (numpy.ndarray or list): 6D relative state of the deputy with respect to the chief in the NSW frame [rho_X, rho_Y, rho_Z, rho_dot_X, rho_dot_Y, rho_dot_Z] (m, m/s), shape (6,), or a batch of
+///         vectors with the 6 components along `axis` (for example shape (n, 6)).
+///     x_sun (numpy.ndarray or list): 6D state vector of the Sun relative to the same center [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
+///         vectors with the 6 components along `axis`.
+///     axis (int, optional): The axis along which the 6 components of a single vector
+///         lie; the remaining axes enumerate the batch. For a batch of shape (n, 6)
+///         the components lie along the last axis, so the default `-1` applies; a
+///         (6, n) column layout uses `axis=0`.
+///         A single vector in one argument is broadcast across a batch in the others.
+///
+/// Returns:
+///     numpy.ndarray: 6D state vector of the deputy satellite in the ECI frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or the layout of the batched
+///         argument for batched input.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     oe_chief = np.array([bh.R_EARTH + 700e3, 0.001, 97.8, 15.0, 30.0, 45.0])
+///     x_chief = bh.state_koe_to_eci(oe_chief, bh.AngleFormat.DEGREES)
+///     x_sun = np.array([bh.AU, 0.0, 0.0, 0.0, 0.0, 0.0])
+///
+///     x_rel_nsw = np.array([1000.0, 500.0, -300.0, 0.0, 0.0, 0.0])
+///
+///     x_deputy = bh.state_nsw_to_eci(x_chief, x_rel_nsw, x_sun)
+///     print(f"Deputy state in ECI: {x_deputy}")
+///     ```
+#[pyfunction]
+#[pyo3(signature = (x_chief, x_rel_nsw, x_sun, axis=-1))]
+#[pyo3(text_signature = "(x_chief, x_rel_nsw, x_sun, axis=-1)")]
+#[pyo3(name = "state_nsw_to_eci")]
+fn py_state_nsw_to_eci<'py>(
+    py: Python<'py>,
+    x_chief: &Bound<'py, PyAny>,
+    x_rel_nsw: &Bound<'py, PyAny>,
+    x_sun: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_vec_triple::<6>(
+        py,
+        x_chief,
+        x_rel_nsw,
+        x_sun,
+        axis,
+        relative_motion::state_nsw_to_eci,
+        relative_motion::states_nsw_to_eci,
+    )
+}

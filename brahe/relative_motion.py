@@ -9,7 +9,7 @@ ENZ.
 
 The RTN frame is an orbital reference frame defined as:
 - R (Radial): Points from Earth's center to satellite position
-- T (Tangential): Along-track direction in orbital plane
+- T (Transverse): In-plane direction perpendicular to R (along-track)
 - N (Normal): Perpendicular to orbital plane (angular momentum direction)
 
 The LVLH frame (CCSDS/SANA definition) has Z toward nadir, Y opposite the

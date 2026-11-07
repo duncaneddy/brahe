@@ -3178,3 +3178,253 @@ fn py_state_nsw_to_eci<'py>(
         relative_motion::states_nsw_to_eci,
     )
 }
+
+/// Computes the rotation matrix transforming a vector in the Earth-Centered Earth-Fixed (ECEF)
+/// frame to the South, East, Zenith (SEZ) topocentric horizon frame of a site.
+///
+/// The SEZ frame follows the SANA definition: the local horizon is the fundamental plane, S
+/// points due south from the site, E points east, and Z points along the site's WGS84 geodetic
+/// vertical. The site is the position part of `x_ecef`. The E axis, and the frame's rate, are
+/// undefined at the poles, where longitude itself is undefined; this is not special-cased.
+///
+/// Args:
+///     x_ecef (numpy.ndarray or list): 6D state vector of the site in the ECEF frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
+///         vectors with the 6 components along `axis` (for example shape (n, 6)); only the position is used
+///     axis (int, optional): The axis along which the 6 components of a single vector
+///         lie; the remaining axes enumerate the batch. For a batch of shape (n, 6)
+///         the components lie along the last axis, so the default `-1` applies; a
+///         (6, n) column layout uses `axis=0`.
+///
+/// Returns:
+///     numpy.ndarray: 3x3 rotation matrix transforming from ECEF to SEZ frame, shape (3, 3), or the batch dimensions
+///         followed by (3, 3) for batched input.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     r_site = bh.position_geodetic_to_ecef(np.array([30.0, 45.0, 500.0]), bh.AngleFormat.DEGREES)
+///     x_site = np.array([r_site[0], r_site[1], r_site[2], 0.0, 0.0, 0.0])
+///
+///     R = bh.rotation_ecef_to_sez(x_site)
+///     print(f"ECEF to SEZ rotation matrix:\n{R}")
+///     ```
+#[pyfunction]
+#[pyo3(signature = (x_ecef, axis=-1))]
+#[pyo3(text_signature = "(x_ecef, axis=-1)")]
+#[pyo3(name = "rotation_ecef_to_sez")]
+fn py_rotation_ecef_to_sez<'py>(
+    py: Python<'py>,
+    x_ecef: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_vec_rotation::<6>(
+        py,
+        x_ecef,
+        axis,
+        relative_motion::rotation_ecef_to_sez,
+        relative_motion::rotations_ecef_to_sez,
+    )
+}
+
+/// Computes the rotation matrix transforming a vector in the South, East, Zenith (SEZ)
+/// topocentric horizon frame of a site to the Earth-Centered Earth-Fixed (ECEF) frame.
+///
+/// This is the transpose (inverse) of the ECEF-to-SEZ rotation matrix.
+///
+/// The SEZ frame follows the SANA definition: the local horizon is the fundamental plane, S
+/// points due south from the site, E points east, and Z points along the site's WGS84 geodetic
+/// vertical. The site is the position part of `x_ecef`. The E axis, and the frame's rate, are
+/// undefined at the poles, where longitude itself is undefined; this is not special-cased.
+///
+/// Args:
+///     x_ecef (numpy.ndarray or list): 6D state vector of the site in the ECEF frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
+///         vectors with the 6 components along `axis` (for example shape (n, 6)); only the position is used
+///     axis (int, optional): The axis along which the 6 components of a single vector
+///         lie; the remaining axes enumerate the batch. For a batch of shape (n, 6)
+///         the components lie along the last axis, so the default `-1` applies; a
+///         (6, n) column layout uses `axis=0`.
+///
+/// Returns:
+///     numpy.ndarray: 3x3 rotation matrix transforming from SEZ to ECEF frame, shape (3, 3), or the batch dimensions
+///         followed by (3, 3) for batched input.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     r_site = bh.position_geodetic_to_ecef(np.array([30.0, 45.0, 500.0]), bh.AngleFormat.DEGREES)
+///     x_site = np.array([r_site[0], r_site[1], r_site[2], 0.0, 0.0, 0.0])
+///
+///     R = bh.rotation_sez_to_ecef(x_site)
+///     print(f"SEZ to ECEF rotation matrix:\n{R}")
+///     ```
+#[pyfunction]
+#[pyo3(signature = (x_ecef, axis=-1))]
+#[pyo3(text_signature = "(x_ecef, axis=-1)")]
+#[pyo3(name = "rotation_sez_to_ecef")]
+fn py_rotation_sez_to_ecef<'py>(
+    py: Python<'py>,
+    x_ecef: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_vec_rotation::<6>(
+        py,
+        x_ecef,
+        axis,
+        relative_motion::rotation_sez_to_ecef,
+        relative_motion::rotations_sez_to_ecef,
+    )
+}
+
+/// Computes the angular velocity of a site's SEZ frame with respect to the ECEF frame,
+/// expressed in SEZ axes.
+///
+/// The SEZ axes depend only on the site's longitude and geodetic latitude, so the frame
+/// turns relative to ECEF only when the site moves: about the polar axis at the longitude rate
+/// and about the east axis at the latitude rate. A stationary site has zero rate. The rate
+/// relative to an inertial frame is this vector plus Earth's rotation rate rotated into SEZ,
+/// which the frame graph composes.
+///
+/// Args:
+///     x_ecef (numpy.ndarray or list): 6D state vector of the site in the ECEF frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
+///         vectors with the 6 components along `axis` (for example shape (n, 6)).
+///     axis (int, optional): The axis along which the 6 components of a single vector
+///         lie; the remaining axes enumerate the batch. For a batch of shape (n, 6)
+///         the components lie along the last axis, so the default `-1` applies; a
+///         (6, n) column layout uses `axis=0`.
+///
+/// Returns:
+///     numpy.ndarray: Angular velocity of the SEZ frame relative to ECEF, expressed in SEZ axes (rad/s), shape (3,), or the batch dimensions
+///         with 3 components along `axis` for batched input.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     r_site = bh.position_geodetic_to_ecef(np.array([30.0, 45.0, 500.0]), bh.AngleFormat.DEGREES)
+///     x_site = np.array([r_site[0], r_site[1], r_site[2], 0.0, 0.0, 0.0])
+///     omega = bh.omega_sez(x_site)
+///     ```
+#[pyfunction]
+#[pyo3(signature = (x_ecef, axis=-1))]
+#[pyo3(text_signature = "(x_ecef, axis=-1)")]
+#[pyo3(name = "omega_sez")]
+fn py_omega_sez<'py>(
+    py: Python<'py>,
+    x_ecef: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_vec_map::<6, 3>(
+        py,
+        x_ecef,
+        axis,
+        relative_motion::omega_sez,
+        relative_motion::omegas_sez,
+    )
+}
+
+/// Transforms the absolute Earth-Centered Earth-Fixed (ECEF) states of a site and a target
+/// into the relative state of the target with respect to the site in the site's rotating SEZ
+/// frame.
+///
+/// Args:
+///     x_site (numpy.ndarray or list): 6D state vector of the site in the ECEF frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
+///         vectors with the 6 components along `axis` (for example shape (n, 6)).
+///     x_target (numpy.ndarray or list): 6D state vector of the target in the ECEF frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
+///         vectors with the 6 components along `axis` (for example shape (n, 6)).
+///     axis (int, optional): The axis along which the 6 components of a single vector
+///         lie; the remaining axes enumerate the batch. For a batch of shape (n, 6)
+///         the components lie along the last axis, so the default `-1` applies; a
+///         (6, n) column layout uses `axis=0`.
+///         A single vector in one argument is broadcast across a batch in the other.
+///
+/// Returns:
+///     numpy.ndarray: 6D relative state of the target with respect to the site in the SEZ frame [rho_S, rho_E, rho_Z, rho_dot_S, rho_dot_E, rho_dot_Z] (m, m/s), shape (6,), or the layout of the batched
+///         argument for batched input.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     r_site = bh.position_geodetic_to_ecef(np.array([30.0, 45.0, 500.0]), bh.AngleFormat.DEGREES)
+///     x_site = np.array([r_site[0], r_site[1], r_site[2], 0.0, 0.0, 0.0])
+///     x_target = x_site + np.array([200e3, 300e3, 400e3, 0.0, 0.0, 0.0])
+///
+///     x_rel_sez = bh.state_ecef_to_sez(x_site, x_target)
+///     print(f"Relative state in SEZ: {x_rel_sez}")
+///     ```
+#[pyfunction]
+#[pyo3(signature = (x_site, x_target, axis=-1))]
+#[pyo3(text_signature = "(x_site, x_target, axis=-1)")]
+#[pyo3(name = "state_ecef_to_sez")]
+fn py_state_ecef_to_sez<'py>(
+    py: Python<'py>,
+    x_site: &Bound<'py, PyAny>,
+    x_target: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_vec_pair::<6>(
+        py,
+        x_site,
+        x_target,
+        axis,
+        relative_motion::state_ecef_to_sez,
+        relative_motion::states_ecef_to_sez,
+    )
+}
+
+/// Transforms the relative state of a target with respect to a site from the site's rotating
+/// SEZ frame to the absolute state of the target in the Earth-Centered Earth-Fixed (ECEF)
+/// frame.
+///
+/// Args:
+///     x_site (numpy.ndarray or list): 6D state vector of the site in the ECEF frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
+///         vectors with the 6 components along `axis` (for example shape (n, 6)).
+///     x_rel_sez (numpy.ndarray or list): 6D relative state of the target with respect to the site in the SEZ frame [rho_S, rho_E, rho_Z, rho_dot_S, rho_dot_E, rho_dot_Z] (m, m/s), shape (6,), or a batch of
+///         vectors with the 6 components along `axis` (for example shape (n, 6)).
+///     axis (int, optional): The axis along which the 6 components of a single vector
+///         lie; the remaining axes enumerate the batch. For a batch of shape (n, 6)
+///         the components lie along the last axis, so the default `-1` applies; a
+///         (6, n) column layout uses `axis=0`.
+///         A single vector in one argument is broadcast across a batch in the other.
+///
+/// Returns:
+///     numpy.ndarray: 6D state vector of the target in the ECEF frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or the layout of the batched
+///         argument for batched input.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     r_site = bh.position_geodetic_to_ecef(np.array([30.0, 45.0, 500.0]), bh.AngleFormat.DEGREES)
+///     x_site = np.array([r_site[0], r_site[1], r_site[2], 0.0, 0.0, 0.0])
+///     x_rel_sez = np.array([1000.0, 500.0, -300.0, 0.0, 0.0, 0.0])
+///
+///     x_target = bh.state_sez_to_ecef(x_site, x_rel_sez)
+///     print(f"Target state in ECEF: {x_target}")
+///     ```
+#[pyfunction]
+#[pyo3(signature = (x_site, x_rel_sez, axis=-1))]
+#[pyo3(text_signature = "(x_site, x_rel_sez, axis=-1)")]
+#[pyo3(name = "state_sez_to_ecef")]
+fn py_state_sez_to_ecef<'py>(
+    py: Python<'py>,
+    x_site: &Bound<'py, PyAny>,
+    x_rel_sez: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_vec_pair::<6>(
+        py,
+        x_site,
+        x_rel_sez,
+        axis,
+        relative_motion::state_sez_to_ecef,
+        relative_motion::states_sez_to_ecef,
+    )
+}

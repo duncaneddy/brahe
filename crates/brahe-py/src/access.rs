@@ -5194,8 +5194,9 @@ fn process_property_computers(
 /// Args:
 ///     locations (PointLocation | PolygonLocation | Sequence[PointLocation | PolygonLocation]):
 ///         Single location or list of locations
-///     propagators (SGPPropagator | KeplerianPropagator | Sequence[SGPPropagator | KeplerianPropagator]):
-///         Single propagator or list of propagators
+///     propagators (SGPPropagator | KeplerianPropagator | NumericalOrbitPropagator | OrbitTrajectory | SP3Satellite | Sequence[SGPPropagator | KeplerianPropagator | NumericalOrbitPropagator | OrbitTrajectory | SP3Satellite]):
+///         Single propagator or list of propagators. A list of NumericalOrbitPropagator,
+///         OrbitTrajectory, or SP3Satellite objects must hold only that type
 ///     search_start (Epoch): Start of search window
 ///     search_end (Epoch): End of search window
 ///     constraint (AccessConstraint): Access constraints to evaluate
@@ -5414,6 +5415,70 @@ fn py_location_accesses(
         return Ok(windows.into_iter().map(|w| PyAccessWindow { window: w }).collect());
     }
 
+    // Check for SP3Satellite (cloned like SGP/Keplerian so the search runs with the GIL
+    // released, letting worker threads call Python constraints and property computers)
+    let is_sp3_satellite = if prop_is_list {
+        let list = propagators.cast::<PyList>()?;
+        !list.is_empty() && list.get_item(0)?.is_instance_of::<PySP3Satellite>()
+    } else {
+        propagators.is_instance_of::<PySP3Satellite>()
+    };
+
+    if is_sp3_satellite {
+        let satellites: Vec<sp3::SP3Satellite> = if prop_is_list {
+            let list = propagators.cast::<PyList>()?;
+            let mut satellites = Vec::with_capacity(list.len());
+            for item in list.iter() {
+                if let Ok(sat) = item.cast::<PySP3Satellite>() {
+                    satellites.push(sat.borrow().inner.clone());
+                } else {
+                    return Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
+                        "propagators list must contain only SP3Satellite objects (cannot mix types)"
+                    ));
+                }
+            }
+            satellites
+        } else {
+            vec![propagators.cast::<PySP3Satellite>()?.borrow().inner.clone()]
+        };
+
+        let rust_property_computers = process_property_computers(property_computers);
+
+        let property_computer_refs: Vec<&dyn AccessPropertyComputer> = rust_property_computers
+            .iter()
+            .map(|c| c as &dyn AccessPropertyComputer)
+            .collect();
+
+        let property_computers_option = if property_computer_refs.is_empty() {
+            None
+        } else {
+            Some(property_computer_refs.as_slice())
+        };
+
+        let windows = py.detach(|| match &locations_vec {
+            LocationVec::Point(locs) => location_accesses(
+                locs,
+                &satellites,
+                search_start.obj,
+                search_end.obj,
+                constraint_trait,
+                property_computers_option,
+                Some(&search_config),
+            ),
+            LocationVec::Polygon(locs) => location_accesses(
+                locs,
+                &satellites,
+                search_start.obj,
+                search_end.obj,
+                constraint_trait,
+                property_computers_option,
+                Some(&search_config),
+            ),
+        })?;
+
+        return Ok(windows.into_iter().map(|w| PyAccessWindow { window: w }).collect());
+    }
+
     if is_numerical {
         // Handle NumericalOrbitPropagator separately using borrow guards
         // (DNumericalOrbitPropagator doesn't implement Clone due to Box<dyn DIntegrator>)
@@ -5518,7 +5583,7 @@ fn py_location_accesses(
         PropagatorVec::Keplerian(vec![prop.borrow().propagator.clone()])
     } else {
         return Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
-            "propagators must be SGPPropagator, KeplerianPropagator, NumericalOrbitPropagator, OrbitTrajectory, or a list of these types"
+            "propagators must be SGPPropagator, KeplerianPropagator, NumericalOrbitPropagator, OrbitTrajectory, SP3Satellite, or a list of these types"
         ));
     };
 

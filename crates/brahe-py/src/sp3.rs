@@ -803,6 +803,14 @@ fn extract_sp3_optional_triple(obj: &Bound<'_, PyAny>, name: &str) -> PyResult<[
     })
 }
 
+/// Treat NaN values as absent, matching the NaN-for-None convention of the array accessors.
+fn sp3_nan_to_none(values: Vec<Option<f64>>) -> Vec<Option<f64>> {
+    values
+        .into_iter()
+        .map(|v| v.filter(|x| !x.is_nan()))
+        .collect()
+}
+
 fn sp3_vector_to_numpy<'py>(py: Python<'py>, v: [f64; 3]) -> Bound<'py, PyArray<f64, Ix1>> {
     v.to_vec().into_pyarray(py)
 }
@@ -1999,7 +2007,8 @@ impl PySP3 {
     ///     record (SP3Record): Record to store.
     ///
     /// Raises:
-    ///     BraheError: If the satellite is not in the file or the epoch index is out of range.
+    ///     BraheError: If the satellite is not in the file, the epoch index is out of range,
+    ///         or the position or velocity has a NaN or infinite component.
     ///
     /// Example:
     ///     ```python
@@ -2131,6 +2140,243 @@ impl PySP3 {
         PyEpoch { obj: self.inner.end_epoch() }
     }
 
+    /// Set the clock correction of a satellite at every epoch.
+    ///
+    /// ``None`` or NaN clears the clock at that epoch, so the ``clocks()``
+    /// array of an ``SP3Satellite`` can be passed back. Nothing is modified
+    /// when the call fails.
+    ///
+    /// Args:
+    ///     satellite (str | SP3SatelliteId): Satellite.
+    ///     clocks (list[float | None]): One clock correction per epoch of the file, seconds. NaN is treated as None.
+    ///
+    /// Raises:
+    ///     BraheError: If the satellite is not in the file, ``clocks`` does not hold one value per epoch, or a value is given at an epoch where the satellite has no record.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     sp3 = bh.SP3(["G01"], 900.0)
+    ///     t0 = bh.Epoch(2024, 11, 10, 0, 0, 0.0, 0.0, time_system=bh.GPS)
+    ///     sp3.push_epoch(t0)
+    ///     sp3.push_epoch(t0 + 900.0)
+    ///     sp3.set_record("G01", 0, bh.SP3Record(np.array([2.0e7, 1.0e7, 1.0e7])))
+    ///
+    ///     sp3.set_clocks("G01", [1e-5, None])
+    ///     assert sp3.record("G01", 0).clock == 1e-5
+    ///     ```
+    fn set_clocks(
+        &mut self,
+        satellite: &Bound<'_, PyAny>,
+        clocks: Vec<Option<f64>>,
+    ) -> PyResult<()> {
+        let id = extract_sp3_satellite_id(satellite)?;
+        self.inner
+            .set_clocks(id, &sp3_nan_to_none(clocks))
+            .map_err(sp3_py_err)
+    }
+
+    /// Set the clock rate of a satellite at every epoch.
+    ///
+    /// Clock rates are stored on velocity records, so the file must have
+    /// velocity records. ``None`` or NaN clears the rate at that epoch.
+    /// Nothing is modified when the call fails.
+    ///
+    /// Args:
+    ///     satellite (str | SP3SatelliteId): Satellite.
+    ///     rates (list[float | None]): One clock rate per epoch of the file, seconds per second. NaN is treated as None.
+    ///
+    /// Raises:
+    ///     BraheError: If the file has no velocity records, the satellite is not in the file, ``rates`` does not hold one value per epoch, or a value is given at an epoch where the satellite has no record.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     sp3 = bh.SP3(["G01"], 900.0)
+    ///     sp3.push_epoch(bh.Epoch(2024, 11, 10, 0, 0, 0.0, 0.0, time_system=bh.GPS))
+    ///     record = bh.SP3Record(np.array([2.0e7, 1.0e7, 1.0e7]), velocity=np.array([0.0, 3000.0, 0.0]))
+    ///     sp3.set_record("G01", 0, record)
+    ///
+    ///     sp3.set_clock_rates("G01", [1e-12])
+    ///     assert sp3.record("G01", 0).clock_rate == 1e-12
+    ///     ```
+    fn set_clock_rates(
+        &mut self,
+        satellite: &Bound<'_, PyAny>,
+        rates: Vec<Option<f64>>,
+    ) -> PyResult<()> {
+        let id = extract_sp3_satellite_id(satellite)?;
+        self.inner
+            .set_clock_rates(id, &sp3_nan_to_none(rates))
+            .map_err(sp3_py_err)
+    }
+
+    /// Build an SP3 file by sampling orbit state providers on a regular grid.
+    ///
+    /// Each provider is sampled with ``state_itrf`` at ``start + k * step``
+    /// for ``k = 0, 1, ...`` up to the last grid point not after ``end``.
+    /// Velocities are stored when ``include_velocity`` is set. Clocks and
+    /// clock rates are absent and are written as the format's bad-clock value
+    /// unless set with ``set_clocks`` and ``set_clock_rates``. The file type
+    /// follows the satellite systems.
+    ///
+    /// Args:
+    ///     propagators (list[tuple[str | SP3SatelliteId, KeplerianPropagator | SGPPropagator | NumericalOrbitPropagator | OrbitTrajectory | SP3Satellite]]): Satellite identifiers paired with the providers that supply their states; provider types may be mixed.
+    ///     start (Epoch): First epoch of the file.
+    ///     end (Epoch): Last epoch to include.
+    ///     step (float): Epoch spacing, seconds.
+    ///     agency (str, optional): Producing agency, at most 4 characters; defaults to ``BRHE``.
+    ///     time_system (SP3TimeSystem | str, optional): Time system of the epochs; defaults to ``GPS``. Must have a Brahe equivalent (GPS, GAL, BDT, TAI, UTC).
+    ///     coordinate_system (str, optional): Coordinate system label, at most 5 characters; defaults to ``IGS20``.
+    ///     orbit_type (SP3OrbitType | str, optional): Orbit type, at most 3 characters; defaults to ``EXT``.
+    ///     data_used (str, optional): Data used descriptor, at most 5 characters; defaults to ``ORBIT``.
+    ///     include_velocity (bool, optional): Whether velocity records are stored; defaults to True.
+    ///     comments (list[str], optional): Comment lines, at most 77 characters each.
+    ///
+    /// Returns:
+    ///     SP3: The file.
+    ///
+    /// Raises:
+    ///     TypeError: If an item is not a ``(satellite, provider)`` tuple or a provider is not one of the accepted types.
+    ///     BraheError: If ``end`` precedes ``start``, the header options or satellites are invalid, or a provider cannot supply a state at a grid epoch. A provider error names the satellite and the epoch.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     bh.initialize_eop()
+    ///     t0 = bh.Epoch(2024, 11, 10, 0, 0, 0.0, 0.0, time_system=bh.GPS)
+    ///     oe = np.array([bh.R_EARTH + 800e3, 0.001, 98.0, 0.0, 0.0, 0.0])
+    ///     prop = bh.KeplerianPropagator.from_keplerian(t0, oe, bh.AngleFormat.DEGREES, 60.0)
+    ///
+    ///     sp3 = bh.SP3.from_propagators([("L01", prop)], t0, t0 + 3600.0, 60.0, agency="DEMO")
+    ///     assert sp3.num_epochs == 61
+    ///     ```
+    #[staticmethod]
+    #[pyo3(
+        signature = (
+            propagators, start, end, step, *,
+            agency="BRHE", time_system=None, coordinate_system="IGS20", orbit_type=None,
+            data_used="ORBIT", include_velocity=true, comments=None
+        ),
+        text_signature = "(propagators, start, end, step, *, agency='BRHE', time_system='GPS', coordinate_system='IGS20', orbit_type='EXT', data_used='ORBIT', include_velocity=True, comments=None)"
+    )]
+    #[allow(clippy::too_many_arguments)]
+    fn from_propagators<'py>(
+        py: Python<'py>,
+        propagators: Vec<Bound<'py, PyAny>>,
+        start: PyEpoch,
+        end: PyEpoch,
+        step: f64,
+        agency: &str,
+        time_system: Option<Bound<'py, PyAny>>,
+        coordinate_system: &str,
+        orbit_type: Option<Bound<'py, PyAny>>,
+        data_used: &str,
+        include_velocity: bool,
+        comments: Option<Vec<String>>,
+    ) -> PyResult<Self> {
+        let mut entries: Vec<(sp3::SP3SatelliteId, SP3ProviderRef<'py>)> =
+            Vec::with_capacity(propagators.len());
+        for item in &propagators {
+            let (satellite, provider): (Bound<'py, PyAny>, Bound<'py, PyAny>) =
+                item.extract().map_err(|_| {
+                    exceptions::PyTypeError::new_err(
+                        "each item of propagators must be a (satellite, provider) tuple",
+                    )
+                })?;
+            entries.push((
+                extract_sp3_satellite_id(&satellite)?,
+                SP3ProviderRef::extract(&provider)?,
+            ));
+        }
+        let providers: Vec<(sp3::SP3SatelliteId, &dyn DOrbitStateProvider)> = entries
+            .iter()
+            .map(|(id, guard)| (*id, guard.provider()))
+            .collect();
+
+        let time_system = match time_system {
+            Some(obj) => obj,
+            None => PyString::new(py, "GPS").into_any(),
+        };
+        let orbit_type = match orbit_type {
+            Some(obj) => obj,
+            None => PyString::new(py, "EXT").into_any(),
+        };
+        let options = sp3_write_options(
+            agency,
+            &time_system,
+            coordinate_system,
+            &orbit_type,
+            data_used,
+            include_velocity,
+            comments,
+        )?;
+        sp3::SP3::from_propagators(&providers, start.obj, end.obj, step, options)
+            .map(|inner| Self { inner })
+            .map_err(sp3_py_err)
+    }
+
+    /// Extract one satellite.
+    ///
+    /// The result keeps the epochs where the satellite has a record with a
+    /// non-zero position, derives velocities when the file has none, and
+    /// splits the samples into contiguous runs at gaps.
+    ///
+    /// Args:
+    ///     satellite (str | SP3SatelliteId): Satellite.
+    ///
+    /// Returns:
+    ///     SP3Satellite: The satellite.
+    ///
+    /// Raises:
+    ///     BraheError: If the satellite is not in the file or has no valid sample.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     sp3 = bh.SP3.from_file("test_assets/sp3/example-d-2.sp3")
+    ///     g01 = sp3.satellite("G01")
+    ///     print(len(g01), g01.start_epoch, g01.end_epoch)
+    ///     ```
+    fn satellite(&self, satellite: &Bound<'_, PyAny>) -> PyResult<PySP3Satellite> {
+        let id = extract_sp3_satellite_id(satellite)?;
+        self.inner
+            .satellite(id)
+            .map(|inner| PySP3Satellite { inner })
+            .map_err(sp3_py_err)
+    }
+
+    /// Extract every satellite that has at least one valid sample.
+    ///
+    /// Returns:
+    ///     list[SP3Satellite]: Satellites in header order, omitting satellites without a valid sample.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     sp3 = bh.SP3.from_file("test_assets/sp3/example-d-2.sp3")
+    ///     for sat in sp3.satellites():
+    ///         print(sat.id, len(sat))
+    ///     ```
+    fn satellites(&self) -> PyResult<Vec<PySP3Satellite>> {
+        self.inner
+            .satellites()
+            .map(|sats| {
+                sats.into_iter()
+                    .map(|inner| PySP3Satellite { inner })
+                    .collect()
+            })
+            .map_err(sp3_py_err)
+    }
+
     fn __len__(&self) -> usize {
         self.inner.num_epochs()
     }
@@ -2147,5 +2393,1425 @@ impl PySP3 {
             self.inner.num_epochs(),
             self.inner.header().agency
         )
+    }
+}
+
+/// Borrow of a Python orbit state provider accepted by `SP3.from_propagators`.
+#[allow(clippy::upper_case_acronyms)]
+enum SP3ProviderRef<'py> {
+    Keplerian(PyRef<'py, PyKeplerianPropagator>),
+    SGP(PyRef<'py, PySGPPropagator>),
+    Numerical(PyRef<'py, PyNumericalOrbitPropagator>),
+    Trajectory(PyRef<'py, PyOrbitalTrajectory>),
+    Satellite(PyRef<'py, PySP3Satellite>),
+}
+
+impl<'py> SP3ProviderRef<'py> {
+    /// Borrow `obj` as one of the accepted provider types.
+    fn extract(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
+        if let Ok(p) = obj.cast::<PyKeplerianPropagator>() {
+            return Ok(Self::Keplerian(p.try_borrow()?));
+        }
+        if let Ok(p) = obj.cast::<PySGPPropagator>() {
+            return Ok(Self::SGP(p.try_borrow()?));
+        }
+        if let Ok(p) = obj.cast::<PyNumericalOrbitPropagator>() {
+            return Ok(Self::Numerical(p.try_borrow()?));
+        }
+        if let Ok(t) = obj.cast::<PyOrbitalTrajectory>() {
+            return Ok(Self::Trajectory(t.try_borrow()?));
+        }
+        if let Ok(s) = obj.cast::<PySP3Satellite>() {
+            return Ok(Self::Satellite(s.try_borrow()?));
+        }
+        Err(exceptions::PyTypeError::new_err(format!(
+            "provider must be a KeplerianPropagator, SGPPropagator, NumericalOrbitPropagator, \
+             OrbitTrajectory, or SP3Satellite, got {}",
+            obj.get_type().name()?
+        )))
+    }
+
+    fn provider(&self) -> &dyn DOrbitStateProvider {
+        match self {
+            Self::Keplerian(p) => &p.propagator,
+            Self::SGP(p) => &p.propagator,
+            Self::Numerical(p) => &p.propagator,
+            Self::Trajectory(t) => &t.trajectory,
+            Self::Satellite(s) => &s.inner,
+        }
+    }
+}
+
+/// Convert per-sample 3-vectors into an (N, 3) array.
+fn sp3_vectors_to_numpy<'py>(py: Python<'py>, rows: &[[f64; 3]]) -> Bound<'py, PyArray<f64, Ix2>> {
+    ndarray::Array2::from_shape_fn((rows.len(), 3), |(i, j)| rows[i][j]).into_pyarray(py)
+}
+
+/// Convert optional per-sample values into an (N,) array with NaN for None.
+fn sp3_optionals_to_numpy<'py>(
+    py: Python<'py>,
+    values: &[Option<f64>],
+) -> Bound<'py, PyArray<f64, Ix1>> {
+    values
+        .iter()
+        .map(|v| v.unwrap_or(f64::NAN))
+        .collect::<Vec<f64>>()
+        .into_pyarray(py)
+}
+
+/// Convert a list of states into Python arrays.
+fn sp3_states_to_numpy<'py>(
+    py: Python<'py>,
+    states: &[Vector6<f64>],
+) -> Vec<Bound<'py, PyArray<f64, Ix1>>> {
+    states
+        .iter()
+        .map(|s| s.as_slice().to_pyarray(py).to_owned())
+        .collect()
+}
+
+/// Parse an optional UUID string.
+fn sp3_parse_uuid(uuid_str: Option<String>) -> PyResult<Option<uuid::Uuid>> {
+    uuid_str
+        .map(|s| {
+            uuid::Uuid::parse_str(&s)
+                .map_err(|e| exceptions::PyValueError::new_err(format!("Invalid UUID: {}", e)))
+        })
+        .transpose()
+}
+
+/// Orbit and clock samples of one satellite from SP3 data.
+///
+/// Only epochs where the satellite has a valid position are kept; every data
+/// accessor returns one entry per sample, aligned with ``epochs()``.
+/// Positions and velocities are in the file's Earth-fixed frame (ITRF), in m
+/// and m/s.
+///
+/// Velocities come from the file when every sample has one. Otherwise each
+/// sample's velocity is the derivative of a Lagrange polynomial of degree
+/// ``SP3_DEFAULT_LAGRANGE_DEGREE`` fitted through neighboring samples of the
+/// same contiguous run, as centered on the sample as the run allows. A sample
+/// that forms a run on its own has no derived velocity and reports NaN.
+///
+/// Two consecutive samples spaced more than 1.5 times the larger of their
+/// epoch intervals apart start a new run, so the satellite has a gap between
+/// them. Each run of at least two samples becomes one ITRF ``OrbitTrajectory``
+/// named after the satellite.
+///
+/// The satellite is an orbit state provider with the same ``state_*`` and
+/// ``states_*`` methods as ``OrbitTrajectory``, and is named after its
+/// identifier (such as ``"G01"``), so it can be passed to
+/// ``location_accesses`` directly. States are interpolated in ITRF from the
+/// run containing the requested epoch, both ends of a run included, and
+/// converted to other frames on request. A request before the first sample,
+/// after the last sample, inside a gap, or at a sample that forms a run on
+/// its own raises ``BraheError`` naming the satellite.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     sp3 = bh.SP3(["G01"], 900.0, include_velocity=False)
+///     t0 = bh.Epoch(2024, 11, 10, 0, 0, 0.0, 0.0, time_system=bh.GPS)
+///     for k in range(4):
+///         index = sp3.push_epoch(t0 + 900.0 * k)
+///         sp3.set_record("G01", index, bh.SP3Record(np.array([2.0e7 + 900.0 * k, 1.0e7, 1.0e7])))
+///
+///     sat = sp3.satellite("G01")
+///     assert len(sat) == 4
+///     assert abs(sat.velocities()[0, 0] - 1.0) < 1e-9
+///     assert sat.get_name() == "G01"
+///     state = sat.state_itrf(t0 + 900.0)
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "SP3Satellite")]
+#[derive(Clone)]
+pub struct PySP3Satellite {
+    pub(crate) inner: sp3::SP3Satellite,
+}
+
+#[pymethods]
+impl PySP3Satellite {
+    /// Chain every satellite across several SP3 files.
+    ///
+    /// The files are sorted by start epoch, then by end epoch, so they may be
+    /// passed in any order; files without epochs are ignored. For each
+    /// satellite in the union of the files' satellite lists, the valid
+    /// samples of every file are joined in time order before velocities are
+    /// derived, so samples next to a file boundary get centered fits. Epochs
+    /// compare as absolute instants, so files in different time systems
+    /// chain when their boundary epochs satisfy the spacing rule below.
+    ///
+    /// Two consecutive files may share their boundary epoch; epochs within
+    /// 1 ms of each other, the tolerance of the epoch grid, are the same
+    /// boundary epoch. The later file's sample is kept there when it is
+    /// valid, and the earlier file's otherwise. Boundary epochs that do not
+    /// coincide must be at least half the epoch interval apart: consecutive
+    /// samples closer than half the smaller of their two intervals are
+    /// rejected. A GPS-time file ending at 00:00 GPS chained to a UTC-time file
+    /// starting at 00:00 UTC, 18 s apart at a 900 s interval, is an error. A
+    /// file that lacks a satellite contributes no samples, which leaves a gap in that satellite.
+    /// Velocities come from the files only when every sample comes from a
+    /// file with velocity records.
+    ///
+    /// Args:
+    ///     files (list[SP3]): SP3 files covering consecutive, non-overlapping spans.
+    ///
+    /// Returns:
+    ///     list[SP3Satellite]: One satellite for each identifier with at least one valid sample, in ascending identifier order (GPS, GLONASS, Galileo, BeiDou, QZSS, IRNSS, SBAS, LEO, then by number).
+    ///
+    /// Raises:
+    ///     BraheError: If two files overlap by more than a shared boundary epoch; the message names the agency and span of both. Also raised when two consecutive samples are closer than half the smaller of their epoch intervals.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     files = [
+    ///         bh.SP3.from_file("test_assets/sp3/gbm19500_truncated.sp3"),
+    ///         bh.SP3.from_file("test_assets/sp3/gbm19500_after_drop.sp3"),
+    ///     ]
+    ///     sats = bh.SP3Satellite.from_files(files)
+    ///     print(len(sats), sats[0].id, sats[0].segments())
+    ///     ```
+    #[staticmethod]
+    fn from_files(files: Vec<PySP3>) -> PyResult<Vec<PySP3Satellite>> {
+        let files: Vec<sp3::SP3> = files.into_iter().map(|f| f.inner).collect();
+        sp3::SP3Satellite::from_files(&files)
+            .map(|sats| {
+                sats.into_iter()
+                    .map(|inner| PySP3Satellite { inner })
+                    .collect()
+            })
+            .map_err(sp3_py_err)
+    }
+
+    /// Satellite identifier.
+    ///
+    /// Returns:
+    ///     SP3SatelliteId: The identifier.
+    #[getter(id)]
+    fn satellite_id(&self) -> PySP3SatelliteId {
+        PySP3SatelliteId {
+            inner: self.inner.id(),
+        }
+    }
+
+    /// Epoch of the first sample.
+    ///
+    /// Returns:
+    ///     Epoch: First sample epoch.
+    #[getter]
+    fn start_epoch(&self) -> PyEpoch {
+        PyEpoch {
+            obj: self.inner.start_epoch(),
+        }
+    }
+
+    /// Epoch of the last sample.
+    ///
+    /// Returns:
+    ///     Epoch: Last sample epoch.
+    #[getter]
+    fn end_epoch(&self) -> PyEpoch {
+        PyEpoch {
+            obj: self.inner.end_epoch(),
+        }
+    }
+
+    /// Dimension of the provider state.
+    ///
+    /// Returns:
+    ///     int: Always 6 (position then velocity).
+    #[getter]
+    fn state_dim(&self) -> usize {
+        DStateProvider::state_dim(&self.inner)
+    }
+
+    fn __len__(&self) -> usize {
+        self.inner.len()
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "SP3Satellite(id={}, samples={}, segments={})",
+            self.inner.id(),
+            self.inner.len(),
+            self.inner.segments().len()
+        )
+    }
+
+    /// Epochs of the valid samples, in increasing order.
+    ///
+    /// Returns:
+    ///     list[Epoch]: Sample epochs.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     epochs = sat.epochs()
+    ///     ```
+    fn epochs(&self) -> Vec<PyEpoch> {
+        self.inner
+            .epochs()
+            .iter()
+            .map(|&obj| PyEpoch { obj })
+            .collect()
+    }
+
+    /// Positions of the valid samples.
+    ///
+    /// Returns:
+    ///     numpy.ndarray: Array of shape (N, 3) with the ITRF position of each sample, meters.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     assert sat.positions().shape == (len(sat), 3)
+    ///     ```
+    fn positions<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray<f64, Ix2>> {
+        sp3_vectors_to_numpy(py, &self.inner.positions())
+    }
+
+    /// Velocities of the valid samples.
+    ///
+    /// The values come from the file when every sample has a file velocity,
+    /// and are derived from the positions otherwise. A derived velocity is
+    /// NaN for a sample that forms a run on its own.
+    ///
+    /// Returns:
+    ///     numpy.ndarray: Array of shape (N, 3) with the ITRF velocity of each sample, meters per second.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     assert sat.velocities().shape == (len(sat), 3)
+    ///     ```
+    fn velocities<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray<f64, Ix2>> {
+        sp3_vectors_to_numpy(py, self.inner.velocities())
+    }
+
+    /// Whether the velocities come from the file.
+    ///
+    /// Returns:
+    ///     bool: True if every sample carries a file velocity, False if the velocities are derived from the positions.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     assert not sat.has_file_velocities()
+    ///     ```
+    fn has_file_velocities(&self) -> bool {
+        self.inner.has_file_velocities()
+    }
+
+    /// Clock corrections of the valid samples.
+    ///
+    /// Returns:
+    ///     numpy.ndarray: Array of shape (N,) with the clock correction of each sample in seconds, NaN where the file has a bad or missing clock.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     valid = ~np.isnan(sat.clocks())
+    ///     ```
+    fn clocks<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray<f64, Ix1>> {
+        sp3_optionals_to_numpy(py, &self.inner.clocks())
+    }
+
+    /// Clock rates of the valid samples.
+    ///
+    /// Returns:
+    ///     numpy.ndarray: Array of shape (N,) with the clock rate of each sample in seconds per second, NaN where the file has a bad or missing rate.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     rates = sat.clock_rates()
+    ///     assert len(rates) == len(sat)
+    ///     ```
+    fn clock_rates<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray<f64, Ix1>> {
+        sp3_optionals_to_numpy(py, &self.inner.clock_rates())
+    }
+
+    /// Full file records of the valid samples.
+    ///
+    /// The records hold the file values unchanged, including standard
+    /// deviations, flags, and correlations; derived velocities are not
+    /// written into them.
+    ///
+    /// Returns:
+    ///     list[SP3Record]: A copy of the record of each sample.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     record = sat.records()[0]
+    ///     position = record.position
+    ///     ```
+    fn records(&self) -> Vec<PySP3Record> {
+        self.inner
+            .records()
+            .iter()
+            .map(|r| PySP3Record { inner: r.clone() })
+            .collect()
+    }
+
+    /// Spans of the contiguous runs of samples.
+    ///
+    /// A run that holds a single sample has equal start and end epochs.
+    ///
+    /// Returns:
+    ///     list[tuple[Epoch, Epoch]]: First and last sample epoch of each run, in time order.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     for start, end in sat.segments():
+    ///         print(start, end)
+    ///     ```
+    fn segments(&self) -> Vec<(PyEpoch, PyEpoch)> {
+        self.inner
+            .segments()
+            .into_iter()
+            .map(|(start, end)| (PyEpoch { obj: start }, PyEpoch { obj: end }))
+            .collect()
+    }
+
+    /// Whether the samples form more than one contiguous run.
+    ///
+    /// Returns:
+    ///     bool: True if the satellite has at least one gap.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     assert not sat.has_gaps()
+    ///     ```
+    fn has_gaps(&self) -> bool {
+        self.inner.has_gaps()
+    }
+
+    /// Get the interpolation method.
+    ///
+    /// Returns:
+    ///     InterpolationMethod: The method as set, before any per-run Lagrange degree adjustment; defaults to Lagrange of degree ``SP3_DEFAULT_LAGRANGE_DEGREE``.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     method = sat.get_interpolation_method()
+    ///     ```
+    fn get_interpolation_method(&self) -> PyInterpolationMethod {
+        PyInterpolationMethod {
+            method: self.inner.get_interpolation_method(),
+        }
+    }
+
+    /// Set the interpolation method.
+    ///
+    /// The method applies to state queries and to the trajectories returned
+    /// afterwards. For each run's trajectory a Lagrange degree is reduced to
+    /// at most the run length minus one. The fit that derives velocities is
+    /// not affected.
+    ///
+    /// Args:
+    ///     method (InterpolationMethod): Interpolation method.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     sat.set_interpolation_method(bh.InterpolationMethod.HERMITE_CUBIC)
+    ///     ```
+    fn set_interpolation_method(&mut self, method: PyRef<PyInterpolationMethod>) {
+        self.inner.set_interpolation_method(method.method);
+    }
+
+    /// Set the interpolation method and return self (builder pattern).
+    ///
+    /// Args:
+    ///     method (InterpolationMethod): Interpolation method.
+    ///
+    /// Returns:
+    ///     SP3Satellite: Self with the method set.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     sat = sat.with_interpolation_method(bh.InterpolationMethod.lagrange(5))
+    ///     ```
+    fn with_interpolation_method<'a>(
+        mut slf: PyRefMut<'a, Self>,
+        method: PyRef<'_, PyInterpolationMethod>,
+    ) -> PyRefMut<'a, Self> {
+        slf.inner.set_interpolation_method(method.method);
+        slf
+    }
+
+    /// Trajectory over all samples.
+    ///
+    /// The trajectory is a Cartesian ITRF ``OrbitTrajectory`` named after the
+    /// satellite, using the satellite's interpolation method. A Lagrange
+    /// degree is raised to at least 1 and reduced to at most the number of
+    /// samples minus one.
+    ///
+    /// Returns:
+    ///     OrbitTrajectory: The trajectory.
+    ///
+    /// Raises:
+    ///     BraheError: If the satellite has a gap, naming the satellite and each gap and pointing to ``to_trajectory_segments``; or if it has a single sample, naming the satellite and epoch.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     traj = sat.to_trajectory()
+    ///     gcrf = traj.to_gcrf()
+    ///     ```
+    fn to_trajectory(&self) -> PyResult<PyOrbitalTrajectory> {
+        self.inner
+            .to_trajectory()
+            .map(|trajectory| PyOrbitalTrajectory { trajectory })
+            .map_err(sp3_py_err)
+    }
+
+    /// One trajectory per contiguous run of at least two samples.
+    ///
+    /// Each trajectory is a Cartesian ITRF ``OrbitTrajectory`` named after
+    /// the satellite, using the satellite's interpolation method with a
+    /// Lagrange degree raised to at least 1 and reduced to at most the run
+    /// length minus one. Runs of a single sample are omitted.
+    ///
+    /// Returns:
+    ///     list[OrbitTrajectory]: Trajectories in time order.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     segments = sat.to_trajectory_segments()
+    ///     assert len(segments) == 1
+    ///     ```
+    fn to_trajectory_segments(&self) -> PyResult<Vec<PyOrbitalTrajectory>> {
+        self.inner
+            .to_trajectory_segments()
+            .map(|trajs| {
+                trajs
+                    .into_iter()
+                    .map(|trajectory| PyOrbitalTrajectory { trajectory })
+                    .collect()
+            })
+            .map_err(sp3_py_err)
+    }
+
+    /// State at an epoch in ITRF.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Epoch to evaluate.
+    ///
+    /// Returns:
+    ///     numpy.ndarray: ITRF state [x, y, z, vx, vy, vz] (meters, m/s).
+    ///
+    /// Raises:
+    ///     BraheError: If the epoch is outside the samples, inside a gap, or at a sample that forms a run on its own.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     state = sat.state(sat.start_epoch + 150.0)
+    ///     ```
+    #[pyo3(text_signature = "(epoch)")]
+    fn state<'py>(
+        &self,
+        py: Python<'py>,
+        epoch: &PyEpoch,
+    ) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+        let state = DStateProvider::state(&self.inner, epoch.obj)?;
+        Ok(state.as_slice().to_pyarray(py).to_owned())
+    }
+
+    /// State at an epoch in ECI (GCRF) Cartesian coordinates.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Epoch to evaluate.
+    ///
+    /// Returns:
+    ///     numpy.ndarray: ECI state [x, y, z, vx, vy, vz] (meters, m/s).
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     bh.initialize_eop()
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     state = sat.state_eci(sat.start_epoch + 150.0)
+    ///     ```
+    #[pyo3(text_signature = "(epoch)")]
+    fn state_eci<'py>(
+        &self,
+        py: Python<'py>,
+        epoch: &PyEpoch,
+    ) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+        let state = DOrbitStateProvider::state_eci(&self.inner, epoch.obj)?;
+        Ok(state.as_slice().to_pyarray(py).to_owned())
+    }
+
+    /// State at an epoch in ECEF (ITRF) Cartesian coordinates.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Epoch to evaluate.
+    ///
+    /// Returns:
+    ///     numpy.ndarray: ECEF state [x, y, z, vx, vy, vz] (meters, m/s).
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     state = sat.state_ecef(sat.start_epoch + 150.0)
+    ///     ```
+    #[pyo3(text_signature = "(epoch)")]
+    fn state_ecef<'py>(
+        &self,
+        py: Python<'py>,
+        epoch: &PyEpoch,
+    ) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+        let state = DOrbitStateProvider::state_ecef(&self.inner, epoch.obj)?;
+        Ok(state.as_slice().to_pyarray(py).to_owned())
+    }
+
+    /// State at an epoch in GCRF Cartesian coordinates.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Epoch to evaluate.
+    ///
+    /// Returns:
+    ///     numpy.ndarray: GCRF state [x, y, z, vx, vy, vz] (meters, m/s).
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     bh.initialize_eop()
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     state = sat.state_gcrf(sat.start_epoch + 150.0)
+    ///     ```
+    #[pyo3(text_signature = "(epoch)")]
+    fn state_gcrf<'py>(
+        &self,
+        py: Python<'py>,
+        epoch: &PyEpoch,
+    ) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+        let state = DOrbitStateProvider::state_gcrf(&self.inner, epoch.obj)?;
+        Ok(state.as_slice().to_pyarray(py).to_owned())
+    }
+
+    /// State at an epoch in ITRF Cartesian coordinates.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Epoch to evaluate.
+    ///
+    /// Returns:
+    ///     numpy.ndarray: ITRF state [x, y, z, vx, vy, vz] (meters, m/s).
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     state = sat.state_itrf(sat.start_epoch + 150.0)
+    ///     ```
+    #[pyo3(text_signature = "(epoch)")]
+    fn state_itrf<'py>(
+        &self,
+        py: Python<'py>,
+        epoch: &PyEpoch,
+    ) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+        let state = DOrbitStateProvider::state_itrf(&self.inner, epoch.obj)?;
+        Ok(state.as_slice().to_pyarray(py).to_owned())
+    }
+
+    /// State at an epoch in EME2000 Cartesian coordinates.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Epoch to evaluate.
+    ///
+    /// Returns:
+    ///     numpy.ndarray: EME2000 state [x, y, z, vx, vy, vz] (meters, m/s).
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     bh.initialize_eop()
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     state = sat.state_eme2000(sat.start_epoch + 150.0)
+    ///     ```
+    #[pyo3(text_signature = "(epoch)")]
+    fn state_eme2000<'py>(
+        &self,
+        py: Python<'py>,
+        epoch: &PyEpoch,
+    ) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+        let state = DOrbitStateProvider::state_eme2000(&self.inner, epoch.obj)?;
+        Ok(state.as_slice().to_pyarray(py).to_owned())
+    }
+
+    /// State at an epoch in the Earth's body-centered inertial frame (GCRF).
+    ///
+    /// Args:
+    ///     epoch (Epoch): Epoch to evaluate.
+    ///
+    /// Returns:
+    ///     numpy.ndarray: BCI state [x, y, z, vx, vy, vz] (meters, m/s).
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     bh.initialize_eop()
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     state = sat.state_bci(sat.start_epoch + 150.0)
+    ///     ```
+    #[pyo3(text_signature = "(epoch)")]
+    fn state_bci<'py>(
+        &self,
+        py: Python<'py>,
+        epoch: &PyEpoch,
+    ) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+        let state = DOrbitStateProvider::state_bci(&self.inner, epoch.obj)?;
+        Ok(state.as_slice().to_pyarray(py).to_owned())
+    }
+
+    /// State at an epoch in the Earth's body-centered body-fixed frame (ITRF).
+    ///
+    /// Args:
+    ///     epoch (Epoch): Epoch to evaluate.
+    ///
+    /// Returns:
+    ///     numpy.ndarray: BCBF state [x, y, z, vx, vy, vz] (meters, m/s).
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     state = sat.state_bcbf(sat.start_epoch + 150.0)
+    ///     ```
+    #[pyo3(text_signature = "(epoch)")]
+    fn state_bcbf<'py>(
+        &self,
+        py: Python<'py>,
+        epoch: &PyEpoch,
+    ) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+        let state = DOrbitStateProvider::state_bcbf(&self.inner, epoch.obj)?;
+        Ok(state.as_slice().to_pyarray(py).to_owned())
+    }
+
+    /// State at an epoch expressed in an arbitrary reference frame.
+    ///
+    /// Args:
+    ///     frame (CelestialFrame): Reference frame to express the state in.
+    ///     epoch (Epoch): Epoch to evaluate.
+    ///
+    /// Returns:
+    ///     numpy.ndarray: State [x, y, z, vx, vy, vz] in ``frame`` (meters, m/s).
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     bh.initialize_eop()
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     state = sat.state_in_frame(bh.CelestialFrame.GCRF, sat.start_epoch + 150.0)
+    ///     ```
+    #[pyo3(text_signature = "(frame, epoch)")]
+    fn state_in_frame<'py>(
+        &self,
+        py: Python<'py>,
+        frame: &PyCelestialFrame,
+        epoch: &PyEpoch,
+    ) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+        let state = DOrbitStateProvider::state_in_frame(&self.inner, frame.frame, epoch.obj)?;
+        Ok(state.as_slice().to_pyarray(py).to_owned())
+    }
+
+    /// Osculating Keplerian elements at an epoch.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Epoch to evaluate.
+    ///     angle_format (AngleFormat): Angle format of the angular elements.
+    ///
+    /// Returns:
+    ///     numpy.ndarray: Osculating elements [a, e, i, raan, argp, mean_anomaly].
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     bh.initialize_eop()
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     oe = sat.state_koe_osc(sat.start_epoch + 150.0, bh.AngleFormat.DEGREES)
+    ///     ```
+    #[pyo3(text_signature = "(epoch, angle_format)")]
+    fn state_koe_osc<'py>(
+        &self,
+        py: Python<'py>,
+        epoch: &PyEpoch,
+        angle_format: &PyAngleFormat,
+    ) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+        let state = DOrbitStateProvider::state_koe_osc(&self.inner, epoch.obj, angle_format.value)?;
+        Ok(state.as_slice().to_pyarray(py).to_owned())
+    }
+
+    /// Mean Keplerian elements at an epoch.
+    ///
+    /// Mean elements are orbit-averaged elements that remove short-period and
+    /// long-period J2 perturbations using first-order Brouwer-Lyddane theory.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Epoch to evaluate.
+    ///     angle_format (AngleFormat): Angle format of the angular elements.
+    ///
+    /// Returns:
+    ///     numpy.ndarray: Mean elements [a, e, i, raan, argp, mean_anomaly].
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     bh.initialize_eop()
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     oe = sat.state_koe_mean(sat.start_epoch + 150.0, bh.AngleFormat.DEGREES)
+    ///     ```
+    #[pyo3(text_signature = "(epoch, angle_format)")]
+    fn state_koe_mean<'py>(
+        &self,
+        py: Python<'py>,
+        epoch: &PyEpoch,
+        angle_format: &PyAngleFormat,
+    ) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+        let state =
+            DOrbitStateProvider::state_koe_mean(&self.inner, epoch.obj, angle_format.value)?;
+        Ok(state.as_slice().to_pyarray(py).to_owned())
+    }
+
+    /// ITRF states at several epochs.
+    ///
+    /// Args:
+    ///     epochs (list[Epoch]): Epochs to evaluate.
+    ///
+    /// Returns:
+    ///     list[numpy.ndarray]: ITRF state [x, y, z, vx, vy, vz] at each epoch (meters, m/s).
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     epochs = [sat.start_epoch + 300.0 * k for k in range(3)]
+    ///     states = sat.states(epochs)
+    ///     ```
+    #[pyo3(text_signature = "(epochs)")]
+    fn states<'py>(
+        &self,
+        py: Python<'py>,
+        epochs: Vec<PyRef<PyEpoch>>,
+    ) -> PyResult<Vec<Bound<'py, PyArray<f64, Ix1>>>> {
+        let epochs: Vec<_> = epochs.iter().map(|e| e.obj).collect();
+        let states = DStateProvider::states(&self.inner, &epochs)?;
+        Ok(states
+            .iter()
+            .map(|s| s.as_slice().to_pyarray(py).to_owned())
+            .collect())
+    }
+
+    /// ECI (GCRF) states at several epochs.
+    ///
+    /// Args:
+    ///     epochs (list[Epoch]): Epochs to evaluate.
+    ///
+    /// Returns:
+    ///     list[numpy.ndarray]: ECI state at each epoch (meters, m/s).
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     bh.initialize_eop()
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     epochs = [sat.start_epoch + 300.0 * k for k in range(3)]
+    ///     states = sat.states_eci(epochs)
+    ///     ```
+    #[pyo3(text_signature = "(epochs)")]
+    fn states_eci<'py>(
+        &self,
+        py: Python<'py>,
+        epochs: Vec<PyRef<PyEpoch>>,
+    ) -> PyResult<Vec<Bound<'py, PyArray<f64, Ix1>>>> {
+        let epochs: Vec<_> = epochs.iter().map(|e| e.obj).collect();
+        Ok(sp3_states_to_numpy(
+            py,
+            &DOrbitStateProvider::states_eci(&self.inner, &epochs)?,
+        ))
+    }
+
+    /// ECEF (ITRF) states at several epochs.
+    ///
+    /// Args:
+    ///     epochs (list[Epoch]): Epochs to evaluate.
+    ///
+    /// Returns:
+    ///     list[numpy.ndarray]: ECEF state at each epoch (meters, m/s).
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     epochs = [sat.start_epoch + 300.0 * k for k in range(3)]
+    ///     states = sat.states_ecef(epochs)
+    ///     ```
+    #[pyo3(text_signature = "(epochs)")]
+    fn states_ecef<'py>(
+        &self,
+        py: Python<'py>,
+        epochs: Vec<PyRef<PyEpoch>>,
+    ) -> PyResult<Vec<Bound<'py, PyArray<f64, Ix1>>>> {
+        let epochs: Vec<_> = epochs.iter().map(|e| e.obj).collect();
+        Ok(sp3_states_to_numpy(
+            py,
+            &DOrbitStateProvider::states_ecef(&self.inner, &epochs)?,
+        ))
+    }
+
+    /// GCRF states at several epochs.
+    ///
+    /// Args:
+    ///     epochs (list[Epoch]): Epochs to evaluate.
+    ///
+    /// Returns:
+    ///     list[numpy.ndarray]: GCRF state at each epoch (meters, m/s).
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     bh.initialize_eop()
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     epochs = [sat.start_epoch + 300.0 * k for k in range(3)]
+    ///     states = sat.states_gcrf(epochs)
+    ///     ```
+    #[pyo3(text_signature = "(epochs)")]
+    fn states_gcrf<'py>(
+        &self,
+        py: Python<'py>,
+        epochs: Vec<PyRef<PyEpoch>>,
+    ) -> PyResult<Vec<Bound<'py, PyArray<f64, Ix1>>>> {
+        let epochs: Vec<_> = epochs.iter().map(|e| e.obj).collect();
+        Ok(sp3_states_to_numpy(
+            py,
+            &DOrbitStateProvider::states_gcrf(&self.inner, &epochs)?,
+        ))
+    }
+
+    /// ITRF states at several epochs.
+    ///
+    /// Args:
+    ///     epochs (list[Epoch]): Epochs to evaluate.
+    ///
+    /// Returns:
+    ///     list[numpy.ndarray]: ITRF state at each epoch (meters, m/s).
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     epochs = [sat.start_epoch + 300.0 * k for k in range(3)]
+    ///     states = sat.states_itrf(epochs)
+    ///     ```
+    #[pyo3(text_signature = "(epochs)")]
+    fn states_itrf<'py>(
+        &self,
+        py: Python<'py>,
+        epochs: Vec<PyRef<PyEpoch>>,
+    ) -> PyResult<Vec<Bound<'py, PyArray<f64, Ix1>>>> {
+        let epochs: Vec<_> = epochs.iter().map(|e| e.obj).collect();
+        Ok(sp3_states_to_numpy(
+            py,
+            &DOrbitStateProvider::states_itrf(&self.inner, &epochs)?,
+        ))
+    }
+
+    /// EME2000 states at several epochs.
+    ///
+    /// Args:
+    ///     epochs (list[Epoch]): Epochs to evaluate.
+    ///
+    /// Returns:
+    ///     list[numpy.ndarray]: EME2000 state at each epoch (meters, m/s).
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     bh.initialize_eop()
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     epochs = [sat.start_epoch + 300.0 * k for k in range(3)]
+    ///     states = sat.states_eme2000(epochs)
+    ///     ```
+    #[pyo3(text_signature = "(epochs)")]
+    fn states_eme2000<'py>(
+        &self,
+        py: Python<'py>,
+        epochs: Vec<PyRef<PyEpoch>>,
+    ) -> PyResult<Vec<Bound<'py, PyArray<f64, Ix1>>>> {
+        let epochs: Vec<_> = epochs.iter().map(|e| e.obj).collect();
+        Ok(sp3_states_to_numpy(
+            py,
+            &DOrbitStateProvider::states_eme2000(&self.inner, &epochs)?,
+        ))
+    }
+
+    /// Body-centered inertial (GCRF) states at several epochs.
+    ///
+    /// Args:
+    ///     epochs (list[Epoch]): Epochs to evaluate.
+    ///
+    /// Returns:
+    ///     list[numpy.ndarray]: BCI state at each epoch (meters, m/s).
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     bh.initialize_eop()
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     epochs = [sat.start_epoch + 300.0 * k for k in range(3)]
+    ///     states = sat.states_bci(epochs)
+    ///     ```
+    #[pyo3(text_signature = "(epochs)")]
+    fn states_bci<'py>(
+        &self,
+        py: Python<'py>,
+        epochs: Vec<PyRef<PyEpoch>>,
+    ) -> PyResult<Vec<Bound<'py, PyArray<f64, Ix1>>>> {
+        let epochs: Vec<_> = epochs.iter().map(|e| e.obj).collect();
+        Ok(sp3_states_to_numpy(
+            py,
+            &DOrbitStateProvider::states_bci(&self.inner, &epochs)?,
+        ))
+    }
+
+    /// Body-centered body-fixed (ITRF) states at several epochs.
+    ///
+    /// Args:
+    ///     epochs (list[Epoch]): Epochs to evaluate.
+    ///
+    /// Returns:
+    ///     list[numpy.ndarray]: BCBF state at each epoch (meters, m/s).
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     epochs = [sat.start_epoch + 300.0 * k for k in range(3)]
+    ///     states = sat.states_bcbf(epochs)
+    ///     ```
+    #[pyo3(text_signature = "(epochs)")]
+    fn states_bcbf<'py>(
+        &self,
+        py: Python<'py>,
+        epochs: Vec<PyRef<PyEpoch>>,
+    ) -> PyResult<Vec<Bound<'py, PyArray<f64, Ix1>>>> {
+        let epochs: Vec<_> = epochs.iter().map(|e| e.obj).collect();
+        Ok(sp3_states_to_numpy(
+            py,
+            &DOrbitStateProvider::states_bcbf(&self.inner, &epochs)?,
+        ))
+    }
+
+    /// States at several epochs expressed in an arbitrary reference frame.
+    ///
+    /// Args:
+    ///     frame (CelestialFrame): Reference frame to express the states in.
+    ///     epochs (list[Epoch]): Epochs to evaluate.
+    ///
+    /// Returns:
+    ///     list[numpy.ndarray]: State in ``frame`` at each epoch (meters, m/s).
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     bh.initialize_eop()
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     epochs = [sat.start_epoch + 300.0 * k for k in range(3)]
+    ///     states = sat.states_in_frame(bh.CelestialFrame.GCRF, epochs)
+    ///     ```
+    #[pyo3(text_signature = "(frame, epochs)")]
+    fn states_in_frame<'py>(
+        &self,
+        py: Python<'py>,
+        frame: &PyCelestialFrame,
+        epochs: Vec<PyRef<PyEpoch>>,
+    ) -> PyResult<Vec<Bound<'py, PyArray<f64, Ix1>>>> {
+        let epochs: Vec<_> = epochs.iter().map(|e| e.obj).collect();
+        Ok(sp3_states_to_numpy(
+            py,
+            &DOrbitStateProvider::states_in_frame(&self.inner, frame.frame, &epochs)?,
+        ))
+    }
+
+    /// Osculating Keplerian elements at several epochs.
+    ///
+    /// Args:
+    ///     epochs (list[Epoch]): Epochs to evaluate.
+    ///     angle_format (AngleFormat): Angle format of the angular elements.
+    ///
+    /// Returns:
+    ///     list[numpy.ndarray]: Osculating elements [a, e, i, raan, argp, mean_anomaly] at each epoch.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     bh.initialize_eop()
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     epochs = [sat.start_epoch + 300.0 * k for k in range(3)]
+    ///     elements = sat.states_koe_osc(epochs, bh.AngleFormat.DEGREES)
+    ///     ```
+    #[pyo3(text_signature = "(epochs, angle_format)")]
+    fn states_koe_osc<'py>(
+        &self,
+        py: Python<'py>,
+        epochs: Vec<PyRef<PyEpoch>>,
+        angle_format: &PyAngleFormat,
+    ) -> PyResult<Vec<Bound<'py, PyArray<f64, Ix1>>>> {
+        let epochs: Vec<_> = epochs.iter().map(|e| e.obj).collect();
+        Ok(sp3_states_to_numpy(
+            py,
+            &DOrbitStateProvider::states_koe_osc(&self.inner, &epochs, angle_format.value)?,
+        ))
+    }
+
+    /// Mean Keplerian elements at several epochs.
+    ///
+    /// Args:
+    ///     epochs (list[Epoch]): Epochs to evaluate.
+    ///     angle_format (AngleFormat): Angle format of the angular elements.
+    ///
+    /// Returns:
+    ///     list[numpy.ndarray]: Mean elements [a, e, i, raan, argp, mean_anomaly] at each epoch.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     bh.initialize_eop()
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     epochs = [sat.start_epoch + 300.0 * k for k in range(3)]
+    ///     elements = sat.states_koe_mean(epochs, bh.AngleFormat.DEGREES)
+    ///     ```
+    #[pyo3(text_signature = "(epochs, angle_format)")]
+    fn states_koe_mean<'py>(
+        &self,
+        py: Python<'py>,
+        epochs: Vec<PyRef<PyEpoch>>,
+        angle_format: &PyAngleFormat,
+    ) -> PyResult<Vec<Bound<'py, PyArray<f64, Ix1>>>> {
+        let epochs: Vec<_> = epochs.iter().map(|e| e.obj).collect();
+        Ok(sp3_states_to_numpy(
+            py,
+            &DOrbitStateProvider::states_koe_mean(&self.inner, &epochs, angle_format.value)?,
+        ))
+    }
+
+    /// Get the name.
+    ///
+    /// Returns:
+    ///     str | None: The name; defaults to the satellite identifier, such as ``"G01"``.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     assert sat.get_name() == "G05"
+    ///     ```
+    fn get_name(&self) -> Option<String> {
+        Identifiable::get_name(&self.inner).map(str::to_string)
+    }
+
+    /// Set the name in place.
+    ///
+    /// The trajectories returned afterwards carry the same name.
+    ///
+    /// Args:
+    ///     name (str | None): Name to assign, or None to clear.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     sat.set_name("GPS IIR-M G05")
+    ///     ```
+    fn set_name(&mut self, name: Option<String>) {
+        Identifiable::set_name(&mut self.inner, name.as_deref());
+    }
+
+    /// Set the name and return self (builder pattern).
+    ///
+    /// Args:
+    ///     name (str): Name to assign.
+    ///
+    /// Returns:
+    ///     SP3Satellite: Self with the name set.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     sat = sat.with_name("GPS IIR-M G05")
+    ///     ```
+    fn with_name(mut slf: PyRefMut<'_, Self>, name: String) -> PyRefMut<'_, Self> {
+        Identifiable::set_name(&mut slf.inner, Some(&name));
+        slf
+    }
+
+    /// Get the numeric ID.
+    ///
+    /// Returns:
+    ///     int | None: The numeric ID, or None if not set.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     sat.set_id(5)
+    ///     assert sat.get_id() == 5
+    ///     ```
+    fn get_id(&self) -> Option<u64> {
+        Identifiable::get_id(&self.inner)
+    }
+
+    /// Set the numeric ID in place.
+    ///
+    /// Args:
+    ///     id (int | None): Numeric ID to assign, or None to clear.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     sat.set_id(5)
+    ///     ```
+    fn set_id(&mut self, id: Option<u64>) {
+        Identifiable::set_id(&mut self.inner, id);
+    }
+
+    /// Set the numeric ID and return self (builder pattern).
+    ///
+    /// Args:
+    ///     id (int): Numeric ID to assign.
+    ///
+    /// Returns:
+    ///     SP3Satellite: Self with the ID set.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     sat = sat.with_id(5)
+    ///     ```
+    fn with_id(mut slf: PyRefMut<'_, Self>, id: u64) -> PyRefMut<'_, Self> {
+        Identifiable::set_id(&mut slf.inner, Some(id));
+        slf
+    }
+
+    /// Get the UUID.
+    ///
+    /// Returns:
+    ///     str | None: The UUID as a string, or None if not set.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     sat.generate_uuid()
+    ///     uuid = sat.get_uuid()
+    ///     ```
+    fn get_uuid(&self) -> Option<String> {
+        Identifiable::get_uuid(&self.inner).map(|u| u.to_string())
+    }
+
+    /// Set the UUID and return self (builder pattern).
+    ///
+    /// Args:
+    ///     uuid_str (str): UUID string to assign.
+    ///
+    /// Returns:
+    ///     SP3Satellite: Self with the UUID set.
+    ///
+    /// Raises:
+    ///     ValueError: If ``uuid_str`` is not a valid UUID.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     sat = sat.with_uuid("6ba7b810-9dad-11d1-80b4-00c04fd430c8")
+    ///     ```
+    fn with_uuid(mut slf: PyRefMut<'_, Self>, uuid_str: String) -> PyResult<PyRefMut<'_, Self>> {
+        let uuid = sp3_parse_uuid(Some(uuid_str))?;
+        let (name, id) = (
+            Identifiable::get_name(&slf.inner).map(str::to_string),
+            Identifiable::get_id(&slf.inner),
+        );
+        Identifiable::set_identity(&mut slf.inner, name.as_deref(), uuid, id);
+        Ok(slf)
+    }
+
+    /// Generate a new UUID, set it, and return self (builder pattern).
+    ///
+    /// Returns:
+    ///     SP3Satellite: Self with a new UUID set.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     sat = sat.with_new_uuid()
+    ///     ```
+    fn with_new_uuid(mut slf: PyRefMut<'_, Self>) -> PyRefMut<'_, Self> {
+        Identifiable::generate_uuid(&mut slf.inner);
+        slf
+    }
+
+    /// Generate a new UUID and set it in place.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     sat.generate_uuid()
+    ///     ```
+    fn generate_uuid(&mut self) {
+        Identifiable::generate_uuid(&mut self.inner);
+    }
+
+    /// Set every identity field and return self (builder pattern).
+    ///
+    /// Args:
+    ///     name (str | None): Name to assign.
+    ///     uuid_str (str | None): UUID string to assign.
+    ///     id (int | None): Numeric ID to assign.
+    ///
+    /// Returns:
+    ///     SP3Satellite: Self with the identity set.
+    ///
+    /// Raises:
+    ///     ValueError: If ``uuid_str`` is not a valid UUID.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     sat = sat.with_identity("G05", None, 5)
+    ///     ```
+    fn with_identity(
+        mut slf: PyRefMut<'_, Self>,
+        name: Option<String>,
+        uuid_str: Option<String>,
+        id: Option<u64>,
+    ) -> PyResult<PyRefMut<'_, Self>> {
+        let uuid = sp3_parse_uuid(uuid_str)?;
+        Identifiable::set_identity(&mut slf.inner, name.as_deref(), uuid, id);
+        Ok(slf)
+    }
+
+    /// Set every identity field in place.
+    ///
+    /// Args:
+    ///     name (str | None): Name to assign.
+    ///     uuid_str (str | None): UUID string to assign.
+    ///     id (int | None): Numeric ID to assign.
+    ///
+    /// Raises:
+    ///     ValueError: If ``uuid_str`` is not a valid UUID.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     sat.set_identity("G05", None, 5)
+    ///     ```
+    fn set_identity(
+        &mut self,
+        name: Option<String>,
+        uuid_str: Option<String>,
+        id: Option<u64>,
+    ) -> PyResult<()> {
+        let uuid = sp3_parse_uuid(uuid_str)?;
+        Identifiable::set_identity(&mut self.inner, name.as_deref(), uuid, id);
+        Ok(())
     }
 }

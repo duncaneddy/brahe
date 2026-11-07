@@ -7,7 +7,9 @@ use std::fmt;
 use std::str::FromStr;
 
 use crate::constants::{GPS_ZERO, SECONDS_PER_DAY};
+use crate::datafiles::sp3::interop::{satellite_from_files, satellites_from_files};
 use crate::datafiles::sp3::parse::sp3_error;
+use crate::datafiles::sp3::satellite::{SP3Sample, SP3Satellite};
 use crate::time::{Epoch, TimeSystem, datetime_to_mjd};
 use crate::utils::BraheError;
 
@@ -1524,7 +1526,8 @@ impl SP3 {
     /// Store the record of a satellite at an epoch.
     ///
     /// A record whose position is exactly `[0, 0, 0]` marks the satellite as
-    /// absent and is stored as `None`.
+    /// absent and is stored as `None`. A record with a non-finite position or
+    /// velocity component is rejected and the file is left unchanged.
     ///
     /// # Arguments
     ///
@@ -1534,8 +1537,9 @@ impl SP3 {
     ///
     /// # Returns
     ///
-    /// * `Result<(), BraheError>` - An error if the satellite is not in the file or the
-    ///   epoch index is out of range
+    /// * `Result<(), BraheError>` - An error if the satellite is not in the file, the
+    ///   epoch index is out of range, or the position or velocity has a NaN or infinite
+    ///   component. The last error names the satellite and the epoch.
     ///
     /// # Examples
     ///
@@ -1551,6 +1555,7 @@ impl SP3 {
     /// sp3.set_record(sat, 0, SP3Record::new([2.0e7, 1.0e7, 1.0e7]).with_clock(1e-5)).unwrap();
     /// assert_eq!(sp3.record(sat, 0).unwrap().unwrap().clock, Some(1e-5));
     /// assert!(sp3.set_record(sat, 1, SP3Record::default()).is_err());
+    /// assert!(sp3.set_record(sat, 0, SP3Record::new([f64::NAN, 1.0e7, 1.0e7])).is_err());
     /// ```
     pub fn set_record(
         &mut self,
@@ -1560,11 +1565,150 @@ impl SP3 {
     ) -> Result<(), BraheError> {
         let sat = self.satellite_index(id)?;
         self.check_epoch_index(epoch_index)?;
+        let non_finite = if !record.position.iter().all(|c| c.is_finite()) {
+            Some("position")
+        } else if record
+            .velocity
+            .is_some_and(|v| !v.iter().all(|c| c.is_finite()))
+        {
+            Some("velocity")
+        } else {
+            None
+        };
+        if let Some(what) = non_finite {
+            return Err(sp3_error(&format!(
+                "satellite {} has a non-finite {} at {}",
+                id, what, self.epochs[epoch_index]
+            )));
+        }
         self.records[epoch_index][sat] = if record.position == [0.0; 3] {
             None
         } else {
             Some(record)
         };
+        Ok(())
+    }
+
+    /// Set the clock correction of a satellite at every epoch.
+    ///
+    /// `None` clears the clock at that epoch. Nothing is modified when the call
+    /// fails.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - Satellite identifier
+    /// * `clocks` - One clock correction per epoch of the file. Units: s
+    ///
+    /// # Returns
+    ///
+    /// * `Result<(), BraheError>` - An error if the satellite is not in the file,
+    ///   `clocks` does not hold one value per epoch, or a value is given at an epoch
+    ///   where the satellite has no record
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::datafiles::sp3::{SP3, SP3Record, SP3SatelliteId, SP3WriteOptions};
+    /// use brahe::time::{Epoch, TimeSystem};
+    ///
+    /// let sat: SP3SatelliteId = "G01".parse().unwrap();
+    /// let mut sp3 = SP3::new(vec![sat], 900.0, SP3WriteOptions::default()).unwrap();
+    /// let t0 = Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::GPS);
+    /// sp3.push_epoch(t0).unwrap();
+    /// sp3.push_epoch(t0 + 900.0).unwrap();
+    /// sp3.set_record(sat, 0, SP3Record::new([2.0e7, 1.0e7, 1.0e7])).unwrap();
+    ///
+    /// sp3.set_clocks(sat, &[Some(1e-5), None]).unwrap();
+    /// assert_eq!(sp3.record(sat, 0).unwrap().unwrap().clock, Some(1e-5));
+    /// assert!(sp3.set_clocks(sat, &[Some(1e-5), Some(1e-5)]).is_err());
+    /// ```
+    pub fn set_clocks(
+        &mut self,
+        id: SP3SatelliteId,
+        clocks: &[Option<f64>],
+    ) -> Result<(), BraheError> {
+        self.set_clock_field(id, clocks, "clock", |record, value| record.clock = value)
+    }
+
+    /// Set the clock rate of a satellite at every epoch.
+    ///
+    /// Clock rates are stored on velocity records, so the file must have
+    /// velocity records. `None` clears the rate at that epoch. Nothing is
+    /// modified when the call fails.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - Satellite identifier
+    /// * `rates` - One clock rate per epoch of the file. Units: s/s
+    ///
+    /// # Returns
+    ///
+    /// * `Result<(), BraheError>` - An error if the file has no velocity records, the
+    ///   satellite is not in the file, `rates` does not hold one value per epoch, or a
+    ///   value is given at an epoch where the satellite has no record
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::datafiles::sp3::{SP3, SP3Record, SP3SatelliteId, SP3WriteOptions};
+    /// use brahe::time::{Epoch, TimeSystem};
+    ///
+    /// let sat: SP3SatelliteId = "G01".parse().unwrap();
+    /// let mut sp3 = SP3::new(vec![sat], 900.0, SP3WriteOptions::default()).unwrap();
+    /// let t0 = Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::GPS);
+    /// sp3.push_epoch(t0).unwrap();
+    /// let record = SP3Record::new([2.0e7, 1.0e7, 1.0e7]).with_velocity([0.0, 3000.0, 0.0]);
+    /// sp3.set_record(sat, 0, record).unwrap();
+    ///
+    /// sp3.set_clock_rates(sat, &[Some(1e-12)]).unwrap();
+    /// assert_eq!(sp3.record(sat, 0).unwrap().unwrap().clock_rate, Some(1e-12));
+    /// ```
+    pub fn set_clock_rates(
+        &mut self,
+        id: SP3SatelliteId,
+        rates: &[Option<f64>],
+    ) -> Result<(), BraheError> {
+        if !self.header.has_velocity {
+            return Err(sp3_error(
+                "clock rates are stored on velocity records, but the file has no velocity records",
+            ));
+        }
+        self.set_clock_field(id, rates, "clock rate", |record, value| {
+            record.clock_rate = value
+        })
+    }
+
+    /// Validate `values` against the records of `id` and then apply `assign`
+    /// to each record, so a failing call leaves the file unchanged.
+    fn set_clock_field(
+        &mut self,
+        id: SP3SatelliteId,
+        values: &[Option<f64>],
+        what: &str,
+        assign: impl Fn(&mut SP3Record, Option<f64>),
+    ) -> Result<(), BraheError> {
+        let sat = self.satellite_index(id)?;
+        if values.len() != self.epochs.len() {
+            return Err(sp3_error(&format!(
+                "{} {}s given for {} epochs",
+                values.len(),
+                what,
+                self.epochs.len()
+            )));
+        }
+        for (k, value) in values.iter().enumerate() {
+            if value.is_some() && self.records[k][sat].is_none() {
+                return Err(sp3_error(&format!(
+                    "{} given for satellite {} at {}, where it has no record",
+                    what, id, self.epochs[k]
+                )));
+            }
+        }
+        for (k, value) in values.iter().enumerate() {
+            if let Some(record) = self.records[k][sat].as_mut() {
+                assign(record, *value);
+            }
+        }
         Ok(())
     }
 
@@ -1798,6 +1942,92 @@ impl SP3 {
         let sat = self.satellite_index(id)?;
         self.check_epoch_index(epoch_index)?;
         Ok(self.records[epoch_index][sat].as_ref())
+    }
+
+    /// Extract the valid samples of one satellite.
+    ///
+    /// The result keeps the epochs where the satellite has a record with a
+    /// non-zero position, derives velocities when the file has none, and
+    /// splits the samples into contiguous runs at gaps. See [`SP3Satellite`].
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - Satellite identifier
+    ///
+    /// # Returns
+    ///
+    /// * `Result<SP3Satellite, BraheError>` - The satellite, or an error if it is not in
+    ///   the file or has no valid sample
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::datafiles::sp3::{SP3, SP3Record, SP3SatelliteId, SP3WriteOptions};
+    /// use brahe::time::{Epoch, TimeSystem};
+    ///
+    /// let g01: SP3SatelliteId = "G01".parse().unwrap();
+    /// let g02: SP3SatelliteId = "G02".parse().unwrap();
+    /// let mut sp3 = SP3::new(vec![g01, g02], 900.0, SP3WriteOptions::default()).unwrap();
+    /// let t0 = Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::GPS);
+    /// sp3.push_epoch(t0).unwrap();
+    /// sp3.set_record(g01, 0, SP3Record::new([2.0e7, 1.0e7, 1.0e7])).unwrap();
+    ///
+    /// assert_eq!(sp3.satellite(g01).unwrap().len(), 1);
+    /// assert!(sp3.satellite(g02).is_err());
+    /// ```
+    pub fn satellite(&self, id: SP3SatelliteId) -> Result<SP3Satellite, BraheError> {
+        self.satellite_index(id)?;
+        satellite_from_files(&[self], id)
+    }
+
+    /// Extract every satellite that has at least one valid sample.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<Vec<SP3Satellite>, BraheError>` - Satellites in header order, omitting
+    ///   satellites without a valid sample
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::datafiles::sp3::{SP3, SP3Record, SP3SatelliteId, SP3WriteOptions};
+    /// use brahe::time::{Epoch, TimeSystem};
+    ///
+    /// let g01: SP3SatelliteId = "G01".parse().unwrap();
+    /// let g02: SP3SatelliteId = "G02".parse().unwrap();
+    /// let mut sp3 = SP3::new(vec![g01, g02], 900.0, SP3WriteOptions::default()).unwrap();
+    /// let t0 = Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::GPS);
+    /// sp3.push_epoch(t0).unwrap();
+    /// sp3.set_record(g02, 0, SP3Record::new([2.0e7, 1.0e7, 1.0e7])).unwrap();
+    ///
+    /// let satellites = sp3.satellites().unwrap();
+    /// assert_eq!(satellites.len(), 1);
+    /// assert_eq!(satellites[0].id(), g02);
+    /// ```
+    pub fn satellites(&self) -> Result<Vec<SP3Satellite>, BraheError> {
+        satellites_from_files(&[self], self.satellites.iter().copied())
+    }
+
+    /// Valid samples of a satellite, in epoch order.
+    ///
+    /// Each sample carries the file's epoch interval and whether the file has
+    /// velocity records. A satellite that is not in the file has no samples.
+    pub(crate) fn samples(&self, id: SP3SatelliteId) -> Vec<SP3Sample> {
+        let Some(sat) = self.satellites.iter().position(|s| *s == id) else {
+            return Vec::new();
+        };
+        self.epochs
+            .iter()
+            .zip(&self.records)
+            .filter_map(|(epoch, row)| {
+                row[sat].as_ref().map(|record| SP3Sample {
+                    epoch: *epoch,
+                    record: record.clone(),
+                    interval: self.header.epoch_interval,
+                    has_file_velocity: self.header.has_velocity,
+                })
+            })
+            .collect()
     }
 
     /// Record table indexed by epoch, then by satellite in header order.
@@ -2383,5 +2613,32 @@ mod tests {
             .with_orbit_type(SP3OrbitType::Other("KLM".to_string()))
             .with_agency("");
         assert!(SP3::new(vec![sid("G01")], 900.0, at_width).is_ok());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_SP3_set_record_rejects_non_finite() {
+        let id: SP3SatelliteId = "G01".parse().unwrap();
+        let mut sp3 = SP3::new(vec![id], 900.0, SP3WriteOptions::default()).unwrap();
+        let t0 = Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::GPS);
+        sp3.push_epoch(t0).unwrap();
+        let good = SP3Record::new([2.0e7, 1.0e7, 1.0e7]);
+        sp3.set_record(id, 0, good.clone()).unwrap();
+
+        let bad_records = [
+            ("position", SP3Record::new([f64::NAN, 1.0e7, 1.0e7])),
+            ("position", SP3Record::new([2.0e7, f64::INFINITY, 1.0e7])),
+            (
+                "velocity",
+                good.clone().with_velocity([0.0, f64::NEG_INFINITY, 0.0]),
+            ),
+            ("velocity", good.clone().with_velocity([f64::NAN, 0.0, 0.0])),
+        ];
+        for (what, record) in bad_records {
+            let err = sp3.set_record(id, 0, record).unwrap_err().to_string();
+            assert!(err.contains("G01") && err.contains(what), "{err}");
+            assert!(err.contains(&t0.to_string()), "{err}");
+            assert_eq!(sp3.record(id, 0).unwrap(), Some(&good));
+        }
     }
 }

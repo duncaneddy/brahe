@@ -353,6 +353,27 @@ def test_SP3_set_record_zero_position_is_absent():
     assert sp3.record("G01", 0) is None
 
 
+def test_SP3_set_record_rejects_non_finite():
+    sp3 = SP3(["G01"], 900.0)
+    t0 = gps_t0()
+    sp3.push_epoch(t0)
+    sp3.set_record("G01", 0, SP3Record([2.0e7, 1.0e7, 1.0e7]))
+    bad = [
+        ("position", SP3Record([math.nan, 1.0e7, 1.0e7])),
+        ("position", SP3Record([2.0e7, math.inf, 1.0e7])),
+        ("velocity", SP3Record([2.0e7, 1.0e7, 1.0e7], velocity=[0.0, -math.inf, 0.0])),
+        ("velocity", SP3Record([2.0e7, 1.0e7, 1.0e7], velocity=[math.nan, 0.0, 0.0])),
+    ]
+    for what, record in bad:
+        with pytest.raises(bh.BraheError) as excinfo:
+            sp3.set_record("G01", 0, record)
+        err = str(excinfo.value)
+        assert "G01" in err and what in err and str(t0) in err
+        stored = sp3.record("G01", 0)
+        np.testing.assert_array_equal(stored.position, [2.0e7, 1.0e7, 1.0e7])
+        assert stored.velocity is None
+
+
 def test_SP3_contains_and_satellite_ids():
     sp3 = SP3(["G02", "G01"], 900.0)
     assert sat("G01") in sp3
@@ -2122,8 +2143,8 @@ def test_SP3_to_string_value_errors():
     assert "does not fit" in write_error(sp3)
 
     sp3 = two_satellite_file()
-    sp3.set_record("G02", 0, SP3Record([math.nan, 0.0, 0.0]))
-    assert "does not fit" in write_error(sp3)
+    with pytest.raises(bh.BraheError):
+        sp3.set_record("G02", 0, SP3Record([math.nan, 0.0, 0.0]))
 
     sp3 = two_satellite_file()
     header = sp3.header

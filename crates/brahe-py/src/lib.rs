@@ -1658,6 +1658,11 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PySP3Correlation>()?;
     module.add_class::<PySP3Record>()?;
     module.add_class::<PySP3>()?;
+    module.add_class::<PySP3Satellite>()?;
+    module.add(
+        "SP3_DEFAULT_LAGRANGE_DEGREE",
+        sp3::SP3_DEFAULT_LAGRANGE_DEGREE,
+    )?;
     module.add_class::<PyOMM>()?;
     module.add_class::<PyOPM>()?;
     module.add_class::<PyOPMManeuver>()?;

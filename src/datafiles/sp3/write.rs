@@ -1401,9 +1401,10 @@ mod tests {
         assert!(write_error(&sp3).contains("does not fit"));
 
         let mut sp3 = two_satellite_file(SP3WriteOptions::default());
-        sp3.set_record(sat("G02"), 0, SP3Record::new([f64::NAN, 0.0, 0.0]))
-            .unwrap();
-        assert!(write_error(&sp3).contains("does not fit"));
+        assert!(
+            sp3.set_record(sat("G02"), 0, SP3Record::new([f64::NAN, 0.0, 0.0]))
+                .is_err()
+        );
 
         let mut sp3 = two_satellite_file(SP3WriteOptions::default());
         sp3.header_mut().accuracies[0] = Some(f64::INFINITY);
@@ -1813,6 +1814,32 @@ mod tests {
         let path = dir.path().join("empty.sp3");
         assert!(sp3.to_file(&path).is_err());
         assert!(!path.exists());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_SP3_to_string_rejects_non_finite_state() {
+        let header = SP3::new(vec![sat("G01")], 900.0, SP3WriteOptions::default())
+            .unwrap()
+            .header()
+            .clone();
+        let t0 = gps_t0();
+        let build = |record: SP3Record| {
+            SP3::from_parts(
+                header.clone(),
+                vec![t0],
+                vec![sat("G01")],
+                vec![vec![Some(record)]],
+            )
+        };
+
+        let msg = write_error(&build(SP3Record::new([1.5e7, f64::NAN, 5.0e6])));
+        assert!(msg.contains("NaN does not fit"), "{msg}");
+
+        let msg = write_error(&build(
+            SP3Record::new([1.5e7, 2.0e7, 5.0e6]).with_velocity([f64::INFINITY, 0.0, 0.0]),
+        ));
+        assert!(msg.contains("inf does not fit"), "{msg}");
     }
 
     #[test]

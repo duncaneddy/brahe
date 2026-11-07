@@ -26,7 +26,6 @@ use crate::time::{Epoch, TimeSystem};
 use crate::utils::BraheError;
 
 /// First GPS week for which the archives use long product file names.
-#[allow(dead_code)]
 pub(crate) const IGS_LONG_NAME_FIRST_WEEK: u32 = 2238;
 
 const SECONDS_PER_DAY: f64 = 86400.0;
@@ -934,6 +933,40 @@ fn short_center_and_solution(code: &str) -> (String, IGSSolutionType) {
     (code.to_ascii_uppercase(), IGSSolutionType::Final)
 }
 
+/// Three-letter short-name code under which `center` publishes products of
+/// `solution`.
+///
+/// This is the inverse of [`short_center_and_solution`]: a rapid or
+/// ultra-rapid product uses the center's code from [`SHORT_RAPID_CODES`] or
+/// [`SHORT_ULTRA_CODES`], and every other product uses the lowercased center.
+///
+/// # Arguments
+/// * `center` - Analysis center code, in any case
+/// * `solution` - Solution type of the product
+///
+/// # Returns
+/// * `String`: Lowercase three-letter code, for example `"igr"` for IGS rapid products
+///
+/// # Examples
+///
+/// ```ignore
+/// assert_eq!(short_code("IGS", &IGSSolutionType::Rapid), "igr");
+/// assert_eq!(short_code("cod", &IGSSolutionType::UltraRapid), "cou");
+/// assert_eq!(short_code("COD", &IGSSolutionType::Final), "cod");
+/// ```
+pub(crate) fn short_code(center: &str, solution: &IGSSolutionType) -> String {
+    let table = match solution {
+        IGSSolutionType::Rapid => SHORT_RAPID_CODES,
+        IGSSolutionType::UltraRapid => SHORT_ULTRA_CODES,
+        _ => &[],
+    };
+    table
+        .iter()
+        .find(|(_, c)| c.eq_ignore_ascii_case(center))
+        .map(|(code, _)| code.to_string())
+        .unwrap_or_else(|| center.to_ascii_lowercase())
+}
+
 fn parse_short(
     name: &str,
     stem: &str,
@@ -1462,5 +1495,29 @@ mod tests {
             assert_eq!(IGSFileFormat::parse(code).code(), code);
         }
         assert_eq!(IGSSolutionType::parse("fin"), IGSSolutionType::Final);
+    }
+
+    #[rstest]
+    #[case("IGS", IGSSolutionType::Final, "igs")]
+    #[case("igs", IGSSolutionType::Rapid, "igr")]
+    #[case("IGS", IGSSolutionType::UltraRapid, "igu")]
+    #[case("COD", IGSSolutionType::Final, "cod")]
+    #[case("cod", IGSSolutionType::Rapid, "cor")]
+    #[case("EMR", IGSSolutionType::Rapid, "emp")]
+    #[case("JPL", IGSSolutionType::Rapid, "jpl")]
+    #[case("COD", IGSSolutionType::Predicted, "cod")]
+    #[parallel]
+    fn test_igs_short_code(
+        #[case] center: &str,
+        #[case] solution: IGSSolutionType,
+        #[case] expected: &str,
+    ) {
+        let code = short_code(center, &solution);
+        assert_eq!(code, expected);
+        if expected != "jpl" && solution != IGSSolutionType::Predicted {
+            let (parsed_center, parsed_solution) = short_center_and_solution(&code);
+            assert!(parsed_center.eq_ignore_ascii_case(center));
+            assert_eq!(parsed_solution, solution);
+        }
     }
 }

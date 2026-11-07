@@ -21,7 +21,9 @@ use crate::time::Epoch;
 use crate::trajectories::DOrbitTrajectory;
 use crate::utils::cache::{is_older_than, short_hash};
 use crate::utils::download::{backoff_delay, is_retryable_error};
-use crate::utils::fs::{copy_file, is_within, modified_epoch, move_file, touch};
+use crate::utils::fs::{
+    copy_file, is_within, modified_epoch, move_file, resolve_destination, touch,
+};
 use crate::utils::network::{CacheDecision, cache_policy, ensure_online, parse_http_date};
 use crate::utils::{BraheError, atomic_write, get_starlink_cache_dir};
 
@@ -1128,41 +1130,6 @@ fn cache_file_name(name: &str) -> Result<&str, BraheError> {
             name
         )))
     }
-}
-
-/// Resolves where a downloaded ephemeris file should be copied.
-///
-/// An existing directory, or a path whose last component has no extension,
-/// is treated as a directory (created if missing) and `file_name` is
-/// appended; otherwise `destination` itself is the target file (its parent
-/// directories are created).
-///
-/// # Arguments
-/// * `destination` - Caller-supplied directory or file path
-/// * `file_name` - Name to use when `destination` is a directory
-///
-/// # Returns
-/// * `Ok(PathBuf)`: The file path to write
-/// * `Err(BraheError)`: If a directory cannot be created
-fn resolve_destination(destination: &Path, file_name: &str) -> Result<PathBuf, BraheError> {
-    let is_directory =
-        destination.is_dir() || (!destination.exists() && destination.extension().is_none());
-    let target = if is_directory {
-        fs::create_dir_all(destination).map_err(|e| {
-            BraheError::IoError(format!("Failed to create {}: {}", destination.display(), e))
-        })?;
-        destination.join(file_name)
-    } else {
-        if let Some(parent) = destination.parent()
-            && !parent.as_os_str().is_empty()
-        {
-            fs::create_dir_all(parent).map_err(|e| {
-                BraheError::IoError(format!("Failed to create {}: {}", parent.display(), e))
-            })?;
-        }
-        destination.to_path_buf()
-    };
-    Ok(target)
 }
 
 /// The current instant, rounded to whatever precision the manifest sidecar's

@@ -21,3 +21,12 @@ def test_get_starlink_cache_dir(monkeypatch, tmp_path):
     assert path == tmp_path / "starlink"
     assert path.is_dir()
     assert bh.utils.get_starlink_cache_dir() == str(path)
+
+
+def test_get_igs_cache_dir(monkeypatch, tmp_path):
+    """Rust: test_get_igs_cache_dir"""
+    monkeypatch.setenv("BRAHE_CACHE", str(tmp_path))
+    path = Path(bh.get_igs_cache_dir())
+    assert path == tmp_path / "igs"
+    assert path.is_dir()
+    assert bh.utils.get_igs_cache_dir() == str(path)

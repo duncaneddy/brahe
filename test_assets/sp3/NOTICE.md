@@ -44,6 +44,14 @@ Files derived from IGS products:
   IGS data center at http://garner.ucsd.edu/pub/products/2340/. The
   satellite count, satellite list, accuracy codes, and epoch count in the
   header were rewritten for the subset; every other line kept is unchanged.
+- `IGS0OPSFIN_20243150000_01D_15M_ORB_subset.SP3.gz`: the first 8 epochs
+  (2 hours) of satellites G02, G03, G04, and G05 from the IGS final
+  combined orbit product `IGS0OPSFIN_20243150000_01D_15M_ORB.SP3.gz`,
+  as distributed by the IGS data center at
+  http://garner.ucsd.edu/pub/products/2340/. The satellite count, satellite
+  list, accuracy codes, and epoch count in the header were rewritten for the
+  subset; every other line kept is unchanged. The result is recompressed
+  with `gzip -9`.
 
 ## Data credits
 
@@ -54,6 +62,6 @@ files), the International Laser Ranging Service (ILRS) and its analysis
 centers (`nsgf.*`, `truncated-nsgf.*`, `issue895-*`, `issue1014-*` files),
 and the Center for Orbit Determination in Europe (CODE) at the Astronomical
 Institute of the University of Bern (AIUB) (`COD0*` files; product DOI
-10.48350/197025).
+10.48350/197025), and the IGS combination of analysis center solutions (`IGS0*` files).
 The `example-*` files reproduce the examples of the SP3 format
 specifications published by the IGS and the U.S. National Geodetic Survey.

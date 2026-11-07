@@ -366,3 +366,20 @@ def test_covariance_eci_to_rtn_inertial_is_pure_rotation(eop):
 
     p_rot = brahe.covariance_eci_to_rtn(x, p, brahe.OrbitRelativeFrameVariant.ROTATING)
     assert np.linalg.norm(p_rot - p) > 1e-6
+
+
+def test_batch_rtn_rates_match_scalar(eop):
+    """Rust: test_batch_rtn_rates_match_scalar"""
+    states = np.array(
+        [
+            brahe.state_koe_to_eci(
+                np.array([brahe.R_EARTH + 700e3, 0.01, 97.8, 15.0, 30.0, 45.0 + i]),
+                brahe.AngleFormat.DEGREES,
+            )
+            for i in range(3)
+        ]
+    )
+
+    omegas = brahe.omega_rtn(states)
+    for i in range(3):
+        np.testing.assert_array_equal(omegas[i], brahe.omega_rtn(states[i]))

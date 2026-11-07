@@ -37,6 +37,7 @@ from brahe import (
     clients,
     constants,
     coordinates,
+    datafiles,
     datasets,
     eop,
     estimation,
@@ -65,6 +66,7 @@ from brahe.access import *
 from brahe.attitude import *
 from brahe.constants import *
 from brahe.coordinates import *
+from brahe.datafiles import *
 from brahe.datasets import *
 from brahe.eop import *
 from brahe.estimation import *
@@ -98,6 +100,7 @@ __all__ = [
     "clients",
     "constants",
     "coordinates",
+    "datafiles",
     "datasets",
     "eop",
     "estimation",
@@ -138,6 +141,7 @@ __all__.extend(relative_motion.__all__)
 __all__.extend(math.__all__)
 __all__.extend(integrators.__all__)
 __all__.extend(utils.__all__)
+__all__.extend(datafiles.__all__)
 __all__.extend(datasets.__all__)
 __all__.extend(orbit_dynamics.__all__)
 __all__.extend(events.__all__)

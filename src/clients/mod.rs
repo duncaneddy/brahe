@@ -8,6 +8,7 @@
  * - [`spacetrack`] - Space-Track.org authenticated queries, CDMs and file shares
  * - [`gcat`] - Jonathan McDowell's GCAT SATCAT and PSATCAT catalogs
  * - [`starlink`] - Starlink public ephemeris mirror
+ * - [`igs`] - IGS precise orbit, clock and Earth-rotation product file names
  *
  * [`rate_limiter`] provides the sliding-window request limiter shared by the
  * clients that expose a configurable request rate.
@@ -18,6 +19,7 @@
 
 pub mod celestrak;
 pub mod gcat;
+pub mod igs;
 pub mod rate_limiter;
 pub mod spacetrack;
 pub mod starlink;

@@ -1377,6 +1377,14 @@ impl TryFrom<&ADMReferenceFrame> for ReferenceFrame {
             }
             ADMReferenceFrame::OrbitRelative(orbit_relative) => {
                 let (kind, variant) = match orbit_relative {
+                    CCSDSOrbitRelativeFrame::ENZInertial => (
+                        OrbitRelativeFrameKind::ENZ,
+                        OrbitRelativeFrameVariant::Inertial,
+                    ),
+                    CCSDSOrbitRelativeFrame::ENZRotating => (
+                        OrbitRelativeFrameKind::ENZ,
+                        OrbitRelativeFrameVariant::Rotating,
+                    ),
                     CCSDSOrbitRelativeFrame::EQWInertial => (
                         OrbitRelativeFrameKind::EQW,
                         OrbitRelativeFrameVariant::Inertial,
@@ -1449,7 +1457,7 @@ impl TryFrom<&ADMReferenceFrame> for ReferenceFrame {
                         )));
                     }
                 };
-                // All 16 CCSDS orbit-relative frames map to a valid native
+                // All 18 CCSDS orbit-relative frames map to a valid native
                 // combination (EQW/PQW only ever produce `Inertial` above).
                 Ok(ReferenceFrame::orbit_relative(kind, variant, None).expect(
                     "CCSDS orbit-relative frame registry never pairs EQW/PQW with Rotating",
@@ -1541,6 +1549,8 @@ impl TryFrom<&ReferenceFrame> for ADMReferenceFrame {
                 use OrbitRelativeFrameKind as K;
                 use OrbitRelativeFrameVariant as V;
                 let ccsds = match (kind, variant) {
+                    (K::ENZ, V::Inertial) => CCSDSOrbitRelativeFrame::ENZInertial,
+                    (K::ENZ, V::Rotating) => CCSDSOrbitRelativeFrame::ENZRotating,
                     (K::EQW, V::Inertial) => CCSDSOrbitRelativeFrame::EQWInertial,
                     (K::LVLH, V::Inertial) => CCSDSOrbitRelativeFrame::LVLHInertial,
                     (K::LVLH, V::Rotating) => CCSDSOrbitRelativeFrame::LVLHRotating,
@@ -2581,6 +2591,16 @@ mod tests {
     fn test_adm_orbit_relative_frame_to_reference_frame_all_kinds() {
         let cases = [
             (
+                CCSDSOrbitRelativeFrame::ENZInertial,
+                OrbitRelativeFrameKind::ENZ,
+                OrbitRelativeFrameVariant::Inertial,
+            ),
+            (
+                CCSDSOrbitRelativeFrame::ENZRotating,
+                OrbitRelativeFrameKind::ENZ,
+                OrbitRelativeFrameVariant::Rotating,
+            ),
+            (
                 CCSDSOrbitRelativeFrame::EQWInertial,
                 OrbitRelativeFrameKind::EQW,
                 OrbitRelativeFrameVariant::Inertial,
@@ -2677,6 +2697,16 @@ mod tests {
     #[parallel]
     fn test_reference_orbit_relative_frame_to_adm_frame_all_kinds() {
         let cases = [
+            (
+                OrbitRelativeFrameKind::ENZ,
+                OrbitRelativeFrameVariant::Inertial,
+                CCSDSOrbitRelativeFrame::ENZInertial,
+            ),
+            (
+                OrbitRelativeFrameKind::ENZ,
+                OrbitRelativeFrameVariant::Rotating,
+                CCSDSOrbitRelativeFrame::ENZRotating,
+            ),
             (
                 OrbitRelativeFrameKind::EQW,
                 OrbitRelativeFrameVariant::Inertial,

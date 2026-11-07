@@ -1248,6 +1248,11 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_omega_sez, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_ecef_to_sez, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_sez_to_ecef, module)?)?;
+    module.add_function(wrap_pyfunction!(py_rotation_ecef_to_enz, module)?)?;
+    module.add_function(wrap_pyfunction!(py_rotation_enz_to_ecef, module)?)?;
+    module.add_function(wrap_pyfunction!(py_omega_enz, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_ecef_to_enz, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_enz_to_ecef, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_oe_to_roe, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_roe_to_oe, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_eci_to_roe, module)?)?;

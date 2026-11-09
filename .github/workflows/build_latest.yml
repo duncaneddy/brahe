@@ -43,7 +43,7 @@ jobs:
       # platform here would cost a sizable share of the repository's cache
       # budget for a workflow that gates nothing.
       - name: Set up Rust
-        uses: actions-rust-lang/setup-rust-toolchain@v2.0.0
+        uses: actions-rust-lang/setup-rust-toolchain@v2.0.1
         with:
           toolchain: ${{ matrix.rust-toolchain }}
           cache: false
@@ -89,7 +89,7 @@ jobs:
       # No cargo cache: the sdist build compiles nothing in the workspace's
       # target directory, so an entry here would hold only the registry.
       - name: Set up Rust
-        uses: actions-rust-lang/setup-rust-toolchain@v2.0.0
+        uses: actions-rust-lang/setup-rust-toolchain@v2.0.1
         with:
           toolchain: ${{ env.RUST_TOOLCHAIN }}
           cache: false

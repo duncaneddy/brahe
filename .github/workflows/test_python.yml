@@ -49,7 +49,7 @@ jobs:
             # would duplicate that cache and push the repository past its
             # cache budget.
             -   name: Set up Rust toolchain
-                uses: actions-rust-lang/setup-rust-toolchain@v2.0.0
+                uses: actions-rust-lang/setup-rust-toolchain@v2.0.1
                 with:
                     toolchain: ${{ matrix.rust-toolchain }}
                     cache-shared-key: test-rust

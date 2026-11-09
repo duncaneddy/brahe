@@ -128,7 +128,7 @@ jobs:
     # cache saved under a tag is restorable only by later runs of that same
     # tag while still counting against the repository's cache budget.
     - name: Set up Rust
-      uses: actions-rust-lang/setup-rust-toolchain@v2.0.0
+      uses: actions-rust-lang/setup-rust-toolchain@v2.0.1
       with:
         toolchain: ${{ env.RUST_TOOLCHAIN }}
         cache: false
@@ -187,7 +187,7 @@ jobs:
         path: brahe/
 
     - name: Set up Rust
-      uses: actions-rust-lang/setup-rust-toolchain@v2.0.0
+      uses: actions-rust-lang/setup-rust-toolchain@v2.0.1
       with:
         toolchain: ${{ matrix.rust-toolchain }}
         cache: false
@@ -244,7 +244,7 @@ jobs:
         path: brahe/
 
     - name: Set up Rust
-      uses: actions-rust-lang/setup-rust-toolchain@v2.0.0
+      uses: actions-rust-lang/setup-rust-toolchain@v2.0.1
       with:
         toolchain: ${{ matrix.rust-toolchain }}
         cache: false
@@ -309,7 +309,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7.0.1
       - name: Set up Rust toolchain
-        uses: actions-rust-lang/setup-rust-toolchain@v2.0.0
+        uses: actions-rust-lang/setup-rust-toolchain@v2.0.1
         with:
           toolchain: ${{ env.RUST_TOOLCHAIN }}
           cache: false

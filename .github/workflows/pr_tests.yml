@@ -111,7 +111,7 @@ jobs:
       # portion of the cache is reused; a saved entry of this job's own would
       # hold nothing more.
       - name: Set up Rust toolchain
-        uses: actions-rust-lang/setup-rust-toolchain@v2.0.0
+        uses: actions-rust-lang/setup-rust-toolchain@v2.0.1
         with:
           toolchain: ${{ env.RUST_TOOLCHAIN }}
           cache-shared-key: test-examples
@@ -153,7 +153,7 @@ jobs:
       # Restore-only against test_examples.yml's Linux cache, whose dev-profile
       # workspace build covers the wheel this job builds.
       - name: Set up Rust toolchain
-        uses: actions-rust-lang/setup-rust-toolchain@v2.0.0
+        uses: actions-rust-lang/setup-rust-toolchain@v2.0.1
         with:
           toolchain: ${{ env.RUST_TOOLCHAIN }}
           cache-shared-key: test-examples
@@ -197,7 +197,7 @@ jobs:
       # dependency build behind the editable extension install this job
       # repeats. update_docs.yml and docs_only.yml restore the same entry.
       - name: Set up Rust toolchain
-        uses: actions-rust-lang/setup-rust-toolchain@v2.0.0
+        uses: actions-rust-lang/setup-rust-toolchain@v2.0.1
         with:
           toolchain: ${{ env.RUST_TOOLCHAIN }}
           cache-shared-key: test-examples

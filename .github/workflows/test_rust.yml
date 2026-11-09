@@ -41,7 +41,7 @@ jobs:
             # variable into the key, so a job can share this key only if it
             # exports the same set.
             -   name: Set up Rust toolchain with cache
-                uses: actions-rust-lang/setup-rust-toolchain@v2.0.0
+                uses: actions-rust-lang/setup-rust-toolchain@v2.0.1
                 with:
                     toolchain: ${{ matrix.rust-toolchain }}
                     cache-shared-key: test-rust
@@ -136,7 +136,7 @@ jobs:
             # precedence over `rustup default`, so every cargo call below
             # selects the nightly toolchain explicitly with `+toolchain`.
             -   name: Set up nightly Rust toolchain
-                uses: actions-rust-lang/setup-rust-toolchain@v2.0.0
+                uses: actions-rust-lang/setup-rust-toolchain@v2.0.1
                 with:
                     toolchain: nightly
                     components: llvm-tools-preview
@@ -184,7 +184,7 @@ jobs:
             # build the same dependency set, so a second saved entry per OS
             # would only duplicate it.
             -   name: Set up Rust toolchain with cache
-                uses: actions-rust-lang/setup-rust-toolchain@v2.0.0
+                uses: actions-rust-lang/setup-rust-toolchain@v2.0.1
                 with:
                     toolchain: ${{ matrix.rust-toolchain }}
                     cache-shared-key: test-rust

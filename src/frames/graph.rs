@@ -467,24 +467,30 @@ fn resolve_orbit_relative(
     let (declared, x) = object_state(object, epc)?;
     let root = icrf_aligned_inertial(declared);
     let x_root = state_frame_to_frame(declared, root, epc, x)?;
+    let gm = || {
+        body_gm(root.center().naif_id()).map_err(|e| {
+            BraheError::Error(format!(
+                "orbit-relative kind {kind} needs the gravitational parameter of {object}'s \
+                 declared center: {e}"
+            ))
+        })
+    };
+    // The inertial variant has zero rate, so only the rotating variant
+    // needs the gravitational parameter.
+    let velocity_frame_rate =
+        |omega_for_body: fn(SVector6, f64) -> Vector3<f64>| -> Result<Vector3<f64>, BraheError> {
+            match variant {
+                OrbitRelativeFrameVariant::Rotating => Ok(omega_for_body(x_root, gm()?)),
+                OrbitRelativeFrameVariant::Inertial => Ok(Vector3::zeros()),
+            }
+        };
     let (dcm, omega) = match kind {
         OrbitRelativeFrameKind::RTN => (rotation_eci_to_rtn(x_root), omega_rtn(x_root)),
         OrbitRelativeFrameKind::LVLH => (rotation_eci_to_lvlh(x_root), omega_lvlh(x_root)),
-        OrbitRelativeFrameKind::NTW => {
-            let omega = match variant {
-                OrbitRelativeFrameVariant::Rotating => {
-                    let gm = body_gm(root.center().naif_id()).map_err(|e| {
-                        BraheError::Error(format!(
-                            "orbit-relative kind NTW needs the gravitational parameter of \
-                             {object}'s declared center for its rotating rate: {e}"
-                        ))
-                    })?;
-                    omega_ntw_for_body(x_root, gm)
-                }
-                OrbitRelativeFrameVariant::Inertial => Vector3::zeros(),
-            };
-            (rotation_eci_to_ntw(x_root), omega)
-        }
+        OrbitRelativeFrameKind::NTW => (
+            rotation_eci_to_ntw(x_root),
+            velocity_frame_rate(omega_ntw_for_body)?,
+        ),
         _ => {
             return Err(BraheError::Error(format!(
                 "orbit-relative kind {kind} does not yet have an axes derivation (tracked in \

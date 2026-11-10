@@ -16,6 +16,9 @@ on:
         - cron: "0 6 * * 1"
     workflow_dispatch:
 
+env:
+    PYTHON_VERSION: "3.15"
+
 jobs:
     warm-cache:
         runs-on: ubuntu-latest
@@ -31,19 +34,19 @@ jobs:
             # Restore-only against test_rust.yml's Linux cache for its
             # registry; this weekly job should not save an entry of its own.
             -   name: Set up Rust toolchain
-                uses: actions-rust-lang/setup-rust-toolchain@v2.0.0
+                uses: actions-rust-lang/setup-rust-toolchain@v2.0.1
                 with:
                     toolchain: stable
                     cache-shared-key: test-rust
                     cache-save-if: false
 
             -   name: Install the latest version of uv
-                uses: astral-sh/setup-uv@v10.2.0
+                uses: astral-sh/setup-uv@v10.3.3
                 with:
                     enable-cache: true
 
-            -   name: Install Python 3.14
-                run: uv python install 3.14
+            -   name: Install Python ${{ env.PYTHON_VERSION }}
+                run: uv python install ${{ env.PYTHON_VERSION }}
 
             -   name: Install dependencies
                 run: uv sync --all-extras --frozen --no-install-project

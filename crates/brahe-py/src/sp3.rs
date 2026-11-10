@@ -2250,8 +2250,7 @@ impl PySP3 {
     /// Extract one satellite.
     ///
     /// The result keeps the epochs where the satellite has a record with a
-    /// non-zero position, derives velocities when the file has none, and
-    /// splits the samples into contiguous runs at gaps.
+    /// non-zero position.
     ///
     /// Args:
     ///     satellite (str | SP3SatelliteId): Satellite.
@@ -2407,30 +2406,23 @@ fn sp3_parse_uuid(uuid_str: Option<String>) -> PyResult<Option<uuid::Uuid>> {
 
 /// Orbit and clock samples of one satellite from SP3 data.
 ///
-/// Only epochs where the satellite has a valid position are kept; every data
-/// accessor returns one entry per sample, aligned with ``epochs()``.
-/// Positions and velocities are in the file's Earth-fixed frame (ITRF), in m
-/// and m/s.
+/// Only epochs where the satellite has a valid position are kept, and
+/// ``records()`` holds one ``SP3Record`` per epoch of ``epochs()``. Positions
+/// and velocities are in the file's Earth-fixed frame (ITRF), in m and m/s.
 ///
-/// Velocities come from the file when every sample has one. Otherwise each
-/// sample's velocity is the derivative of a Lagrange polynomial of degree
-/// ``SP3_DEFAULT_LAGRANGE_DEGREE`` fitted through neighboring samples of the
-/// same contiguous run, as centered on the sample as the run allows. A sample
-/// that forms a run on its own has no derived velocity and reports NaN.
-///
-/// Two consecutive samples spaced more than 1.5 times the larger of their
-/// epoch intervals apart start a new run, so the satellite has a gap between
-/// them. Each run of at least two samples becomes one ITRF ``OrbitTrajectory``
-/// named after the satellite.
+/// Two consecutive samples more than 1.5 epoch intervals apart belong to
+/// different runs, and the satellite has a gap between them.
 ///
 /// The satellite is an orbit state provider with the same ``state_*`` and
-/// ``states_*`` methods as ``OrbitTrajectory``, and is named after its
-/// identifier (such as ``"G01"``), so it can be passed to
-/// ``location_accesses`` directly. States are interpolated in ITRF from the
-/// run containing the requested epoch, both ends of a run included, and
-/// converted to other frames on request. A request before the first sample,
-/// after the last sample, inside a gap, or at a sample that forms a run on
-/// its own raises ``BraheError`` naming the satellite.
+/// ``states_*`` methods as ``OrbitTrajectory``, named after its identifier
+/// (such as ``"G01"``), so it can be passed to ``location_accesses``. A state
+/// is interpolated in ITRF with a Lagrange polynomial of degree
+/// ``SP3_DEFAULT_LAGRANGE_DEGREE`` through the samples of the run around the
+/// requested epoch, as centered as the run allows; a shorter run uses all its
+/// samples. The velocity is interpolated from the records when every sample
+/// of the fit has one, and is the derivative of the position polynomial
+/// otherwise. A request outside the samples, inside a gap, or at a sample
+/// that forms a run on its own raises ``BraheError``.
 ///
 /// Example:
 ///     ```python
@@ -2445,9 +2437,10 @@ fn sp3_parse_uuid(uuid_str: Option<String>) -> PyResult<Option<uuid::Uuid>> {
 ///
 ///     sat = sp3.satellite("G01")
 ///     assert len(sat) == 4
-///     assert abs(sat.velocities()[0, 0] - 1.0) < 1e-9
 ///     assert sat.get_name() == "G01"
-///     state = sat.state_itrf(t0 + 900.0)
+///     state = sat.state_itrf(t0 + 450.0)
+///     assert abs(state[3] - 1.0) < 1e-9
+///     assert len(sat.to_trajectories()) == 1
 ///     ```
 #[pyclass(module = "brahe._brahe")]
 #[pyo3(name = "SP3Satellite")]
@@ -2460,34 +2453,23 @@ pub struct PySP3Satellite {
 impl PySP3Satellite {
     /// Chain every satellite across several SP3 files.
     ///
-    /// The files are sorted by start epoch, then by end epoch, so they may be
-    /// passed in any order; files without epochs are ignored. For each
-    /// satellite in the union of the files' satellite lists, the valid
-    /// samples of every file are joined in time order before velocities are
-    /// derived, so samples next to a file boundary get centered fits. Epochs
-    /// compare as absolute instants, so files in different time systems
-    /// chain when their boundary epochs satisfy the spacing rule below.
-    ///
-    /// Two consecutive files may share their boundary epoch; epochs within
-    /// 1 ms of each other, the tolerance of the epoch grid, are the same
-    /// boundary epoch. The later file's sample is kept there when it is
-    /// valid, and the earlier file's otherwise. Boundary epochs that do not
-    /// coincide must be at least half the epoch interval apart: consecutive
-    /// samples closer than half the smaller of their two intervals are
-    /// rejected. A GPS-time file ending at 00:00 GPS chained to a UTC-time file
-    /// starting at 00:00 UTC, 18 s apart at a 900 s interval, is an error. A
-    /// file that lacks a satellite contributes no samples, which leaves a gap in that satellite.
-    /// Velocities come from the files only when every sample comes from a
-    /// file with velocity records.
+    /// The files are sorted by start epoch, so they may be passed in any
+    /// order, and files without epochs are ignored. Each satellite in the
+    /// union of the files' satellite lists collects its valid samples from
+    /// every file that contains it; a file that lacks a satellite leaves a
+    /// gap in it. Two consecutive files may share their boundary epoch, where
+    /// the later file's sample is kept. The files must have the same epoch
+    /// interval. Time systems, agencies, coordinate system labels, and orbit
+    /// types need not match.
     ///
     /// Args:
     ///     files (list[SP3]): SP3 files covering consecutive, non-overlapping spans.
     ///
     /// Returns:
-    ///     list[SP3Satellite]: One satellite for each identifier with at least one valid sample, in ascending identifier order (GPS, GLONASS, Galileo, BeiDou, QZSS, IRNSS, SBAS, LEO, then by number).
+    ///     list[SP3Satellite]: One satellite for each identifier with at least one valid sample, in ascending identifier order.
     ///
     /// Raises:
-    ///     BraheError: If two files overlap by more than a shared boundary epoch; the message names the agency and span of both. Also raised when two consecutive samples are closer than half the smaller of their epoch intervals.
+    ///     BraheError: If the files have different epoch intervals, two files overlap by more than a shared boundary epoch, or two consecutive samples are closer than half the epoch interval.
     ///
     /// Example:
     ///     ```python
@@ -2498,7 +2480,7 @@ impl PySP3Satellite {
     ///         bh.SP3.from_file("test_assets/sp3/gbm19500_after_drop.sp3"),
     ///     ]
     ///     sats = bh.SP3Satellite.from_files(files)
-    ///     print(len(sats), sats[0].id, sats[0].segments())
+    ///     print(len(sats), sats[0].id, len(sats[0]))
     ///     ```
     #[staticmethod]
     fn from_files(files: Vec<PySP3>) -> PyResult<Vec<PySP3Satellite>> {
@@ -2560,10 +2542,9 @@ impl PySP3Satellite {
 
     fn __repr__(&self) -> String {
         format!(
-            "SP3Satellite(id={}, samples={}, segments={})",
+            "SP3Satellite(id={}, samples={})",
             self.inner.id(),
-            self.inner.len(),
-            self.inner.segments().len()
+            self.inner.len()
         )
     }
 
@@ -2603,42 +2584,6 @@ impl PySP3Satellite {
         sp3_vectors_to_numpy(py, &self.inner.positions())
     }
 
-    /// Velocities of the valid samples.
-    ///
-    /// The values come from the file when every sample has a file velocity,
-    /// and are derived from the positions otherwise. A derived velocity is
-    /// NaN for a sample that forms a run on its own.
-    ///
-    /// Returns:
-    ///     numpy.ndarray: Array of shape (N, 3) with the ITRF velocity of each sample, meters per second.
-    ///
-    /// Example:
-    ///     ```python
-    ///     import brahe as bh
-    ///
-    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
-    ///     assert sat.velocities().shape == (len(sat), 3)
-    ///     ```
-    fn velocities<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray<f64, Ix2>> {
-        sp3_vectors_to_numpy(py, self.inner.velocities())
-    }
-
-    /// Whether the velocities come from the file.
-    ///
-    /// Returns:
-    ///     bool: True if every sample carries a file velocity, False if the velocities are derived from the positions.
-    ///
-    /// Example:
-    ///     ```python
-    ///     import brahe as bh
-    ///
-    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
-    ///     assert not sat.has_file_velocities()
-    ///     ```
-    fn has_file_velocities(&self) -> bool {
-        self.inner.has_file_velocities()
-    }
-
     /// Clock corrections of the valid samples.
     ///
     /// Returns:
@@ -2676,8 +2621,7 @@ impl PySP3Satellite {
     /// Full file records of the valid samples.
     ///
     /// The records hold the file values unchanged, including standard
-    /// deviations, flags, and correlations; derived velocities are not
-    /// written into them.
+    /// deviations, flags, and correlations.
     ///
     /// Returns:
     ///     list[SP3Record]: A copy of the record of each sample.
@@ -2698,156 +2642,30 @@ impl PySP3Satellite {
             .collect()
     }
 
-    /// Spans of the contiguous runs of samples.
+    /// Convert the samples to ITRF trajectories, one per contiguous run.
     ///
-    /// A run that holds a single sample has equal start and end epochs.
+    /// Each trajectory is a Cartesian ``OrbitTrajectory`` in the ITRF frame
+    /// with the name, ID, and UUID of the satellite and Lagrange
+    /// interpolation of degree ``SP3_DEFAULT_LAGRANGE_DEGREE``, or the run
+    /// length less one for a shorter run. The state at each sample is the one
+    /// the satellite provides at that epoch. A sample that forms a run on its
+    /// own is left out.
     ///
     /// Returns:
-    ///     list[tuple[Epoch, Epoch]]: First and last sample epoch of each run, in time order.
+    ///     list[OrbitTrajectory]: The trajectories in time order; more than one when the satellite has gaps.
     ///
     /// Example:
     ///     ```python
     ///     import brahe as bh
     ///
     ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
-    ///     for start, end in sat.segments():
-    ///         print(start, end)
+    ///     trajectories = sat.to_trajectories()
+    ///     assert len(trajectories) == 1
+    ///     gcrf = trajectories[0].to_gcrf()
     ///     ```
-    fn segments(&self) -> Vec<(PyEpoch, PyEpoch)> {
+    fn to_trajectories(&self) -> PyResult<Vec<PyOrbitalTrajectory>> {
         self.inner
-            .segments()
-            .into_iter()
-            .map(|(start, end)| (PyEpoch { obj: start }, PyEpoch { obj: end }))
-            .collect()
-    }
-
-    /// Whether the samples form more than one contiguous run.
-    ///
-    /// Returns:
-    ///     bool: True if the satellite has at least one gap.
-    ///
-    /// Example:
-    ///     ```python
-    ///     import brahe as bh
-    ///
-    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
-    ///     assert not sat.has_gaps()
-    ///     ```
-    fn has_gaps(&self) -> bool {
-        self.inner.has_gaps()
-    }
-
-    /// Get the interpolation method.
-    ///
-    /// Returns:
-    ///     InterpolationMethod: The method as set, before any per-run Lagrange degree adjustment; defaults to Lagrange of degree ``SP3_DEFAULT_LAGRANGE_DEGREE``.
-    ///
-    /// Example:
-    ///     ```python
-    ///     import brahe as bh
-    ///
-    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
-    ///     method = sat.get_interpolation_method()
-    ///     ```
-    fn get_interpolation_method(&self) -> PyInterpolationMethod {
-        PyInterpolationMethod {
-            method: self.inner.get_interpolation_method(),
-        }
-    }
-
-    /// Set the interpolation method.
-    ///
-    /// The method applies to state queries and to the trajectories returned
-    /// afterwards. For each run's trajectory a Lagrange degree is reduced to
-    /// at most the run length minus one. The fit that derives velocities is
-    /// not affected.
-    ///
-    /// Args:
-    ///     method (InterpolationMethod): Interpolation method.
-    ///
-    /// Example:
-    ///     ```python
-    ///     import brahe as bh
-    ///
-    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
-    ///     sat.set_interpolation_method(bh.InterpolationMethod.HERMITE_CUBIC)
-    ///     ```
-    fn set_interpolation_method(&mut self, method: PyRef<PyInterpolationMethod>) {
-        self.inner.set_interpolation_method(method.method);
-    }
-
-    /// Set the interpolation method and return self (builder pattern).
-    ///
-    /// Args:
-    ///     method (InterpolationMethod): Interpolation method.
-    ///
-    /// Returns:
-    ///     SP3Satellite: Self with the method set.
-    ///
-    /// Example:
-    ///     ```python
-    ///     import brahe as bh
-    ///
-    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
-    ///     sat = sat.with_interpolation_method(bh.InterpolationMethod.lagrange(5))
-    ///     ```
-    fn with_interpolation_method<'a>(
-        mut slf: PyRefMut<'a, Self>,
-        method: PyRef<'_, PyInterpolationMethod>,
-    ) -> PyRefMut<'a, Self> {
-        slf.inner.set_interpolation_method(method.method);
-        slf
-    }
-
-    /// Trajectory over all samples.
-    ///
-    /// The trajectory is a Cartesian ITRF ``OrbitTrajectory`` named after the
-    /// satellite, using the satellite's interpolation method. A Lagrange
-    /// degree is raised to at least 1 and reduced to at most the number of
-    /// samples minus one.
-    ///
-    /// Returns:
-    ///     OrbitTrajectory: The trajectory.
-    ///
-    /// Raises:
-    ///     BraheError: If the satellite has a gap, naming the satellite and each gap and pointing to ``to_trajectory_segments``; or if it has a single sample, naming the satellite and epoch.
-    ///
-    /// Example:
-    ///     ```python
-    ///     import brahe as bh
-    ///
-    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
-    ///     traj = sat.to_trajectory()
-    ///     gcrf = traj.to_gcrf()
-    ///     ```
-    fn to_trajectory(&self) -> PyResult<PyOrbitalTrajectory> {
-        self.inner
-            .to_trajectory()
-            .map(|trajectory| PyOrbitalTrajectory { trajectory })
-            .map_err(sp3_py_err)
-    }
-
-    /// One trajectory per contiguous run of at least two samples.
-    ///
-    /// Each trajectory is a Cartesian ITRF ``OrbitTrajectory`` named after
-    /// the satellite, using the satellite's interpolation method with a
-    /// Lagrange degree raised to at least 1 and reduced to at most the run
-    /// length minus one. Runs of a single sample are omitted.
-    ///
-    /// Returns:
-    ///     list[OrbitTrajectory]: Trajectories in time order.
-    ///
-    /// Example:
-    ///     ```python
-    ///     import brahe as bh
-    ///
-    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
-    ///     segments = sat.to_trajectory_segments()
-    ///     assert len(segments) == 1
-    ///     ```
-    fn to_trajectory_segments(&self) -> PyResult<Vec<PyOrbitalTrajectory>> {
-        self.inner
-            .to_trajectory_segments()
+            .to_trajectories()
             .map(|trajs| {
                 trajs
                     .into_iter()

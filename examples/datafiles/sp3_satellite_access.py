@@ -14,7 +14,7 @@ sp3 = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subse
 # One SP3Satellite per satellite with valid positions, named by its identifier
 satellites = sp3.satellites()
 for sat in satellites:
-    print(f"{sat.get_name()}: {len(sat)} samples, gaps: {sat.has_gaps()}")
+    print(f"{sat.get_name()}: {len(sat)} samples")
 
 station = bh.PointLocation(-105.27, 40.01, 1655.0).with_name("Boulder")
 constraint = bh.ElevationConstraint(min_elevation_deg=10.0)

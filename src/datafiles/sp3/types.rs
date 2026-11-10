@@ -7,9 +7,8 @@ use std::fmt;
 use std::str::FromStr;
 
 use crate::constants::{GPS_ZERO, SECONDS_PER_DAY};
-use crate::datafiles::sp3::interop::{satellite_from_files, satellites_from_files};
 use crate::datafiles::sp3::parse::sp3_error;
-use crate::datafiles::sp3::satellite::{SP3Sample, SP3Satellite};
+use crate::datafiles::sp3::satellite::SP3Satellite;
 use crate::time::{Epoch, TimeSystem, datetime_to_mjd};
 use crate::utils::BraheError;
 
@@ -1733,8 +1732,7 @@ impl SP3 {
     /// Extract the valid samples of one satellite.
     ///
     /// The result keeps the epochs where the satellite has a record with a
-    /// non-zero position, derives velocities when the file has none, and
-    /// splits the samples into contiguous runs at gaps. See [`SP3Satellite`].
+    /// non-zero position. See [`SP3Satellite`].
     ///
     /// # Arguments
     ///
@@ -1763,7 +1761,9 @@ impl SP3 {
     /// ```
     pub fn satellite(&self, id: SP3SatelliteId) -> Result<SP3Satellite, BraheError> {
         self.satellite_index(id)?;
-        satellite_from_files(&[self], id)
+        SP3Satellite::from_ordered_files(&[self], [id])?
+            .pop()
+            .ok_or_else(|| sp3_error(&format!("satellite {} has no valid sample", id)))
     }
 
     /// Extract every satellite that has at least one valid sample.
@@ -1791,28 +1791,19 @@ impl SP3 {
     /// assert_eq!(satellites[0].id(), g02);
     /// ```
     pub fn satellites(&self) -> Result<Vec<SP3Satellite>, BraheError> {
-        satellites_from_files(&[self], self.satellites.iter().copied())
+        SP3Satellite::from_ordered_files(&[self], self.satellites.iter().copied())
     }
 
-    /// Valid samples of a satellite, in epoch order.
-    ///
-    /// Each sample carries the file's epoch interval and whether the file has
-    /// velocity records. A satellite that is not in the file has no samples.
-    pub(crate) fn samples(&self, id: SP3SatelliteId) -> Vec<SP3Sample> {
+    /// Epoch and record of each valid sample of a satellite, in epoch order.
+    /// A satellite that is not in the file has no samples.
+    pub(crate) fn samples(&self, id: SP3SatelliteId) -> Vec<(Epoch, SP3Record)> {
         let Some(sat) = self.satellites.iter().position(|s| *s == id) else {
             return Vec::new();
         };
         self.epochs
             .iter()
             .zip(&self.records)
-            .filter_map(|(epoch, row)| {
-                row[sat].as_ref().map(|record| SP3Sample {
-                    epoch: *epoch,
-                    record: record.clone(),
-                    interval: self.header.epoch_interval,
-                    has_file_velocity: self.header.has_velocity,
-                })
-            })
+            .filter_map(|(epoch, row)| row[sat].clone().map(|record| (*epoch, record)))
             .collect()
     }
 

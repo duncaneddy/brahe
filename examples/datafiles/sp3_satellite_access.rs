@@ -13,12 +13,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // One SP3Satellite per satellite with valid positions, named by its identifier
     let satellites = sp3.satellites()?;
     for sat in &satellites {
-        println!(
-            "{}: {} samples, gaps: {}",
-            sat.get_name().unwrap(),
-            sat.len(),
-            if sat.has_gaps() { "True" } else { "False" }
-        );
+        println!("{}: {} samples", sat.get_name().unwrap(), sat.len());
     }
 
     let (start, end) = (sp3.start_epoch().unwrap(), sp3.end_epoch().unwrap());

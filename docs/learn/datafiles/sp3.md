@@ -154,13 +154,13 @@ The parser does not enforce the comment count, comment length, or satellite coun
 
 ## Per-Satellite Data
 
-`sp3.satellite(id)` extracts one satellite as an `SP3Satellite`, and `sp3.satellites()` extracts every satellite that has at least one valid sample, in header order. A sample is valid when the satellite has a record at that epoch whose position is not the zero position. A missing or bad clock does not invalidate a sample, and neither does a maneuver flag. `satellite(id)` raises an error for a satellite with no valid sample, while `satellites()` leaves such a satellite out.
+`sp3.satellite(id)` extracts one satellite as an `SP3Satellite`, and `sp3.satellites()` extracts every satellite that has at least one valid sample, in header order. A sample is valid when the satellite has a record at that epoch with a non-zero position. `satellite(id)` raises an error for a satellite with no valid sample.
 
-An `SP3Satellite` keeps only the valid samples, and every data accessor returns one entry per sample, aligned with `epochs()`. `positions()` and `velocities()` return the ITRF position in m and velocity in m/s, `clocks()` and `clock_rates()` return seconds and s/s, and `records()` returns the full `SP3Record` of each sample, including standard deviations, flags, and correlations. In Python the position and velocity accessors return $N \times 3$ NumPy arrays and the clock accessors return length-$N$ arrays with `NaN` where the clock is absent. In Rust the clock accessors return `Option<f64>` values. `has_file_velocities()` reports whether the velocities come from the file, which requires a `V` record at every sample.
+An `SP3Satellite` stores the epoch and the `SP3Record` of each valid sample, so the clock values, standard deviations, flags, and correlations of the file stay available. `epochs()` and `records()` return them, and `positions()`, `clocks()`, and `clock_rates()` return one value per sample in m, s, and s/s. In Python the positions are an $N \times 3$ NumPy array and the clock arrays hold `NaN` where the file has no clock. In Rust the clock accessors return `Option<f64>` values.
 
 ### Orbit State Provider
 
-An `SP3Satellite` is an orbit state provider with the same `state_*` and `states_*` methods as an `OrbitTrajectory`, and it is named after its identifier, such as `"G01"`. States are interpolated in ITRF with Lagrange polynomials of degree `SP3_DEFAULT_LAGRANGE_DEGREE` (9, which fits 10 samples) and converted on request, so `state_itrf` returns the interpolated state and `state_gcrf`, `state_eci`, and `state_in_frame` apply the Earth-orientation transforms. In Python `state_in_frame(frame, epoch)` takes a `CelestialFrame`. `set_interpolation_method` changes the interpolation method of the satellite and of the trajectories it returns afterwards. The satellite can be passed to `location_accesses` and to any other function that takes an orbit state provider.
+An `SP3Satellite` is an orbit state provider with the same `state_*` and `states_*` methods as an `OrbitTrajectory`, named after its identifier, such as `"G01"`. It can be passed to `location_accesses` and to any other function that takes an orbit state provider. A state is interpolated in ITRF with a Lagrange polynomial of degree `SP3_DEFAULT_LAGRANGE_DEGREE` (9, which fits 10 samples) through the samples around the requested epoch, and `state_gcrf`, `state_eci`, and `state_in_frame` apply the Earth-orientation transforms. The velocity is interpolated from the velocity records when the samples of the fit have them, and is the derivative of the position polynomial otherwise.
 
 === "Python"
     ``` python
@@ -183,17 +183,17 @@ An `SP3Satellite` is an orbit state provider with the same `state_*` and `states
         --8<-- "./docs/outputs/datafiles/sp3_satellite_access.rs.txt"
         ```
 
-The example computes access windows over a ground station in Boulder for the three satellites of a CODE final orbit file. A request before the first sample, after the last sample, or inside a gap raises an error naming the satellite, so an access search that reaches a gap fails. For a satellite with gaps, search each trajectory from `to_trajectory_segments()` instead.
+The example computes access windows over a ground station in Boulder for the three satellites of a CODE final orbit file.
 
-### Trajectories
+### Gaps and Trajectories
 
-`to_trajectory()` returns the satellite as one `OrbitTrajectory`, and `to_trajectory_segments()` returns one trajectory for each contiguous run of samples. Each trajectory is a six-element Cartesian trajectory in the `ITRF` frame, named after the satellite, with epochs in the time system of the file. Call `to_gcrf()` on a trajectory for an inertial copy. A run needs at least two samples to become a trajectory.
+Two consecutive valid samples more than 1.5 epoch intervals apart belong to different runs, and the satellite has a gap between them. A satellite with zero positions from 10:00 to 10:45 in a 15-minute file has one gap. A state request before the first sample, after the last sample, or inside a gap raises an error naming the satellite, so an access search that reaches a gap fails.
 
-### Velocity Derivation
+`to_trajectories()` converts the samples to `OrbitTrajectory` objects, one for each run of at least two samples. Each is a six-element Cartesian trajectory in the `ITRF` frame, named after the satellite, with Lagrange interpolation of degree 9. For a satellite with gaps, search each trajectory separately. Call `to_gcrf()` on a trajectory for an inertial copy.
 
-When a file has no velocity records, or only some samples have them, the velocity at each sample is derived from the positions. The derivation fits a Lagrange polynomial of degree 9 through the samples of the same contiguous run, centered on the sample as far as the run allows, and takes the analytic derivative at the sample. A run shorter than 10 samples uses the largest degree its length allows, down to a linear fit. A sample that forms a run on its own has no derived velocity and reports `NaN`; it stays in the data accessors, provider calls at its epoch raise an error, and `to_trajectory_segments()` omits it. The fit degree is fixed and does not change with `set_interpolation_method`.
+### Interpolation Accuracy
 
-The accuracy of interpolation and derived velocity depends on the position of the sample in its run. The figures below are for a 900 s GPS orbit at degree 9.
+The figures below are for a 900 s GPS orbit. The last row compares interpolated positions with the withheld 300 s samples of a real file.
 
 | Samples | Position error | Velocity error |
 |---|---|---|
@@ -202,15 +202,11 @@ The accuracy of interpolation and derived velocity depends on the position of th
 | Positions at SP3 file precision, within 4 samples of a run edge | 1.2 cm | $1.4 \times 10^{-4}$ m/s |
 | CODE final orbit subsampled from 300 s to 900 s, interior | 1.4 mm | Not measured |
 
-The last row compares interpolated positions with the withheld 300 s samples of a real file. Within about $\mathrm{degree}/2$ samples of the start or end of a run, the fit is one-sided and both derived velocities and interpolated positions are less accurate than in the interior. The edge applies to a single file and to a chained set alike, so chaining the neighboring days around a span of interest places that span in the interior of the fit.
-
-### Gaps
-
-A gap is a missing sample between the first and last valid sample of a satellite. Two consecutive valid samples more than 1.5 times the larger of their epoch intervals apart belong to different runs. `segments()` returns the `(start, end)` span of each run, and `has_gaps()` is true when there is more than one. A satellite with zero positions from 10:00 to 10:45 in a 15-minute file has one gap, and chaining Monday's and Wednesday's files without Tuesday's leaves every satellite a 24-hour gap. State requests inside a gap raise an error naming the satellite and the gap, and `to_trajectory()` raises the same error and points to `to_trajectory_segments()`, which splits the satellite at each gap.
+Within four samples of the start or end of a run the fit is one-sided and less accurate. Chaining the neighboring days around a span of interest places that span in the interior of the fit.
 
 ## Chaining Files
 
-`SP3Satellite.from_files(files)` builds one `SP3Satellite` per satellite across several `SP3` objects, and returns them in ascending identifier order (GPS, GLONASS, Galileo, BeiDou, QZSS, IRNSS, SBAS, LEO, then by number). The files are sorted by start epoch, so they can be passed in any order, and each satellite in the union of the satellite lists collects its valid samples from every file that contains it. Samples are joined before velocities are derived, so the samples next to a file boundary get centered fits.
+`SP3Satellite.from_files(files)` builds one `SP3Satellite` per satellite across several `SP3` objects and returns them in ascending identifier order. The files are sorted by start epoch, so they can be passed in any order, and each satellite collects its valid samples from every file that contains it. A file that lacks a satellite leaves a gap in that satellite.
 
 === "Python"
     ``` python
@@ -233,11 +229,9 @@ A gap is a missing sample between the first and last valid sample of a satellite
         --8<-- "./docs/outputs/datafiles/sp3_satellites_from_files.rs.txt"
         ```
 
-The example chains three five-minute files. The first two files and the last two files each share a boundary epoch, so every satellite has four samples and one run. Chaining the first file with a file that starts at 00:20 leaves a 15-minute gap and two segments.
+The example chains three five-minute files. The first two files and the last two files each share a boundary epoch, so every satellite has four samples and one run. Chaining the first file with a file that starts at 00:20 leaves a 15-minute gap and two trajectories.
 
-Two consecutive files may share their boundary epoch; two epochs within 1 ms of each other, the tolerance of the epoch grid, are the same boundary epoch. The later file's sample is kept there when it is valid, and the earlier file's sample is kept otherwise; no agreement check is applied, and daily fits from the same center can differ by centimeters at the boundary. Files that overlap by more than a shared boundary epoch raise an error naming the agency and span of both files. Boundary epochs that do not coincide must be at least half the epoch interval apart, because consecutive samples closer than half the smaller of their two intervals are rejected; a GPS-time file ending at 00:00 GPS chained to a UTC-time file starting at 00:00 UTC, 18 s apart at a 900 s interval, raises an error. A file that lacks a satellite contributes no samples, which leaves a gap in that satellite instead of dropping it. Velocities come from the files only when every sample comes from a file with velocity records; if any contributing file lacks them, velocities are derived for every sample of the satellite.
-
-Time systems, coordinate system labels, agencies, orbit types, and epoch intervals do not need to match, because epochs are absolute instants and every label maps to Brahe's single ITRF frame; files in different time systems chain only when their boundary epochs satisfy the spacing rule above. Two caveats follow from this. A change of ITRF realization, such as IGS14 to IGS20, joins the samples as they are, and the boundary can carry a jump of millimeters to centimeters. Mixing analysis centers or solution types, such as a final file followed by a rapid file, produces visible jumps at the file boundary in the same way. `sp3.satellites()` behaves as `SP3Satellite.from_files` applied to the single file.
+The files must have the same epoch interval. Two consecutive files may share their boundary epoch, to within 1 ms, and the later file's sample is kept there when it is valid. Files that overlap by more than a shared boundary epoch raise an error naming the agency and span of both files. Time systems, coordinate system labels, agencies, and orbit types do not need to match, because epochs are absolute instants and every label maps to Brahe's single ITRF frame. No agreement check is applied at a boundary: daily fits from the same center can differ by centimeters there, and a change of ITRF realization or of analysis center adds a jump of its own.
 
 ## Writing a File
 

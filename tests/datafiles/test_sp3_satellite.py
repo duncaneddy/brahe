@@ -124,6 +124,16 @@ def single_satellite(code, interval, samples, include_velocity=False):
     return sp3
 
 
+def spans(sat):
+    """Start and end epoch of each trajectory of a satellite."""
+    return [(t.epochs()[0], t.epochs()[-1]) for t in sat.to_trajectories()]
+
+
+def velocities_of(sat):
+    """ITRF velocity a satellite provides at each of its samples."""
+    return np.array([sat.state_itrf(epoch)[3:] for epoch in sat.epochs()])
+
+
 def quadratic_position(t):
     return [1.0e7 + 100.0 * t + 0.01 * t * t, 2.0e7 - 50.0 * t, 3.0e6 + 0.002 * t * t]
 
@@ -173,23 +183,15 @@ def test_SP3Satellite_gap_split():
     sp3, _ = build_sp3()
     g01 = sp3.satellite("G01")
     assert len(g01) == 93
-    assert g01.has_gaps()
-    assert repr(g01) == "SP3Satellite(id=G01, samples=93, segments=2)"
-    segments = g01.segments()
-    assert segments[0] == (t0(), t0() + 39.0 * 900.0)
-    assert segments[1] == (t0() + 44.0 * 900.0, t0() + 96.0 * 900.0)
-    with pytest.raises(bh.BraheError) as excinfo:
-        g01.to_trajectory()
-    err = str(excinfo.value)
-    assert "G01" in err and "to_trajectory_segments" in err
-    assert str(t0() + 39.0 * 900.0) in err and str(t0() + 44.0 * 900.0) in err
-    segs = g01.to_trajectory_segments()
-    assert len(segs) == 2
-    assert segs[0].get_name() == "G01"
-    assert segs[0].frame == bh.CelestialFrame.ITRF
-    assert len(segs[0]) == 40
-    assert len(segs[1]) == 53
-    assert segs[1].epochs()[0] == t0() + 44.0 * 900.0
+    assert repr(g01) == "SP3Satellite(id=G01, samples=93)"
+    trajectories = g01.to_trajectories()
+    assert len(trajectories) == 2
+    assert trajectories[0].get_name() == "G01"
+    assert trajectories[0].frame == bh.CelestialFrame.ITRF
+    assert len(trajectories[0]) == 40
+    assert trajectories[0].epochs()[39] == t0() + 39.0 * 900.0
+    assert len(trajectories[1]) == 53
+    assert trajectories[1].epochs()[0] == t0() + 44.0 * 900.0
 
 
 def test_SP3Satellite_accessors_skip_invalid_and_keep_bad_clocks():
@@ -199,7 +201,6 @@ def test_SP3Satellite_accessors_skip_invalid_and_keep_bad_clocks():
     assert len(g02) == N_EPOCHS - 1
     n = len(g02.epochs())
     assert g02.positions().shape == (n, 3)
-    assert g02.velocities().shape == (n, 3)
     assert g02.clocks().shape == (n,)
     assert g02.clock_rates().shape == (n,)
     assert len(g02.records()) == n
@@ -207,7 +208,6 @@ def test_SP3Satellite_accessors_skip_invalid_and_keep_bad_clocks():
     assert g02.clocks()[4] == 1.0e-5 + 4.0e-9
     assert np.isnan(g02.clock_rates()).all()
     assert all(e != t0() + 7.0 * 900.0 for e in g02.epochs())
-    assert not g02.has_file_velocities()
     assert g02.start_epoch == t0()
     assert g02.end_epoch == t0() + 96.0 * 900.0
     expected = sp3.record("G02", 8)
@@ -219,26 +219,18 @@ def test_SP3Satellite_single_sample_run():
     sp3, _ = build_sp3()
     g03 = sp3.satellite("G03")
     assert len(g03) == 12
-    assert g03.segments() == [
-        (t0(), t0() + 10.0 * 900.0),
-        (t0() + 20.0 * 900.0, t0() + 20.0 * 900.0),
-    ]
-    assert len(g03.to_trajectory_segments()) == 1
-    with pytest.raises(bh.BraheError, match="G03"):
-        g03.to_trajectory()
-    assert np.isnan(g03.velocities()[11]).all()
-    assert np.isfinite(g03.velocities()[10]).all()
+    trajectories = g03.to_trajectories()
+    assert len(trajectories) == 1
+    assert len(trajectories[0]) == 11
 
 
-def test_SP3Satellite_to_trajectory_single_sample():
+def test_SP3Satellite_to_trajectories_single_sample():
     sat = single_satellite("G07", 900.0, [(0.0, [1.0e7, 2.0e7, 3.0e6])]).satellite(
         "G07"
     )
-    assert not sat.has_gaps()
-    assert sat.segments() == [(t0(), t0())]
-    assert sat.to_trajectory_segments() == []
+    assert sat.to_trajectories() == []
     with pytest.raises(bh.BraheError) as excinfo:
-        sat.to_trajectory()
+        sat.state_itrf(t0())
     err = str(excinfo.value)
     assert "G07" in err and str(t0()) in err
 
@@ -252,45 +244,19 @@ def test_SP3_satellite_without_valid_sample():
     assert [str(s.id) for s in sp3.satellites()] == ["G01", "G02", "G03"]
 
 
-def test_SP3Satellite_InterpolationConfig_propagates_to_trajectories():
+def test_SP3Satellite_to_trajectories_interpolation_method():
     sp3, _ = build_sp3()
-    g01 = sp3.satellite("G01")
     default_method = bh.InterpolationMethod.lagrange(SP3_DEFAULT_LAGRANGE_DEGREE)
-    assert g01.get_interpolation_method() == default_method
-    for traj in g01.to_trajectory_segments():
-        assert traj.get_interpolation_method() == default_method
+    for trajectory in sp3.satellite("G01").to_trajectories():
+        assert trajectory.get_interpolation_method() == default_method
 
-    method = bh.InterpolationMethod.lagrange(5)
-    g01 = g01.with_interpolation_method(method)
-    assert g01.get_interpolation_method() == method
-    for traj in g01.to_trajectory_segments():
-        assert traj.get_interpolation_method() == method
-
-    g02 = sp3.satellite("G02")
-    g02.set_interpolation_method(bh.InterpolationMethod.HERMITE_CUBIC)
-    assert g02.get_interpolation_method() == bh.InterpolationMethod.HERMITE_CUBIC
-    for traj in g02.to_trajectory_segments():
-        assert traj.get_interpolation_method() == bh.InterpolationMethod.HERMITE_CUBIC
-
-
-def test_SP3Satellite_with_interpolation_method_mutates_in_place():
-    sp3, _ = build_sp3()
-    g01 = sp3.satellite("G01")
-    returned = g01.with_interpolation_method(bh.InterpolationMethod.LINEAR)
-    assert returned is g01
-    assert g01.get_interpolation_method() == bh.InterpolationMethod.LINEAR
-
-
-def test_SP3Satellite_short_run_limits_lagrange_degree():
     samples = [(900.0 * k, quadratic_position(900.0 * k)) for k in range(3)]
-    sat = (
-        single_satellite("G08", 900.0, samples)
-        .satellite("G08")
-        .with_interpolation_method(bh.InterpolationMethod.lagrange(7))
-    )
-    assert sat.get_interpolation_method() == bh.InterpolationMethod.lagrange(7)
-    assert sat.to_trajectory().get_interpolation_method() == (
+    sat = single_satellite("G08", 900.0, samples).satellite("G08")
+    assert sat.to_trajectories()[0].get_interpolation_method() == (
         bh.InterpolationMethod.lagrange(2)
+    )
+    np.testing.assert_allclose(
+        sat.state_itrf(t0() + 450.0)[:3], quadratic_position(450.0), rtol=0.0, atol=1e-6
     )
 
 
@@ -299,7 +265,7 @@ def test_SP3Satellite_derived_velocity_matches_propagator():
     g01 = sp3.satellite("G01")
     half = math.ceil(SP3_DEFAULT_LAGRANGE_DEGREE / 2)
     epochs = g01.epochs()
-    velocities = g01.velocities()
+    velocities = velocities_of(g01)
     for start, end in [(0, 40), (40, 93)]:
         for i in range(start + half, end - half):
             truth = propagators[0].state_itrf(epochs[i])
@@ -311,10 +277,9 @@ def test_SP3Satellite_derived_velocity_exact_for_polynomials():
     sat = single_satellite(
         "G09", 300.0, [(t, quadratic_position(t)) for t in offsets]
     ).satellite("G09")
-    assert not sat.has_file_velocities()
-    for i, t in enumerate(offsets):
+    for t in offsets + [150.0, 1777.0, 3599.0]:
         np.testing.assert_allclose(
-            sat.velocities()[i], quadratic_velocity(t), rtol=0.0, atol=1e-6
+            sat.state_itrf(t0() + t)[3:], quadratic_velocity(t), rtol=0.0, atol=1e-6
         )
 
     pair = single_satellite(
@@ -322,8 +287,10 @@ def test_SP3Satellite_derived_velocity_exact_for_polynomials():
         60.0,
         [(0.0, [0.0, 1.0e7, 2.0e7]), (60.0, [600.0, 1.0e7 - 120.0, 2.0e7])],
     ).satellite("G10")
-    for velocity in pair.velocities():
-        np.testing.assert_allclose(velocity, [10.0, -2.0, 0.0], rtol=0.0, atol=1e-9)
+    for t in [0.0, 30.0, 60.0]:
+        np.testing.assert_allclose(
+            pair.state_itrf(t0() + t)[3:], [10.0, -2.0, 0.0], rtol=0.0, atol=1e-9
+        )
 
 
 def test_SP3Satellite_file_velocities():
@@ -341,38 +308,41 @@ def test_SP3Satellite_file_velocities():
         return sp3
 
     sat = file().satellite("G11")
-    assert sat.has_file_velocities()
-    assert np.array_equal(sat.velocities()[2], [1.0, 2.0, 1803.0])
+    assert np.array_equal(sat.state_itrf(t0() + 1800.0)[3:], [1.0, 2.0, 1803.0])
+    assert sat.to_trajectories()[0].states()[2][5] == 1803.0
 
     sat = file(skip_velocity_at=3).satellite("G11")
-    assert not sat.has_file_velocities()
-    for i, epoch in enumerate(sat.epochs()):
+    for epoch in sat.epochs():
         np.testing.assert_allclose(
-            sat.velocities()[i], quadratic_velocity(epoch - t0()), rtol=0.0, atol=1e-6
+            sat.state_itrf(epoch)[3:],
+            quadratic_velocity(epoch - t0()),
+            rtol=0.0,
+            atol=1e-6,
         )
     assert np.array_equal(sat.records()[2].velocity, [1.0, 2.0, 1803.0])
 
 
-def test_SP3Satellite_gap_threshold_uses_larger_interval():
+def test_SP3Satellite_gap_threshold():
     p = [1.0e7, 2.0e7, 3.0e6]
-    files = [
-        single_satellite("G12", 300.0, [(0.0, p), (300.0, p)]),
-        single_satellite("G12", 900.0, [(1200.0, p), (2100.0, p)]),
-        single_satellite("G12", 900.0, [(3500.0, p), (4400.0, p)]),
-    ]
-    sat = find(SP3Satellite.from_files(files), "G12")
-    assert sat.segments() == [
-        (t0(), t0() + 2100.0),
-        (t0() + 3500.0, t0() + 4400.0),
-    ]
-    assert sat.has_gaps()
+    offsets = [0.0, 900.0, 2250.0, 3150.0, 4501.0, 5401.0]
+    sat = SP3Satellite.from_files(
+        [
+            single_satellite("G12", 900.0, [(t, p) for t in offsets[:2]]),
+            single_satellite("G12", 900.0, [(t, p) for t in offsets[2:4]]),
+            single_satellite("G12", 900.0, [(t, p) for t in offsets[4:]]),
+        ]
+    )[0]
+    trajectories = sat.to_trajectories()
+    assert len(trajectories) == 2
+    assert len(trajectories[0]) == 4
+    assert trajectories[1].epochs()[0] == t0() + 4501.0
 
 
 def test_SP3Satellite_DOrbitStateProvider_returns_file_positions_at_run_edges():
     sp3, _ = build_sp3()
     g01 = sp3.satellite("G01")
     positions = g01.positions()
-    velocities = g01.velocities()
+    velocities = velocities_of(g01)
     epochs = g01.epochs()
     for i in [0, 39, 40, len(g01) - 1]:
         state = g01.state_itrf(epochs[i])
@@ -447,19 +417,21 @@ def test_SP3Satellite_DOrbitStateProvider_isolated_sample_errors():
     assert len(g03.state_itrf(t0() + 5.0 * STEP)) == 6
 
 
-def test_SP3Satellite_DOrbitStateProvider_matches_segment_trajectory():
+def test_SP3Satellite_DOrbitStateProvider_matches_trajectories():
     sp3, _ = build_sp3()
     g01 = sp3.satellite("G01")
-    segments = g01.to_trajectory_segments()
+    segments = g01.to_trajectories()
+    # Between samples the satellite differentiates the position fit, while a
+    # trajectory interpolates the sample velocities.
     t = t0() + 10.0 * STEP + 137.0
-    np.testing.assert_allclose(
-        g01.state_eci(t), segments[0].state_eci(t), rtol=0.0, atol=1e-9
-    )
+    satellite, trajectory = g01.state_eci(t), segments[0].state_eci(t)
+    np.testing.assert_allclose(satellite[:3], trajectory[:3], rtol=0.0, atol=1e-9)
+    np.testing.assert_allclose(satellite[3:], trajectory[3:], rtol=0.0, atol=1e-6)
 
     t = t0() + 60.0 * STEP + 11.0
-    np.testing.assert_allclose(
-        g01.state_itrf(t), segments[1].state_itrf(t), rtol=0.0, atol=1e-9
-    )
+    satellite, trajectory = g01.state_itrf(t), segments[1].state_itrf(t)
+    np.testing.assert_allclose(satellite[:3], trajectory[:3], rtol=0.0, atol=1e-9)
+    np.testing.assert_allclose(satellite[3:], trajectory[3:], rtol=0.0, atol=1e-6)
 
     epochs = [t0() + 100.0, t0() + 60.0 * STEP + 11.0]
     for batch, single in [
@@ -484,16 +456,6 @@ def test_SP3Satellite_DOrbitStateProvider_matches_segment_trajectory():
         assert np.array_equal(state, g01.state_koe_mean(epoch, degrees))
 
 
-def test_SP3Satellite_DOrbitStateProvider_follows_interpolation_method():
-    sp3, _ = build_sp3()
-    t = t0() + 10.0 * STEP + 450.0
-    default = sp3.satellite("G01")
-    low = sp3.satellite("G01").with_interpolation_method(
-        bh.InterpolationMethod.lagrange(1)
-    )
-    assert np.linalg.norm(default.state_itrf(t) - low.state_itrf(t)) > 1.0
-
-
 def test_SP3Satellite_Identifiable():
     sp3, _ = build_sp3()
     sat = sp3.satellite("G01")
@@ -512,7 +474,7 @@ def test_SP3Satellite_Identifiable():
 
     renamed = sp3.satellite("G02").with_name("spare")
     assert renamed.get_name() == "spare"
-    for traj in renamed.to_trajectory_segments():
+    for traj in renamed.to_trajectories():
         assert traj.get_name() == "spare"
 
     sat = sp3.satellite("G02").with_new_uuid().with_id(3)
@@ -636,7 +598,7 @@ ACCESS_CALLBACK_SCRIPT = textwrap.dedent(
     callback, provider, path = sys.argv[1:4]
     sp3 = bh.SP3.from_file(path)
     satellites = sp3.satellites()
-    propagators = satellites if provider == "sp3" else [s.to_trajectory() for s in satellites]
+    propagators = satellites if provider == "sp3" else [s.to_trajectories()[0] for s in satellites]
     elevation = bh.ElevationConstraint(min_elevation_deg=10.0)
     if callback == "constraint":
         constraint = AboveHorizon()
@@ -726,7 +688,7 @@ def itrf_errors(sat, propagator):
     """Position interior, position edge (m), velocity interior, and velocity
     edge (m/s) errors of ``sat`` at its default interpolation method."""
     epochs = sat.epochs()
-    velocities = sat.velocities()
+    velocities = velocities_of(sat)
     n = len(epochs)
     half = SP3_DEFAULT_LAGRANGE_DEGREE // 2
     errors = [0.0, 0.0, 0.0, 0.0]
@@ -760,7 +722,7 @@ def test_SP3Satellite_interpolation_accuracy_keplerian():
         assert position_edge <= 2e-2, code
         assert velocity_edge <= 5e-4, code
 
-        gcrf = sat.to_trajectory().to_gcrf()
+        gcrf = sat.to_trajectories()[0].to_gcrf()
         epochs = sat.epochs()
         n = len(epochs)
         for i, epoch in enumerate(epochs):
@@ -903,7 +865,7 @@ def test_SP3Satellite_from_files_shared_boundary_keeps_later():
     assert len(c01) == 3
     p_b = b.record("C01", 0).position
     assert np.array_equal(c01.positions()[1], p_b)
-    assert not c01.has_gaps()
+    assert len(spans(c01)) == 1
 
     p_a = a.record("C01", 1).position
     assert not np.array_equal(p_a, p_b)
@@ -948,13 +910,7 @@ def test_SP3Satellite_from_files_large_gap():
     sats = SP3Satellite.from_files([SP3.from_file(TRUNC), SP3.from_file(LARGE_GAP)])
     g01 = find(sats, "G01")
     assert len(g01) == 4
-    assert g01.has_gaps()
-    assert len(g01.segments()) == 2
-
-    with pytest.raises(bh.BraheError) as excinfo:
-        g01.to_trajectory()
-    assert "G01" in str(excinfo.value) and "gap" in str(excinfo.value)
-    assert len(g01.to_trajectory_segments()) == 2
+    assert len(spans(g01)) == 2
 
     inside_gap = bh.Epoch.from_datetime(2017, 5, 21, 0, 12, 0.0, 0.0, bh.TimeSystem.GPS)
     with pytest.raises(bh.BraheError) as excinfo:
@@ -972,7 +928,7 @@ def test_SP3Satellite_from_files_contiguous():
     for sat in sats:
         assert len(sat) == 4, str(sat.id)
         assert_epoch_lists_equal(sat.epochs(), expected)
-        assert not sat.has_gaps(), str(sat.id)
+        assert len(spans(sat)) == 1, str(sat.id)
 
 
 def test_SP3Satellite_from_files_missing_satellite_gives_gap():
@@ -985,12 +941,12 @@ def test_SP3Satellite_from_files_missing_satellite_gives_gap():
 
     g01 = find(sats, "G01")
     assert len(g01) == 6
-    assert not g01.has_gaps()
+    assert len(spans(g01)) == 1
 
     g02 = find(sats, "G02")
     assert len(g02) == 4
-    assert g02.has_gaps()
-    assert g02.segments() == [(gps(0, 0.0), gps(5, 0.0)), (gps(20, 0.0), gps(25, 0.0))]
+    assert len(spans(g02)) == 2
+    assert spans(g02) == [(gps(0, 0.0), gps(5, 0.0)), (gps(20, 0.0), gps(25, 0.0))]
 
 
 def test_SP3Satellite_from_files_invalid_later_boundary_keeps_earlier():
@@ -1004,7 +960,7 @@ def test_SP3Satellite_from_files_invalid_later_boundary_keeps_earlier():
     g01 = find(SP3Satellite.from_files([first, second]), "G01")
     assert len(g01) == 3
     assert np.array_equal(g01.positions()[1], expected)
-    assert not g01.has_gaps()
+    assert len(spans(g01)) == 1
 
 
 def test_SP3Satellite_from_files_ascending_id_order():
@@ -1050,7 +1006,7 @@ def test_SP3Satellite_from_files_mixed_time_systems_sort_by_instant():
         assert epochs[2] == gps(10, 10.0)
         assert epochs[3] == utc(10, 8.0)
         assert all(b - a > 0.0 for a, b in itertools.pairwise(epochs))
-        assert not g01.has_gaps()
+        assert len(spans(g01)) == 1
 
 
 def test_SP3_satellites_matches_from_files_single():
@@ -1064,7 +1020,7 @@ def test_SP3_satellites_matches_from_files_single():
         assert [record_key(r) for r in sat.records()] == [
             record_key(r) for r in other.records()
         ]
-        np.testing.assert_array_equal(sat.velocities(), other.velocities())
+        np.testing.assert_array_equal(velocities_of(sat), velocities_of(other))
         one = a.satellite(sat.id)
         assert [record_key(r) for r in one.records()] == [
             record_key(r) for r in sat.records()
@@ -1107,8 +1063,7 @@ def test_SP3Satellite_from_files_velocity_source():
         ]
     )
     g01 = find(both, "G01")
-    assert g01.has_file_velocities()
-    assert (g01.velocities() == [1000.0, 0.0, 0.0]).all()
+    assert (velocities_of(g01) == [1000.0, 0.0, 0.0]).all()
 
     mixed = SP3Satellite.from_files(
         [
@@ -1118,26 +1073,21 @@ def test_SP3Satellite_from_files_velocity_source():
     )
     g01 = find(mixed, "G01")
     assert len(g01) == 6
-    assert not g01.has_file_velocities()
     assert np.array_equal(g01.records()[0].velocity, [1000.0, 0.0, 0.0])
     np.testing.assert_allclose(
-        g01.velocities(), np.tile([1000.0, 0.0, 0.0], (6, 1)), rtol=0.0, atol=1e-6
+        velocities_of(g01), np.tile([1000.0, 0.0, 0.0], (6, 1)), rtol=0.0, atol=1e-6
     )
 
 
-def test_SP3Satellite_from_files_mixed_intervals_gap_threshold():
+def test_SP3Satellite_from_files_rejects_different_intervals():
     fine = uniform_file("G01", 300.0, [gps(0, 0.0), gps(5, 0.0), gps(10, 0.0)], False)
-
     coarse = uniform_file(
         "G01", 900.0, [gps(25, 0.0), gps(40, 0.0), gps(55, 0.0)], False
     )
-    g01 = find(SP3Satellite.from_files([fine, coarse]), "G01")
-    assert len(g01) == 6
-    assert not g01.has_gaps()
-
-    late = uniform_file("G01", 900.0, [gps(35, 0.0), gps(50, 0.0)], False)
-    g01 = find(SP3Satellite.from_files([fine, late]), "G01")
-    assert g01.segments() == [(gps(0, 0.0), gps(10, 0.0)), (gps(35, 0.0), gps(50, 0.0))]
+    with pytest.raises(
+        bh.BraheError, match="different epoch intervals: 300 s and 900 s"
+    ):
+        SP3Satellite.from_files([fine, coarse])
 
 
 def keplerian_day(start, code, propagator):
@@ -1166,13 +1116,13 @@ def test_SP3Satellite_from_files_boundary_velocity_uses_centered_fit():
 
     single = first.satellite("G01")
     assert single.epochs()[-1] == day2
-    err_single = np.linalg.norm(single.velocities()[-1] - truth)
+    err_single = np.linalg.norm(velocities_of(single)[-1] - truth)
 
     chained = find(SP3Satellite.from_files([first, second]), "G01")
     assert len(chained) == 193
-    assert not chained.has_gaps()
+    assert len(spans(chained)) == 1
     boundary = next(i for i, e in enumerate(chained.epochs()) if e == day2)
-    err_chained = np.linalg.norm(chained.velocities()[boundary] - truth)
+    err_chained = np.linalg.norm(velocities_of(chained)[boundary] - truth)
 
     assert err_chained < err_single
     assert err_chained < 0.1 * err_single
@@ -1193,7 +1143,7 @@ def boundary_errors(files, propagator, boundary):
     """Position errors of the chained G01 450 s before and after ``boundary``."""
     chained = find(SP3Satellite.from_files(files), "G01")
     assert len(chained) == 193
-    assert not chained.has_gaps()
+    assert len(spans(chained)) == 1
     return [
         np.linalg.norm(
             chained.state_itrf(boundary + dt)[:3]
@@ -1274,7 +1224,7 @@ def test_SP3Satellite_from_files_rejects_near_duplicate_boundary():
     message = str(excinfo.value)
     assert "G01" in message
     assert str(gps(10, 0.0)) in message
-    assert "half the smaller of their epoch intervals" in message
+    assert "half the 300 s epoch interval" in message
 
 
 def test_SP3Satellite_id_compares_with_str():

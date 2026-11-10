@@ -1,15 +1,9 @@
 /*!
- * Per-satellite samples joined across SP3 files.
- *
- * Every [`SP3Satellite`] is built here, from one file or from a set of files
- * in time order.
+ * SP3 files built from orbit state providers.
  */
 
-use std::collections::BTreeSet;
-
 use crate::datafiles::sp3::parse::sp3_error;
-use crate::datafiles::sp3::satellite::{SP3Sample, SP3Satellite};
-use crate::datafiles::sp3::types::{GRID_TOLERANCE, SP3, SP3Header, SP3Record, SP3SatelliteId};
+use crate::datafiles::sp3::types::{SP3, SP3Header, SP3Record, SP3SatelliteId};
 use crate::time::Epoch;
 use crate::utils::{BraheError, DOrbitStateProvider};
 
@@ -108,117 +102,6 @@ impl SP3 {
     }
 }
 
-/// Chain every satellite across a set of SP3 files.
-///
-/// Files without epochs are ignored. The others are sorted by start epoch,
-/// then by end epoch, so a one-epoch file precedes a longer file starting at
-/// the same epoch whatever the input order.
-/// Consecutive files may share their boundary epoch, where the later file's
-/// sample is kept when it has one; any further overlap is an error. Two
-/// epochs within 1 ms of each other, the tolerance of the epoch grid, are
-/// the same boundary epoch. Boundary epochs that do not coincide must be at
-/// least half the epoch interval apart, because consecutive samples closer
-/// than half the smaller of their two intervals are rejected; a GPS-time file
-/// ending at 00:00 GPS chained to a UTC-time file starting at 00:00 UTC, 18 s
-/// apart at a 900 s interval, is an error.
-///
-/// # Arguments
-///
-/// * `files` - SP3 files in any order
-///
-/// # Returns
-///
-/// * `Result<Vec<SP3Satellite>, BraheError>` - One satellite per identifier in the union
-///   of the files' satellite lists that has at least one valid sample, in ascending
-///   identifier order, or an error naming two overlapping files or reporting two
-///   consecutive samples closer than half the smaller of their epoch intervals
-pub(crate) fn chain_files(files: &[SP3]) -> Result<Vec<SP3Satellite>, BraheError> {
-    let mut spans: Vec<(Epoch, Epoch, &SP3)> = files
-        .iter()
-        .filter_map(|f| Some((f.start_epoch()?, f.end_epoch()?, f)))
-        .collect();
-    spans.sort_by_key(|(start, end, _)| (*start, *end));
-    for pair in spans.windows(2) {
-        let ((a_start, a_end, a), (b_start, b_end, b)) = (pair[0], pair[1]);
-        if b_start - a_end < -GRID_TOLERANCE {
-            return Err(sp3_error(&format!(
-                "files overlap: {} file from {} to {} and {} file from {} to {}; consecutive \
-                 files may share only their boundary epoch",
-                a.header.agency, a_start, a_end, b.header.agency, b_start, b_end
-            )));
-        }
-    }
-    let ordered: Vec<&SP3> = spans.iter().map(|(_, _, f)| *f).collect();
-    let ids: BTreeSet<SP3SatelliteId> = ordered
-        .iter()
-        .flat_map(|f| f.satellite_ids().iter().copied())
-        .collect();
-    satellites_from_files(&ordered, ids)
-}
-
-/// Build the satellites `ids`, in the given order, skipping those without a
-/// valid sample.
-///
-/// # Arguments
-///
-/// * `files` - Files sorted by start epoch, overlapping at most at a shared boundary epoch
-/// * `ids` - Satellites to build
-///
-/// # Returns
-///
-/// * `Result<Vec<SP3Satellite>, BraheError>` - The satellites that have at least one
-///   valid sample
-pub(crate) fn satellites_from_files(
-    files: &[&SP3],
-    ids: impl IntoIterator<Item = SP3SatelliteId>,
-) -> Result<Vec<SP3Satellite>, BraheError> {
-    let mut satellites = Vec::new();
-    for id in ids {
-        let samples = joined_samples(files, id);
-        if !samples.is_empty() {
-            satellites.push(SP3Satellite::from_samples(id, samples)?);
-        }
-    }
-    Ok(satellites)
-}
-
-/// Build one satellite.
-///
-/// # Arguments
-///
-/// * `files` - Files sorted by start epoch, overlapping at most at a shared boundary epoch
-/// * `id` - Satellite to build
-///
-/// # Returns
-///
-/// * `Result<SP3Satellite, BraheError>` - The satellite, or an error if it has no valid
-///   sample in any file
-pub(crate) fn satellite_from_files(
-    files: &[&SP3],
-    id: SP3SatelliteId,
-) -> Result<SP3Satellite, BraheError> {
-    SP3Satellite::from_samples(id, joined_samples(files, id))
-}
-
-/// Valid samples of `id` from every file, in epoch order.
-///
-/// When a file's first sample falls within 1 ms of the previous file's last
-/// sample, the two are the same boundary epoch and the later file's sample
-/// replaces the earlier one.
-fn joined_samples(files: &[&SP3], id: SP3SatelliteId) -> Vec<SP3Sample> {
-    let mut samples: Vec<SP3Sample> = Vec::new();
-    for file in files {
-        let mut next = file.samples(id);
-        if let (Some(last), Some(first)) = (samples.last(), next.first())
-            && (first.epoch - last.epoch).abs() <= GRID_TOLERANCE
-        {
-            samples.pop();
-        }
-        samples.append(&mut next);
-    }
-    samples
-}
-
 #[cfg(test)]
 #[cfg_attr(coverage_nightly, coverage(off))]
 #[allow(non_snake_case)]
@@ -226,6 +109,7 @@ mod tests {
     use super::*;
     use crate::constants::AngleFormat;
     use crate::constants::R_EARTH;
+    use crate::datafiles::sp3::satellite::SP3Satellite;
     use crate::datafiles::sp3::types::{SP3FileType, SP3Header, SP3Record, SP3TimeSystem};
     use crate::frames::CelestialFrame;
     use crate::propagators::traits::DStatePropagator;
@@ -260,6 +144,26 @@ mod tests {
     /// satellite moving linearly along x.
     fn linear_file(ids: &[SP3SatelliteId], epochs: &[Epoch], options: SP3Header) -> SP3 {
         linear_file_at(300.0, ids, epochs, options)
+    }
+
+    /// Start and end epoch of each trajectory of a satellite.
+    fn spans(sat: &SP3Satellite) -> Vec<(Epoch, Epoch)> {
+        sat.to_trajectories()
+            .unwrap()
+            .iter()
+            .map(|t| (t.start_epoch().unwrap(), t.end_epoch().unwrap()))
+            .collect()
+    }
+
+    /// ITRF velocity a satellite provides at each of its samples.
+    fn velocities(sat: &SP3Satellite) -> Vec<[f64; 3]> {
+        sat.epochs()
+            .iter()
+            .map(|&epoch| {
+                let state = sat.state_itrf(epoch).unwrap();
+                [state[3], state[4], state[5]]
+            })
+            .collect()
     }
 
     /// A position-only file at `interval` seconds holding `ids` at `epochs`,
@@ -305,7 +209,7 @@ mod tests {
             .unwrap()
             .position;
         assert_eq!(c01.positions()[1], p_b);
-        assert!(!c01.has_gaps());
+        assert_eq!(spans(c01).len(), 1);
 
         let p_a = a.record(sid("C01"), 1).unwrap().unwrap().position;
         assert_ne!(p_a, p_b);
@@ -376,12 +280,7 @@ mod tests {
         let sats = SP3Satellite::from_files(&[a, d]).unwrap();
         let g01 = find(&sats, "G01");
         assert_eq!(g01.len(), 4);
-        assert!(g01.has_gaps());
-        assert_eq!(g01.segments().len(), 2);
-
-        let err = g01.to_trajectory().unwrap_err().to_string();
-        assert!(err.contains("G01") && err.contains("gap"), "{err}");
-        assert_eq!(g01.to_trajectory_segments().unwrap().len(), 2);
+        assert_eq!(spans(g01).len(), 2);
 
         let inside_gap = Epoch::from_datetime(2017, 5, 21, 0, 12, 0.0, 0.0, TimeSystem::GPS);
         let err = g01.state_itrf(inside_gap).unwrap_err().to_string();
@@ -401,7 +300,7 @@ mod tests {
         for sat in &sats {
             assert_eq!(sat.len(), 4, "{}", sat.id());
             assert_eq!(sat.epochs(), expected.as_slice(), "{}", sat.id());
-            assert!(!sat.has_gaps(), "{}", sat.id());
+            assert_eq!(spans(sat).len(), 1, "{}", sat.id());
         }
     }
 
@@ -421,13 +320,13 @@ mod tests {
 
         let g01 = find(&sats, "G01");
         assert_eq!(g01.len(), 6);
-        assert!(!g01.has_gaps());
+        assert_eq!(spans(g01).len(), 1);
 
         let g02 = find(&sats, "G02");
         assert_eq!(g02.len(), 4);
-        assert!(g02.has_gaps());
+        assert_eq!(spans(g02).len(), 2);
         assert_eq!(
-            g02.segments(),
+            spans(g02),
             vec![(gps(0, 0.0), gps(5, 0.0)), (gps(20, 0.0), gps(25, 0.0))]
         );
     }
@@ -457,7 +356,7 @@ mod tests {
         let g01 = find(&sats, "G01");
         assert_eq!(g01.len(), 3);
         assert_eq!(g01.positions()[1], expected);
-        assert!(!g01.has_gaps());
+        assert_eq!(spans(g01).len(), 1);
     }
 
     #[test]
@@ -537,7 +436,7 @@ mod tests {
             assert_eq!(epochs[2], gps(10, 10.0));
             assert_eq!(epochs[3], utc(10, 8.0));
             assert!(epochs.windows(2).all(|w| w[1] - w[0] > 0.0));
-            assert!(!g01.has_gaps());
+            assert_eq!(spans(g01).len(), 1);
         }
     }
 
@@ -552,7 +451,7 @@ mod tests {
             let other = chained.iter().find(|s| s.id() == sat.id()).unwrap();
             assert_eq!(sat.epochs(), other.epochs());
             assert_eq!(sat.records(), other.records());
-            assert_eq!(sat.velocities(), other.velocities());
+            assert_eq!(velocities(sat), velocities(other));
             let one = a.satellite(sat.id()).unwrap();
             assert_eq!(one.records(), sat.records());
         }
@@ -635,8 +534,7 @@ mod tests {
         ])
         .unwrap();
         let g01 = find(&both, "G01");
-        assert!(g01.has_file_velocities());
-        assert!(g01.velocities().iter().all(|v| *v == [1000.0, 0.0, 0.0]));
+        assert!(velocities(g01).iter().all(|v| *v == [1000.0, 0.0, 0.0]));
 
         let mixed = SP3Satellite::from_files(&[
             uniform_file(id, 300.0, &first, true),
@@ -645,9 +543,8 @@ mod tests {
         .unwrap();
         let g01 = find(&mixed, "G01");
         assert_eq!(g01.len(), 6);
-        assert!(!g01.has_file_velocities());
         assert_eq!(g01.records()[0].velocity, Some([1000.0, 0.0, 0.0]));
-        for v in g01.velocities() {
+        for v in velocities(g01) {
             assert_abs_diff_eq!(v[0], 1000.0, epsilon = 1e-6);
             assert_abs_diff_eq!(v[1], 0.0, epsilon = 1e-6);
             assert_abs_diff_eq!(v[2], 0.0, epsilon = 1e-6);
@@ -656,29 +553,21 @@ mod tests {
 
     #[test]
     #[parallel]
-    fn test_SP3Satellite_from_files_mixed_intervals_gap_threshold() {
+    fn test_SP3Satellite_from_files_rejects_different_intervals() {
         let id = sid("G01");
         let fine = uniform_file(id, 300.0, &[gps(0, 0.0), gps(5, 0.0), gps(10, 0.0)], false);
-
-        // 900 s after the last 300 s sample: within 1.5 x 900 s.
         let coarse = uniform_file(
             id,
             900.0,
             &[gps(25, 0.0), gps(40, 0.0), gps(55, 0.0)],
             false,
         );
-        let sats = SP3Satellite::from_files(&[fine.clone(), coarse]).unwrap();
-        let g01 = find(&sats, "G01");
-        assert_eq!(g01.len(), 6);
-        assert!(!g01.has_gaps());
-
-        // 1500 s after the last 300 s sample: beyond 1.5 x 900 s.
-        let late = uniform_file(id, 900.0, &[gps(35, 0.0), gps(50, 0.0)], false);
-        let sats = SP3Satellite::from_files(&[fine, late]).unwrap();
-        let g01 = find(&sats, "G01");
-        assert_eq!(
-            g01.segments(),
-            vec![(gps(0, 0.0), gps(10, 0.0)), (gps(35, 0.0), gps(50, 0.0))]
+        let err = SP3Satellite::from_files(&[fine, coarse])
+            .unwrap_err()
+            .to_string();
+        assert!(
+            err.contains("different epoch intervals: 300 s and 900 s"),
+            "{err}"
         );
     }
 
@@ -732,14 +621,14 @@ mod tests {
 
         let single = first.satellite(id).unwrap();
         assert_eq!(*single.epochs().last().unwrap(), day2);
-        let err_single = error(*single.velocities().last().unwrap());
+        let err_single = error(*velocities(&single).last().unwrap());
 
         let sats = SP3Satellite::from_files(&[first, second]).unwrap();
         let chained = find(&sats, "G01");
         assert_eq!(chained.len(), 193);
-        assert!(!chained.has_gaps());
+        assert_eq!(spans(chained).len(), 1);
         let boundary = chained.epochs().iter().position(|e| *e == day2).unwrap();
-        let err_chained = error(chained.velocities()[boundary]);
+        let err_chained = error(velocities(chained)[boundary]);
 
         assert!(
             err_chained < err_single,
@@ -787,7 +676,7 @@ mod tests {
         let sats = SP3Satellite::from_files(files).unwrap();
         let chained = find(&sats, "G01");
         assert_eq!(chained.len(), 193);
-        assert!(!chained.has_gaps());
+        assert_eq!(spans(chained).len(), 1);
         [-450.0, 450.0].map(|dt| {
             let q = boundary + dt;
             let got = chained.state_itrf(q).unwrap();
@@ -895,10 +784,7 @@ mod tests {
         assert!(err.contains("G01"), "{err}");
         assert!(err.contains(&gps(10, 0.0).to_string()), "{err}");
         assert!(err.contains(&late[0].to_string()), "{err}");
-        assert!(
-            err.contains("half the smaller of their epoch intervals"),
-            "{err}"
-        );
+        assert!(err.contains("half the 300 s epoch interval"), "{err}");
     }
 
     fn leo_propagator(epoch: Epoch, raan: f64) -> KeplerianPropagator {

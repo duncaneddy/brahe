@@ -606,14 +606,15 @@ impl SP3Satellite {
     /// ITRF frame with the name, ID, and UUID of the satellite and Lagrange
     /// interpolation of degree [`SP3_DEFAULT_LAGRANGE_DEGREE`], or the run
     /// length less one for a shorter run. The state at each sample is the one
-    /// the satellite provides at that epoch, so velocities come from the
-    /// records where the file has them and from the position fit otherwise. A
-    /// sample that forms a run on its own is left out.
+    /// the satellite provides at that epoch, so a velocity comes from the
+    /// records only when every sample of the fit around it has one, and from
+    /// the position fit otherwise. A sample that forms a run on its own is
+    /// left out.
     ///
     /// # Returns
     ///
-    /// * `Result<Vec<DOrbitTrajectory>, BraheError>` - The trajectories in time order;
-    ///   more than one when the satellite has gaps
+    /// * `Result<Vec<DOrbitTrajectory>, BraheError>` - One trajectory per run of at least
+    ///   two samples, in time order
     ///
     /// # Examples
     ///

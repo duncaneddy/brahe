@@ -2684,7 +2684,7 @@ impl PySP3Satellite {
     /// own is left out.
     ///
     /// Returns:
-    ///     list[OrbitTrajectory]: The trajectories in time order; more than one when the satellite has gaps.
+    ///     list[OrbitTrajectory]: One trajectory per run of at least two samples, in time order.
     ///
     /// Example:
     ///     ```python

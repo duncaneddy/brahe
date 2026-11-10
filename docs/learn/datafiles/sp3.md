@@ -189,7 +189,7 @@ The example computes access windows over a ground station in Boulder for the thr
 
 Two consecutive valid samples more than 1.5 epoch intervals apart belong to different runs, and the satellite has a gap between them. A satellite with zero positions from 10:00 to 10:45 in a 15-minute file has one gap. A state request before the first sample, after the last sample, or inside a gap raises an error naming the satellite, so an access search that reaches a gap fails.
 
-`to_trajectories()` converts the samples to `OrbitTrajectory` objects, one for each run of at least two samples. Each is a six-element Cartesian trajectory in the `ITRF` frame, named after the satellite, with Lagrange interpolation of degree 9. For a satellite with gaps, search each trajectory separately. Call `to_gcrf()` on a trajectory for an inertial copy.
+`to_trajectories()` converts the samples to `OrbitTrajectory` objects, one for each run of at least two samples. Each is a six-element Cartesian trajectory in the `ITRF` frame, named after the satellite, with Lagrange interpolation of degree 9, or the run length less one for a shorter run. For a satellite with gaps, search each trajectory separately. Call `to_gcrf()` on a trajectory for an inertial copy.
 
 ### Interpolation Accuracy
 

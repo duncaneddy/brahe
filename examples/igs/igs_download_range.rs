@@ -34,8 +34,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     for sp3 in &files {
         println!(
             "  {} to {}: {} epochs",
-            sp3.start_epoch(),
-            sp3.end_epoch(),
+            sp3.start_epoch().unwrap(),
+            sp3.end_epoch().unwrap(),
             sp3.num_epochs()
         );
     }

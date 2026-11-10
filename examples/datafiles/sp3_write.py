@@ -12,7 +12,8 @@ import brahe as bh
 g01 = bh.SP3SatelliteId(bh.GNSSSystem.GPS, 1)
 g02 = bh.SP3SatelliteId(bh.GNSSSystem.GPS, 2)
 
-sp3 = bh.SP3([g01, g02], 900.0, agency="BRHE", comments=["Example orbit file"])
+header = bh.SP3Header(agency="BRHE", comments=["Example orbit file"])
+sp3 = bh.SP3([g01, g02], 900.0, header)
 
 t0 = bh.Epoch.from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, bh.TimeSystem.GPS)
 for k in range(3):

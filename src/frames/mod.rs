@@ -28,7 +28,6 @@ pub mod gcrf_itrf;
 mod graph;
 pub mod iau_rotation;
 // Not `pub`: shared state-kinematics algebra used by the pairwise modules.
-// The state Jacobians are re-exported below.
 mod kinematics;
 pub mod lunar;
 pub mod mars;

@@ -83,10 +83,6 @@ pub fn rotation_ecef_to_sez(x_ecef: SVector6) -> SMatrix3 {
 /// # Returns:
 /// - `r`: 3x3 Rotation matrix transforming from SEZ to ECEF frame
 ///
-/// # References:
-/// - SANA Orbit-Relative Reference Frames registry, `SEZ_ROTATING`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
-/// - D. A. Vallado, *Fundamentals of Astrodynamics and Applications*, 4th ed., Section 3.4
-///
 /// # Examples:
 /// ```
 /// use brahe::SVector6;
@@ -191,9 +187,6 @@ pub fn state_ecef_to_sez(x_site: SVector6, x_target: SVector6) -> SVector6 {
 /// # Returns:
 /// - `x_target`: 6D state vector of the target in the ECEF frame [x, y, z, vx, vy, vz] (m, m/s)
 ///
-/// # References:
-/// - SANA Orbit-Relative Reference Frames registry, `SEZ_ROTATING`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
-///
 /// # Examples:
 /// ```
 /// use brahe::SVector6;
@@ -255,10 +248,6 @@ pub fn rotations_ecef_to_sez(x_ecef: &[SVector6]) -> Vec<SMatrix3> {
 ///
 /// # Returns
 /// - Rotation matrices transforming SEZ -> ECEF, one per site, in input order
-///
-/// # References
-/// - SANA Orbit-Relative Reference Frames registry, `SEZ_ROTATING`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
-/// - D. A. Vallado, *Fundamentals of Astrodynamics and Applications*, 4th ed., Section 3.4
 ///
 /// # Examples
 /// ```
@@ -368,9 +357,6 @@ pub fn states_ecef_to_sez(
 /// # Returns
 /// - Target Cartesian ECEF states, in input order. Units: (*m*; *m/s*)
 /// - Error if the lengths do not satisfy the broadcast rule
-///
-/// # References
-/// - SANA Orbit-Relative Reference Frames registry, `SEZ_ROTATING`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
 ///
 /// # Examples
 /// ```

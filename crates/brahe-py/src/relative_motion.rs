@@ -722,14 +722,6 @@ fn py_rotation_lvlh_to_eci<'py>(
 ///
 /// This is the transpose (inverse) of the LVLH-to-ECI rotation matrix.
 ///
-/// The LVLH frame follows the CCSDS and SANA definition:
-/// - Z: Unit vector collinear with and opposite to the position vector (nadir).
-/// - Y: Unit vector collinear with and opposite to the orbital angular momentum `r x v`.
-/// - X: `Y x Z`, completing the right-handed set (along-track for a circular orbit).
-///
-/// This is a signed permutation of the RTN axes: `X = T`, `Y = -N`, `Z = -R`. Vallado and
-/// STK use the name LVLH for the RTN axes themselves; brahe follows the CCSDS convention.
-///
 /// Args:
 ///     x_eci (numpy.ndarray or list): 6D state vector in the ECI frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
 ///         vectors with the 6 components along `axis` (for example shape (n, 6)).
@@ -983,16 +975,6 @@ fn py_rotation_ntw_to_eci<'py>(
 ///
 /// This is the transpose (inverse) of the NTW-to-ECI rotation matrix.
 ///
-/// The NTW frame follows the SANA definition:
-/// - Y (T): Unit vector along the inertial velocity.
-/// - Z (W): Unit vector along the orbital angular momentum `r x v`.
-/// - X (N): `Y x Z`, completing the right-handed set; in the orbit plane, normal to the
-///   velocity, pointing outward (radial for a circular orbit).
-///
-/// On a circular orbit NTW coincides with RTN; on an eccentric orbit the two differ by the
-/// flight-path angle. TNW and VNC use the same three directions reordered with a sign change:
-/// `TNW = [Y_NTW, -X_NTW, Z_NTW]` and `VNC = [Y_NTW, Z_NTW, X_NTW]`.
-///
 /// Args:
 ///     x_eci (numpy.ndarray or list): 6D state vector in the ECI frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
 ///         vectors with the 6 components along `axis` (for example shape (n, 6)).
@@ -1080,12 +1062,6 @@ fn py_omega_ntw<'py>(
 /// Computes the angular velocity of the Normal, Tangential, Cross-track (NTW) frame with
 /// respect to an inertial frame centered on a body with gravitational parameter `gm`,
 /// expressed in NTW axes.
-///
-/// The NTW axes are built from the velocity direction and the orbit normal, so the frame turns
-/// with the velocity vector: about the W axis at `omega_v = mu * |h| / (r^3 * v^2)`, the
-/// two-body rate at which the unit velocity rotates. The rate is exact under two-body motion
-/// and is the rate of the osculating frame otherwise. On a circular orbit it equals the mean
-/// motion.
 ///
 /// Args:
 ///     x_inertial (numpy.ndarray or list): 6D state vector in the inertial frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
@@ -1406,15 +1382,6 @@ fn py_rotation_tnw_to_eci<'py>(
 ///
 /// This is the transpose (inverse) of the TNW-to-ECI rotation matrix.
 ///
-/// The TNW frame follows the CCSDS and SANA definition:
-/// - X (T): Unit vector along the inertial velocity.
-/// - Z (W): Unit vector along the orbital angular momentum `r x v`.
-/// - Y (N): `Z x X`, completing the right-handed set; in the orbit plane, normal to the
-///   velocity, pointing inward (nadir for a circular orbit).
-///
-/// The matrix is assembled from the NTW axes as `[Y_NTW, -X_NTW, Z_NTW]`, which equals the
-/// definition exactly.
-///
 /// Args:
 ///     x_eci (numpy.ndarray or list): 6D state vector in the ECI frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
 ///         vectors with the 6 components along `axis` (for example shape (n, 6)).
@@ -1502,12 +1469,6 @@ fn py_omega_tnw<'py>(
 /// Computes the angular velocity of the Tangential, Normal, Cross-track (TNW) frame with
 /// respect to an inertial frame centered on a body with gravitational parameter `gm`,
 /// expressed in TNW axes.
-///
-/// The TNW axes are built from the velocity direction and the orbit normal, so the frame turns
-/// with the velocity vector: about the W axis at `omega_v = mu * |h| / (r^3 * v^2)`, the
-/// two-body rate at which the unit velocity rotates. The rate is exact under two-body motion
-/// and is the rate of the osculating frame otherwise. On a circular orbit it equals the mean
-/// motion.
 ///
 /// Args:
 ///     x_inertial (numpy.ndarray or list): 6D state vector in the inertial frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
@@ -1829,16 +1790,6 @@ fn py_rotation_vnc_to_eci<'py>(
 ///
 /// This is the transpose (inverse) of the VNC-to-ECI rotation matrix.
 ///
-/// The VNC frame follows the SANA definition:
-/// - X (V): Unit vector along the inertial velocity.
-/// - Y (N): Unit vector along the orbital angular momentum `r x v` (normal to the orbit).
-/// - Z (C): `X x Y`, the co-normal, completing the right-handed set; in the orbit plane,
-///   normal to the velocity, pointing outward (radial for a circular orbit).
-///
-/// The matrix is assembled from the NTW axes as `[Y_NTW, Z_NTW, X_NTW]`, which equals the
-/// definition exactly. TNW and VNC use the same three directions as NTW: `TNW = [Y_NTW,
-/// -X_NTW, Z_NTW]`, `VNC = [Y_NTW, Z_NTW, X_NTW]`; STK calls VNC the VNB frame.
-///
 /// Args:
 ///     x_eci (numpy.ndarray or list): 6D state vector in the ECI frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
 ///         vectors with the 6 components along `axis` (for example shape (n, 6)).
@@ -1926,12 +1877,6 @@ fn py_omega_vnc<'py>(
 /// Computes the angular velocity of the Velocity, Normal, Co-normal (VNC) frame with
 /// respect to an inertial frame centered on a body with gravitational parameter `gm`,
 /// expressed in VNC axes.
-///
-/// The VNC axes are built from the velocity direction and the orbit normal, and the orbit
-/// normal is the Y axis, so the frame turns about Y at `omega_v = mu * |h| / (r^3 * v^2)`, the
-/// two-body rate at which the unit velocity rotates. The rate is exact under two-body motion
-/// and is the rate of the osculating frame otherwise. On a circular orbit it equals the mean
-/// motion.
 ///
 /// Args:
 ///     x_inertial (numpy.ndarray or list): 6D state vector in the inertial frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
@@ -2252,20 +2197,6 @@ fn py_rotation_pqw_to_eci<'py>(
 /// Computes the rotation matrix transforming a vector in the perifocal (PQW) frame to an
 /// inertial frame centered on a body with gravitational parameter `gm`.
 ///
-/// The PQW frame follows the SANA definition:
-/// - P: Unit vector toward periapsis, along the eccentricity vector.
-/// - W: Unit vector along the orbital angular momentum (r x v).
-/// - Q: W x P, completing the right-handed set.
-///
-/// SANA registers PQW only as an inertial snapshot: the axes are taken from the state at the
-/// evaluation epoch and treated as fixed, so there is no rate and the Jacobians are block
-/// diagonal.
-///
-/// Degenerate orbits use the zero-angle conventions: when the eccentricity vector norm is
-/// below 1e-9 (circular orbit) P is taken along the ascending node, and when the node vector
-/// norm is also below 1e-9 (equatorial orbit) P is taken along the inertial x axis projected
-/// into the orbit plane.
-///
 /// Args:
 ///     x_inertial (numpy.ndarray or list): 6D state vector in the inertial frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
 ///         vectors with the 6 components along `axis` (for example shape (n, 6)).
@@ -2313,20 +2244,6 @@ fn py_rotation_pqw_to_inertial_for_body<'py>(
 ///
 /// This is the transpose (inverse) of the PQW-to-ECI rotation matrix.
 ///
-/// The PQW frame follows the SANA definition:
-/// - P: Unit vector toward periapsis, along the eccentricity vector.
-/// - W: Unit vector along the orbital angular momentum (r x v).
-/// - Q: W x P, completing the right-handed set.
-///
-/// SANA registers PQW only as an inertial snapshot: the axes are taken from the state at the
-/// evaluation epoch and treated as fixed, so there is no rate and the Jacobians are block
-/// diagonal.
-///
-/// Degenerate orbits use the zero-angle conventions: when the eccentricity vector norm is
-/// below 1e-9 (circular orbit) P is taken along the ascending node, and when the node vector
-/// norm is also below 1e-9 (equatorial orbit) P is taken along the inertial x axis projected
-/// into the orbit plane.
-///
 /// Args:
 ///     x_eci (numpy.ndarray or list): 6D state vector in the ECI frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
 ///         vectors with the 6 components along `axis` (for example shape (n, 6)).
@@ -2372,20 +2289,6 @@ fn py_rotation_eci_to_pqw<'py>(
 /// with gravitational parameter `gm` to the perifocal (PQW) frame.
 ///
 /// This is the transpose (inverse) of the PQW-to-inertial rotation matrix.
-///
-/// The PQW frame follows the SANA definition:
-/// - P: Unit vector toward periapsis, along the eccentricity vector.
-/// - W: Unit vector along the orbital angular momentum (r x v).
-/// - Q: W x P, completing the right-handed set.
-///
-/// SANA registers PQW only as an inertial snapshot: the axes are taken from the state at the
-/// evaluation epoch and treated as fixed, so there is no rate and the Jacobians are block
-/// diagonal.
-///
-/// Degenerate orbits use the zero-angle conventions: when the eccentricity vector norm is
-/// below 1e-9 (circular orbit) P is taken along the ascending node, and when the node vector
-/// norm is also below 1e-9 (equatorial orbit) P is taken along the inertial x axis projected
-/// into the orbit plane.
 ///
 /// Args:
 ///     x_inertial (numpy.ndarray or list): 6D state vector in the inertial frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
@@ -2717,18 +2620,6 @@ fn py_rotation_eqw_to_eci<'py>(
 ///
 /// This is the transpose (inverse) of the EQW-to-ECI rotation matrix.
 ///
-/// The EQW frame follows the SANA definition:
-/// - E: Unit vector along the ascending node, z x h normalized, where z is the inertial
-///   pole and h the orbit normal.
-/// - W: Unit vector along the orbital angular momentum (r x v).
-/// - Q: W x E, completing the right-handed set.
-///
-/// SANA registers EQW only as a quasi-inertial snapshot: the axes are taken from the state at
-/// the evaluation epoch and treated as fixed, so there is no rate and the Jacobians are block
-/// diagonal. On an equatorial orbit the node is undefined (node vector norm below 1e-9) and E
-/// is taken along the inertial x axis projected into the orbit plane, matching the zero
-/// right-ascension convention while keeping the matrix orthonormal.
-///
 /// Args:
 ///     x_eci (numpy.ndarray or list): 6D state vector in the ECI frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
 ///         vectors with the 6 components along `axis` (for example shape (n, 6)).
@@ -2952,17 +2843,6 @@ fn py_rotation_nsw_to_eci<'py>(
 /// frame to the Nadir, Sun, Normal (NSW) frame.
 ///
 /// This is the transpose (inverse) of the NSW-to-ECI rotation matrix.
-///
-/// The NSW frame follows the SANA definition:
-/// - X: Unit vector toward nadir, opposite the position vector.
-/// - Y: As close to the direction of the Sun as possible while normal to X: the unit vector
-///   from the spacecraft to the Sun with its X component removed.
-/// - Z: `X x Y`, completing the right-handed set.
-///
-/// `x_sun` is the Sun's state relative to the same center as `x_eci`. Because X lies along the
-/// position vector, the frame is identical whether the Sun direction is taken from the center or
-/// from the spacecraft. When the Sun lies along the nadir line (projected norm below 1e-9) the Y
-/// axis falls back to the along-track direction.
 ///
 /// Args:
 ///     x_eci (numpy.ndarray or list): 6D state vector in the ECI frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
@@ -3232,11 +3112,6 @@ fn py_rotation_ecef_to_sez<'py>(
 /// topocentric horizon frame of a site to the Earth-Centered Earth-Fixed (ECEF) frame.
 ///
 /// This is the transpose (inverse) of the ECEF-to-SEZ rotation matrix.
-///
-/// The SEZ frame follows the SANA definition: the local horizon is the fundamental plane, S
-/// points due south from the site, E points east, and Z points along the site's WGS84 geodetic
-/// vertical. The site is the position part of `x_ecef`. The E axis, and the frame's rate, are
-/// undefined at the poles, where longitude itself is undefined; this is not special-cased.
 ///
 /// Args:
 ///     x_ecef (numpy.ndarray or list): 6D state vector of the site in the ECEF frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of

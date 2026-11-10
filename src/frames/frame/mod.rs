@@ -255,7 +255,7 @@ impl ReferenceFrame {
     /// Axes: X toward nadir, Y as close to the Sun as possible while normal
     /// to X, Z = X × Y (see
     /// [`crate::relative_motion::rotation_nsw_to_eci`]). The Sun state
-    /// comes from the global [`crate::frames::FrameEphemerisSource`].
+    /// comes from the SPICE registry.
     ///
     /// # Arguments
     /// * `object` - The object the frame is defined relative to

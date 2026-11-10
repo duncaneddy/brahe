@@ -7,14 +7,11 @@ use nalgebra::Vector3;
 use crate::constants::GM_EARTH;
 use crate::math::{SMatrix3, SVector6};
 use crate::relative_motion::common::{
-    absolute_states_to_relative_state, relative_state_to_absolute_state,
+    DEGENERATE_TOLERANCE, absolute_states_to_relative_state, ascending_node_direction,
+    relative_state_to_absolute_state,
 };
 use crate::utils::BraheError;
 use crate::utils::batch::{batch_map, batch_zip};
-
-/// Below this eccentricity-vector or node-vector norm the direction is
-/// undefined and the zero-angle convention applies.
-const DEGENERATE_TOLERANCE: f64 = 1e-9;
 
 /// Computes the rotation matrix transforming a vector in the perifocal (PQW) frame to an
 /// inertial frame centered on a body with gravitational parameter `gm`.
@@ -66,13 +63,7 @@ pub fn rotation_pqw_to_inertial_for_body(x_inertial: SVector6, gm: f64) -> SMatr
     let p_hat = if e_vec.norm() > DEGENERATE_TOLERANCE {
         e_vec / e_vec.norm()
     } else {
-        let node = Vector3::new(-w_hat[1], w_hat[0], 0.0);
-        if node.norm() > DEGENERATE_TOLERANCE {
-            node / node.norm()
-        } else {
-            let x_in_plane = Vector3::x() - w_hat[0] * w_hat;
-            x_in_plane / x_in_plane.norm()
-        }
+        ascending_node_direction(&w_hat)
     };
     let q_hat = w_hat.cross(&p_hat);
 
@@ -88,10 +79,6 @@ pub fn rotation_pqw_to_inertial_for_body(x_inertial: SVector6, gm: f64) -> SMatr
 ///
 /// # Returns:
 /// - `r`: 3x3 Rotation matrix transforming from PQW to the ECI frame
-///
-/// # References:
-/// - SANA Orbit-Relative Reference Frames registry, `PQW_INERTIAL`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
-/// - D. A. Vallado, *Fundamentals of Astrodynamics and Applications*, 4th ed., Section 3.3.3
 ///
 /// # Examples:
 /// ```
@@ -119,10 +106,6 @@ pub fn rotation_pqw_to_eci(x_eci: SVector6) -> SMatrix3 {
 /// # Returns:
 /// - `r`: 3x3 Rotation matrix transforming from the inertial frame to PQW
 ///
-/// # References:
-/// - SANA Orbit-Relative Reference Frames registry, `PQW_INERTIAL`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
-/// - D. A. Vallado, *Fundamentals of Astrodynamics and Applications*, 4th ed., Section 3.3.3
-///
 /// # Examples:
 /// ```
 /// use brahe::SVector6;
@@ -147,10 +130,6 @@ pub fn rotation_inertial_to_pqw_for_body(x_inertial: SVector6, gm: f64) -> SMatr
 ///
 /// # Returns:
 /// - `r`: 3x3 Rotation matrix transforming from the ECI frame to PQW
-///
-/// # References:
-/// - SANA Orbit-Relative Reference Frames registry, `PQW_INERTIAL`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
-/// - D. A. Vallado, *Fundamentals of Astrodynamics and Applications*, 4th ed., Section 3.3.3
 ///
 /// # Examples:
 /// ```
@@ -182,10 +161,6 @@ pub fn rotation_eci_to_pqw(x_eci: SVector6) -> SMatrix3 {
 ///
 /// # Returns:
 /// - `x_rel_pqw`: 6D relative state of the deputy with respect to the chief in the PQW frame [ρ_P, ρ_Q, ρ_W, ρ̇_P, ρ̇_Q, ρ̇_W] (m, m/s)
-///
-/// # References:
-/// - SANA Orbit-Relative Reference Frames registry, `PQW_INERTIAL`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
-/// - D. A. Vallado, *Fundamentals of Astrodynamics and Applications*, 4th ed., Section 3.3.3
 ///
 /// # Examples:
 /// ```
@@ -223,10 +198,6 @@ pub fn state_inertial_to_pqw_for_body(x_chief: SVector6, x_deputy: SVector6, gm:
 /// # Returns:
 /// - `x_rel_pqw`: 6D relative state of the deputy with respect to the chief in the PQW frame [ρ_P, ρ_Q, ρ_W, ρ̇_P, ρ̇_Q, ρ̇_W] (m, m/s)
 ///
-/// # References:
-/// - SANA Orbit-Relative Reference Frames registry, `PQW_INERTIAL`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
-/// - D. A. Vallado, *Fundamentals of Astrodynamics and Applications*, 4th ed., Section 3.3.3
-///
 /// # Examples:
 /// ```
 /// use brahe::SVector6;
@@ -261,10 +232,6 @@ pub fn state_eci_to_pqw(x_chief: SVector6, x_deputy: SVector6) -> SVector6 {
 /// # Returns:
 /// - `x_deputy`: 6D state vector of the deputy satellite in the inertial frame [x, y, z, vx, vy, vz] (m, m/s)
 ///
-/// # References:
-/// - SANA Orbit-Relative Reference Frames registry, `PQW_INERTIAL`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
-/// - D. A. Vallado, *Fundamentals of Astrodynamics and Applications*, 4th ed., Section 3.3.3
-///
 /// # Examples:
 /// ```
 /// use brahe::SVector6;
@@ -298,10 +265,6 @@ pub fn state_pqw_to_inertial_for_body(x_chief: SVector6, x_rel_pqw: SVector6, gm
 ///
 /// # Returns:
 /// - `x_deputy`: 6D state vector of the deputy satellite in the ECI frame [x, y, z, vx, vy, vz] (m, m/s)
-///
-/// # References:
-/// - SANA Orbit-Relative Reference Frames registry, `PQW_INERTIAL`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
-/// - D. A. Vallado, *Fundamentals of Astrodynamics and Applications*, 4th ed., Section 3.3.3
 ///
 /// # Examples:
 /// ```
@@ -362,10 +325,6 @@ pub fn rotations_pqw_to_inertial_for_body(x_inertial: &[SVector6], gm: f64) -> V
 /// # Returns
 /// - Rotation matrices transforming PQW -> ECI, one per state, in input order
 ///
-/// # References
-/// - SANA Orbit-Relative Reference Frames registry, `PQW_INERTIAL`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
-/// - D. A. Vallado, *Fundamentals of Astrodynamics and Applications*, 4th ed., Section 3.3.3
-///
 /// # Examples
 /// ```
 /// use brahe::constants::{R_EARTH, AngleFormat};
@@ -394,10 +353,6 @@ pub fn rotations_pqw_to_eci(x_eci: &[SVector6]) -> Vec<SMatrix3> {
 /// # Returns
 /// - Rotation matrices transforming inertial -> PQW, one per state, in input order
 ///
-/// # References
-/// - SANA Orbit-Relative Reference Frames registry, `PQW_INERTIAL`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
-/// - D. A. Vallado, *Fundamentals of Astrodynamics and Applications*, 4th ed., Section 3.3.3
-///
 /// # Examples
 /// ```
 /// use brahe::constants::GM_MARS;
@@ -422,10 +377,6 @@ pub fn rotations_inertial_to_pqw_for_body(x_inertial: &[SVector6], gm: f64) -> V
 ///
 /// # Returns
 /// - Rotation matrices transforming ECI -> PQW, one per state, in input order
-///
-/// # References
-/// - SANA Orbit-Relative Reference Frames registry, `PQW_INERTIAL`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
-/// - D. A. Vallado, *Fundamentals of Astrodynamics and Applications*, 4th ed., Section 3.3.3
 ///
 /// # Examples
 /// ```
@@ -460,10 +411,6 @@ pub fn rotations_eci_to_pqw(x_eci: &[SVector6]) -> Vec<SMatrix3> {
 /// # Returns
 /// - Deputy relative states in the chief PQW frame, in input order. Units: (*m*; *m/s*)
 /// - Error if the lengths do not satisfy the broadcast rule
-///
-/// # References
-/// - SANA Orbit-Relative Reference Frames registry, `PQW_INERTIAL`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
-/// - D. A. Vallado, *Fundamentals of Astrodynamics and Applications*, 4th ed., Section 3.3.3
 ///
 /// # Examples
 /// ```
@@ -508,10 +455,6 @@ pub fn states_inertial_to_pqw_for_body(
 /// - Deputy relative states in the chief PQW frame, in input order. Units: (*m*; *m/s*)
 /// - Error if the lengths do not satisfy the broadcast rule
 ///
-/// # References
-/// - SANA Orbit-Relative Reference Frames registry, `PQW_INERTIAL`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
-/// - D. A. Vallado, *Fundamentals of Astrodynamics and Applications*, 4th ed., Section 3.3.3
-///
 /// # Examples
 /// ```
 /// use brahe::constants::{R_EARTH, AngleFormat};
@@ -553,10 +496,6 @@ pub fn states_eci_to_pqw(
 /// - Deputy Cartesian inertial states, in input order. Units: (*m*; *m/s*)
 /// - Error if the lengths do not satisfy the broadcast rule
 ///
-/// # References
-/// - SANA Orbit-Relative Reference Frames registry, `PQW_INERTIAL`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
-/// - D. A. Vallado, *Fundamentals of Astrodynamics and Applications*, 4th ed., Section 3.3.3
-///
 /// # Examples
 /// ```
 /// use brahe::constants::GM_MARS;
@@ -596,10 +535,6 @@ pub fn states_pqw_to_inertial_for_body(
 /// # Returns
 /// - Deputy Cartesian ECI states, in input order. Units: (*m*; *m/s*)
 /// - Error if the lengths do not satisfy the broadcast rule
-///
-/// # References
-/// - SANA Orbit-Relative Reference Frames registry, `PQW_INERTIAL`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
-/// - D. A. Vallado, *Fundamentals of Astrodynamics and Applications*, 4th ed., Section 3.3.3
 ///
 /// # Examples
 /// ```

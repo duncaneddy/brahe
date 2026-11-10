@@ -28,7 +28,6 @@
 
 use nalgebra::Vector3;
 
-use crate::frames::ephemeris_source::frame_sun_state;
 use crate::frames::kinematics::{state_inertial_to_rotating, state_rotating_to_inertial};
 use crate::frames::object_registry::{object_frame, object_state};
 use crate::frames::registry::{FrameKey, frame_entry, frame_key};
@@ -44,7 +43,7 @@ use crate::relative_motion::{
     rotation_eci_to_lvlh, rotation_eci_to_nsw, rotation_eci_to_ntw, rotation_eci_to_rtn,
     rotation_eci_to_tnw, rotation_eci_to_vnc, rotation_inertial_to_pqw_for_body,
 };
-use crate::spice::NAIFId;
+use crate::spice::{NAIFId, spk_state};
 use crate::time::Epoch;
 use crate::utils::BraheError;
 
@@ -454,49 +453,6 @@ fn provider_error(frame: &ReferenceFrame, err: BraheError) -> BraheError {
     BraheError::Error(format!("orientation for {frame}: {err}"))
 }
 
-/// Resolves a topocentric orbit-relative kind's site state in ITRF, guarding
-/// that the object is Earth-centered.
-///
-/// `SEZ` and `ENZ` are defined only for Earth-centered objects, since their
-/// axes come from the WGS84 geodetic vertical. When the object's state is
-/// already declared in ITRF, `x` is used directly rather than round-tripping
-/// `x_root` back through `state_frame_to_frame`.
-///
-/// # Arguments
-/// - `kind`: The topocentric orbit-relative kind being resolved (used to
-///   name the frame in the error message)
-/// - `object`: The object the frame is bound to
-/// - `declared`: The celestial frame the object's state is declared in
-/// - `root`: The ICRF-aligned inertial frame sharing `declared`'s center
-/// - `x`: The object's state as declared, in `declared` axes
-/// - `x_root`: The object's state converted into `root` axes
-/// - `epc`: Epoch instant for evaluation
-///
-/// # Returns
-/// - `Ok(SVector6)`: The object's state in ITRF
-/// - `Err(BraheError)`: If `root`'s center is not Earth
-fn earth_site_state(
-    kind: OrbitRelativeFrameKind,
-    object: &ObjectId,
-    declared: CelestialFrame,
-    root: CelestialFrame,
-    x: SVector6,
-    x_root: SVector6,
-    epc: Epoch,
-) -> Result<SVector6, BraheError> {
-    if root.center() != FrameCenter::Body(NAIFId::Earth) {
-        return Err(BraheError::Error(format!(
-            "orbit-relative kind {kind} is a topocentric frame on the WGS84 ellipsoid and \
-             requires an Earth-centered object; {object} is declared in {declared}"
-        )));
-    }
-    if declared == CelestialFrame::ITRF {
-        Ok(x)
-    } else {
-        state_frame_to_frame(root, CelestialFrame::ITRF, epc, x_root)
-    }
-}
-
 /// Builds a bound orbit-relative frame's axes from its object's registered
 /// state.
 ///
@@ -514,16 +470,16 @@ fn earth_site_state(
 /// - `Ok(Resolved)`: The inertial root, the `root` -> frame rotation, and
 ///   the frame's angular velocity relative to `root` (*rad/s*): the orbital
 ///   rate for the rotating variant, zero for the inertial snapshot
-/// - `Err(BraheError)`: If `object` is not registered, its state cannot be
-///   evaluated at `epc`, or (for `NTW`'s, `TNW`'s, or `VNC`'s rotating
-///   variant, or for `PQW`) its declared center has no packaged
-///   gravitational parameter — `PQW` needs it to locate periapsis for its
-///   axes, not just for a rate — or (for `PQW` or `EQW`) the frame carries
-///   the rotating variant, which the validating constructors reject but the
-///   enum's public fields and deserialization admit, or (for `NSW`) the Sun
-///   state cannot be obtained from the configured
-///   [`FrameEphemerisSource`](crate::frames::FrameEphemerisSource), or (for
-///   `SEZ` or `ENZ`) `object`'s declared center is not Earth
+/// - `Err(BraheError)`: If `object` is not registered or its state cannot
+///   be evaluated at `epc`, or if a requirement of the kind is not met:
+///   - `NTW`, `TNW`, `VNC` (rotating variant) and `PQW`: the declared
+///     center has no packaged gravitational parameter
+///   - `PQW`, `EQW`: the frame carries the rotating variant, which the
+///     validating constructors reject but the enum's public fields and
+///     deserialization admit
+///   - `NSW`: the SPICE registry cannot supply the Sun's state relative
+///     to the declared center
+///   - `SEZ`, `ENZ`: the declared center is not Earth
 fn resolve_orbit_relative(
     kind: OrbitRelativeFrameKind,
     variant: OrbitRelativeFrameVariant,
@@ -533,83 +489,53 @@ fn resolve_orbit_relative(
     let (declared, x) = object_state(object, epc)?;
     let root = icrf_aligned_inertial(declared);
     let x_root = state_frame_to_frame(declared, root, epc, x)?;
+    let gm = || {
+        body_gm(root.center().naif_id()).map_err(|e| {
+            BraheError::Error(format!(
+                "orbit-relative kind {kind} needs the gravitational parameter of {object}'s \
+                 declared center: {e}"
+            ))
+        })
+    };
+    // The inertial variant has zero rate, so only the rotating variant
+    // needs the gravitational parameter.
+    let velocity_frame_rate =
+        |omega_for_body: fn(SVector6, f64) -> Vector3<f64>| -> Result<Vector3<f64>, BraheError> {
+            match variant {
+                OrbitRelativeFrameVariant::Rotating => Ok(omega_for_body(x_root, gm()?)),
+                OrbitRelativeFrameVariant::Inertial => Ok(Vector3::zeros()),
+            }
+        };
     let (dcm, omega) = match kind {
         OrbitRelativeFrameKind::RTN => (rotation_eci_to_rtn(x_root), omega_rtn(x_root)),
         OrbitRelativeFrameKind::LVLH => (rotation_eci_to_lvlh(x_root), omega_lvlh(x_root)),
-        OrbitRelativeFrameKind::NTW => {
-            let omega = match variant {
-                OrbitRelativeFrameVariant::Rotating => {
-                    let gm = body_gm(root.center().naif_id()).map_err(|e| {
-                        BraheError::Error(format!(
-                            "orbit-relative kind NTW needs the gravitational parameter of \
-                             {object}'s declared center for its rotating rate: {e}"
-                        ))
-                    })?;
-                    omega_ntw_for_body(x_root, gm)
-                }
-                OrbitRelativeFrameVariant::Inertial => Vector3::zeros(),
-            };
-            (rotation_eci_to_ntw(x_root), omega)
+        OrbitRelativeFrameKind::NTW => (
+            rotation_eci_to_ntw(x_root),
+            velocity_frame_rate(omega_ntw_for_body)?,
+        ),
+        OrbitRelativeFrameKind::TNW => (
+            rotation_eci_to_tnw(x_root),
+            velocity_frame_rate(omega_tnw_for_body)?,
+        ),
+        OrbitRelativeFrameKind::VNC => (
+            rotation_eci_to_vnc(x_root),
+            velocity_frame_rate(omega_vnc_for_body)?,
+        ),
+        OrbitRelativeFrameKind::PQW | OrbitRelativeFrameKind::EQW
+            if variant == OrbitRelativeFrameVariant::Rotating =>
+        {
+            return Err(BraheError::Error(format!(
+                "orbit-relative kind {kind} exists only as an inertial SANA frame and cannot \
+                 be evaluated with the rotating variant for {object}"
+            )));
         }
-        OrbitRelativeFrameKind::TNW => {
-            let omega = match variant {
-                OrbitRelativeFrameVariant::Rotating => {
-                    let gm = body_gm(root.center().naif_id()).map_err(|e| {
-                        BraheError::Error(format!(
-                            "orbit-relative kind TNW needs the gravitational parameter of \
-                             {object}'s declared center for its rotating rate: {e}"
-                        ))
-                    })?;
-                    omega_tnw_for_body(x_root, gm)
-                }
-                OrbitRelativeFrameVariant::Inertial => Vector3::zeros(),
-            };
-            (rotation_eci_to_tnw(x_root), omega)
-        }
-        OrbitRelativeFrameKind::VNC => {
-            let omega = match variant {
-                OrbitRelativeFrameVariant::Rotating => {
-                    let gm = body_gm(root.center().naif_id()).map_err(|e| {
-                        BraheError::Error(format!(
-                            "orbit-relative kind VNC needs the gravitational parameter of \
-                             {object}'s declared center for its rotating rate: {e}"
-                        ))
-                    })?;
-                    omega_vnc_for_body(x_root, gm)
-                }
-                OrbitRelativeFrameVariant::Inertial => Vector3::zeros(),
-            };
-            (rotation_eci_to_vnc(x_root), omega)
-        }
-        OrbitRelativeFrameKind::PQW => {
-            if variant == OrbitRelativeFrameVariant::Rotating {
-                return Err(BraheError::Error(format!(
-                    "orbit-relative kind PQW exists only as an inertial SANA frame and cannot \
-                     be evaluated with the rotating variant for {object}"
-                )));
-            }
-            let gm = body_gm(root.center().naif_id()).map_err(|e| {
-                BraheError::Error(format!(
-                    "orbit-relative kind PQW needs the gravitational parameter of {object}'s \
-                     declared center to locate periapsis: {e}"
-                ))
-            })?;
-            (
-                rotation_inertial_to_pqw_for_body(x_root, gm),
-                Vector3::zeros(),
-            )
-        }
-        OrbitRelativeFrameKind::EQW => {
-            if variant == OrbitRelativeFrameVariant::Rotating {
-                return Err(BraheError::Error(format!(
-                    "orbit-relative kind EQW exists only as an inertial SANA frame and cannot \
-                     be evaluated with the rotating variant for {object}"
-                )));
-            }
-            (rotation_eci_to_eqw(x_root), Vector3::zeros())
-        }
+        OrbitRelativeFrameKind::PQW => (
+            rotation_inertial_to_pqw_for_body(x_root, gm()?),
+            Vector3::zeros(),
+        ),
+        OrbitRelativeFrameKind::EQW => (rotation_eci_to_eqw(x_root), Vector3::zeros()),
         OrbitRelativeFrameKind::NSW => {
-            let x_sun = frame_sun_state(epc, root.center()).map_err(|e| {
+            let x_sun = spk_state(NAIFId::Sun, root.center().naif_id(), epc).map_err(|e| {
                 BraheError::Error(format!(
                     "orbit-relative kind NSW needs the Sun's state relative to {object}'s \
                      declared center for its axes: {e}"
@@ -617,19 +543,27 @@ fn resolve_orbit_relative(
             })?;
             (rotation_eci_to_nsw(x_root, x_sun), omega_nsw(x_root, x_sun))
         }
-        OrbitRelativeFrameKind::SEZ => {
-            let x_itrf = earth_site_state(kind, object, declared, root, x, x_root, epc)?;
-            let r_site = rotation_ecef_to_sez(x_itrf);
-            let dcm = r_site * rotation_gcrf_to_itrf(epc);
-            let omega = r_site * itrf_angular_velocity_at(epc) + omega_sez(x_itrf);
-            (dcm, omega)
-        }
-        OrbitRelativeFrameKind::ENZ => {
-            let x_itrf = earth_site_state(kind, object, declared, root, x, x_root, epc)?;
-            let r_site = rotation_ecef_to_enz(x_itrf);
-            let dcm = r_site * rotation_gcrf_to_itrf(epc);
-            let omega = r_site * itrf_angular_velocity_at(epc) + omega_enz(x_itrf);
-            (dcm, omega)
+        OrbitRelativeFrameKind::SEZ | OrbitRelativeFrameKind::ENZ => {
+            if root.center() != FrameCenter::Body(NAIFId::Earth) {
+                return Err(BraheError::Error(format!(
+                    "orbit-relative kind {kind} is a topocentric frame on the WGS84 ellipsoid \
+                     and requires an Earth-centered object; {object} is declared in {declared}"
+                )));
+            }
+            // A state already declared in ITRF is used as given.
+            let x_itrf = if declared == CelestialFrame::ITRF {
+                x
+            } else {
+                state_frame_to_frame(root, CelestialFrame::ITRF, epc, x_root)?
+            };
+            let (r_site, omega_site) = match kind {
+                OrbitRelativeFrameKind::ENZ => (rotation_ecef_to_enz(x_itrf), omega_enz(x_itrf)),
+                _ => (rotation_ecef_to_sez(x_itrf), omega_sez(x_itrf)),
+            };
+            (
+                r_site * rotation_gcrf_to_itrf(epc),
+                r_site * itrf_angular_velocity_at(epc) + omega_site,
+            )
         }
     };
 
@@ -837,10 +771,9 @@ mod tests {
     use crate::frames::object_registry::FnProvider;
     use crate::frames::registry::{FRAME_REGISTRY, FrameEntry};
     use crate::frames::{
-        CallbackOrientation, FrameCenter, FrameEphemerisSource, OrientationProvider,
-        clear_frame_registry, clear_object_registry, covariance_frame_to_frame,
-        jacobian_inertial_to_rotating, position_frame_to_frame, register_frame, register_object,
-        rotate_covariance_6, rotation_frame_to_frame, set_frame_ephemeris_source,
+        CallbackOrientation, OrientationProvider, clear_frame_registry, clear_object_registry,
+        covariance_frame_to_frame, jacobian_inertial_to_rotating, position_frame_to_frame,
+        register_frame, register_object, rotate_covariance_6, rotation_frame_to_frame,
         state_itrf_to_gcrf, unregister_frame,
     };
     use crate::math::{SMatrix6, SVector6};
@@ -1866,15 +1799,15 @@ mod tests {
 
     #[test]
     #[serial]
-    fn test_nsw_rotation_and_rate_match_relative_motion_analytic() {
-        set_frame_ephemeris_source(FrameEphemerisSource::Analytic);
+    fn test_nsw_rotation_and_rate_match_relative_motion() {
+        setup_global_test_spice();
         clear_object_registry();
         let epc = Epoch::from_date(2024, 3, 1, TimeSystem::UTC);
         let oe = SVector6::new(R_EARTH + 500e3, 0.05, 97.8, 15.0, 30.0, 45.0);
         let x = state_koe_to_eci(oe, AngleFormat::Degrees);
         register_object("A", FnProvider(move |_| Ok(x)), CelestialFrame::GCRF).unwrap();
 
-        let x_sun = frame_sun_state(epc, FrameCenter::Body(NAIFId::Earth)).unwrap();
+        let x_sun = spk_state(NAIFId::Sun, NAIFId::Earth, epc).unwrap();
         let r =
             rotation_frame_to_frame(CelestialFrame::GCRF, ReferenceFrame::NSW("A"), epc).unwrap();
         assert_abs_diff_eq!(r, rotation_eci_to_nsw(x, x_sun), epsilon = 1e-14);
@@ -1895,51 +1828,23 @@ mod tests {
         assert_eq!(resolved_inertial.omega.unwrap(), Vector3::zeros());
 
         clear_object_registry();
-        set_frame_ephemeris_source(FrameEphemerisSource::Auto);
     }
 
     #[test]
     #[serial]
-    fn test_nsw_kernel_source_uses_spk_state() {
+    fn test_nsw_uses_the_sun_relative_to_the_declared_center() {
         setup_global_test_spice();
-        set_frame_ephemeris_source(FrameEphemerisSource::Kernel);
         clear_object_registry();
         let epc = Epoch::from_date(2024, 3, 1, TimeSystem::UTC);
-        let oe = SVector6::new(R_EARTH + 500e3, 0.05, 97.8, 15.0, 30.0, 45.0);
-        let x = state_koe_to_eci(oe, AngleFormat::Degrees);
-        register_object("A", FnProvider(move |_| Ok(x)), CelestialFrame::GCRF).unwrap();
+        let x = SVector6::new(1.9e6, 0.0, 0.0, 0.0, 1.2e3, 1.0e3);
+        let moon_icrf = CelestialFrame::centered(301, FrameAxes::ICRF);
+        register_object("L", FnProvider(move |_| Ok(x)), moon_icrf).unwrap();
 
-        let x_sun = spk_state(NAIFId::Sun, NAIFId::Earth, epc).unwrap();
-        let r =
-            rotation_frame_to_frame(CelestialFrame::GCRF, ReferenceFrame::NSW("A"), epc).unwrap();
+        let x_sun = spk_state(NAIFId::Sun, NAIFId::Moon, epc).unwrap();
+        let r = rotation_frame_to_frame(moon_icrf, ReferenceFrame::NSW("L"), epc).unwrap();
         assert_abs_diff_eq!(r, rotation_eci_to_nsw(x, x_sun), epsilon = 1e-14);
 
         clear_object_registry();
-        set_frame_ephemeris_source(FrameEphemerisSource::Auto);
-    }
-
-    #[test]
-    #[serial]
-    fn test_nsw_analytic_source_errors_for_non_earth_center() {
-        set_frame_ephemeris_source(FrameEphemerisSource::Analytic);
-        clear_object_registry();
-        let epc = Epoch::from_date(2024, 3, 1, TimeSystem::UTC);
-        let x = state_koe_to_inertial_for_body(
-            SVector6::new(R_MARS + 400e3, 0.05, 92.6, 45.0, 270.0, 10.0),
-            &CentralBody::Mars,
-            AngleFormat::Degrees,
-        )
-        .unwrap();
-        let mars_icrf = CelestialFrame::centered(499, FrameAxes::ICRF);
-        register_object("M", FnProvider(move |_| Ok(x)), mars_icrf).unwrap();
-
-        let err = rotation_frame_to_frame(mars_icrf, ReferenceFrame::NSW("M"), epc)
-            .unwrap_err()
-            .to_string();
-        assert!(err.contains("Analytic"));
-
-        clear_object_registry();
-        set_frame_ephemeris_source(FrameEphemerisSource::Auto);
     }
 
     #[test]

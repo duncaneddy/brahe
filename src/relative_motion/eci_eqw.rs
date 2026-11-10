@@ -6,14 +6,10 @@ use nalgebra::Vector3;
 
 use crate::math::{SMatrix3, SVector6};
 use crate::relative_motion::common::{
-    absolute_states_to_relative_state, relative_state_to_absolute_state,
+    absolute_states_to_relative_state, ascending_node_direction, relative_state_to_absolute_state,
 };
 use crate::utils::BraheError;
 use crate::utils::batch::{batch_map, batch_zip};
-
-/// Below this node-vector norm the ascending node is undefined and E is
-/// taken along the inertial x axis projected into the orbit plane.
-const DEGENERATE_TOLERANCE: f64 = 1e-9;
 
 /// Computes the rotation matrix transforming a vector in the equinoctial (EQW) frame to the
 /// Earth-Centered Inertial (ECI) frame.
@@ -60,13 +56,7 @@ pub fn rotation_eqw_to_eci(x_eci: SVector6) -> SMatrix3 {
     let h = r.cross(&v);
     let w_hat = h / h.norm();
 
-    let node = Vector3::new(-w_hat[1], w_hat[0], 0.0);
-    let e_hat = if node.norm() > DEGENERATE_TOLERANCE {
-        node / node.norm()
-    } else {
-        let x_in_plane = Vector3::x() - w_hat[0] * w_hat;
-        x_in_plane / x_in_plane.norm()
-    };
+    let e_hat = ascending_node_direction(&w_hat);
     let q_hat = w_hat.cross(&e_hat);
 
     SMatrix3::from_columns(&[e_hat, q_hat, w_hat])
@@ -80,10 +70,6 @@ pub fn rotation_eqw_to_eci(x_eci: SVector6) -> SMatrix3 {
 ///
 /// # Returns:
 /// - `r`: 3x3 Rotation matrix transforming from the ECI frame to EQW
-///
-/// # References:
-/// - SANA Orbit-Relative Reference Frames registry, `EQW_INERTIAL`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
-/// - Orekit `LOFType.EQW`, <https://github.com/CS-SI/Orekit/blob/develop/src/main/java/org/orekit/frames/LOFType.java>
 ///
 /// # Examples:
 /// ```
@@ -113,10 +99,6 @@ pub fn rotation_eci_to_eqw(x_eci: SVector6) -> SMatrix3 {
 ///
 /// # Returns:
 /// - `x_rel_eqw`: 6D relative state of the deputy with respect to the chief in the EQW frame [ρ_E, ρ_Q, ρ_W, ρ̇_E, ρ̇_Q, ρ̇_W] (m, m/s)
-///
-/// # References:
-/// - SANA Orbit-Relative Reference Frames registry, `EQW_INERTIAL`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
-/// - Orekit `LOFType.EQW`, <https://github.com/CS-SI/Orekit/blob/develop/src/main/java/org/orekit/frames/LOFType.java>
 ///
 /// # Examples:
 /// ```
@@ -155,10 +137,6 @@ pub fn state_eci_to_eqw(x_chief: SVector6, x_deputy: SVector6) -> SVector6 {
 ///
 /// # Returns:
 /// - `x_deputy`: 6D state vector of the deputy satellite in the ECI frame [x, y, z, vx, vy, vz] (m, m/s)
-///
-/// # References:
-/// - SANA Orbit-Relative Reference Frames registry, `EQW_INERTIAL`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
-/// - Orekit `LOFType.EQW`, <https://github.com/CS-SI/Orekit/blob/develop/src/main/java/org/orekit/frames/LOFType.java>
 ///
 /// # Examples:
 /// ```
@@ -223,10 +201,6 @@ pub fn rotations_eqw_to_eci(x_eci: &[SVector6]) -> Vec<SMatrix3> {
 /// # Returns
 /// - Rotation matrices transforming ECI -> EQW, one per state, in input order
 ///
-/// # References
-/// - SANA Orbit-Relative Reference Frames registry, `EQW_INERTIAL`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
-/// - Orekit `LOFType.EQW`, <https://github.com/CS-SI/Orekit/blob/develop/src/main/java/org/orekit/frames/LOFType.java>
-///
 /// # Examples
 /// ```
 /// use brahe::constants::{R_EARTH, AngleFormat};
@@ -258,10 +232,6 @@ pub fn rotations_eci_to_eqw(x_eci: &[SVector6]) -> Vec<SMatrix3> {
 /// # Returns
 /// - Deputy relative states in the chief EQW frame, in input order. Units: (*m*; *m/s*)
 /// - Error if the lengths do not satisfy the broadcast rule
-///
-/// # References
-/// - SANA Orbit-Relative Reference Frames registry, `EQW_INERTIAL`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
-/// - Orekit `LOFType.EQW`, <https://github.com/CS-SI/Orekit/blob/develop/src/main/java/org/orekit/frames/LOFType.java>
 ///
 /// # Examples
 /// ```
@@ -301,10 +271,6 @@ pub fn states_eci_to_eqw(
 /// # Returns
 /// - Deputy Cartesian ECI states, in input order. Units: (*m*; *m/s*)
 /// - Error if the lengths do not satisfy the broadcast rule
-///
-/// # References
-/// - SANA Orbit-Relative Reference Frames registry, `EQW_INERTIAL`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
-/// - Orekit `LOFType.EQW`, <https://github.com/CS-SI/Orekit/blob/develop/src/main/java/org/orekit/frames/LOFType.java>
 ///
 /// # Examples
 /// ```

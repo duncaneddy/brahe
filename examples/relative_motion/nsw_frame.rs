@@ -2,7 +2,8 @@
 
 #[allow(unused_imports)]
 use brahe as bh;
-use brahe::frames::{CelestialFrame, FrameEphemerisSource, ReferenceFrame, set_frame_ephemeris_source};
+use brahe::frames::{CelestialFrame, ReferenceFrame};
+use brahe::spice::NAIFId;
 use brahe::time::{Epoch, TimeSystem};
 use brahe::utils::BraheError;
 use brahe::utils::state_providers::SStateProvider;
@@ -56,16 +57,16 @@ fn main() {
         (bh::state_eci_to_nsw(x_sc, x_deputy, x_sun) - x_rel).norm()
     );
 
-    // Frame graph, forcing the analytic Sun model
-    set_frame_ephemeris_source(FrameEphemerisSource::Analytic);
+    // Frame graph: the Sun's state comes from the SPICE registry
+    bh::spice::load_spice_kernel("de440s").unwrap();
+    let x_sun_spk = bh::spice::spk_state(NAIFId::Sun, NAIFId::Earth, epc).unwrap();
     bh::register_object("SC", ConstantProvider(x_sc), CelestialFrame::GCRF).unwrap();
     let r_graph =
         bh::rotation_frame_to_frame(CelestialFrame::GCRF, ReferenceFrame::NSW("SC"), epc)
             .unwrap();
     println!(
         "Frame graph matches rotation_eci_to_nsw: {}",
-        (r_graph - bh::rotation_eci_to_nsw(x_sc, x_sun)).norm() < 1e-9
+        (r_graph - bh::rotation_eci_to_nsw(x_sc, x_sun_spk)).norm() < 1e-9
     );
     bh::clear_object_registry();
-    set_frame_ephemeris_source(FrameEphemerisSource::Auto);
 }

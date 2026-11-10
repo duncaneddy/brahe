@@ -13,7 +13,7 @@ use brahe::datasets::sbdb::{SBDBClient, SBDBObject};
 ///     neo (bool): Whether the object is a near-Earth object.
 ///     gm (float | None): Gravitational parameter [m^3/s^2], if catalogued.
 ///     radius (float | None): Mean radius [m], if catalogued.
-#[pyclass(name = "SBDBObject", module = "brahe._brahe", skip_from_py_object)]
+#[pyclass(name = "SBDBObject", module = "brahe._brahe")]
 #[derive(Clone)]
 pub struct PySBDBObject {
     inner: SBDBObject,

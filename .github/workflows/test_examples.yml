@@ -26,6 +26,9 @@ on:
         type: number
         default: 90
 
+env:
+  PYTHON_VERSION: "3.15"
+
 jobs:
   test-examples:
     runs-on: ubuntu-latest
@@ -56,7 +59,7 @@ jobs:
       # environment variable into the key, so those jobs export the same
       # RUST_TOOLCHAIN variable this one does.
       - name: Set up Rust toolchain with cache
-        uses: actions-rust-lang/setup-rust-toolchain@v2.0.0
+        uses: actions-rust-lang/setup-rust-toolchain@v2.0.1
         with:
           toolchain: ${{ env.RUST_TOOLCHAIN }}
           cache-shared-key: test-examples
@@ -93,12 +96,12 @@ jobs:
           restore-keys: ${{ github.ref != 'refs/heads/main' && format('rust-script-v2-{0}-', runner.os) || '' }}
 
       - name: Install the latest version of uv
-        uses: astral-sh/setup-uv@v10.2.0
+        uses: astral-sh/setup-uv@v10.3.3
         with:
           enable-cache: true
 
-      - name: Install Python 3.14
-        run: uv python install 3.14
+      - name: Install Python ${{ env.PYTHON_VERSION }}
+        run: uv python install ${{ env.PYTHON_VERSION }}
 
       # Dependencies only: uv builds the project under PEP 517 isolation, in a
       # temporary target directory it cannot share with the restored cargo

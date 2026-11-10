@@ -21,14 +21,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
     }
 
+    let (start, end) = (sp3.start_epoch().unwrap(), sp3.end_epoch().unwrap());
     let station = bh::PointLocation::new(-105.27, 40.01, 1655.0)?.with_name("Boulder");
     let constraint = bh::ElevationConstraint::new(Some(10.0), None)?;
 
     let windows = bh::location_accesses(
         &station,
         &satellites,
-        sp3.start_epoch(),
-        sp3.end_epoch(),
+        start,
+        end,
         &constraint,
         None,
         None,
@@ -36,7 +37,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!(
         "\nAccess windows over {:.0} s: {}",
-        sp3.end_epoch() - sp3.start_epoch(),
+        end - start,
         windows.len()
     );
     for window in &windows {

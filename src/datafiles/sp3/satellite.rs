@@ -94,12 +94,12 @@ pub(crate) struct SP3Sample {
 /// # Examples
 ///
 /// ```
-/// use brahe::datafiles::sp3::{SP3, SP3Record, SP3SatelliteId, SP3WriteOptions};
+/// use brahe::datafiles::sp3::{SP3, SP3Record, SP3SatelliteId, SP3Header};
 /// use brahe::time::{Epoch, TimeSystem};
 /// use brahe::utils::{DOrbitStateProvider, Identifiable};
 ///
 /// let id: SP3SatelliteId = "G01".parse().unwrap();
-/// let options = SP3WriteOptions::default().with_velocity(false);
+/// let options = SP3Header { has_velocity: false, ..Default::default() };
 /// let mut sp3 = SP3::new(vec![id], 900.0, options).unwrap();
 /// let t0 = Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::GPS);
 /// for k in 0..4 {
@@ -241,13 +241,13 @@ impl SP3Satellite {
     /// # Examples
     ///
     /// ```
-    /// use brahe::datafiles::sp3::{SP3, SP3Record, SP3Satellite, SP3SatelliteId, SP3WriteOptions};
+    /// use brahe::datafiles::sp3::{SP3, SP3Record, SP3Satellite, SP3SatelliteId, SP3Header};
     /// use brahe::time::{Epoch, TimeSystem};
     ///
     /// let id: SP3SatelliteId = "G01".parse().unwrap();
     /// let t0 = Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::GPS);
     /// let file = |start: usize| {
-    ///     let options = SP3WriteOptions::default().with_velocity(false);
+    ///     let options = SP3Header { has_velocity: false, ..Default::default() };
     ///     let mut sp3 = SP3::new(vec![id], 900.0, options).unwrap();
     ///     for k in start..start + 3 {
     ///         let index = sp3.push_epoch(t0 + 900.0 * k as f64).unwrap();
@@ -362,10 +362,10 @@ impl SP3Satellite {
     /// # Examples
     ///
     /// ```
-    /// # use brahe::datafiles::sp3::{SP3, SP3Record, SP3SatelliteId, SP3WriteOptions};
+    /// # use brahe::datafiles::sp3::{SP3, SP3Record, SP3SatelliteId, SP3Header};
     /// # use brahe::time::{Epoch, TimeSystem};
     /// # let id: SP3SatelliteId = "G01".parse().unwrap();
-    /// # let mut sp3 = SP3::new(vec![id], 900.0, SP3WriteOptions::default()).unwrap();
+    /// # let mut sp3 = SP3::new(vec![id], 900.0, SP3Header::default()).unwrap();
     /// # let t0 = Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::GPS);
     /// # sp3.push_epoch(t0).unwrap();
     /// # sp3.set_record(id, 0, SP3Record::new([2.0e7, 1.0e7, 1.0e7])).unwrap();
@@ -385,10 +385,10 @@ impl SP3Satellite {
     /// # Examples
     ///
     /// ```
-    /// # use brahe::datafiles::sp3::{SP3, SP3Record, SP3SatelliteId, SP3WriteOptions};
+    /// # use brahe::datafiles::sp3::{SP3, SP3Record, SP3SatelliteId, SP3Header};
     /// # use brahe::time::{Epoch, TimeSystem};
     /// # let id: SP3SatelliteId = "G01".parse().unwrap();
-    /// # let mut sp3 = SP3::new(vec![id], 900.0, SP3WriteOptions::default()).unwrap();
+    /// # let mut sp3 = SP3::new(vec![id], 900.0, SP3Header::default()).unwrap();
     /// # let t0 = Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::GPS);
     /// # for k in 0..3 {
     /// #     sp3.push_epoch(t0 + 900.0 * k as f64).unwrap();
@@ -412,10 +412,10 @@ impl SP3Satellite {
     /// # Examples
     ///
     /// ```
-    /// # use brahe::datafiles::sp3::{SP3, SP3Record, SP3SatelliteId, SP3WriteOptions};
+    /// # use brahe::datafiles::sp3::{SP3, SP3Record, SP3SatelliteId, SP3Header};
     /// # use brahe::time::{Epoch, TimeSystem};
     /// # let id: SP3SatelliteId = "G01".parse().unwrap();
-    /// # let mut sp3 = SP3::new(vec![id], 900.0, SP3WriteOptions::default()).unwrap();
+    /// # let mut sp3 = SP3::new(vec![id], 900.0, SP3Header::default()).unwrap();
     /// # let t0 = Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::GPS);
     /// # sp3.push_epoch(t0).unwrap();
     /// # sp3.set_record(id, 0, SP3Record::new([2.0e7, 1.0e7, 1.0e7])).unwrap();
@@ -434,10 +434,10 @@ impl SP3Satellite {
     /// # Examples
     ///
     /// ```
-    /// # use brahe::datafiles::sp3::{SP3, SP3Record, SP3SatelliteId, SP3WriteOptions};
+    /// # use brahe::datafiles::sp3::{SP3, SP3Record, SP3SatelliteId, SP3Header};
     /// # use brahe::time::{Epoch, TimeSystem};
     /// # let id: SP3SatelliteId = "G01".parse().unwrap();
-    /// # let mut sp3 = SP3::new(vec![id], 900.0, SP3WriteOptions::default()).unwrap();
+    /// # let mut sp3 = SP3::new(vec![id], 900.0, SP3Header::default()).unwrap();
     /// # let t0 = Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::GPS);
     /// # for k in 0..3 {
     /// #     sp3.push_epoch(t0 + 900.0 * k as f64).unwrap();
@@ -459,10 +459,10 @@ impl SP3Satellite {
     /// # Examples
     ///
     /// ```
-    /// # use brahe::datafiles::sp3::{SP3, SP3Record, SP3SatelliteId, SP3WriteOptions};
+    /// # use brahe::datafiles::sp3::{SP3, SP3Record, SP3SatelliteId, SP3Header};
     /// # use brahe::time::{Epoch, TimeSystem};
     /// # let id: SP3SatelliteId = "G01".parse().unwrap();
-    /// # let mut sp3 = SP3::new(vec![id], 900.0, SP3WriteOptions::default()).unwrap();
+    /// # let mut sp3 = SP3::new(vec![id], 900.0, SP3Header::default()).unwrap();
     /// # let t0 = Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::GPS);
     /// # for k in 0..3 {
     /// #     sp3.push_epoch(t0 + 900.0 * k as f64).unwrap();
@@ -484,10 +484,10 @@ impl SP3Satellite {
     /// # Examples
     ///
     /// ```
-    /// # use brahe::datafiles::sp3::{SP3, SP3Record, SP3SatelliteId, SP3WriteOptions};
+    /// # use brahe::datafiles::sp3::{SP3, SP3Record, SP3SatelliteId, SP3Header};
     /// # use brahe::time::{Epoch, TimeSystem};
     /// # let id: SP3SatelliteId = "G01".parse().unwrap();
-    /// # let mut sp3 = SP3::new(vec![id], 900.0, SP3WriteOptions::default()).unwrap();
+    /// # let mut sp3 = SP3::new(vec![id], 900.0, SP3Header::default()).unwrap();
     /// # let t0 = Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::GPS);
     /// # for k in 0..3 {
     /// #     sp3.push_epoch(t0 + 900.0 * k as f64).unwrap();
@@ -509,10 +509,10 @@ impl SP3Satellite {
     /// # Examples
     ///
     /// ```
-    /// # use brahe::datafiles::sp3::{SP3, SP3Record, SP3SatelliteId, SP3WriteOptions};
+    /// # use brahe::datafiles::sp3::{SP3, SP3Record, SP3SatelliteId, SP3Header};
     /// # use brahe::time::{Epoch, TimeSystem};
     /// # let id: SP3SatelliteId = "G01".parse().unwrap();
-    /// # let mut sp3 = SP3::new(vec![id], 900.0, SP3WriteOptions::default()).unwrap();
+    /// # let mut sp3 = SP3::new(vec![id], 900.0, SP3Header::default()).unwrap();
     /// # let t0 = Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::GPS);
     /// # sp3.push_epoch(t0).unwrap();
     /// sp3.set_record(id, 0, SP3Record::new([2.0e7, 1.0e7, 1.0e7])).unwrap();
@@ -535,10 +535,10 @@ impl SP3Satellite {
     /// # Examples
     ///
     /// ```
-    /// # use brahe::datafiles::sp3::{SP3, SP3Record, SP3SatelliteId, SP3WriteOptions};
+    /// # use brahe::datafiles::sp3::{SP3, SP3Record, SP3SatelliteId, SP3Header};
     /// # use brahe::time::{Epoch, TimeSystem};
     /// # let id: SP3SatelliteId = "G01".parse().unwrap();
-    /// # let options = SP3WriteOptions::default().with_velocity(false);
+    /// # let options = SP3Header { has_velocity: false, ..Default::default() };
     /// # let mut sp3 = SP3::new(vec![id], 60.0, options).unwrap();
     /// # let t0 = Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::GPS);
     /// # for k in 0..2 {
@@ -563,10 +563,10 @@ impl SP3Satellite {
     /// # Examples
     ///
     /// ```
-    /// # use brahe::datafiles::sp3::{SP3, SP3Record, SP3SatelliteId, SP3WriteOptions};
+    /// # use brahe::datafiles::sp3::{SP3, SP3Record, SP3SatelliteId, SP3Header};
     /// # use brahe::time::{Epoch, TimeSystem};
     /// # let id: SP3SatelliteId = "G01".parse().unwrap();
-    /// # let mut sp3 = SP3::new(vec![id], 900.0, SP3WriteOptions::default()).unwrap();
+    /// # let mut sp3 = SP3::new(vec![id], 900.0, SP3Header::default()).unwrap();
     /// # let t0 = Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::GPS);
     /// # sp3.push_epoch(t0).unwrap();
     /// let record = SP3Record::new([2.0e7, 1.0e7, 1.0e7]).with_velocity([0.0, 3000.0, 0.0]);
@@ -587,10 +587,10 @@ impl SP3Satellite {
     /// # Examples
     ///
     /// ```
-    /// # use brahe::datafiles::sp3::{SP3, SP3Record, SP3SatelliteId, SP3WriteOptions};
+    /// # use brahe::datafiles::sp3::{SP3, SP3Record, SP3SatelliteId, SP3Header};
     /// # use brahe::time::{Epoch, TimeSystem};
     /// # let id: SP3SatelliteId = "G01".parse().unwrap();
-    /// # let mut sp3 = SP3::new(vec![id], 900.0, SP3WriteOptions::default()).unwrap();
+    /// # let mut sp3 = SP3::new(vec![id], 900.0, SP3Header::default()).unwrap();
     /// # let t0 = Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::GPS);
     /// # for k in 0..2 {
     /// #     sp3.push_epoch(t0 + 900.0 * k as f64).unwrap();
@@ -613,10 +613,10 @@ impl SP3Satellite {
     /// # Examples
     ///
     /// ```
-    /// # use brahe::datafiles::sp3::{SP3, SP3Record, SP3SatelliteId, SP3WriteOptions};
+    /// # use brahe::datafiles::sp3::{SP3, SP3Record, SP3SatelliteId, SP3Header};
     /// # use brahe::time::{Epoch, TimeSystem};
     /// # let id: SP3SatelliteId = "G01".parse().unwrap();
-    /// # let mut sp3 = SP3::new(vec![id], 900.0, SP3WriteOptions::default()).unwrap();
+    /// # let mut sp3 = SP3::new(vec![id], 900.0, SP3Header::default()).unwrap();
     /// # let t0 = Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::GPS);
     /// # sp3.push_epoch(t0).unwrap();
     /// let record = SP3Record::new([2.0e7, 1.0e7, 1.0e7])
@@ -642,10 +642,10 @@ impl SP3Satellite {
     /// # Examples
     ///
     /// ```
-    /// # use brahe::datafiles::sp3::{SP3, SP3Record, SP3SatelliteId, SP3WriteOptions};
+    /// # use brahe::datafiles::sp3::{SP3, SP3Record, SP3SatelliteId, SP3Header};
     /// # use brahe::time::{Epoch, TimeSystem};
     /// # let id: SP3SatelliteId = "G01".parse().unwrap();
-    /// # let mut sp3 = SP3::new(vec![id], 900.0, SP3WriteOptions::default()).unwrap();
+    /// # let mut sp3 = SP3::new(vec![id], 900.0, SP3Header::default()).unwrap();
     /// # let t0 = Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::GPS);
     /// # sp3.push_epoch(t0).unwrap();
     /// let mut record = SP3Record::new([2.0e7, 1.0e7, 1.0e7]);
@@ -668,10 +668,10 @@ impl SP3Satellite {
     /// # Examples
     ///
     /// ```
-    /// # use brahe::datafiles::sp3::{SP3, SP3Record, SP3SatelliteId, SP3WriteOptions};
+    /// # use brahe::datafiles::sp3::{SP3, SP3Record, SP3SatelliteId, SP3Header};
     /// # use brahe::time::{Epoch, TimeSystem};
     /// # let id: SP3SatelliteId = "G01".parse().unwrap();
-    /// # let mut sp3 = SP3::new(vec![id], 900.0, SP3WriteOptions::default()).unwrap();
+    /// # let mut sp3 = SP3::new(vec![id], 900.0, SP3Header::default()).unwrap();
     /// # let t0 = Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::GPS);
     /// for k in [0, 1, 2, 5, 6] {
     ///     let index = sp3.push_epoch(t0 + 900.0 * k as f64).unwrap();
@@ -698,10 +698,10 @@ impl SP3Satellite {
     /// # Examples
     ///
     /// ```
-    /// # use brahe::datafiles::sp3::{SP3, SP3Record, SP3SatelliteId, SP3WriteOptions};
+    /// # use brahe::datafiles::sp3::{SP3, SP3Record, SP3SatelliteId, SP3Header};
     /// # use brahe::time::{Epoch, TimeSystem};
     /// # let id: SP3SatelliteId = "G01".parse().unwrap();
-    /// # let mut sp3 = SP3::new(vec![id], 900.0, SP3WriteOptions::default()).unwrap();
+    /// # let mut sp3 = SP3::new(vec![id], 900.0, SP3Header::default()).unwrap();
     /// # let t0 = Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::GPS);
     /// for k in 0..3 {
     ///     let index = sp3.push_epoch(t0 + 900.0 * k as f64).unwrap();
@@ -731,12 +731,12 @@ impl SP3Satellite {
     /// # Examples
     ///
     /// ```
-    /// # use brahe::datafiles::sp3::{SP3, SP3Record, SP3SatelliteId, SP3WriteOptions};
+    /// # use brahe::datafiles::sp3::{SP3, SP3Record, SP3SatelliteId, SP3Header};
     /// # use brahe::time::{Epoch, TimeSystem};
     /// use brahe::trajectories::traits::Trajectory;
     /// use brahe::utils::Identifiable;
     /// # let id: SP3SatelliteId = "G01".parse().unwrap();
-    /// # let mut sp3 = SP3::new(vec![id], 900.0, SP3WriteOptions::default()).unwrap();
+    /// # let mut sp3 = SP3::new(vec![id], 900.0, SP3Header::default()).unwrap();
     /// # let t0 = Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::GPS);
     /// # for k in 0..3 {
     /// #     let index = sp3.push_epoch(t0 + 900.0 * k as f64).unwrap();
@@ -792,10 +792,10 @@ impl SP3Satellite {
     /// # Examples
     ///
     /// ```
-    /// # use brahe::datafiles::sp3::{SP3, SP3Record, SP3SatelliteId, SP3WriteOptions};
+    /// # use brahe::datafiles::sp3::{SP3, SP3Record, SP3SatelliteId, SP3Header};
     /// # use brahe::time::{Epoch, TimeSystem};
     /// # let id: SP3SatelliteId = "G01".parse().unwrap();
-    /// # let mut sp3 = SP3::new(vec![id], 900.0, SP3WriteOptions::default()).unwrap();
+    /// # let mut sp3 = SP3::new(vec![id], 900.0, SP3Header::default()).unwrap();
     /// # let t0 = Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::GPS);
     /// for k in [0, 1, 2, 5, 6] {
     ///     let index = sp3.push_epoch(t0 + 900.0 * k as f64).unwrap();
@@ -830,11 +830,11 @@ impl InterpolationConfig for SP3Satellite {
     /// # Examples
     ///
     /// ```
-    /// # use brahe::datafiles::sp3::{SP3, SP3Record, SP3SatelliteId, SP3WriteOptions};
+    /// # use brahe::datafiles::sp3::{SP3, SP3Record, SP3SatelliteId, SP3Header};
     /// # use brahe::time::{Epoch, TimeSystem};
     /// use brahe::math::interpolation::{InterpolationConfig, InterpolationMethod};
     /// # let id: SP3SatelliteId = "G01".parse().unwrap();
-    /// # let mut sp3 = SP3::new(vec![id], 900.0, SP3WriteOptions::default()).unwrap();
+    /// # let mut sp3 = SP3::new(vec![id], 900.0, SP3Header::default()).unwrap();
     /// # let t0 = Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::GPS);
     /// # for k in 0..3 {
     /// #     let index = sp3.push_epoch(t0 + 900.0 * k as f64).unwrap();
@@ -867,11 +867,11 @@ impl InterpolationConfig for SP3Satellite {
     /// # Examples
     ///
     /// ```
-    /// # use brahe::datafiles::sp3::{SP3, SP3Record, SP3SatelliteId, SP3WriteOptions};
+    /// # use brahe::datafiles::sp3::{SP3, SP3Record, SP3SatelliteId, SP3Header};
     /// # use brahe::time::{Epoch, TimeSystem};
     /// use brahe::math::interpolation::{InterpolationConfig, InterpolationMethod};
     /// # let id: SP3SatelliteId = "G01".parse().unwrap();
-    /// # let mut sp3 = SP3::new(vec![id], 900.0, SP3WriteOptions::default()).unwrap();
+    /// # let mut sp3 = SP3::new(vec![id], 900.0, SP3Header::default()).unwrap();
     /// # let t0 = Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::GPS);
     /// # for k in 0..3 {
     /// #     let index = sp3.push_epoch(t0 + 900.0 * k as f64).unwrap();
@@ -901,12 +901,12 @@ impl InterpolationConfig for SP3Satellite {
     /// # Examples
     ///
     /// ```
-    /// # use brahe::datafiles::sp3::{SP3, SP3Record, SP3SatelliteId, SP3WriteOptions};
+    /// # use brahe::datafiles::sp3::{SP3, SP3Record, SP3SatelliteId, SP3Header};
     /// # use brahe::time::{Epoch, TimeSystem};
     /// use brahe::datafiles::sp3::SP3_DEFAULT_LAGRANGE_DEGREE;
     /// use brahe::math::interpolation::{InterpolationConfig, InterpolationMethod};
     /// # let id: SP3SatelliteId = "G01".parse().unwrap();
-    /// # let mut sp3 = SP3::new(vec![id], 900.0, SP3WriteOptions::default()).unwrap();
+    /// # let mut sp3 = SP3::new(vec![id], 900.0, SP3Header::default()).unwrap();
     /// # let t0 = Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::GPS);
     /// # sp3.push_epoch(t0).unwrap();
     /// # sp3.set_record(id, 0, SP3Record::new([2.0e7, 1.0e7, 1.0e7])).unwrap();
@@ -1155,7 +1155,7 @@ mod tests {
     use super::*;
     use crate::access::{ElevationConstraint, PointLocation, location_accesses};
     use crate::constants::{AngleFormat, MJD_ZERO};
-    use crate::datafiles::sp3::types::{SP3, SP3WriteOptions};
+    use crate::datafiles::sp3::types::{SP3, SP3Header};
     use crate::frames::{CelestialFrame, ReferenceFrame, bias_precession_nutation, polar_motion};
     use crate::propagators::KeplerianPropagator;
     use crate::time::TimeSystem;
@@ -1204,7 +1204,10 @@ mod tests {
         let mut sp3 = SP3::new(
             ids.clone(),
             STEP,
-            SP3WriteOptions::default().with_velocity(false),
+            SP3Header {
+                has_velocity: false,
+                ..Default::default()
+            },
         )
         .unwrap();
         for k in 0..N_EPOCHS {
@@ -1619,7 +1622,10 @@ mod tests {
         let mut sp3 = SP3::new(
             ids.clone(),
             STEP,
-            SP3WriteOptions::default().with_velocity(false),
+            SP3Header {
+                has_velocity: false,
+                ..Default::default()
+            },
         )
         .unwrap();
         for k in 0..N_EPOCHS {
@@ -2248,7 +2254,10 @@ mod tests {
         let mut subsampled = SP3::new(
             ids.clone(),
             900.0,
-            SP3WriteOptions::default().with_velocity(false),
+            SP3Header {
+                has_velocity: false,
+                ..Default::default()
+            },
         )
         .unwrap();
         for k in (0..file.num_epochs()).step_by(3) {

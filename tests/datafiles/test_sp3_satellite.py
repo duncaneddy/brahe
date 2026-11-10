@@ -17,6 +17,7 @@ from brahe.datafiles import (
     SP3,
     SP3_DEFAULT_LAGRANGE_DEGREE,
     SP3FileType,
+    SP3Header,
     SP3Record,
     SP3Satellite,
     SP3SatelliteId,
@@ -75,7 +76,7 @@ def build_sp3():
         gps_propagator(120.0, 60.0),
         gps_propagator(180.0, 90.0),
     ]
-    sp3 = SP3(ids, STEP, include_velocity=False)
+    sp3 = SP3(ids, STEP, SP3Header(has_velocity=False))
     for k in range(N_EPOCHS):
         epoch = t0() + k * STEP
         index = sp3.push_epoch(epoch)
@@ -105,7 +106,7 @@ def build_clean_sp3():
             [(0.0, 0.0), (60.0, 30.0), (120.0, 60.0)], names
         )
     ]
-    sp3 = SP3(names, STEP, include_velocity=False)
+    sp3 = SP3(names, STEP, SP3Header(has_velocity=False))
     for k in range(N_EPOCHS):
         epoch = t0() + k * STEP
         index = sp3.push_epoch(epoch)
@@ -116,7 +117,7 @@ def build_clean_sp3():
 
 def single_satellite(code, interval, samples, include_velocity=False):
     """An SP3 file holding one satellite at the given (offset, position) samples."""
-    sp3 = SP3([code], interval, include_velocity=include_velocity)
+    sp3 = SP3([code], interval, SP3Header(has_velocity=include_velocity))
     for offset, position in samples:
         index = sp3.push_epoch(t0() + offset)
         sp3.set_record(code, index, SP3Record(np.array(position)))
@@ -327,7 +328,7 @@ def test_SP3Satellite_derived_velocity_exact_for_polynomials():
 
 def test_SP3Satellite_file_velocities():
     def file(skip_velocity_at=None):
-        sp3 = SP3(["G11"], 900.0, include_velocity=True)
+        sp3 = SP3(["G11"], 900.0, SP3Header(has_velocity=True))
         for k in range(5):
             t = 900.0 * k
             index = sp3.push_epoch(t0() + t)
@@ -838,7 +839,7 @@ def test_SP3Satellite_interpolation_accuracy_cod():
     assert ids == ["G02", "G05", "E11"]
     assert file.num_epochs == 72
 
-    subsampled = SP3(ids, 900.0, include_velocity=False)
+    subsampled = SP3(ids, 900.0, SP3Header(has_velocity=False))
     file_epochs = file.epochs
     for k in range(0, file.num_epochs, 3):
         index = subsampled.push_epoch(file_epochs[k])
@@ -872,7 +873,7 @@ def test_SP3Satellite_interpolation_accuracy_cod():
 def linear_file(ids, epochs, time_system="GPS", interval=300.0):
     """A position-only file at ``interval`` seconds holding ``ids`` at ``epochs``,
     with each satellite moving linearly along x."""
-    sp3 = SP3(ids, interval, include_velocity=False, time_system=time_system)
+    sp3 = SP3(ids, interval, SP3Header(has_velocity=False, time_system=time_system))
     origin = t0()
     for epoch in epochs:
         index = sp3.push_epoch(epoch)
@@ -885,7 +886,7 @@ def linear_file(ids, epochs, time_system="GPS", interval=300.0):
 def uniform_file(code, interval, epochs, velocity):
     """A file at ``interval`` holding ``code`` at ``epochs``, moving at 1000 m/s
     along x, with velocity records when ``velocity`` is true."""
-    sp3 = SP3([code], interval, include_velocity=velocity)
+    sp3 = SP3([code], interval, SP3Header(has_velocity=velocity))
     for epoch in epochs:
         index = sp3.push_epoch(epoch)
         x = 2.0e7 + 1000.0 * (epoch - gps(0, 0.0))
@@ -935,7 +936,7 @@ def test_SP3Satellite_from_files_overlap_names_both_files():
     assert err.count("GFZ") == 2
     assert str(a.start_epoch) in err and str(a.end_epoch) in err
 
-    shifted = SP3(["G01"], 300.0, agency="ABC")
+    shifted = SP3(["G01"], 300.0, SP3Header(agency="ABC"))
     shifted.push_epoch(a.start_epoch + 150.0)
     with pytest.raises(bh.BraheError) as excinfo:
         SP3Satellite.from_files([shifted, a])
@@ -994,7 +995,7 @@ def test_SP3Satellite_from_files_missing_satellite_gives_gap():
 
 def test_SP3Satellite_from_files_invalid_later_boundary_keeps_earlier():
     first = linear_file(["G01"], [gps(0, 0.0), gps(5, 0.0)])
-    second = SP3(["G01"], 300.0, include_velocity=False)
+    second = SP3(["G01"], 300.0, SP3Header(has_velocity=False))
     second.push_epoch(gps(5, 0.0))
     second.push_epoch(gps(10, 0.0))
     second.set_record("G01", 1, SP3Record(np.array([3.0e7, 1.0e7, 1.0e7])))
@@ -1072,7 +1073,7 @@ def test_SP3_satellites_matches_from_files_single():
 
 def test_SP3Satellite_from_files_equal_starts_independent_of_order():
     long = linear_file(["G01"], [gps(0, 0.0), gps(5, 0.0)])
-    single = SP3(["G01"], 300.0, include_velocity=False)
+    single = SP3(["G01"], 300.0, SP3Header(has_velocity=False))
     single.push_epoch(gps(0, 0.0))
     single.set_record("G01", 0, SP3Record(np.array([3.0e7, 1.0e7, 1.0e7])))
     expected = long.record("G01", 0).position
@@ -1142,7 +1143,7 @@ def test_SP3Satellite_from_files_mixed_intervals_gap_threshold():
 def keplerian_day(start, code, propagator):
     """A 24 h position-only file at 900 s starting at ``start``, sampled from
     ``propagator``."""
-    sp3 = SP3([code], 900.0, include_velocity=False)
+    sp3 = SP3([code], 900.0, SP3Header(has_velocity=False))
     for k in range(97):
         epoch = start + 900.0 * k
         index = sp3.push_epoch(epoch)
@@ -1180,7 +1181,7 @@ def test_SP3Satellite_from_files_boundary_velocity_uses_centered_fit():
 def shifted_keplerian_day(start, code, propagator, shift):
     """A 24 h position-only file at 900 s sampled from ``propagator`` at
     ``start + 900 k + shift``."""
-    sp3 = SP3([code], 900.0, include_velocity=False)
+    sp3 = SP3([code], 900.0, SP3Header(has_velocity=False))
     for k in range(97):
         epoch = start + 900.0 * k + shift
         index = sp3.push_epoch(epoch)
@@ -1298,11 +1299,11 @@ def leo_propagator(epoch, raan):
     )
 
 
-def two_leo_sp3(**options):
+def two_leo_sp3(**header):
     a = leo_propagator(t0(), 0.0)
     b = leo_propagator(t0(), 40.0)
     sp3 = SP3.from_propagators(
-        [("L01", a), (sid("L02"), b)], t0(), t0() + 86400.0, 30.0, **options
+        [("L01", a), (sid("L02"), b)], t0(), t0() + 86400.0, 30.0, SP3Header(**header)
     )
     return sp3, a, b
 
@@ -1363,7 +1364,7 @@ def test_SP3_from_propagators_grid_includes_end_within_tolerance():
 
 
 def test_SP3_from_propagators_position_only_rejects_clock_rates():
-    sp3, _, _ = two_leo_sp3(include_velocity=False)
+    sp3, _, _ = two_leo_sp3(has_velocity=False)
     assert not sp3.header.has_velocity
     assert sp3.record("L01", 3).velocity is None
     assert "\nV" not in sp3.to_string()
@@ -1480,7 +1481,7 @@ def test_SP3_from_propagators_resamples_sp3_satellite():
     sp3, _, _ = two_leo_sp3()
     sat = sp3.satellite("L02")
     resampled = SP3.from_propagators(
-        [("L02", sat)], t0() + 3600.0, t0() + 7200.0, 45.0, agency="DEMO"
+        [("L02", sat)], t0() + 3600.0, t0() + 7200.0, 45.0, SP3Header(agency="DEMO")
     )
     assert resampled.num_epochs == 81
     assert resampled.header.agency == "DEMO"
@@ -1528,7 +1529,7 @@ def test_sp3_from_propagators_mixed_types():
         start,
         end,
         30.0,
-        agency="DEMO",
+        SP3Header(agency="DEMO"),
     )
     assert sp3.header.agency == "DEMO"
     assert np.isnan(sp3.satellite("L01").clocks()).all()
@@ -1544,11 +1545,13 @@ def test_SP3_from_propagators_header_options():
         t0(),
         t0() + 300.0,
         60.0,
-        time_system="UTC",
-        coordinate_system="ITRF",
-        orbit_type="FIT",
-        data_used="SLR",
-        comments=["generated in a test"],
+        SP3Header(
+            time_system="UTC",
+            coordinate_system="ITRF",
+            orbit_type="FIT",
+            data_used="SLR",
+            comments=["generated in a test"],
+        ),
     )
     header = sp3.header
     assert header.time_system == SP3TimeSystem.UTC

@@ -21,7 +21,6 @@ pub mod custom;
 pub mod eci_ecef;
 pub mod emb;
 pub mod eme_2000;
-pub mod ephemeris_source;
 pub mod equinox;
 pub mod frame;
 pub mod gcrf_itrf;
@@ -29,7 +28,6 @@ pub mod gcrf_itrf;
 mod graph;
 pub mod iau_rotation;
 // Not `pub`: shared state-kinematics algebra used by the pairwise modules.
-// The state Jacobians are re-exported below.
 mod kinematics;
 pub mod lunar;
 pub mod mars;
@@ -59,7 +57,6 @@ pub use custom::*;
 pub use eci_ecef::*;
 pub use emb::*;
 pub use eme_2000::*;
-pub use ephemeris_source::*;
 pub use equinox::*;
 pub use frame::*;
 pub use gcrf_itrf::*;

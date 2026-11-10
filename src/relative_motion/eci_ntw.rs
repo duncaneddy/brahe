@@ -70,10 +70,6 @@ pub fn rotation_ntw_to_eci(x_eci: SVector6) -> SMatrix3 {
 /// # Returns:
 /// - `r`: 3x3 Rotation matrix transforming from ECI to NTW frame
 ///
-/// # References:
-/// - SANA Orbit-Relative Reference Frames registry, `NTW_ROTATING`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
-/// - Orekit `LOFType.NTW`, <https://github.com/CS-SI/Orekit/blob/develop/src/main/java/org/orekit/frames/LOFType.java>
-///
 /// # Examples:
 /// ```
 /// use brahe::SVector6;
@@ -134,9 +130,6 @@ pub fn omega_ntw_for_body(x_inertial: SVector6, gm: f64) -> Vector3<f64> {
 /// # Returns:
 /// - `omega`: Angular velocity of the NTW frame relative to ECI, expressed in NTW axes (rad/s)
 ///
-/// # References:
-/// - H. Schaub and J. L. Junkins, *Analytical Mechanics of Space Systems*, 4th ed., AIAA, 2018, Section 3.3
-///
 /// # Examples:
 /// ```
 /// use brahe::SVector6;
@@ -164,10 +157,6 @@ pub fn omega_ntw(x_eci: SVector6) -> Vector3<f64> {
 ///
 /// # Returns:
 /// - `x_rel_ntw`: 6D relative state of the deputy with respect to the chief in the NTW frame [ρ_N, ρ_T, ρ_W, ρ̇_N, ρ̇_T, ρ̇_W] (m, m/s)
-///
-/// # References:
-/// - SANA Orbit-Relative Reference Frames registry, `NTW_ROTATING`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
-/// - Orekit `LOFType.NTW`, <https://github.com/CS-SI/Orekit/blob/develop/src/main/java/org/orekit/frames/LOFType.java>
 ///
 /// # Examples:
 /// ```
@@ -206,10 +195,6 @@ pub fn state_inertial_to_ntw_for_body(x_chief: SVector6, x_deputy: SVector6, gm:
 /// # Returns:
 /// - `x_rel_ntw`: 6D relative state of the deputy with respect to the chief in the NTW frame [ρ_N, ρ_T, ρ_W, ρ̇_N, ρ̇_T, ρ̇_W] (m, m/s)
 ///
-/// # References:
-/// - SANA Orbit-Relative Reference Frames registry, `NTW_ROTATING`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
-/// - Orekit `LOFType.NTW`, <https://github.com/CS-SI/Orekit/blob/develop/src/main/java/org/orekit/frames/LOFType.java>
-///
 /// # Examples:
 /// ```
 /// use brahe::SVector6;
@@ -240,10 +225,6 @@ pub fn state_eci_to_ntw(x_chief: SVector6, x_deputy: SVector6) -> SVector6 {
 ///
 /// # Returns:
 /// - `x_deputy`: 6D state vector of the deputy satellite in the inertial frame [x, y, z, vx, vy, vz] (m, m/s)
-///
-/// # References:
-/// - SANA Orbit-Relative Reference Frames registry, `NTW_ROTATING`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
-/// - Orekit `LOFType.NTW`, <https://github.com/CS-SI/Orekit/blob/develop/src/main/java/org/orekit/frames/LOFType.java>
 ///
 /// # Examples:
 /// ```
@@ -279,10 +260,6 @@ pub fn state_ntw_to_inertial_for_body(x_chief: SVector6, x_rel_ntw: SVector6, gm
 ///
 /// # Returns:
 /// - `x_deputy`: 6D state vector of the deputy satellite in the ECI frame [x, y, z, vx, vy, vz] (m, m/s)
-///
-/// # References:
-/// - SANA Orbit-Relative Reference Frames registry, `NTW_ROTATING`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
-/// - Orekit `LOFType.NTW`, <https://github.com/CS-SI/Orekit/blob/develop/src/main/java/org/orekit/frames/LOFType.java>
 ///
 /// # Examples:
 /// ```
@@ -342,10 +319,6 @@ pub fn rotations_ntw_to_eci(x_eci: &[SVector6]) -> Vec<SMatrix3> {
 /// # Returns
 /// - Rotation matrices transforming ECI -> NTW, one per state, in input order
 ///
-/// # References
-/// - SANA Orbit-Relative Reference Frames registry, `NTW_ROTATING`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
-/// - Orekit `LOFType.NTW`, <https://github.com/CS-SI/Orekit/blob/develop/src/main/java/org/orekit/frames/LOFType.java>
-///
 /// # Examples
 /// ```
 /// use brahe::constants::{R_EARTH, AngleFormat};
@@ -404,9 +377,6 @@ pub fn omegas_ntw_for_body(x_inertial: &[SVector6], gm: f64) -> Vec<Vector3<f64>
 /// - Angular velocities of the NTW frame relative to ECI, expressed in NTW axes, one per
 ///   state, in input order. Units: (*rad/s*)
 ///
-/// # References
-/// - H. Schaub and J. L. Junkins, *Analytical Mechanics of Space Systems*, 4th ed., AIAA, 2018, Section 3.3
-///
 /// # Examples
 /// ```
 /// use brahe::constants::{R_EARTH, AngleFormat};
@@ -440,10 +410,6 @@ pub fn omegas_ntw(x_eci: &[SVector6]) -> Vec<Vector3<f64>> {
 /// # Returns
 /// - Deputy relative states in the chief NTW frame, in input order. Units: (*m*; *m/s*)
 /// - Error if the lengths do not satisfy the broadcast rule
-///
-/// # References
-/// - SANA Orbit-Relative Reference Frames registry, `NTW_ROTATING`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
-/// - Orekit `LOFType.NTW`, <https://github.com/CS-SI/Orekit/blob/develop/src/main/java/org/orekit/frames/LOFType.java>
 ///
 /// # Examples
 /// ```
@@ -488,10 +454,6 @@ pub fn states_inertial_to_ntw_for_body(
 /// - Deputy relative states in the chief NTW frame, in input order. Units: (*m*; *m/s*)
 /// - Error if the lengths do not satisfy the broadcast rule
 ///
-/// # References
-/// - SANA Orbit-Relative Reference Frames registry, `NTW_ROTATING`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
-/// - Orekit `LOFType.NTW`, <https://github.com/CS-SI/Orekit/blob/develop/src/main/java/org/orekit/frames/LOFType.java>
-///
 /// # Examples
 /// ```
 /// use brahe::constants::{R_EARTH, AngleFormat};
@@ -533,10 +495,6 @@ pub fn states_eci_to_ntw(
 /// - Deputy Cartesian inertial states, in input order. Units: (*m*; *m/s*)
 /// - Error if the lengths do not satisfy the broadcast rule
 ///
-/// # References
-/// - SANA Orbit-Relative Reference Frames registry, `NTW_ROTATING`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
-/// - Orekit `LOFType.NTW`, <https://github.com/CS-SI/Orekit/blob/develop/src/main/java/org/orekit/frames/LOFType.java>
-///
 /// # Examples
 /// ```
 /// use brahe::constants::GM_MARS;
@@ -576,10 +534,6 @@ pub fn states_ntw_to_inertial_for_body(
 /// # Returns
 /// - Deputy Cartesian ECI states, in input order. Units: (*m*; *m/s*)
 /// - Error if the lengths do not satisfy the broadcast rule
-///
-/// # References
-/// - SANA Orbit-Relative Reference Frames registry, `NTW_ROTATING`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
-/// - Orekit `LOFType.NTW`, <https://github.com/CS-SI/Orekit/blob/develop/src/main/java/org/orekit/frames/LOFType.java>
 ///
 /// # Examples
 /// ```

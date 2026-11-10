@@ -68,11 +68,6 @@ pub fn rotation_tnw_to_eci(x_eci: SVector6) -> SMatrix3 {
 /// # Returns:
 /// - `r`: 3x3 Rotation matrix transforming from ECI to TNW frame
 ///
-/// # References:
-/// - SANA Orbit-Relative Reference Frames registry, `TNW_ROTATING`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
-/// - CCSDS 500.0-G-4, *Navigation Data—Definitions and Conventions*, Section 4.3.7.3, pp. 4-7 to 4-8, November 2019
-/// - Orekit `LOFType.TNW`, <https://github.com/CS-SI/Orekit/blob/develop/src/main/java/org/orekit/frames/LOFType.java>
-///
 /// # Examples:
 /// ```
 /// use brahe::SVector6;
@@ -133,9 +128,6 @@ pub fn omega_tnw_for_body(x_inertial: SVector6, gm: f64) -> Vector3<f64> {
 /// # Returns:
 /// - `omega`: Angular velocity of the TNW frame relative to ECI, expressed in TNW axes (rad/s)
 ///
-/// # References:
-/// - H. Schaub and J. L. Junkins, *Analytical Mechanics of Space Systems*, 4th ed., AIAA, 2018, Section 3.3
-///
 /// # Examples:
 /// ```
 /// use brahe::SVector6;
@@ -163,11 +155,6 @@ pub fn omega_tnw(x_eci: SVector6) -> Vector3<f64> {
 ///
 /// # Returns:
 /// - `x_rel_tnw`: 6D relative state of the deputy with respect to the chief in the TNW frame [ρ_T, ρ_N, ρ_W, ρ̇_T, ρ̇_N, ρ̇_W] (m, m/s)
-///
-/// # References:
-/// - SANA Orbit-Relative Reference Frames registry, `TNW_ROTATING`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
-/// - CCSDS 500.0-G-4, *Navigation Data—Definitions and Conventions*, Section 4.3.7.3, pp. 4-7 to 4-8, November 2019
-/// - Orekit `LOFType.TNW`, <https://github.com/CS-SI/Orekit/blob/develop/src/main/java/org/orekit/frames/LOFType.java>
 ///
 /// # Examples:
 /// ```
@@ -206,11 +193,6 @@ pub fn state_inertial_to_tnw_for_body(x_chief: SVector6, x_deputy: SVector6, gm:
 /// # Returns:
 /// - `x_rel_tnw`: 6D relative state of the deputy with respect to the chief in the TNW frame [ρ_T, ρ_N, ρ_W, ρ̇_T, ρ̇_N, ρ̇_W] (m, m/s)
 ///
-/// # References:
-/// - SANA Orbit-Relative Reference Frames registry, `TNW_ROTATING`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
-/// - CCSDS 500.0-G-4, *Navigation Data—Definitions and Conventions*, Section 4.3.7.3, pp. 4-7 to 4-8, November 2019
-/// - Orekit `LOFType.TNW`, <https://github.com/CS-SI/Orekit/blob/develop/src/main/java/org/orekit/frames/LOFType.java>
-///
 /// # Examples:
 /// ```
 /// use brahe::SVector6;
@@ -241,11 +223,6 @@ pub fn state_eci_to_tnw(x_chief: SVector6, x_deputy: SVector6) -> SVector6 {
 ///
 /// # Returns:
 /// - `x_deputy`: 6D state vector of the deputy satellite in the inertial frame [x, y, z, vx, vy, vz] (m, m/s)
-///
-/// # References:
-/// - SANA Orbit-Relative Reference Frames registry, `TNW_ROTATING`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
-/// - CCSDS 500.0-G-4, *Navigation Data—Definitions and Conventions*, Section 4.3.7.3, pp. 4-7 to 4-8, November 2019
-/// - Orekit `LOFType.TNW`, <https://github.com/CS-SI/Orekit/blob/develop/src/main/java/org/orekit/frames/LOFType.java>
 ///
 /// # Examples:
 /// ```
@@ -281,11 +258,6 @@ pub fn state_tnw_to_inertial_for_body(x_chief: SVector6, x_rel_tnw: SVector6, gm
 ///
 /// # Returns:
 /// - `x_deputy`: 6D state vector of the deputy satellite in the ECI frame [x, y, z, vx, vy, vz] (m, m/s)
-///
-/// # References:
-/// - SANA Orbit-Relative Reference Frames registry, `TNW_ROTATING`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
-/// - CCSDS 500.0-G-4, *Navigation Data—Definitions and Conventions*, Section 4.3.7.3, pp. 4-7 to 4-8, November 2019
-/// - Orekit `LOFType.TNW`, <https://github.com/CS-SI/Orekit/blob/develop/src/main/java/org/orekit/frames/LOFType.java>
 ///
 /// # Examples:
 /// ```
@@ -346,11 +318,6 @@ pub fn rotations_tnw_to_eci(x_eci: &[SVector6]) -> Vec<SMatrix3> {
 /// # Returns
 /// - Rotation matrices transforming ECI -> TNW, one per state, in input order
 ///
-/// # References
-/// - SANA Orbit-Relative Reference Frames registry, `TNW_ROTATING`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
-/// - CCSDS 500.0-G-4, *Navigation Data—Definitions and Conventions*, Section 4.3.7.3, pp. 4-7 to 4-8, November 2019
-/// - Orekit `LOFType.TNW`, <https://github.com/CS-SI/Orekit/blob/develop/src/main/java/org/orekit/frames/LOFType.java>
-///
 /// # Examples
 /// ```
 /// use brahe::constants::{R_EARTH, AngleFormat};
@@ -409,9 +376,6 @@ pub fn omegas_tnw_for_body(x_inertial: &[SVector6], gm: f64) -> Vec<Vector3<f64>
 /// - Angular velocities of the TNW frame relative to ECI, expressed in TNW axes, one per
 ///   state, in input order. Units: (*rad/s*)
 ///
-/// # References
-/// - H. Schaub and J. L. Junkins, *Analytical Mechanics of Space Systems*, 4th ed., AIAA, 2018, Section 3.3
-///
 /// # Examples
 /// ```
 /// use brahe::constants::{R_EARTH, AngleFormat};
@@ -445,11 +409,6 @@ pub fn omegas_tnw(x_eci: &[SVector6]) -> Vec<Vector3<f64>> {
 /// # Returns
 /// - Deputy relative states in the chief TNW frame, in input order. Units: (*m*; *m/s*)
 /// - Error if the lengths do not satisfy the broadcast rule
-///
-/// # References
-/// - SANA Orbit-Relative Reference Frames registry, `TNW_ROTATING`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
-/// - CCSDS 500.0-G-4, *Navigation Data—Definitions and Conventions*, Section 4.3.7.3, pp. 4-7 to 4-8, November 2019
-/// - Orekit `LOFType.TNW`, <https://github.com/CS-SI/Orekit/blob/develop/src/main/java/org/orekit/frames/LOFType.java>
 ///
 /// # Examples
 /// ```
@@ -494,11 +453,6 @@ pub fn states_inertial_to_tnw_for_body(
 /// - Deputy relative states in the chief TNW frame, in input order. Units: (*m*; *m/s*)
 /// - Error if the lengths do not satisfy the broadcast rule
 ///
-/// # References
-/// - SANA Orbit-Relative Reference Frames registry, `TNW_ROTATING`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
-/// - CCSDS 500.0-G-4, *Navigation Data—Definitions and Conventions*, Section 4.3.7.3, pp. 4-7 to 4-8, November 2019
-/// - Orekit `LOFType.TNW`, <https://github.com/CS-SI/Orekit/blob/develop/src/main/java/org/orekit/frames/LOFType.java>
-///
 /// # Examples
 /// ```
 /// use brahe::constants::{R_EARTH, AngleFormat};
@@ -540,11 +494,6 @@ pub fn states_eci_to_tnw(
 /// - Deputy Cartesian inertial states, in input order. Units: (*m*; *m/s*)
 /// - Error if the lengths do not satisfy the broadcast rule
 ///
-/// # References
-/// - SANA Orbit-Relative Reference Frames registry, `TNW_ROTATING`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
-/// - CCSDS 500.0-G-4, *Navigation Data—Definitions and Conventions*, Section 4.3.7.3, pp. 4-7 to 4-8, November 2019
-/// - Orekit `LOFType.TNW`, <https://github.com/CS-SI/Orekit/blob/develop/src/main/java/org/orekit/frames/LOFType.java>
-///
 /// # Examples
 /// ```
 /// use brahe::constants::GM_MARS;
@@ -584,11 +533,6 @@ pub fn states_tnw_to_inertial_for_body(
 /// # Returns
 /// - Deputy Cartesian ECI states, in input order. Units: (*m*; *m/s*)
 /// - Error if the lengths do not satisfy the broadcast rule
-///
-/// # References
-/// - SANA Orbit-Relative Reference Frames registry, `TNW_ROTATING`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
-/// - CCSDS 500.0-G-4, *Navigation Data—Definitions and Conventions*, Section 4.3.7.3, pp. 4-7 to 4-8, November 2019
-/// - Orekit `LOFType.TNW`, <https://github.com/CS-SI/Orekit/blob/develop/src/main/java/org/orekit/frames/LOFType.java>
 ///
 /// # Examples
 /// ```

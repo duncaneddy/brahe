@@ -2,7 +2,7 @@
 
 #[allow(unused_imports)]
 use brahe as bh;
-use bh::datafiles::sp3::{SP3, SP3SatelliteId, SP3WriteOptions};
+use bh::datafiles::sp3::{SP3, SP3SatelliteId, SP3Header};
 use bh::traits::DStatePropagator;
 use bh::utils::DOrbitStateProvider;
 use nalgebra as na;
@@ -36,9 +36,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Sample both satellites every 60 s for one hour
     let l01: SP3SatelliteId = "L01".parse()?;
     let l02: SP3SatelliteId = "L02".parse()?;
-    let options = SP3WriteOptions::default()
-        .with_agency("BRHE")
-        .with_comments(vec!["Sampled from numerical propagators".to_string()]);
+    let options = SP3Header { agency: "BRHE".to_string(), comments: vec!["Sampled from numerical propagators".to_string()], ..Default::default() };
     let sp3 = SP3::from_propagators(
         &[
             (l01, &propagators[0] as &dyn DOrbitStateProvider),

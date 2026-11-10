@@ -758,26 +758,6 @@ fn extract_sp3_satellite_id(obj: &Bound<'_, PyAny>) -> PyResult<sp3::SP3Satellit
     ))
 }
 
-/// Build the header options of a new SP3 file from Python arguments.
-fn sp3_write_options(
-    agency: &str,
-    time_system: &Bound<'_, PyAny>,
-    coordinate_system: &str,
-    orbit_type: &Bound<'_, PyAny>,
-    data_used: &str,
-    include_velocity: bool,
-    comments: Option<Vec<String>>,
-) -> PyResult<sp3::SP3WriteOptions> {
-    Ok(sp3::SP3WriteOptions::new()
-        .with_agency(agency)
-        .with_time_system(extract_sp3_time_system(time_system)?)
-        .with_coordinate_system(coordinate_system)
-        .with_orbit_type(extract_sp3_orbit_type(orbit_type)?)
-        .with_data_used(data_used)
-        .with_velocity(include_velocity)
-        .with_comments(comments.unwrap_or_default()))
-}
-
 /// Extract three finite-or-not floats from a numpy array or sequence.
 fn extract_sp3_vector3(obj: &Bound<'_, PyAny>, name: &str) -> PyResult<[f64; 3]> {
     let values: Vec<f64> = match obj.extract::<PyReadonlyArray1<f64>>() {
@@ -1462,19 +1442,21 @@ impl PySP3Record {
 /// Header of an SP3 file.
 ///
 /// Mirrors the header fields of the file. ``SP3.header`` returns a copy;
-/// modify the copy and assign it back with ``sp3.header = header``.
-/// ``start_epoch``, ``gps_week``, ``seconds_of_week``, ``mjd`` and
-/// ``fractional_day`` describe the first epoch and ``number_of_epochs`` the
-/// epoch count; the writer recomputes them from the epoch table.
+/// modify the copy and assign it back with ``sp3.header = header``. The
+/// start epoch, epoch count, GPS week, seconds of week, MJD, and fractional
+/// day of the header lines follow from the epochs of the file and are
+/// properties of ``SP3``.
 ///
 /// Example:
 ///     ```python
 ///     import brahe as bh
 ///
-///     sp3 = bh.SP3(["G01"], 900.0)
-///     header = sp3.header
+///     header = bh.SP3Header(agency="ESA", orbit_type=bh.SP3OrbitType.FIT)
 ///     assert header.version == bh.SP3Version.D
-///     assert header.agency == "BRHE"
+///     assert header.coordinate_system == "IGS20"
+///
+///     sp3 = bh.SP3(["G01"], 900.0, header)
+///     assert sp3.header.agency == "ESA"
 ///     ```
 #[pyclass(module = "brahe._brahe", from_py_object)]
 #[pyo3(name = "SP3Header")]
@@ -1485,6 +1467,66 @@ pub struct PySP3Header {
 
 #[pymethods]
 impl PySP3Header {
+    /// Create a header.
+    ///
+    /// An argument left as None keeps the default: SP3-d with velocity
+    /// records, data used ``ORBIT``, coordinate system ``IGS20``, orbit type
+    /// ``EXT``, agency ``BRHE``, GPS time, a 900 s epoch interval, no
+    /// standard deviation bases, and no comments.
+    ///
+    /// Args:
+    ///     agency (str, optional): Producing agency; at most 4 characters to be written.
+    ///     time_system (SP3TimeSystem | str, optional): Time system of the epochs.
+    ///     coordinate_system (str, optional): Coordinate system label; at most 5 characters to be written.
+    ///     orbit_type (SP3OrbitType | str, optional): Orbit type; at most 3 characters to be written.
+    ///     data_used (str, optional): Data used descriptor; at most 5 characters to be written.
+    ///     has_velocity (bool, optional): Whether the file carries velocity records.
+    ///     comments (list[str], optional): Comment lines, at most 77 characters each to be written.
+    ///     position_base (float, optional): Base of the position standard deviation exponents, millimeters.
+    ///     clock_base (float, optional): Base of the clock standard deviation exponents, picoseconds.
+    ///
+    /// Returns:
+    ///     SP3Header: The header.
+    #[new]
+    #[pyo3(signature = (
+        *, agency=None, time_system=None, coordinate_system=None, orbit_type=None,
+        data_used=None, has_velocity=None, comments=None, position_base=None, clock_base=None
+    ))]
+    #[allow(clippy::too_many_arguments)]
+    fn new(
+        agency: Option<String>,
+        time_system: Option<Bound<'_, PyAny>>,
+        coordinate_system: Option<String>,
+        orbit_type: Option<Bound<'_, PyAny>>,
+        data_used: Option<String>,
+        has_velocity: Option<bool>,
+        comments: Option<Vec<String>>,
+        position_base: Option<f64>,
+        clock_base: Option<f64>,
+    ) -> PyResult<Self> {
+        let default = sp3::SP3Header::default();
+        Ok(Self {
+            inner: sp3::SP3Header {
+                agency: agency.unwrap_or(default.agency),
+                time_system: match time_system {
+                    Some(obj) => extract_sp3_time_system(&obj)?,
+                    None => default.time_system,
+                },
+                coordinate_system: coordinate_system.unwrap_or(default.coordinate_system),
+                orbit_type: match orbit_type {
+                    Some(obj) => extract_sp3_orbit_type(&obj)?,
+                    None => default.orbit_type,
+                },
+                data_used: data_used.unwrap_or(default.data_used),
+                has_velocity: has_velocity.unwrap_or(default.has_velocity),
+                comments: comments.unwrap_or(default.comments),
+                position_base,
+                clock_base,
+                ..default
+            },
+        })
+    }
+
     /// SP3 format version. Assignment accepts an ``SP3Version`` or its letter.
     ///
     /// Returns:
@@ -1512,34 +1554,6 @@ impl PySP3Header {
     #[setter]
     fn set_has_velocity(&mut self, value: bool) {
         self.inner.has_velocity = value;
-    }
-
-    /// First epoch of the file.
-    ///
-    /// Returns:
-    ///     Epoch: The first epoch, in the file's time system.
-    #[getter]
-    fn start_epoch(&self) -> PyEpoch {
-        PyEpoch { obj: self.inner.start_epoch }
-    }
-
-    #[setter]
-    fn set_start_epoch(&mut self, value: PyEpoch) {
-        self.inner.start_epoch = value.obj;
-    }
-
-    /// Number of epochs declared by the header.
-    ///
-    /// Returns:
-    ///     int: Epoch count.
-    #[getter]
-    fn number_of_epochs(&self) -> usize {
-        self.inner.number_of_epochs
-    }
-
-    #[setter]
-    fn set_number_of_epochs(&mut self, value: usize) {
-        self.inner.number_of_epochs = value;
     }
 
     /// Data used descriptor; at most 5 characters to be written.
@@ -1599,34 +1613,6 @@ impl PySP3Header {
         self.inner.agency = value;
     }
 
-    /// GPS week of the first epoch.
-    ///
-    /// Returns:
-    ///     int: GPS week number.
-    #[getter]
-    fn gps_week(&self) -> u32 {
-        self.inner.gps_week
-    }
-
-    #[setter]
-    fn set_gps_week(&mut self, value: u32) {
-        self.inner.gps_week = value;
-    }
-
-    /// Seconds of the GPS week of the first epoch.
-    ///
-    /// Returns:
-    ///     float: Seconds of week.
-    #[getter]
-    fn seconds_of_week(&self) -> f64 {
-        self.inner.seconds_of_week
-    }
-
-    #[setter]
-    fn set_seconds_of_week(&mut self, value: f64) {
-        self.inner.seconds_of_week = value;
-    }
-
     /// Spacing of the epoch grid.
     ///
     /// Returns:
@@ -1639,34 +1625,6 @@ impl PySP3Header {
     #[setter]
     fn set_epoch_interval(&mut self, value: f64) {
         self.inner.epoch_interval = value;
-    }
-
-    /// Modified Julian day of the first epoch.
-    ///
-    /// Returns:
-    ///     int: Integer MJD.
-    #[getter]
-    fn mjd(&self) -> u32 {
-        self.inner.mjd
-    }
-
-    #[setter]
-    fn set_mjd(&mut self, value: u32) {
-        self.inner.mjd = value;
-    }
-
-    /// Fraction of the day of the first epoch.
-    ///
-    /// Returns:
-    ///     float: Fractional day in [0, 1).
-    #[getter]
-    fn fractional_day(&self) -> f64 {
-        self.inner.fractional_day
-    }
-
-    #[setter]
-    fn set_fractional_day(&mut self, value: f64) {
-        self.inner.fractional_day = value;
     }
 
     /// Satellite system covered by the file. Assignment accepts an
@@ -1785,7 +1743,7 @@ impl PySP3Header {
 ///     import brahe as bh
 ///     import numpy as np
 ///
-///     sp3 = bh.SP3(["G01", "G02"], 900.0, agency="TEST")
+///     sp3 = bh.SP3(["G01", "G02"], 900.0, bh.SP3Header(agency="TEST"))
 ///     t0 = bh.Epoch(2024, 11, 10, 0, 0, 0.0, 0.0, time_system=bh.GPS)
 ///     k = sp3.push_epoch(t0)
 ///     sp3.set_record("G01", k, bh.SP3Record(np.array([15.0e6, 20.0e6, 5.0e6]), clock=2.5e-5))
@@ -1805,70 +1763,36 @@ pub struct PySP3 {
 impl PySP3 {
     /// Create an empty file with a fixed epoch grid.
     ///
-    /// The header is SP3-d with a file type derived from the satellite
-    /// systems. The start epoch and GPS week fields are set by the first
-    /// ``push_epoch`` call.
+    /// The file keeps ``header`` with three fields set from the other
+    /// arguments: ``epoch_interval``, ``file_type`` (the common system when
+    /// all satellites share one, ``M`` otherwise), and ``accuracies``, which
+    /// is filled with one unknown accuracy per satellite when it is empty.
+    /// Header labels and the time system are checked when the file is
+    /// written.
     ///
     /// Args:
     ///     satellites (list[str | SP3SatelliteId]): Satellites in header order, at most 999, no duplicates.
     ///     epoch_interval (float): Spacing of the epoch grid, seconds.
-    ///     agency (str, optional): Producing agency, at most 4 characters; defaults to ``BRHE``.
-    ///     time_system (SP3TimeSystem | str, optional): Time system of the epochs; defaults to ``GPS``. Must have a Brahe equivalent (GPS, GAL, BDT, TAI, UTC).
-    ///     coordinate_system (str, optional): Coordinate system label, at most 5 characters; defaults to ``IGS20``.
-    ///     orbit_type (SP3OrbitType | str, optional): Orbit type, at most 3 characters; defaults to ``EXT``.
-    ///     data_used (str, optional): Data used descriptor, at most 5 characters; defaults to ``ORBIT``.
-    ///     include_velocity (bool, optional): Whether velocity records are written; defaults to True.
-    ///     comments (list[str], optional): Comment lines, at most 77 characters each.
+    ///     header (SP3Header, optional): Header of the file; defaults to ``SP3Header()``.
     ///
     /// Returns:
     ///     SP3: The empty file.
     ///
     /// Raises:
-    ///     BraheError: If a satellite is invalid or duplicated, there are more than 999 satellites, the interval is not positive and finite, the time system has no Brahe equivalent, or a header label is longer than its field (agency 4, coordinate system 5, data used 5, orbit type 3 characters), empty (except the agency), or contains whitespace.
+    ///     BraheError: If a satellite is invalid or duplicated, there are more than 999 satellites, or the interval is not positive and finite.
     #[new]
-    #[pyo3(
-        signature = (
-            satellites, epoch_interval, *,
-            agency="BRHE", time_system=None, coordinate_system="IGS20", orbit_type=None,
-            data_used="ORBIT", include_velocity=true, comments=None
-        ),
-        text_signature = "(satellites, epoch_interval, *, agency='BRHE', time_system='GPS', coordinate_system='IGS20', orbit_type='EXT', data_used='ORBIT', include_velocity=True, comments=None)"
-    )]
-    #[allow(clippy::too_many_arguments)]
+    #[pyo3(signature = (satellites, epoch_interval, header=None))]
     fn new(
-        py: Python<'_>,
         satellites: Vec<Bound<'_, PyAny>>,
         epoch_interval: f64,
-        agency: &str,
-        time_system: Option<Bound<'_, PyAny>>,
-        coordinate_system: &str,
-        orbit_type: Option<Bound<'_, PyAny>>,
-        data_used: &str,
-        include_velocity: bool,
-        comments: Option<Vec<String>>,
+        header: Option<PySP3Header>,
     ) -> PyResult<Self> {
         let ids = satellites
             .iter()
             .map(extract_sp3_satellite_id)
             .collect::<PyResult<Vec<_>>>()?;
-        let time_system = match time_system {
-            Some(obj) => obj,
-            None => PyString::new(py, "GPS").into_any(),
-        };
-        let orbit_type = match orbit_type {
-            Some(obj) => obj,
-            None => PyString::new(py, "EXT").into_any(),
-        };
-        let options = sp3_write_options(
-            agency,
-            &time_system,
-            coordinate_system,
-            &orbit_type,
-            data_used,
-            include_velocity,
-            comments,
-        )?;
-        sp3::SP3::new(ids, epoch_interval, options)
+        let header = header.map(|h| h.inner).unwrap_or_default();
+        sp3::SP3::new(ids, epoch_interval, header)
             .map(|inner| Self { inner })
             .map_err(sp3_py_err)
     }
@@ -2070,12 +1994,12 @@ impl PySP3 {
     ///     SP3Header: A copy of the header. Assign a modified copy back to replace the header.
     #[getter]
     fn header(&self) -> PySP3Header {
-        PySP3Header { inner: self.inner.header().clone() }
+        PySP3Header { inner: self.inner.header.clone() }
     }
 
     #[setter]
     fn set_header(&mut self, value: PySP3Header) {
-        *self.inner.header_mut() = value.inner;
+        self.inner.header = value.inner;
     }
 
     /// Epochs of the file.
@@ -2125,19 +2049,55 @@ impl PySP3 {
     /// First epoch of the file.
     ///
     /// Returns:
-    ///     Epoch: First epoch, or GPS epoch zero if the file has none.
+    ///     Epoch | None: First epoch, or None if the file has no epochs.
     #[getter]
-    fn start_epoch(&self) -> PyEpoch {
-        PyEpoch { obj: self.inner.start_epoch() }
+    fn start_epoch(&self) -> Option<PyEpoch> {
+        self.inner.start_epoch().map(|obj| PyEpoch { obj })
     }
 
     /// Last epoch of the file.
     ///
     /// Returns:
-    ///     Epoch: Last epoch, or GPS epoch zero if the file has none.
+    ///     Epoch | None: Last epoch, or None if the file has no epochs.
     #[getter]
-    fn end_epoch(&self) -> PyEpoch {
-        PyEpoch { obj: self.inner.end_epoch() }
+    fn end_epoch(&self) -> Option<PyEpoch> {
+        self.inner.end_epoch().map(|obj| PyEpoch { obj })
+    }
+
+    /// GPS week of the first epoch, in the time system of the file.
+    ///
+    /// Returns:
+    ///     int | None: The value, or None if the file has no epochs or its time system has no Brahe equivalent.
+    #[getter]
+    fn gps_week(&self) -> Option<u32> {
+        self.inner.gps_week()
+    }
+
+    /// Seconds of the GPS week of the first epoch, in the time system of the file.
+    ///
+    /// Returns:
+    ///     float | None: The value, or None if the file has no epochs or its time system has no Brahe equivalent.
+    #[getter]
+    fn seconds_of_week(&self) -> Option<f64> {
+        self.inner.seconds_of_week()
+    }
+
+    /// Modified Julian day number of the first epoch, in the time system of the file.
+    ///
+    /// Returns:
+    ///     int | None: The value, or None if the file has no epochs or its time system has no Brahe equivalent.
+    #[getter]
+    fn mjd(&self) -> Option<u32> {
+        self.inner.mjd()
+    }
+
+    /// Fractional day of the first epoch, in the time system of the file.
+    ///
+    /// Returns:
+    ///     float | None: The value, or None if the file has no epochs or its time system has no Brahe equivalent.
+    #[getter]
+    fn fractional_day(&self) -> Option<f64> {
+        self.inner.fractional_day()
     }
 
     /// Set the clock correction of a satellite at every epoch.
@@ -2219,7 +2179,7 @@ impl PySP3 {
     ///
     /// Each provider is sampled with ``state_itrf`` at ``start + k * step``
     /// for ``k = 0, 1, ...`` up to the last grid point not after ``end``.
-    /// Velocities are stored when ``include_velocity`` is set. Clocks and
+    /// Velocities are stored when ``header.has_velocity`` is set. Clocks and
     /// clock rates are absent and are written as the format's bad-clock value
     /// unless set with ``set_clocks`` and ``set_clock_rates``. The file type
     /// follows the satellite systems.
@@ -2229,20 +2189,14 @@ impl PySP3 {
     ///     start (Epoch): First epoch of the file.
     ///     end (Epoch): Last epoch to include.
     ///     step (float): Epoch spacing, seconds.
-    ///     agency (str, optional): Producing agency, at most 4 characters; defaults to ``BRHE``.
-    ///     time_system (SP3TimeSystem | str, optional): Time system of the epochs; defaults to ``GPS``. Must have a Brahe equivalent (GPS, GAL, BDT, TAI, UTC).
-    ///     coordinate_system (str, optional): Coordinate system label, at most 5 characters; defaults to ``IGS20``.
-    ///     orbit_type (SP3OrbitType | str, optional): Orbit type, at most 3 characters; defaults to ``EXT``.
-    ///     data_used (str, optional): Data used descriptor, at most 5 characters; defaults to ``ORBIT``.
-    ///     include_velocity (bool, optional): Whether velocity records are stored; defaults to True.
-    ///     comments (list[str], optional): Comment lines, at most 77 characters each.
+    ///     header (SP3Header, optional): Header of the file; defaults to ``SP3Header()``. Its epoch interval is set to ``step``.
     ///
     /// Returns:
     ///     SP3: The file.
     ///
     /// Raises:
     ///     TypeError: If an item is not a ``(satellite, provider)`` tuple or a provider is not one of the accepted types.
-    ///     BraheError: If ``end`` precedes ``start``, the header options or satellites are invalid, or a provider cannot supply a state at a grid epoch. A provider error names the satellite and the epoch.
+    ///     BraheError: If ``end`` precedes ``start``, the satellites are invalid, or a provider cannot supply a state at a grid epoch. A provider error names the satellite and the epoch.
     ///
     /// Example:
     ///     ```python
@@ -2254,32 +2208,19 @@ impl PySP3 {
     ///     oe = np.array([bh.R_EARTH + 800e3, 0.001, 98.0, 0.0, 0.0, 0.0])
     ///     prop = bh.KeplerianPropagator.from_keplerian(t0, oe, bh.AngleFormat.DEGREES, 60.0)
     ///
-    ///     sp3 = bh.SP3.from_propagators([("L01", prop)], t0, t0 + 3600.0, 60.0, agency="DEMO")
+    ///     sp3 = bh.SP3.from_propagators(
+    ///         [("L01", prop)], t0, t0 + 3600.0, 60.0, bh.SP3Header(agency="DEMO")
+    ///     )
     ///     assert sp3.num_epochs == 61
     ///     ```
     #[staticmethod]
-    #[pyo3(
-        signature = (
-            propagators, start, end, step, *,
-            agency="BRHE", time_system=None, coordinate_system="IGS20", orbit_type=None,
-            data_used="ORBIT", include_velocity=true, comments=None
-        ),
-        text_signature = "(propagators, start, end, step, *, agency='BRHE', time_system='GPS', coordinate_system='IGS20', orbit_type='EXT', data_used='ORBIT', include_velocity=True, comments=None)"
-    )]
-    #[allow(clippy::too_many_arguments)]
+    #[pyo3(signature = (propagators, start, end, step, header=None))]
     fn from_propagators<'py>(
-        py: Python<'py>,
         propagators: Vec<Bound<'py, PyAny>>,
         start: PyEpoch,
         end: PyEpoch,
         step: f64,
-        agency: &str,
-        time_system: Option<Bound<'py, PyAny>>,
-        coordinate_system: &str,
-        orbit_type: Option<Bound<'py, PyAny>>,
-        data_used: &str,
-        include_velocity: bool,
-        comments: Option<Vec<String>>,
+        header: Option<PySP3Header>,
     ) -> PyResult<Self> {
         let mut entries: Vec<(sp3::SP3SatelliteId, SP3ProviderRef<'py>)> =
             Vec::with_capacity(propagators.len());
@@ -2300,24 +2241,8 @@ impl PySP3 {
             .map(|(id, guard)| (*id, guard.provider()))
             .collect();
 
-        let time_system = match time_system {
-            Some(obj) => obj,
-            None => PyString::new(py, "GPS").into_any(),
-        };
-        let orbit_type = match orbit_type {
-            Some(obj) => obj,
-            None => PyString::new(py, "EXT").into_any(),
-        };
-        let options = sp3_write_options(
-            agency,
-            &time_system,
-            coordinate_system,
-            &orbit_type,
-            data_used,
-            include_velocity,
-            comments,
-        )?;
-        sp3::SP3::from_propagators(&providers, start.obj, end.obj, step, options)
+        let header = header.map(|h| h.inner).unwrap_or_default();
+        sp3::SP3::from_propagators(&providers, start.obj, end.obj, step, header)
             .map(|inner| Self { inner })
             .map_err(sp3_py_err)
     }
@@ -2391,7 +2316,7 @@ impl PySP3 {
             "SP3(satellites={}, epochs={}, agency='{}')",
             self.inner.num_satellites(),
             self.inner.num_epochs(),
-            self.inner.header().agency
+            self.inner.header.agency
         )
     }
 }
@@ -2512,7 +2437,7 @@ fn sp3_parse_uuid(uuid_str: Option<String>) -> PyResult<Option<uuid::Uuid>> {
 ///     import brahe as bh
 ///     import numpy as np
 ///
-///     sp3 = bh.SP3(["G01"], 900.0, include_velocity=False)
+///     sp3 = bh.SP3(["G01"], 900.0, bh.SP3Header(has_velocity=False))
 ///     t0 = bh.Epoch(2024, 11, 10, 0, 0, 0.0, 0.0, time_system=bh.GPS)
 ///     for k in range(4):
 ///         index = sp3.push_epoch(t0 + 900.0 * k)

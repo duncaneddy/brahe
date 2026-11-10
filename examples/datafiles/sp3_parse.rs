@@ -6,7 +6,7 @@ use brahe::datafiles::sp3::{SP3, SP3SatelliteId};
 
 fn main() {
     let sp3 = SP3::from_file("test_assets/sp3/example-d-1.sp3").unwrap();
-    let header = sp3.header();
+    let header = &sp3.header;
 
     println!("Version:     {}", header.version);
     println!("Agency:      {}", header.agency);
@@ -14,7 +14,11 @@ fn main() {
     println!("Satellites:  {}", sp3.num_satellites());
     println!("Epochs:      {}", sp3.num_epochs());
     println!("Interval:    {:.1} s", header.epoch_interval);
-    println!("Span:        {} to {}", sp3.start_epoch(), sp3.end_epoch());
+    println!(
+        "Span:        {} to {}",
+        sp3.start_epoch().unwrap(),
+        sp3.end_epoch().unwrap()
+    );
 
     let g01 = SP3SatelliteId::parse("G01").unwrap();
     let record = sp3.record(g01, 0).unwrap().unwrap();

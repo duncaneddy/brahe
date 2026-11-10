@@ -38,8 +38,7 @@ sp3 = bh.SP3.from_propagators(
     epoch,
     end,
     60.0,
-    agency="BRHE",
-    comments=["Sampled from numerical propagators"],
+    bh.SP3Header(agency="BRHE", comments=["Sampled from numerical propagators"]),
 )
 
 print(f"Satellites: {sp3.num_satellites}, epochs: {sp3.num_epochs}")

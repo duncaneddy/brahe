@@ -9,9 +9,7 @@ use std::collections::BTreeSet;
 
 use crate::datafiles::sp3::parse::sp3_error;
 use crate::datafiles::sp3::satellite::{SP3Sample, SP3Satellite};
-use crate::datafiles::sp3::types::{
-    GRID_TOLERANCE, SP3, SP3Record, SP3SatelliteId, SP3WriteOptions,
-};
+use crate::datafiles::sp3::types::{GRID_TOLERANCE, SP3, SP3Header, SP3Record, SP3SatelliteId};
 use crate::time::Epoch;
 use crate::utils::{BraheError, DOrbitStateProvider};
 
@@ -20,7 +18,7 @@ impl SP3 {
     ///
     /// Each provider is sampled with `state_itrf` at `start + k * step` for
     /// `k = 0..=floor((end - start) / step)`. Velocities are stored when
-    /// `options.include_velocity` is set. Clocks and clock rates are absent
+    /// `header.has_velocity` is set. Clocks and clock rates are absent
     /// and are written as the format's bad-clock value unless set with
     /// [`SP3::set_clocks`] and [`SP3::set_clock_rates`]. The file type follows
     /// the satellite systems.
@@ -33,18 +31,18 @@ impl SP3 {
     /// * `start` - First epoch of the file
     /// * `end` - Last epoch to include; the grid stops at the last point not after `end`
     /// * `step` - Epoch spacing. Units: s
-    /// * `options` - Header options
+    /// * `header` - Header of the file; its epoch interval is set to `step`
     ///
     /// # Returns
     ///
     /// * `Result<SP3, BraheError>` - The file, or an error if `end` precedes `start`, the
-    ///   header options or satellites are invalid, or a provider cannot supply a state at a
+    ///   satellites are invalid, or a provider cannot supply a state at a
     ///   grid epoch. A provider error names the satellite and the epoch.
     ///
     /// # Examples
     ///
     /// ```
-    /// use brahe::datafiles::sp3::{SP3, SP3SatelliteId, SP3WriteOptions};
+    /// use brahe::datafiles::sp3::{SP3, SP3SatelliteId, SP3Header};
     /// use brahe::eop::{StaticEOPProvider, set_global_eop_provider};
     /// use brahe::propagators::KeplerianPropagator;
     /// use brahe::constants::{AngleFormat, R_EARTH};
@@ -68,7 +66,7 @@ impl SP3 {
     ///     t0,
     ///     t0 + 3600.0,
     ///     60.0,
-    ///     SP3WriteOptions::default(),
+    ///     SP3Header::default(),
     /// )
     /// .unwrap();
     /// assert_eq!(sp3.num_epochs(), 61);
@@ -78,11 +76,11 @@ impl SP3 {
         start: Epoch,
         end: Epoch,
         step: f64,
-        options: SP3WriteOptions,
+        header: SP3Header,
     ) -> Result<Self, BraheError> {
-        let include_velocity = options.include_velocity;
+        let include_velocity = header.has_velocity;
         let ids: Vec<SP3SatelliteId> = propagators.iter().map(|(id, _)| *id).collect();
-        let mut sp3 = SP3::new(ids, step, options)?;
+        let mut sp3 = SP3::new(ids, step, header)?;
 
         let span = end - start;
         if span.is_nan() || span < 0.0 {
@@ -135,23 +133,22 @@ impl SP3 {
 ///   identifier order, or an error naming two overlapping files or reporting two
 ///   consecutive samples closer than half the smaller of their epoch intervals
 pub(crate) fn chain_files(files: &[SP3]) -> Result<Vec<SP3Satellite>, BraheError> {
-    let mut ordered: Vec<&SP3> = files.iter().filter(|f| f.num_epochs() > 0).collect();
-    ordered.sort_by_key(|f| (f.start_epoch(), f.end_epoch()));
-    for pair in ordered.windows(2) {
-        let (a, b) = (pair[0], pair[1]);
-        if b.start_epoch() - a.end_epoch() < -GRID_TOLERANCE {
+    let mut spans: Vec<(Epoch, Epoch, &SP3)> = files
+        .iter()
+        .filter_map(|f| Some((f.start_epoch()?, f.end_epoch()?, f)))
+        .collect();
+    spans.sort_by_key(|(start, end, _)| (*start, *end));
+    for pair in spans.windows(2) {
+        let ((a_start, a_end, a), (b_start, b_end, b)) = (pair[0], pair[1]);
+        if b_start - a_end < -GRID_TOLERANCE {
             return Err(sp3_error(&format!(
                 "files overlap: {} file from {} to {} and {} file from {} to {}; consecutive \
                  files may share only their boundary epoch",
-                a.header().agency,
-                a.start_epoch(),
-                a.end_epoch(),
-                b.header().agency,
-                b.start_epoch(),
-                b.end_epoch()
+                a.header.agency, a_start, a_end, b.header.agency, b_start, b_end
             )));
         }
     }
+    let ordered: Vec<&SP3> = spans.iter().map(|(_, _, f)| *f).collect();
     let ids: BTreeSet<SP3SatelliteId> = ordered
         .iter()
         .flat_map(|f| f.satellite_ids().iter().copied())
@@ -229,7 +226,7 @@ mod tests {
     use super::*;
     use crate::constants::AngleFormat;
     use crate::constants::R_EARTH;
-    use crate::datafiles::sp3::types::{SP3FileType, SP3Record, SP3TimeSystem, SP3WriteOptions};
+    use crate::datafiles::sp3::types::{SP3FileType, SP3Header, SP3Record, SP3TimeSystem};
     use crate::frames::CelestialFrame;
     use crate::propagators::traits::DStatePropagator;
     use crate::propagators::{
@@ -261,7 +258,7 @@ mod tests {
 
     /// A position-only file at 300 s holding `ids` at `epochs`, with each
     /// satellite moving linearly along x.
-    fn linear_file(ids: &[SP3SatelliteId], epochs: &[Epoch], options: SP3WriteOptions) -> SP3 {
+    fn linear_file(ids: &[SP3SatelliteId], epochs: &[Epoch], options: SP3Header) -> SP3 {
         linear_file_at(300.0, ids, epochs, options)
     }
 
@@ -271,9 +268,13 @@ mod tests {
         interval: f64,
         ids: &[SP3SatelliteId],
         epochs: &[Epoch],
-        options: SP3WriteOptions,
+        options: SP3Header,
     ) -> SP3 {
-        let mut sp3 = SP3::new(ids.to_vec(), interval, options.with_velocity(false)).unwrap();
+        let header = SP3Header {
+            has_velocity: false,
+            ..options
+        };
+        let mut sp3 = SP3::new(ids.to_vec(), interval, header).unwrap();
         let origin = Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::GPS);
         for epoch in epochs {
             let index = sp3.push_epoch(*epoch).unwrap();
@@ -345,16 +346,21 @@ mod tests {
             .to_string();
         assert!(err.contains("overlap"), "{err}");
         assert_eq!(err.matches("GFZ").count(), 2, "{err}");
-        assert!(err.contains(&a.start_epoch().to_string()), "{err}");
-        assert!(err.contains(&a.end_epoch().to_string()), "{err}");
+        assert!(err.contains(&a.start_epoch().unwrap().to_string()), "{err}");
+        assert!(err.contains(&a.end_epoch().unwrap().to_string()), "{err}");
 
         let mut shifted = SP3::new(
             vec![sid("G01")],
             300.0,
-            SP3WriteOptions::default().with_agency("ABC"),
+            SP3Header {
+                agency: "ABC".to_string(),
+                ..Default::default()
+            },
         )
         .unwrap();
-        shifted.push_epoch(a.start_epoch() + 150.0).unwrap();
+        shifted
+            .push_epoch(a.start_epoch().unwrap() + 150.0)
+            .unwrap();
         let err = SP3Satellite::from_files(&[shifted, a.clone()])
             .unwrap_err()
             .to_string();
@@ -403,21 +409,13 @@ mod tests {
     #[parallel]
     fn test_SP3Satellite_from_files_missing_satellite_gives_gap() {
         let ids = [sid("G01"), sid("G02")];
-        let first = linear_file(
-            &ids,
-            &[gps(0, 0.0), gps(5, 0.0)],
-            SP3WriteOptions::default(),
-        );
+        let first = linear_file(&ids, &[gps(0, 0.0), gps(5, 0.0)], SP3Header::default());
         let middle = linear_file(
             &ids[..1],
             &[gps(10, 0.0), gps(15, 0.0)],
-            SP3WriteOptions::default(),
+            SP3Header::default(),
         );
-        let last = linear_file(
-            &ids,
-            &[gps(20, 0.0), gps(25, 0.0)],
-            SP3WriteOptions::default(),
-        );
+        let last = linear_file(&ids, &[gps(20, 0.0), gps(25, 0.0)], SP3Header::default());
         let sats = SP3Satellite::from_files(&[first, middle, last]).unwrap();
         assert_eq!(sats.len(), 2);
 
@@ -438,15 +436,14 @@ mod tests {
     #[parallel]
     fn test_SP3Satellite_from_files_invalid_later_boundary_keeps_earlier() {
         let id = sid("G01");
-        let first = linear_file(
-            &[id],
-            &[gps(0, 0.0), gps(5, 0.0)],
-            SP3WriteOptions::default(),
-        );
+        let first = linear_file(&[id], &[gps(0, 0.0), gps(5, 0.0)], SP3Header::default());
         let mut second = SP3::new(
             vec![id],
             300.0,
-            SP3WriteOptions::default().with_velocity(false),
+            SP3Header {
+                has_velocity: false,
+                ..Default::default()
+            },
         )
         .unwrap();
         second.push_epoch(gps(5, 0.0)).unwrap();
@@ -470,12 +467,12 @@ mod tests {
         let first = linear_file(
             &header_order,
             &[gps(0, 0.0), gps(5, 0.0)],
-            SP3WriteOptions::default(),
+            SP3Header::default(),
         );
         let second = linear_file(
             &[sid("J01"), sid("G03")],
             &[gps(10, 0.0), gps(15, 0.0)],
-            SP3WriteOptions::default(),
+            SP3Header::default(),
         );
         let ids: Vec<String> = SP3Satellite::from_files(&[first.clone(), second])
             .unwrap()
@@ -499,7 +496,7 @@ mod tests {
         assert!(SP3Satellite::from_files(&[]).unwrap().is_empty());
 
         let a = SP3::from_file(TRUNC).unwrap();
-        let no_epochs = SP3::new(vec![sid("G01")], 300.0, SP3WriteOptions::default()).unwrap();
+        let no_epochs = SP3::new(vec![sid("G01")], 300.0, SP3Header::default()).unwrap();
         let sats = SP3Satellite::from_files(&[no_epochs.clone(), a.clone(), no_epochs]).unwrap();
         assert_eq!(sats.len(), 87);
         assert_eq!(find(&sats, "G01").len(), 2);
@@ -513,7 +510,7 @@ mod tests {
             30.0,
             &[id],
             &[gps(9, 10.0), gps(9, 40.0), gps(10, 10.0)],
-            SP3WriteOptions::default(),
+            SP3Header::default(),
         );
         let utc = |minute: u8, second: f64| {
             Epoch::from_datetime(2024, 11, 10, 0, minute, second, 0.0, TimeSystem::UTC)
@@ -522,7 +519,10 @@ mod tests {
             30.0,
             &[id],
             &[utc(10, 8.0), utc(10, 38.0)],
-            SP3WriteOptions::default().with_time_system(SP3TimeSystem::UTC),
+            SP3Header {
+                time_system: SP3TimeSystem::UTC,
+                ..Default::default()
+            },
         );
         assert!(utc_file.start_epoch() > gps_file.end_epoch());
 
@@ -561,7 +561,10 @@ mod tests {
     /// A file at `interval` holding `id` at `epochs`, moving at 1000 m/s
     /// along x, with velocity records when `velocity` is true.
     fn uniform_file(id: SP3SatelliteId, interval: f64, epochs: &[Epoch], velocity: bool) -> SP3 {
-        let options = SP3WriteOptions::default().with_velocity(velocity);
+        let options = SP3Header {
+            has_velocity: velocity,
+            ..Default::default()
+        };
         let mut sp3 = SP3::new(vec![id], interval, options).unwrap();
         for epoch in epochs {
             let index = sp3.push_epoch(*epoch).unwrap();
@@ -579,15 +582,14 @@ mod tests {
     #[parallel]
     fn test_SP3Satellite_from_files_equal_starts_independent_of_order() {
         let id = sid("G01");
-        let long = linear_file(
-            &[id],
-            &[gps(0, 0.0), gps(5, 0.0)],
-            SP3WriteOptions::default(),
-        );
+        let long = linear_file(&[id], &[gps(0, 0.0), gps(5, 0.0)], SP3Header::default());
         let mut single = SP3::new(
             vec![id],
             300.0,
-            SP3WriteOptions::default().with_velocity(false),
+            SP3Header {
+                has_velocity: false,
+                ..Default::default()
+            },
         )
         .unwrap();
         single.push_epoch(gps(0, 0.0)).unwrap();
@@ -613,7 +615,7 @@ mod tests {
     #[parallel]
     fn test_SP3Satellite_from_files_one_epoch_file_twice() {
         let id = sid("G01");
-        let single = linear_file(&[id], &[gps(0, 0.0)], SP3WriteOptions::default());
+        let single = linear_file(&[id], &[gps(0, 0.0)], SP3Header::default());
         let sats = SP3Satellite::from_files(&[single.clone(), single]).unwrap();
         let g01 = find(&sats, "G01");
         assert_eq!(g01.len(), 1);
@@ -686,7 +688,10 @@ mod tests {
         let mut sp3 = SP3::new(
             vec![id],
             900.0,
-            SP3WriteOptions::default().with_velocity(false),
+            SP3Header {
+                has_velocity: false,
+                ..Default::default()
+            },
         )
         .unwrap();
         for k in 0..=96 {
@@ -757,7 +762,10 @@ mod tests {
         let mut sp3 = SP3::new(
             vec![id],
             900.0,
-            SP3WriteOptions::default().with_velocity(false),
+            SP3Header {
+                has_velocity: false,
+                ..Default::default()
+            },
         )
         .unwrap();
         for k in 0..=96 {
@@ -831,7 +839,11 @@ mod tests {
                 1,
             );
         let day1_early_end = SP3::from_str(&text).unwrap();
-        assert_abs_diff_eq!(day2 - day1_early_end.end_epoch(), 1e-8, epsilon = 1e-9);
+        assert_abs_diff_eq!(
+            day2 - day1_early_end.end_epoch().unwrap(),
+            1e-8,
+            epsilon = 1e-9
+        );
         assert_close(boundary_errors(
             &[day1_early_end, keplerian_day(day2, id, &propagator)],
             &propagator,
@@ -858,7 +870,7 @@ mod tests {
     fn test_SP3Satellite_from_files_overlap_beyond_grid_tolerance() {
         let id = sid("G01");
         let t0 = gps(0, 0.0);
-        let mut a = SP3::new(vec![id], 300.0, SP3WriteOptions::default()).unwrap();
+        let mut a = SP3::new(vec![id], 300.0, SP3Header::default()).unwrap();
         let mut b = a.clone();
         for k in 0..3 {
             a.push_epoch(t0 + 300.0 * k as f64).unwrap();
@@ -875,10 +887,10 @@ mod tests {
         let a = linear_file(
             &[id],
             &[gps(0, 0.0), gps(5, 0.0), gps(10, 0.0)],
-            SP3WriteOptions::default(),
+            SP3Header::default(),
         );
         let late: Vec<Epoch> = [10, 15, 20].iter().map(|m| gps(*m, 0.0) + 2e-3).collect();
-        let b = linear_file(&[id], &late, SP3WriteOptions::default());
+        let b = linear_file(&[id], &late, SP3Header::default());
         let err = SP3Satellite::from_files(&[a, b]).unwrap_err().to_string();
         assert!(err.contains("G01"), "{err}");
         assert!(err.contains(&gps(10, 0.0).to_string()), "{err}");
@@ -903,7 +915,7 @@ mod tests {
         Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::GPS)
     }
 
-    fn two_leo_sp3(options: SP3WriteOptions) -> (SP3, KeplerianPropagator, KeplerianPropagator) {
+    fn two_leo_sp3(options: SP3Header) -> (SP3, KeplerianPropagator, KeplerianPropagator) {
         setup_global_test_eop();
         let t0 = day_start();
         let a = leo_propagator(t0, 0.0);
@@ -925,13 +937,13 @@ mod tests {
     #[test]
     #[serial]
     fn test_SP3_from_propagators_keplerian() {
-        let (sp3, a, b) = two_leo_sp3(SP3WriteOptions::default());
-        assert_eq!(sp3.header().file_type, SP3FileType::LEO);
+        let (sp3, a, b) = two_leo_sp3(SP3Header::default());
+        assert_eq!(sp3.header.file_type, SP3FileType::LEO);
         assert_eq!(sp3.num_epochs(), 2881);
-        assert_eq!(sp3.header().epoch_interval, 30.0);
-        assert!(sp3.header().has_velocity);
+        assert_eq!(sp3.header.epoch_interval, 30.0);
+        assert!(sp3.header.has_velocity);
         assert_eq!(sp3.epochs()[0], day_start());
-        assert_eq!(sp3.start_epoch(), day_start());
+        assert_eq!(sp3.start_epoch(), Some(day_start()));
 
         for (id, prop) in [("L01", &a), ("L02", &b)] {
             for k in [0, 1, 1000, 2880] {
@@ -963,16 +975,16 @@ mod tests {
             t0,
             t0 + 600.0,
             30.0,
-            SP3WriteOptions::default(),
+            SP3Header::default(),
         )
         .unwrap();
-        assert_eq!(sp3.header().file_type, SP3FileType::Mixed);
+        assert_eq!(sp3.header.file_type, SP3FileType::Mixed);
     }
 
     #[test]
     #[serial]
     fn test_SP3_from_propagators_clocks_absent_and_round_trip() {
-        let (sp3, a, _) = two_leo_sp3(SP3WriteOptions::default());
+        let (sp3, a, _) = two_leo_sp3(SP3Header::default());
         for k in 0..sp3.num_epochs() {
             for id in ["L01", "L02"] {
                 assert_eq!(sp3.record(sid(id), k).unwrap().unwrap().clock, None);
@@ -1003,28 +1015,29 @@ mod tests {
         let a = leo_propagator(t0, 0.0);
         let providers = [(sid("L01"), &a as &dyn DOrbitStateProvider)];
         let build = |end: Epoch| {
-            SP3::from_propagators(&providers, t0, end, 30.0, SP3WriteOptions::default()).unwrap()
+            SP3::from_propagators(&providers, t0, end, 30.0, SP3Header::default()).unwrap()
         };
         assert_eq!(build(t0 + 100.0).num_epochs(), 4);
         assert_eq!(build(t0 + 90.0).num_epochs(), 4);
         assert_eq!(build(t0).num_epochs(), 1);
 
-        let err =
-            SP3::from_propagators(&providers, t0, t0 - 30.0, 30.0, SP3WriteOptions::default())
-                .unwrap_err()
-                .to_string();
+        let err = SP3::from_propagators(&providers, t0, t0 - 30.0, 30.0, SP3Header::default())
+            .unwrap_err()
+            .to_string();
         assert!(err.contains("precedes"), "{err}");
         assert!(
-            SP3::from_propagators(&providers, t0, t0 + 60.0, 0.0, SP3WriteOptions::default())
-                .is_err()
+            SP3::from_propagators(&providers, t0, t0 + 60.0, 0.0, SP3Header::default()).is_err()
         );
     }
 
     #[test]
     #[serial]
     fn test_SP3_from_propagators_position_only_rejects_clock_rates() {
-        let (mut sp3, _, _) = two_leo_sp3(SP3WriteOptions::default().with_velocity(false));
-        assert!(!sp3.header().has_velocity);
+        let (mut sp3, _, _) = two_leo_sp3(SP3Header {
+            has_velocity: false,
+            ..Default::default()
+        });
+        assert!(!sp3.header.has_velocity);
         assert!(
             sp3.record(sid("L01"), 3)
                 .unwrap()
@@ -1045,7 +1058,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_SP3_set_clocks_and_rates() {
-        let (mut sp3, _, _) = two_leo_sp3(SP3WriteOptions::default());
+        let (mut sp3, _, _) = two_leo_sp3(SP3Header::default());
         let n = sp3.num_epochs();
         let clocks: Vec<Option<f64>> = (0..n)
             .map(|k| {
@@ -1081,7 +1094,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_SP3_set_clocks_errors() {
-        let (mut sp3, _, _) = two_leo_sp3(SP3WriteOptions::default());
+        let (mut sp3, _, _) = two_leo_sp3(SP3Header::default());
         let n = sp3.num_epochs();
 
         let err = sp3
@@ -1095,7 +1108,7 @@ mod tests {
         );
         assert!(sp3.set_clocks(sid("G05"), &vec![None; n]).is_err());
 
-        let mut sparse = SP3::new(vec![sid("G01")], 300.0, SP3WriteOptions::default()).unwrap();
+        let mut sparse = SP3::new(vec![sid("G01")], 300.0, SP3Header::default()).unwrap();
         sparse.push_epoch(gps(0, 0.0)).unwrap();
         sparse.push_epoch(gps(5, 0.0)).unwrap();
         sparse
@@ -1145,7 +1158,7 @@ mod tests {
             t0,
             t0 + 43200.0,
             60.0,
-            SP3WriteOptions::default(),
+            SP3Header::default(),
         )
         .unwrap();
         assert_eq!(covered.num_epochs(), 721);
@@ -1155,7 +1168,7 @@ mod tests {
             t0,
             t0 + 86400.0,
             60.0,
-            SP3WriteOptions::default(),
+            SP3Header::default(),
         )
         .unwrap_err()
         .to_string();
@@ -1167,7 +1180,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_SP3_from_propagators_resamples_sp3_satellite() {
-        let (sp3, _, _) = two_leo_sp3(SP3WriteOptions::default());
+        let (sp3, _, _) = two_leo_sp3(SP3Header::default());
         let sat = sp3.satellite(sid("L02")).unwrap();
         let t0 = day_start();
         let resampled = SP3::from_propagators(
@@ -1175,12 +1188,15 @@ mod tests {
             t0 + 3600.0,
             t0 + 7200.0,
             45.0,
-            SP3WriteOptions::default().with_agency("DEMO"),
+            SP3Header {
+                agency: "DEMO".to_string(),
+                ..Default::default()
+            },
         )
         .unwrap();
         assert_eq!(resampled.num_epochs(), 81);
-        assert_eq!(resampled.header().agency, "DEMO");
-        assert_eq!(resampled.header().epoch_interval, 45.0);
+        assert_eq!(resampled.header.agency, "DEMO");
+        assert_eq!(resampled.header.epoch_interval, 45.0);
         for k in [0, 40, 80] {
             let epoch = t0 + 3600.0 + 45.0 * k as f64;
             let truth = sat.state_itrf(epoch).unwrap();
@@ -1217,7 +1233,7 @@ mod tests {
             t0,
             t0 + 7200.0,
             60.0,
-            SP3WriteOptions::default(),
+            SP3Header::default(),
         )
         .unwrap();
         assert_eq!(sp3.num_epochs(), 121);
@@ -1256,7 +1272,7 @@ mod tests {
             t0,
             t0 + 60.0,
             60.0,
-            SP3WriteOptions::default(),
+            SP3Header::default(),
         )
         .unwrap_err()
         .to_string();

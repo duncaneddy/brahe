@@ -303,7 +303,6 @@ def test_SP3_new_header_fields():
     assert h.version == SP3Version.D
     assert h.file_type == SP3FileType.GPS
     assert h.epoch_interval == 300.0
-    assert h.number_of_epochs == 0
     assert h.accuracies == [None, None, None]
     assert h.position_base is None
     assert h.clock_base is None
@@ -317,32 +316,33 @@ def test_SP3_new_header_fields():
 
 def test_SP3_empty_start_end_epoch():
     sp3 = SP3(["G01"], 900.0)
-    zero = bh.Epoch.from_gps_date(0, 0.0)
-    assert sp3.start_epoch == zero
-    assert sp3.end_epoch == zero
-    assert sp3.header.start_epoch == zero
-    assert sp3.header.gps_week == 0
-    assert sp3.header.seconds_of_week == 0.0
-    assert sp3.header.mjd == 44244
-    assert sp3.header.fractional_day == 0.0
+    assert sp3.start_epoch is None
+    assert sp3.end_epoch is None
+    assert sp3.gps_week is None
+    assert sp3.seconds_of_week is None
+    assert sp3.mjd is None
+    assert sp3.fractional_day is None
 
 
-def test_SP3_first_push_epoch_sets_header_fields():
+def test_SP3_start_fields_follow_first_epoch():
     sp3 = SP3(["G01"], 900.0)
     t0 = bh.Epoch.from_datetime(2024, 11, 10, 6, 0, 0.0, 0.0, bh.TimeSystem.GPS)
     sp3.push_epoch(t0)
     sp3.push_epoch(t0 + 900.0)
-    h = sp3.header
-    assert h.start_epoch == t0
-    assert h.number_of_epochs == 2
-    assert h.gps_week == 2340
-    assert h.seconds_of_week == 6.0 * 3600.0
-    assert h.mjd == 60624
-    assert h.fractional_day == 0.25
+    assert sp3.num_epochs == 2
+    assert sp3.gps_week == 2340
+    assert sp3.seconds_of_week == 6.0 * 3600.0
+    assert sp3.mjd == 60624
+    assert sp3.fractional_day == 0.25
     assert sp3.start_epoch == t0
     assert sp3.end_epoch == t0 + 900.0
     assert sp3.epochs == [t0, t0 + 900.0]
     assert len(sp3) == 2
+
+    header = sp3.header
+    header.time_system = SP3TimeSystem.GLO
+    sp3.header = header
+    assert sp3.gps_week is None
 
 
 def test_SP3_set_record_zero_position_is_absent():
@@ -386,7 +386,7 @@ def test_SP3_contains_and_satellite_ids():
         "X01" in sp3  # noqa: B015
 
 
-def test_SP3_header_mut():
+def test_SP3_header_assignment():
     sp3 = SP3(["G01"], 900.0)
     header = sp3.header
     header.agency = "XYZ"
@@ -417,19 +417,22 @@ def test_SP3_record_is_copy():
     assert sp3.record("G01", 0).maneuver
 
 
-def test_SP3_new_options_applied():
-    sp3 = SP3(
-        ["G01"],
-        60.0,
+def test_SP3_new_header_applied():
+    header = SP3Header(
         agency="ABC",
         time_system=SP3TimeSystem.UTC,
         coordinate_system="ITRF2",
         orbit_type=SP3OrbitType.FIT,
         data_used="DOPPL",
-        include_velocity=False,
+        has_velocity=False,
         comments=["note"],
     )
+    header.accuracies = [0.004]
+    sp3 = SP3(["G01"], 60.0, header)
     h = sp3.header
+    assert h.epoch_interval == 60.0
+    assert h.file_type == SP3FileType.GPS
+    assert h.accuracies == [0.004]
     assert h.agency == "ABC"
     assert h.time_system == SP3TimeSystem.UTC
     assert h.coordinate_system == "ITRF2"
@@ -443,18 +446,17 @@ def test_SP3_new_accepts_string_codes():
     sp3 = SP3(
         [sat("G01"), "G02"],
         60.0,
-        time_system="UTC",
-        orbit_type="FIT",
+        SP3Header(time_system="UTC", orbit_type="FIT"),
     )
     assert sp3.header.time_system == SP3TimeSystem.UTC
     assert sp3.header.orbit_type == SP3OrbitType.FIT
     assert sp3.satellite_ids == [sat("G01"), sat("G02")]
-    custom = SP3(["G01"], 60.0, orbit_type="BHN")
+    custom = SP3(["G01"], 60.0, SP3Header(orbit_type="BHN"))
     assert str(custom.header.orbit_type) == "BHN"
     with pytest.raises(bh.BraheError):
-        SP3(["G01"], 60.0, time_system="XYZ")
+        SP3Header(time_system="XYZ")
     with pytest.raises(TypeError):
-        SP3(["G01"], 60.0, time_system=5)
+        SP3Header(time_system=5)
     with pytest.raises(TypeError):
         SP3([5], 60.0)
 
@@ -502,8 +504,6 @@ def test_SP3_new_errors():
         SP3(["G01"], -900.0)
     with pytest.raises(bh.BraheError):
         SP3(["G01"], math.nan)
-    with pytest.raises(bh.BraheError):
-        SP3(["G01"], 900.0, time_system=SP3TimeSystem.GLO)
 
     many = [
         SP3SatelliteId(s, n)
@@ -545,38 +545,6 @@ def test_SP3_push_epoch_requires_new_grid_point():
     assert sp3.push_epoch(t0 + 899.9995) == 1
     with pytest.raises(bh.BraheError):
         sp3.push_epoch(t0 + 900.0004)
-
-
-@pytest.mark.parametrize(
-    "options, expected",
-    [
-        ({"data_used": "ORBITS"}, "data used 'ORBITS' is longer than 5"),
-        (
-            {"coordinate_system": "ITRF14"},
-            "coordinate system 'ITRF14' is longer than 5",
-        ),
-        ({"orbit_type": "FITS"}, "orbit type 'FITS' is longer than 3"),
-        ({"agency": "BRAHE"}, "agency 'BRAHE' is longer than 4"),
-        ({"agency": "A B"}, "agency 'A B' must be"),
-        ({"data_used": ""}, "data used '' must be"),
-    ],
-)
-def test_SP3_new_rejects_over_width_labels(options, expected):
-    with pytest.raises(bh.BraheError) as excinfo:
-        SP3(["G01"], 900.0, **options)
-    assert expected in str(excinfo.value)
-
-
-def test_SP3_new_accepts_labels_at_width():
-    sp3 = SP3(
-        ["G01"],
-        900.0,
-        data_used="ABCDE",
-        coordinate_system="FGHIJ",
-        orbit_type="KLM",
-        agency="",
-    )
-    assert sp3.header.coordinate_system == "FGHIJ"
 
 
 def test_SP3_new_rejects_invalid_satellite_number():
@@ -621,20 +589,24 @@ def test_SP3_new_file_type_from_systems(ids, expected):
 
 
 def test_SP3_push_epoch_non_gps_time_system():
-    sp3 = SP3(["G01"], 900.0, time_system=SP3TimeSystem.UTC)
+    sp3 = SP3(["G01"], 900.0, SP3Header(time_system=SP3TimeSystem.UTC))
     t0 = bh.Epoch.from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     sp3.push_epoch(t0)
-    assert sp3.header.mjd == 60624
-    assert sp3.header.fractional_day == 0.0
+    assert sp3.mjd == 60624
+    assert sp3.fractional_day == 0.0
 
 
-def test_SP3WriteOptions_defaults():
-    h = SP3(["G01"], 900.0).header
+def test_SP3Header_default():
+    h = SP3Header()
     assert (h.agency, h.coordinate_system, h.data_used) == ("BRHE", "IGS20", "ORBIT")
     assert h.orbit_type == SP3OrbitType.EXT
     assert h.time_system == SP3TimeSystem.GPS
     assert h.has_velocity
     assert h.comments == []
+    assert h.accuracies == []
+    assert h.version == SP3Version.D
+    assert h.epoch_interval == 900.0
+    assert (h.position_base, h.clock_base) == (None, None)
 
 
 def test_SP3Record_builders():
@@ -780,12 +752,12 @@ def test_SP3_from_file_example_a_1():
     assert h.agency == "NGS"
     assert h.coordinate_system == "ITR92"
     assert h.data_used == "d"
-    assert h.number_of_epochs == 3
-    assert h.gps_week == 779
-    assert h.seconds_of_week == pytest.approx(518400.0, abs=1e-10)
+    assert sp3.num_epochs == 3
+    assert sp3.gps_week == 779
+    assert sp3.seconds_of_week == pytest.approx(518400.0, abs=1e-10)
     assert h.epoch_interval == pytest.approx(900.0, abs=1e-15)
-    assert h.mjd == 49703
-    assert h.fractional_day == pytest.approx(0.0, abs=1e-15)
+    assert sp3.mjd == 49703
+    assert sp3.fractional_day == pytest.approx(0.0, abs=1e-15)
     assert h.position_base is None
     assert h.clock_base is None
     assert len(h.comments) == 4
@@ -794,7 +766,6 @@ def test_SP3_from_file_example_a_1():
     assert h.accuracies[2] == pytest.approx(0.032, abs=1e-15)
 
     t0 = bh.Epoch.from_datetime(1994, 12, 17, 0, 0, 0.0, 0.0, bh.TimeSystem.GPS)
-    assert_epoch(h.start_epoch, t0)
     assert_epoch(sp3.start_epoch, t0)
     assert_epoch(sp3.epochs[1], t0 + 900.0)
 
@@ -997,7 +968,6 @@ def test_SP3_from_file_time_systems(f, sp3_ts, ts, file_type):
     assert sp3.header.time_system == sp3_ts
     assert sp3.header.file_type == file_type
     t0 = bh.Epoch.from_datetime(2001, 8, 8, 0, 0, 0.0, 0.0, ts)
-    assert_epoch(sp3.header.start_epoch, t0)
     assert_epoch(sp3.start_epoch, t0)
 
 
@@ -1251,7 +1221,7 @@ def test_SP3_from_str_version_a_file_type_placeholder():
 def test_SP3_from_file_quirks(f, nsat, nep):
     sp3 = SP3.from_file(fixture(f))
     assert (sp3.num_satellites, sp3.num_epochs) == (nsat, nep)
-    assert sp3.header.number_of_epochs == nep
+    assert sp3.num_epochs == nep
 
 
 def test_SP3_from_file_minutes_rollover():
@@ -1415,8 +1385,6 @@ def test_SP3_from_file_136_satellites():
     sp3 = SP3.from_file(fixture("issue1327-136-sats.sp3"))
     assert sp3.num_satellites == 136
     assert len(sp3.header.accuracies) == 136
-    assert sp3.header.gps_week == 0
-    assert sp3.header.mjd == 0
     assert_epoch(
         sp3.start_epoch,
         bh.Epoch.from_datetime(2024, 2, 20, 0, 0, 0.0, 0.0, bh.TimeSystem.GPS),
@@ -1750,8 +1718,8 @@ def test_SP3_from_str_blank_correlation_coefficients():
 # ---------------------------------------------------------------------------
 
 
-def two_satellite_file(**options):
-    sp3 = SP3(["G01", "G02"], 900.0, **options)
+def two_satellite_file(**header):
+    sp3 = SP3(["G01", "G02"], 900.0, SP3Header(**header))
     for k in range(2):
         sp3.push_epoch(gps_t0() + 900.0 * k)
         sp3.set_record(
@@ -1858,17 +1826,11 @@ def header_fields(h):
     return (
         h.version,
         h.has_velocity,
-        h.start_epoch,
-        h.number_of_epochs,
         h.data_used,
         h.coordinate_system,
         h.orbit_type,
         h.agency,
-        h.gps_week,
-        h.seconds_of_week,
         h.epoch_interval,
-        h.mjd,
-        h.fractional_day,
         h.file_type,
         h.time_system,
         h.position_base,
@@ -1946,22 +1908,16 @@ def test_SP3_round_trip(f):
     ts = rh.time_system.to_time_system()
     week, sow, mjd, fd = header_time_fields(read.start_epoch, ts)
     assert wh.version == SP3Version.D
-    assert wh.start_epoch == read.start_epoch
-    assert wh.number_of_epochs == read.num_epochs
-    assert (wh.gps_week, wh.mjd) == (week, mjd)
-    assert wh.seconds_of_week == pytest.approx(sow, abs=1e-8)
-    assert wh.fractional_day == pytest.approx(fd, abs=1e-13)
+    assert written.start_epoch == read.start_epoch
+    assert written.num_epochs == read.num_epochs
+    assert (written.gps_week, written.mjd) == (week, mjd)
+    assert written.seconds_of_week == pytest.approx(sow, abs=1e-8)
+    assert written.fractional_day == pytest.approx(fd, abs=1e-13)
     for r, w in zip(rh.accuracies, wh.accuracies):
         assert_quantized(r, w, 2.0, "accuracy")
 
     expected = rh
     expected.version = SP3Version.D
-    expected.start_epoch = wh.start_epoch
-    expected.number_of_epochs = wh.number_of_epochs
-    expected.gps_week = wh.gps_week
-    expected.seconds_of_week = wh.seconds_of_week
-    expected.mjd = wh.mjd
-    expected.fractional_day = wh.fractional_day
     expected.accuracies = wh.accuracies
     if len(expected.comments) < 4:
         expected.comments = expected.comments + [""] * (4 - len(expected.comments))
@@ -2042,27 +1998,14 @@ def test_SP3_to_string_long_coordinate_system():
     assert written.satellite_ids == read.satellite_ids
 
 
-def test_SP3_to_string_recomputes_derived_header_fields():
+def test_SP3_to_string_date_reference_from_epochs():
     read = SP3.from_file(fixture("issue1327-136-sats.sp3"))
-    assert (read.header.gps_week, read.header.mjd) == (0, 0)
+    assert (read.gps_week, read.mjd) == (2302, 60360)
     text = read.to_string()
     assert (
         text.splitlines()[1]
         == "## 2302 172800.00000000   300.00000000 60360 0.0000000000000"
     )
-    assert (read.header.gps_week, read.header.mjd) == (0, 0)
-
-    sp3 = two_satellite_file()
-    header = sp3.header
-    header.number_of_epochs = 7
-    header.start_epoch = gps_t0() + 86400.0
-    sp3.header = header
-    text = sp3.to_string()
-    assert (
-        text.splitlines()[0]
-        == "#dV2024 11 10  0  0  0.00000000       2 ORBIT IGS20 EXT BRHE"
-    )
-    assert sp3.header.number_of_epochs == 7
 
 
 def test_SP3_to_string_absent_record():
@@ -2087,7 +2030,7 @@ def test_SP3_to_string_absent_record():
 
 
 def test_SP3_to_string_standard_deviations():
-    sp3 = two_satellite_file(include_velocity=False)
+    sp3 = two_satellite_file(has_velocity=False)
     header = sp3.header
     header.position_base = 1.25
     header.clock_base = 1.025
@@ -2289,7 +2232,7 @@ def test_SP3_to_string_epoch_second_rounding():
 
 
 def test_SP3_to_string_utc_leap_second_round_trip():
-    sp3 = SP3(["G01"], 60.0, time_system=SP3TimeSystem.UTC)
+    sp3 = SP3(["G01"], 60.0, SP3Header(time_system=SP3TimeSystem.UTC))
     t0 = bh.Epoch.from_datetime(2016, 12, 31, 23, 59, 0.0, 0.0, bh.TimeSystem.UTC)
     for k in range(3):
         sp3.push_epoch(t0 + 60.0 * k)

@@ -2,17 +2,19 @@
 
 #[allow(unused_imports)]
 use brahe as bh;
-use brahe::datafiles::sp3::{GNSSSystem, SP3, SP3Record, SP3SatelliteId, SP3WriteOptions};
+use brahe::datafiles::sp3::{GNSSSystem, SP3, SP3Header, SP3Record, SP3SatelliteId};
 use brahe::time::{Epoch, TimeSystem};
 
 fn main() {
     let g01 = SP3SatelliteId::new(GNSSSystem::GPS, 1).unwrap();
     let g02 = SP3SatelliteId::new(GNSSSystem::GPS, 2).unwrap();
 
-    let options = SP3WriteOptions::new()
-        .with_agency("BRHE")
-        .with_comments(vec!["Example orbit file".to_string()]);
-    let mut sp3 = SP3::new(vec![g01, g02], 900.0, options).unwrap();
+    let header = SP3Header {
+        agency: "BRHE".to_string(),
+        comments: vec!["Example orbit file".to_string()],
+        ..Default::default()
+    };
+    let mut sp3 = SP3::new(vec![g01, g02], 900.0, header).unwrap();
 
     let t0 = Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::GPS);
     for k in 0..3 {

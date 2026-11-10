@@ -1910,9 +1910,11 @@ def test_SP3_round_trip(f):
     assert wh.version == SP3Version.D
     assert written.start_epoch == read.start_epoch
     assert written.num_epochs == read.num_epochs
-    assert (written.gps_week, written.mjd) == (week, mjd)
-    assert written.seconds_of_week == pytest.approx(sow, abs=1e-8)
-    assert written.fractional_day == pytest.approx(fd, abs=1e-13)
+    date_reference = text.splitlines()[1].split()
+    assert date_reference[0] == "##"
+    assert (int(date_reference[1]), int(date_reference[4])) == (week, mjd)
+    assert float(date_reference[2]) == pytest.approx(sow, abs=1e-8)
+    assert float(date_reference[5]) == pytest.approx(fd, abs=1e-13)
     for r, w in zip(rh.accuracies, wh.accuracies):
         assert_quantized(r, w, 2.0, "accuracy")
 

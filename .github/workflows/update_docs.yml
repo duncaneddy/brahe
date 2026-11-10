@@ -17,6 +17,9 @@ concurrency:
   group: gh-pages-deploy
   cancel-in-progress: false
 
+env:
+  PYTHON_VERSION: "3.15"
+
 jobs:
   publish-docs:
     runs-on: ubuntu-latest
@@ -107,7 +110,7 @@ jobs:
       # repeats. pr_tests.yml's build-docs and docs_only.yml restore the same
       # entry.
       - name: Set up Rust toolchain
-        uses: actions-rust-lang/setup-rust-toolchain@v2.0.0
+        uses: actions-rust-lang/setup-rust-toolchain@v2.0.1
         with:
           toolchain: ${{ env.RUST_TOOLCHAIN }}
           cache-shared-key: test-examples
@@ -119,12 +122,12 @@ jobs:
           rustup default ${{ env.RUST_TOOLCHAIN }}
 
       - name: Install the latest version of uv
-        uses: astral-sh/setup-uv@v10.2.0
+        uses: astral-sh/setup-uv@v10.3.3
         with:
           enable-cache: true
 
-      - name: Install Python 3.14
-        run: uv python install 3.14
+      - name: Install Python ${{ env.PYTHON_VERSION }}
+        run: uv python install ${{ env.PYTHON_VERSION }}
 
       - name: Install dependencies
         run: uv sync --group docs --all-extras --frozen --no-install-project

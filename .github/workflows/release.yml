@@ -5,6 +5,9 @@ on:
     tags:
       - v[0-9].[0-9]+.[0-9]+
 
+env:
+  PYTHON_VERSION: "3.15"
+
 jobs:
   # Validate that tag version matches package versions
   validate-version:
@@ -117,7 +120,6 @@ jobs:
     timeout-minutes: 60
     env:
       RUST_TOOLCHAIN: stable
-      PYTHON_VERSION: 3.12
     steps:
     - name: Checkout code
       uses: actions/checkout@v7.0.1
@@ -126,7 +128,7 @@ jobs:
     # cache saved under a tag is restorable only by later runs of that same
     # tag while still counting against the repository's cache budget.
     - name: Set up Rust
-      uses: actions-rust-lang/setup-rust-toolchain@v2.0.0
+      uses: actions-rust-lang/setup-rust-toolchain@v2.0.1
       with:
         toolchain: ${{ env.RUST_TOOLCHAIN }}
         cache: false
@@ -137,7 +139,7 @@ jobs:
         rustup default ${{ env.RUST_TOOLCHAIN }}
 
     - name: Install the latest version of uv
-      uses: astral-sh/setup-uv@v10.2.0
+      uses: astral-sh/setup-uv@v10.3.3
       with:
         enable-cache: true
 
@@ -172,7 +174,6 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        python-version: ['3.12']
         rust-toolchain: [stable]
 
     steps:
@@ -186,7 +187,7 @@ jobs:
         path: brahe/
 
     - name: Set up Rust
-      uses: actions-rust-lang/setup-rust-toolchain@v2.0.0
+      uses: actions-rust-lang/setup-rust-toolchain@v2.0.1
       with:
         toolchain: ${{ matrix.rust-toolchain }}
         cache: false
@@ -197,15 +198,15 @@ jobs:
         rustup default ${{ matrix.rust-toolchain }}
 
     - name: Install the latest version of uv
-      uses: astral-sh/setup-uv@v10.2.0
+      uses: astral-sh/setup-uv@v10.3.3
       with:
         enable-cache: true
 
-    - name: Install Python ${{ matrix.python-version }}
-      run: uv python install ${{ matrix.python-version }}
+    - name: Install Python ${{ env.PYTHON_VERSION }}
+      run: uv python install ${{ env.PYTHON_VERSION }}
 
     - name: Create virtual environment
-      run: uv venv -p ${{ matrix.python-version }}
+      run: uv venv -p ${{ env.PYTHON_VERSION }}
 
     - name: Activate virtual environment
       run: source .venv/bin/activate
@@ -229,7 +230,7 @@ jobs:
     strategy:
       matrix:
           os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest, windows-latest]
-          python-version: ['3.10', '3.11', '3.12', '3.13', '3.14']
+          python-version: ['3.10', '3.11', '3.12', '3.13', '3.14', '3.15']
           rust-toolchain: [stable]
 
     steps:
@@ -243,7 +244,7 @@ jobs:
         path: brahe/
 
     - name: Set up Rust
-      uses: actions-rust-lang/setup-rust-toolchain@v2.0.0
+      uses: actions-rust-lang/setup-rust-toolchain@v2.0.1
       with:
         toolchain: ${{ matrix.rust-toolchain }}
         cache: false
@@ -254,7 +255,7 @@ jobs:
         rustup default ${{ matrix.rust-toolchain }}
 
     - name: Install the latest version of uv
-      uses: astral-sh/setup-uv@v10.2.0
+      uses: astral-sh/setup-uv@v10.3.3
       with:
         enable-cache: true
 
@@ -308,7 +309,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7.0.1
       - name: Set up Rust toolchain
-        uses: actions-rust-lang/setup-rust-toolchain@v2.0.0
+        uses: actions-rust-lang/setup-rust-toolchain@v2.0.1
         with:
           toolchain: ${{ env.RUST_TOOLCHAIN }}
           cache: false

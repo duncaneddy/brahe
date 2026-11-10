@@ -42,17 +42,15 @@ print(
     f"Round trip error: {np.linalg.norm(bh.state_eci_to_nsw(x_sc, x_deputy, x_sun) - x_rel):.2e}"
 )
 
-# Frame graph, forcing the analytic Sun model
-bh.set_frame_ephemeris_source(bh.FrameEphemerisSource.ANALYTIC)
-try:
-    bh.register_object("SC", lambda epoch: x_sc, bh.CelestialFrame.GCRF)
-    r_graph = bh.rotation_frame_to_frame(
-        bh.CelestialFrame.GCRF, bh.ReferenceFrame.NSW("SC"), epc
-    )
-    print(
-        "Frame graph matches rotation_eci_to_nsw:",
-        np.allclose(r_graph, bh.rotation_eci_to_nsw(x_sc, x_sun), atol=1e-9),
-    )
-    bh.clear_object_registry()
-finally:
-    bh.set_frame_ephemeris_source(bh.FrameEphemerisSource.AUTO)
+# Frame graph: the Sun's state comes from the SPICE registry
+bh.load_spice_kernel("de440s")
+x_sun_spk = bh.spk_state(bh.NAIFId.SUN, bh.NAIFId.EARTH, epc)
+bh.register_object("SC", lambda epoch: x_sc, bh.CelestialFrame.GCRF)
+r_graph = bh.rotation_frame_to_frame(
+    bh.CelestialFrame.GCRF, bh.ReferenceFrame.NSW("SC"), epc
+)
+print(
+    "Frame graph matches rotation_eci_to_nsw:",
+    np.allclose(r_graph, bh.rotation_eci_to_nsw(x_sc, x_sun_spk), atol=1e-9),
+)
+bh.clear_object_registry()

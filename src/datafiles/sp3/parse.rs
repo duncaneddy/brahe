@@ -94,7 +94,7 @@ impl SP3 {
     /// as absent, and a clock or clock rate of `999999.999999` is stored as
     /// `None`. Epochs are expressed in the Brahe time system matching the
     /// `%c` time system label; a label without a Brahe equivalent (`GLO`,
-    /// `QZS`, `IRN`) is an error. Header fields are stored as read.
+    /// `QZS`, `IRN`) is an error.
     ///
     /// Epoch lines with minute 60, hour 24, or day 0 are normalised by
     /// carrying into the neighbouring field. A reading without the carry of
@@ -135,7 +135,7 @@ impl SP3 {
     /// EOF
     /// ";
     /// let sp3 = SP3::from_str(content).unwrap();
-    /// assert_eq!(sp3.header().version, SP3Version::C);
+    /// assert_eq!(sp3.header.version, SP3Version::C);
     /// let record = sp3.record(SP3SatelliteId::parse("G01").unwrap(), 0).unwrap().unwrap();
     /// assert!((record.position[0] + 11_044_805.8).abs() < 1e-6);
     /// assert!((record.clock.unwrap() - 189.1633e-6).abs() < 1e-15);
@@ -748,6 +748,7 @@ struct PendingRecord {
 struct Parser {
     header: SP3Header,
     start: DateTimeFields,
+    number_of_epochs: usize,
     time_system: Option<TimeSystem>,
     satellite_count: Option<usize>,
     satellites: Vec<SP3SatelliteId>,
@@ -812,17 +813,11 @@ impl Parser {
         let header = SP3Header {
             version,
             has_velocity,
-            start_epoch: start.to_epoch(TimeSystem::GPS),
-            number_of_epochs: parse_number(n, tokens[6], "number of epochs")?,
             data_used: tokens[7].to_string(),
             coordinate_system: tokens[8].to_string(),
             orbit_type: SP3OrbitType::parse(tokens[9]),
             agency: tokens.get(10).copied().unwrap_or("").to_string(),
-            gps_week: 0,
-            seconds_of_week: 0.0,
             epoch_interval: 0.0,
-            mjd: 0,
-            fractional_day: 0.0,
             file_type: SP3FileType::Mixed,
             time_system: SP3TimeSystem::GPS,
             position_base: None,
@@ -833,6 +828,7 @@ impl Parser {
 
         Ok(Parser {
             header,
+            number_of_epochs: parse_number(n, tokens[6], "number of epochs")?,
             start,
             time_system: None,
             satellite_count: None,
@@ -893,8 +889,8 @@ impl Parser {
                 &format!("## line has {} fields, expected 5", tokens.len()),
             ));
         }
-        self.header.gps_week = parse_number(n, tokens[0], "GPS week")?;
-        self.header.seconds_of_week = parse_f64(n, tokens[1], "seconds of week")?;
+        parse_number::<u32>(n, tokens[0], "GPS week")?;
+        parse_f64(n, tokens[1], "seconds of week")?;
         self.header.epoch_interval = parse_f64(n, tokens[2], "epoch interval")?;
         if self.header.epoch_interval <= 0.0 {
             return Err(sp3_parse_error(
@@ -905,8 +901,8 @@ impl Parser {
                 ),
             ));
         }
-        self.header.mjd = parse_number(n, tokens[3], "modified Julian day")?;
-        self.header.fractional_day = parse_f64(n, tokens[4], "fractional day")?;
+        parse_number::<u32>(n, tokens[3], "modified Julian day")?;
+        parse_f64(n, tokens[4], "fractional day")?;
         Ok(())
     }
 
@@ -998,7 +994,6 @@ impl Parser {
         })?;
         self.start.check_leap_second(1, time_system)?;
         self.header.time_system = label;
-        self.header.start_epoch = self.start.to_epoch(time_system);
         self.time_system = Some(time_system);
         Ok(())
     }
@@ -1075,7 +1070,7 @@ impl Parser {
         let expected = self
             .epochs
             .last()
-            .map_or(self.header.start_epoch, |last| *last + interval);
+            .map_or(self.start.to_epoch(time_system), |last| *last + interval);
         let epoch = uncarried
             .iter()
             .filter(|r| r.validate(n).is_ok() && r.check_leap_second(n, time_system).is_ok())
@@ -1217,10 +1212,10 @@ impl Parser {
         if self.time_system.is_none() {
             return Err(sp3_error("file ends before the %c time system line"));
         }
-        if self.epochs.len() != self.header.number_of_epochs {
+        if self.epochs.len() != self.number_of_epochs {
             return Err(sp3_error(&format!(
                 "header declares {} epochs but the file has {}{}",
-                self.header.number_of_epochs,
+                self.number_of_epochs,
                 self.epochs.len(),
                 if self.end_of_file {
                     ""
@@ -1303,7 +1298,7 @@ mod tests {
     ) {
         let sp3 = SP3::from_file(format!("test_assets/sp3/{f}")).unwrap();
         assert_eq!(
-            (sp3.header().version, sp3.num_satellites(), sp3.num_epochs()),
+            (sp3.header.version, sp3.num_satellites(), sp3.num_epochs()),
             (v, nsat, nep)
         );
     }
@@ -1312,7 +1307,7 @@ mod tests {
     #[parallel]
     fn test_SP3_from_file_example_a_1() {
         let sp3 = SP3::from_file(fixture("example-a-1.sp3")).unwrap();
-        let h = sp3.header();
+        let h = &sp3.header;
         assert_eq!(h.version, SP3Version::A);
         assert!(!h.has_velocity);
         assert_eq!(h.orbit_type, SP3OrbitType::FIT);
@@ -1321,12 +1316,12 @@ mod tests {
         assert_eq!(h.agency, "NGS");
         assert_eq!(h.coordinate_system, "ITR92");
         assert_eq!(h.data_used, "d");
-        assert_eq!(h.number_of_epochs, 3);
-        assert_eq!(h.gps_week, 779);
-        assert_abs_diff_eq!(h.seconds_of_week, 518400.0, epsilon = 1e-10);
+        assert_eq!(sp3.num_epochs(), 3);
+        assert_eq!(sp3.gps_week(), Some(779));
+        assert_abs_diff_eq!(sp3.seconds_of_week().unwrap(), 518400.0, epsilon = 1e-10);
         assert_abs_diff_eq!(h.epoch_interval, 900.0, epsilon = 1e-15);
-        assert_eq!(h.mjd, 49703);
-        assert_abs_diff_eq!(h.fractional_day, 0.0, epsilon = 1e-15);
+        assert_eq!(sp3.mjd(), Some(49703));
+        assert_abs_diff_eq!(sp3.fractional_day().unwrap(), 0.0, epsilon = 1e-15);
         assert_eq!(h.position_base, None);
         assert_eq!(h.clock_base, None);
         assert_eq!(h.comments.len(), 4);
@@ -1335,8 +1330,7 @@ mod tests {
         assert_abs_diff_eq!(h.accuracies[2].unwrap(), 0.032, epsilon = 1e-15);
 
         let t0 = Epoch::from_datetime(1994, 12, 17, 0, 0, 0.0, 0.0, TimeSystem::GPS);
-        assert_epoch(h.start_epoch, t0);
-        assert_epoch(sp3.start_epoch(), t0);
+        assert_epoch(sp3.start_epoch().unwrap(), t0);
         assert_epoch(sp3.epochs()[1], t0 + 900.0);
 
         let g01 = sat("G01");
@@ -1360,7 +1354,7 @@ mod tests {
     #[parallel]
     fn test_SP3_from_file_example_a_2_velocity() {
         let sp3 = SP3::from_file(fixture("example-a-2.sp3")).unwrap();
-        assert!(sp3.header().has_velocity);
+        assert!(sp3.header.has_velocity);
         let r = sp3.record(sat("G01"), 0).unwrap().unwrap();
         let v = r.velocity.unwrap();
         assert_abs_diff_eq!(v[0], -656.0373522, epsilon = 1e-9);
@@ -1373,7 +1367,7 @@ mod tests {
     #[parallel]
     fn test_SP3_from_file_example_c_1_flags() {
         let sp3 = SP3::from_file(fixture("example-c-1.sp3")).unwrap();
-        let h = sp3.header();
+        let h = &sp3.header;
         assert_eq!(h.orbit_type, SP3OrbitType::HLM);
         assert_eq!(h.agency, "IGS");
         assert_eq!(h.position_base, Some(1.25));
@@ -1444,7 +1438,7 @@ mod tests {
     #[parallel]
     fn test_SP3_from_file_example_d_1() {
         let sp3 = SP3::from_file(fixture("example-d-1.sp3")).unwrap();
-        let h = sp3.header();
+        let h = &sp3.header;
         assert_eq!(h.orbit_type, SP3OrbitType::BCT);
         assert_eq!(h.time_system, SP3TimeSystem::GPS);
         assert_eq!(h.file_type, SP3FileType::Mixed);
@@ -1481,7 +1475,7 @@ mod tests {
         assert!(sp3.record(s37, 1).unwrap().is_none());
         assert!(sp3.record(s37, 2).unwrap().is_some());
         assert_epoch(
-            sp3.end_epoch(),
+            sp3.end_epoch().unwrap(),
             Epoch::from_datetime(2013, 4, 3, 23, 45, 0.0, 0.0, TimeSystem::GPS),
         );
     }
@@ -1490,7 +1484,7 @@ mod tests {
     #[parallel]
     fn test_SP3_from_file_example_d_2() {
         let sp3 = SP3::from_file(fixture("example-d-2.sp3")).unwrap();
-        let h = sp3.header();
+        let h = &sp3.header;
         assert_eq!(h.time_system, SP3TimeSystem::GPS);
         assert_eq!(h.orbit_type, SP3OrbitType::HLM);
         assert_eq!(h.file_type, SP3FileType::GPS);
@@ -1576,11 +1570,11 @@ mod tests {
         #[case] file_type: SP3FileType,
     ) {
         let sp3 = SP3::from_file(fixture(f)).unwrap();
-        assert_eq!(sp3.header().time_system, sp3_ts);
-        assert_eq!(sp3.header().file_type, file_type);
+        assert_eq!(sp3.header.time_system, sp3_ts);
+        assert_eq!(sp3.header.file_type, file_type);
         let t0 = Epoch::from_datetime(2001, 8, 8, 0, 0, 0.0, 0.0, ts);
-        assert_epoch(sp3.header().start_epoch, t0);
-        assert_epoch(sp3.start_epoch(), t0);
+        assert_epoch(sp3.start_epoch().unwrap(), t0);
+        assert_epoch(sp3.start_epoch().unwrap(), t0);
     }
 
     #[test]
@@ -1778,10 +1772,10 @@ mod tests {
             .replacen("G03G04", "R03G04", 1)
             .replacen("%c G ", "%c cc", 1);
         let sp3 = SP3::from_str(&content).unwrap();
-        assert_eq!(sp3.header().version, SP3Version::B);
-        assert_eq!(sp3.header().file_type, SP3FileType::Mixed);
+        assert_eq!(sp3.header.version, SP3Version::B);
+        assert_eq!(sp3.header.file_type, SP3FileType::Mixed);
         let sp3 = SP3::from_file(fixture("example-a-2.sp3")).unwrap();
-        assert_eq!(sp3.header().file_type, SP3FileType::GPS);
+        assert_eq!(sp3.header.file_type, SP3FileType::GPS);
     }
 
     #[rstest]
@@ -1809,7 +1803,7 @@ mod tests {
     fn test_SP3_from_file_quirks(#[case] f: &str, #[case] nsat: usize, #[case] nep: usize) {
         let sp3 = SP3::from_file(fixture(f)).unwrap();
         assert_eq!((sp3.num_satellites(), sp3.num_epochs()), (nsat, nep));
-        assert_eq!(sp3.header().number_of_epochs, nep);
+        assert_eq!(sp3.num_epochs(), nep);
     }
 
     #[test]
@@ -1850,7 +1844,7 @@ mod tests {
     #[parallel]
     fn test_SP3_from_file_days_rollover() {
         let sp3 = SP3::from_file(fixture("issue1014-days-increment.sp3")).unwrap();
-        let h = sp3.header();
+        let h = &sp3.header;
         assert_eq!(h.coordinate_system, "ITRF14");
         assert_eq!(h.agency, "JCET");
         assert_eq!(h.time_system, SP3TimeSystem::UTC);
@@ -1869,7 +1863,7 @@ mod tests {
     fn test_SP3_from_file_second_digits() {
         let sp3 = SP3::from_file(fixture("issue895-second-digits.sp3")).unwrap();
         assert_epoch(
-            sp3.start_epoch(),
+            sp3.start_epoch().unwrap(),
             Epoch::from_datetime(2016, 7, 3, 0, 0, 0.1234, 0.0, TimeSystem::UTC),
         );
     }
@@ -1879,11 +1873,9 @@ mod tests {
     fn test_SP3_from_file_136_satellites() {
         let sp3 = SP3::from_file(fixture("issue1327-136-sats.sp3")).unwrap();
         assert_eq!(sp3.num_satellites(), 136);
-        assert_eq!(sp3.header().accuracies.len(), 136);
-        assert_eq!(sp3.header().gps_week, 0);
-        assert_eq!(sp3.header().mjd, 0);
+        assert_eq!(sp3.header.accuracies.len(), 136);
         assert_epoch(
-            sp3.start_epoch(),
+            sp3.start_epoch().unwrap(),
             Epoch::from_datetime(2024, 2, 20, 0, 0, 0.0, 0.0, TimeSystem::GPS),
         );
     }
@@ -1892,15 +1884,15 @@ mod tests {
     #[parallel]
     fn test_SP3_from_file_missing_agency() {
         let sp3 = SP3::from_file(fixture("missing-agency.sp3")).unwrap();
-        assert_eq!(sp3.header().version, SP3Version::C);
-        assert_eq!(sp3.header().agency, "");
+        assert_eq!(sp3.header.version, SP3Version::C);
+        assert_eq!(sp3.header.agency, "");
     }
 
     #[test]
     #[parallel]
     fn test_SP3_from_file_truncated_clock_columns() {
         let sp3 = SP3::from_file(fixture("truncated-nsgf.orb.lageos2.160305.v35.sp3")).unwrap();
-        assert_eq!(sp3.header().file_type, SP3FileType::LEO);
+        assert_eq!(sp3.header.file_type, SP3FileType::LEO);
         let r = sp3.record(sat("L52"), 0).unwrap().unwrap();
         assert_abs_diff_eq!(r.position[0], 2228470.946, epsilon = 1e-6);
         assert_abs_diff_eq!(r.velocity.unwrap()[2], -711.62228, epsilon = 1e-9);
@@ -1916,7 +1908,7 @@ mod tests {
     fn test_SP3_from_file_other_orbit_types(#[case] f: &str, #[case] label: &str) {
         let sp3 = SP3::from_file(fixture(f)).unwrap();
         assert_eq!(
-            sp3.header().orbit_type,
+            sp3.header.orbit_type,
             SP3OrbitType::Other(label.to_string())
         );
         assert!(sp3.record(sat("G18"), 0).unwrap().is_some());
@@ -1943,14 +1935,14 @@ mod tests {
     fn test_SP3_from_file_zero_padded_satellite_ids() {
         let sp3 = SP3::from_file(fixture("three-hours.sp3")).unwrap();
         assert_eq!(sp3.satellite_ids(), &[sat("C01"), sat("C02")]);
-        assert_eq!(sp3.header().accuracies.len(), 2);
+        assert_eq!(sp3.header.accuracies.len(), 2);
     }
 
     #[test]
     #[parallel]
     fn test_SP3_from_file_ilrs_comments_and_no_eof() {
         let sp3 = SP3::from_file(fixture("issue895-no-eof.sp3")).unwrap();
-        let h = sp3.header();
+        let h = &sp3.header;
         assert_eq!(h.file_type, SP3FileType::LEO);
         assert_eq!(h.time_system, SP3TimeSystem::UTC);
         assert_eq!(
@@ -1972,7 +1964,7 @@ mod tests {
         assert_eq!(sp3.num_epochs(), 2);
         let sp3 = SP3::from_str(&c1.replace("\nEOF", "\n").replace("\n/*", "\n\n/*")).unwrap();
         assert_eq!(sp3.num_epochs(), 2);
-        assert_eq!(sp3.header().comments.len(), 4);
+        assert_eq!(sp3.header.comments.len(), 4);
     }
 
     #[rstest]
@@ -2093,7 +2085,7 @@ mod tests {
         );
         let sp3 = SP3::from_str(&content).unwrap();
         assert_epoch(
-            sp3.start_epoch(),
+            sp3.start_epoch().unwrap(),
             Epoch::from_datetime(2016, 7, 6, 16, 0, 0.0, 0.0, TimeSystem::UTC),
         );
 
@@ -2102,7 +2094,7 @@ mod tests {
             .replacen("*  2001  8  8  0  0", "*  2001  8  7 24  0", 1);
         let sp3 = SP3::from_str(&content).unwrap();
         assert_epoch(
-            sp3.start_epoch(),
+            sp3.start_epoch().unwrap(),
             Epoch::from_datetime(2001, 8, 8, 0, 0, 0.0, 0.0, TimeSystem::GPS),
         );
     }
@@ -2199,7 +2191,7 @@ mod tests {
 
         if accepted {
             let sp3 = SP3::from_str(&content(date, date)).unwrap();
-            for epoch in [sp3.start_epoch(), sp3.epochs()[0]] {
+            for epoch in [sp3.start_epoch().unwrap(), sp3.epochs()[0]] {
                 let (_, _, _, _, _, second, _) = epoch.to_datetime_as_time_system(TimeSystem::UTC);
                 assert_eq!(second, 60.0);
             }
@@ -2238,13 +2230,13 @@ mod tests {
 
         let sp3 = SP3::from_str(&content("2024  3  1", "*  2024  2 29 24  0  0.00000000")).unwrap();
         assert_epoch(
-            sp3.start_epoch(),
+            sp3.start_epoch().unwrap(),
             Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::GPS),
         );
 
         let sp3 = SP3::from_str(&content("2024  2 29", "*  2024  3  0  0  0  0.00000000")).unwrap();
         assert_epoch(
-            sp3.start_epoch(),
+            sp3.start_epoch().unwrap(),
             Epoch::from_datetime(2024, 2, 29, 0, 0, 0.0, 0.0, TimeSystem::GPS),
         );
     }
@@ -2283,8 +2275,8 @@ mod tests {
         let sp3 = SP3::from_str(&content).unwrap();
         assert_eq!(sp3.num_epochs(), 86_400);
         let t0 = Epoch::from_datetime(2024, 1, 1, 0, 0, 1.0, 0.0, TimeSystem::GPS);
-        assert_epoch(sp3.start_epoch(), t0);
-        assert_abs_diff_eq!(sp3.end_epoch() - t0, 86_399.0, epsilon = 1e-7);
+        assert_epoch(sp3.start_epoch().unwrap(), t0);
+        assert_abs_diff_eq!(sp3.end_epoch().unwrap() - t0, 86_399.0, epsilon = 1e-7);
     }
 
     fn grid_content(epochs: &[&str]) -> String {
@@ -2343,7 +2335,7 @@ mod tests {
         ]))
         .unwrap();
         assert_eq!(sp3.num_epochs(), 3);
-        assert_abs_diff_eq!(sp3.end_epoch() - t0, 1800.0, epsilon = 1e-7);
+        assert_abs_diff_eq!(sp3.end_epoch().unwrap() - t0, 1800.0, epsilon = 1e-7);
     }
 
     #[rstest]

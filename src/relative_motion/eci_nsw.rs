@@ -6,15 +6,10 @@ use nalgebra::Vector3;
 
 use crate::math::{SMatrix3, SVector6};
 use crate::relative_motion::common::{
-    absolute_states_to_relative_state, relative_state_to_absolute_state,
+    DEGENERATE_TOLERANCE, absolute_states_to_relative_state, relative_state_to_absolute_state,
 };
 use crate::utils::BraheError;
 use crate::utils::batch::{batch_zip, batch_zip3};
-
-/// Below this norm of the Sun direction projected normal to nadir, the Sun
-/// is along the nadir line and the Y axis falls back to the along-track
-/// direction.
-const DEGENERATE_TOLERANCE: f64 = 1e-9;
 
 /// NSW axes and their angular velocity from the spacecraft and Sun states.
 ///
@@ -117,9 +112,6 @@ pub fn rotation_nsw_to_eci(x_eci: SVector6, x_sun: SVector6) -> SMatrix3 {
 /// # Returns:
 /// - `r`: 3x3 Rotation matrix transforming from ECI to NSW frame
 ///
-/// # References:
-/// - SANA Orbit-Relative Reference Frames registry, `NSW_ROTATING`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
-///
 /// # Examples:
 /// ```
 /// use brahe::SVector6;
@@ -195,9 +187,6 @@ pub fn omega_nsw(x_eci: SVector6, x_sun: SVector6) -> Vector3<f64> {
 /// # Returns:
 /// - `x_rel_nsw`: 6D relative state of the deputy with respect to the chief in the NSW frame [ρ_X, ρ_Y, ρ_Z, ρ̇_X, ρ̇_Y, ρ̇_Z] (m, m/s)
 ///
-/// # References:
-/// - SANA Orbit-Relative Reference Frames registry, `NSW_ROTATING`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
-///
 /// # Examples:
 /// ```
 /// use brahe::SVector6;
@@ -231,9 +220,6 @@ pub fn state_eci_to_nsw(x_chief: SVector6, x_deputy: SVector6, x_sun: SVector6) 
 ///
 /// # Returns:
 /// - `x_deputy`: 6D state vector of the deputy satellite in the ECI frame [x, y, z, vx, vy, vz] (m, m/s)
-///
-/// # References:
-/// - SANA Orbit-Relative Reference Frames registry, `NSW_ROTATING`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
 ///
 /// # Examples:
 /// ```
@@ -300,9 +286,6 @@ pub fn rotations_nsw_to_eci(
 /// Batch form of [`rotation_eci_to_nsw`]. Evaluation runs on the global thread pool for
 /// large inputs.
 ///
-/// The `x_eci` and `x_sun` arguments follow the broadcast rule: each has length 1 or the
-/// common batch length.
-///
 /// # Arguments
 /// - `x_eci`: Cartesian ECI states (position, velocity), length 1 or the batch length. Units: (*m*; *m/s*)
 /// - `x_sun`: Sun states relative to the same center, length 1 or the batch length. Units: (*m*; *m/s*)
@@ -310,9 +293,6 @@ pub fn rotations_nsw_to_eci(
 /// # Returns
 /// - Rotation matrices transforming ECI -> NSW, in input order
 /// - Error if the lengths do not satisfy the broadcast rule
-///
-/// # References
-/// - SANA Orbit-Relative Reference Frames registry, `NSW_ROTATING`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
 ///
 /// # Examples
 /// ```
@@ -336,9 +316,6 @@ pub fn rotations_eci_to_nsw(
 /// Computes the NSW frame angular velocity for each pair of spacecraft and Sun states.
 ///
 /// Batch form of [`omega_nsw`]. Evaluation runs on the global thread pool for large inputs.
-///
-/// The `x_eci` and `x_sun` arguments follow the broadcast rule: each has length 1 or the
-/// common batch length.
 ///
 /// # Arguments
 /// - `x_eci`: Cartesian ECI states (position, velocity), length 1 or the batch length. Units: (*m*; *m/s*)
@@ -386,9 +363,6 @@ pub fn omegas_nsw(x_eci: &[SVector6], x_sun: &[SVector6]) -> Result<Vec<Vector3<
 /// - Deputy relative states in the chief NSW frame, in input order. Units: (*m*; *m/s*)
 /// - Error if the lengths do not satisfy the broadcast rule
 ///
-/// # References
-/// - SANA Orbit-Relative Reference Frames registry, `NSW_ROTATING`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
-///
 /// # Examples
 /// ```
 /// use brahe::constants::{R_EARTH, AngleFormat};
@@ -435,9 +409,6 @@ pub fn states_eci_to_nsw(
 /// # Returns
 /// - Deputy Cartesian ECI states, in input order. Units: (*m*; *m/s*)
 /// - Error if the lengths do not satisfy the broadcast rule
-///
-/// # References
-/// - SANA Orbit-Relative Reference Frames registry, `NSW_ROTATING`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
 ///
 /// # Examples
 /// ```

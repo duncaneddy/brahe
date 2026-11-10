@@ -77,9 +77,6 @@ pub fn rotation_ecef_to_enz(x_ecef: SVector6) -> SMatrix3 {
 /// # Returns:
 /// - `r`: 3x3 Rotation matrix transforming from ENZ to ECEF frame
 ///
-/// # References:
-/// - D. A. Vallado, *Fundamentals of Astrodynamics and Applications*, 4th ed., Section 3.4
-///
 /// # Examples:
 /// ```
 /// use brahe::SVector6;
@@ -242,9 +239,6 @@ pub fn rotations_ecef_to_enz(x_ecef: &[SVector6]) -> Vec<SMatrix3> {
 ///
 /// # Returns
 /// - Rotation matrices transforming ENZ -> ECEF, one per site, in input order
-///
-/// # References
-/// - D. A. Vallado, *Fundamentals of Astrodynamics and Applications*, 4th ed., Section 3.4
 ///
 /// # Examples
 /// ```

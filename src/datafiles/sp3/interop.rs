@@ -21,7 +21,7 @@ impl SP3 {
     ///
     /// * `propagators` - Satellite identifiers paired with the providers that supply their
     ///   states: numerical, Keplerian, and SGP propagators, orbit trajectories, and
-    ///   [`SP3Satellite`]
+    ///   [`SP3Satellite`](crate::datafiles::sp3::SP3Satellite)
     /// * `start` - First epoch of the file
     /// * `end` - Last epoch to include; the grid stops at the last point not after `end`
     /// * `step` - Epoch spacing. Units: s

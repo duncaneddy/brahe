@@ -1002,9 +1002,20 @@ mod tests {
         assert_eq!(wh.version, SP3Version::D);
         assert_eq!(written.start_epoch(), read.start_epoch());
         assert_eq!(written.num_epochs(), read.num_epochs());
-        assert_eq!((written.gps_week(), written.mjd()), (Some(week), Some(mjd)));
-        assert_abs_diff_eq!(written.seconds_of_week().unwrap(), sow, epsilon = 1e-8);
-        assert_abs_diff_eq!(written.fractional_day().unwrap(), fd, epsilon = 1e-13);
+        let date_reference: Vec<&str> = text.lines().nth(1).unwrap().split_whitespace().collect();
+        assert_eq!(date_reference[0], "##");
+        assert_eq!(date_reference[1].parse::<u32>().unwrap(), week);
+        assert_abs_diff_eq!(
+            date_reference[2].parse::<f64>().unwrap(),
+            sow,
+            epsilon = 1e-8
+        );
+        assert_eq!(date_reference[4].parse::<u32>().unwrap(), mjd);
+        assert_abs_diff_eq!(
+            date_reference[5].parse::<f64>().unwrap(),
+            fd,
+            epsilon = 1e-13
+        );
         for (r, w) in rh.accuracies.iter().zip(&wh.accuracies) {
             assert_quantized(*r, *w, Some(2.0), "accuracy");
         }

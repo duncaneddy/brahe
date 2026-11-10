@@ -1895,8 +1895,8 @@ impl PySP3 {
 
     /// Append an epoch to the grid.
     ///
-    /// The first epoch sets the header start epoch, GPS week and date fields.
-    /// Later epochs must lie after the last epoch on the epoch grid.
+    /// The first epoch anchors the epoch grid. Later epochs must lie after
+    /// the last epoch on that grid.
     ///
     /// Args:
     ///     epoch (Epoch): Epoch to append.

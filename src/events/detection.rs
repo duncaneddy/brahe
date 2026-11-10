@@ -409,7 +409,14 @@ where
         }
     };
 
-    if !crossed && current_crossing.abs() > detector.value_tolerance() {
+    // Near-target tolerance must not bypass the requested crossing direction.
+    let near_target_in_direction = current_crossing.abs() <= detector.value_tolerance()
+        && match dir {
+            EventDirection::Increasing => prev_crossing < 0.0 && current_crossing > prev_crossing,
+            EventDirection::Decreasing => prev_crossing > 0.0 && current_crossing < prev_crossing,
+            EventDirection::Any => true,
+        };
+    if !crossed && !near_target_in_direction {
         return None;
     }
 
@@ -496,7 +503,14 @@ where
         }
     };
 
-    if !crossed && current_crossing.abs() > detector.value_tolerance() {
+    // Near-target tolerance must not bypass the requested crossing direction.
+    let near_target_in_direction = current_crossing.abs() <= detector.value_tolerance()
+        && match dir {
+            EventDirection::Increasing => prev_crossing < 0.0 && current_crossing > prev_crossing,
+            EventDirection::Decreasing => prev_crossing > 0.0 && current_crossing < prev_crossing,
+            EventDirection::Any => true,
+        };
+    if !crossed && !near_target_in_direction {
         return None;
     }
 
@@ -553,6 +567,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::events::SValueEvent;
     use crate::time::TimeSystem;
     use nalgebra::Vector6;
     use serial_test::parallel;
@@ -986,5 +1001,132 @@ mod tests {
             result.is_some(),
             "Should detect increasing crossing from -0.4 to 1.0"
         );
+    }
+
+    fn static_endpoint_detected(initial: f64, endpoint: f64, direction: EventDirection) -> bool {
+        let start = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let end = start + 2.0;
+        let previous = SVector::<f64, 1>::from_element(initial);
+        let current = SVector::<f64, 1>::from_element(endpoint);
+        let state_at = |epoch: Epoch| {
+            SVector::<f64, 1>::from_element(initial + (endpoint - initial) * (epoch - start) / 2.0)
+        };
+        let detector = SValueEvent::<1, 0>::new(
+            "EndpointDirection",
+            |_epoch, state, _params| state[0],
+            0.0,
+            direction,
+        );
+
+        sscan_for_event(
+            &detector, 0, &state_at, start, end, &previous, &current, None,
+        )
+        .is_some()
+    }
+
+    fn dynamic_endpoint_detected(initial: f64, endpoint: f64, direction: EventDirection) -> bool {
+        let start = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let end = start + 2.0;
+        let previous = DVector::from_element(1, initial);
+        let current = DVector::from_element(1, endpoint);
+        let state_at = |epoch: Epoch| {
+            DVector::from_element(1, initial + (endpoint - initial) * (epoch - start) / 2.0)
+        };
+        let detector = DValueEvent::new(
+            "EndpointDirection",
+            |_epoch, state, _params| state[0],
+            0.0,
+            direction,
+        );
+
+        dscan_for_event(
+            &detector, 0, &state_at, start, end, &previous, &current, None,
+        )
+        .is_some()
+    }
+
+    #[test]
+    #[parallel]
+    fn test_sscan_rejects_decreasing_detector_at_increasing_endpoint() {
+        assert!(!static_endpoint_detected(
+            -2.0,
+            0.0,
+            EventDirection::Decreasing
+        ));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_sscan_rejects_increasing_detector_at_decreasing_endpoint() {
+        assert!(!static_endpoint_detected(
+            2.0,
+            0.0,
+            EventDirection::Increasing
+        ));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_dscan_rejects_decreasing_detector_at_increasing_endpoint() {
+        assert!(!dynamic_endpoint_detected(
+            -2.0,
+            0.0,
+            EventDirection::Decreasing
+        ));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_dscan_rejects_increasing_detector_at_decreasing_endpoint() {
+        assert!(!dynamic_endpoint_detected(
+            2.0,
+            0.0,
+            EventDirection::Increasing
+        ));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_sscan_accepts_direction_matching_endpoint() {
+        assert!(static_endpoint_detected(
+            -2.0,
+            0.0,
+            EventDirection::Increasing
+        ));
+        assert!(static_endpoint_detected(
+            2.0,
+            0.0,
+            EventDirection::Decreasing
+        ));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_sscan_accepts_any_direction_at_endpoint() {
+        // No sign change: acceptance must come from the near-target tolerance path.
+        assert!(static_endpoint_detected(-2.0, -5e-10, EventDirection::Any));
+        assert!(static_endpoint_detected(2.0, 5e-10, EventDirection::Any));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_dscan_accepts_direction_matching_endpoint() {
+        assert!(dynamic_endpoint_detected(
+            -2.0,
+            0.0,
+            EventDirection::Increasing
+        ));
+        assert!(dynamic_endpoint_detected(
+            2.0,
+            0.0,
+            EventDirection::Decreasing
+        ));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_dscan_accepts_any_direction_at_endpoint() {
+        assert!(dynamic_endpoint_detected(-2.0, -5e-10, EventDirection::Any));
+        assert!(dynamic_endpoint_detected(2.0, 5e-10, EventDirection::Any));
     }
 }

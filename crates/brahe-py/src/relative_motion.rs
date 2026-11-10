@@ -722,14 +722,6 @@ fn py_rotation_lvlh_to_eci<'py>(
 ///
 /// This is the transpose (inverse) of the LVLH-to-ECI rotation matrix.
 ///
-/// The LVLH frame follows the CCSDS and SANA definition:
-/// - Z: Unit vector collinear with and opposite to the position vector (nadir).
-/// - Y: Unit vector collinear with and opposite to the orbital angular momentum `r x v`.
-/// - X: `Y x Z`, completing the right-handed set (along-track for a circular orbit).
-///
-/// This is a signed permutation of the RTN axes: `X = T`, `Y = -N`, `Z = -R`. Vallado and
-/// STK use the name LVLH for the RTN axes themselves; brahe follows the CCSDS convention.
-///
 /// Args:
 ///     x_eci (numpy.ndarray or list): 6D state vector in the ECI frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
 ///         vectors with the 6 components along `axis` (for example shape (n, 6)).

@@ -67,10 +67,6 @@ pub fn rotation_lvlh_to_eci(x_eci: SVector6) -> SMatrix3 {
 /// # Returns:
 /// - `r`: 3x3 Rotation matrix transforming from ECI to LVLH frame
 ///
-/// # References:
-/// - SANA Orbit-Relative Reference Frames registry, `LVLH_ROTATING`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
-/// - CCSDS 500.0-G-4, *Navigation Data—Definitions and Conventions*, Section 4.3.7.2, p. 4-7, November 2019
-///
 /// # Examples:
 /// ```
 /// use brahe::SVector6;
@@ -131,10 +127,6 @@ pub fn omega_lvlh(x_eci: SVector6) -> Vector3<f64> {
 /// # Returns:
 /// - `x_rel_lvlh`: 6D relative state of the deputy with respect to the chief in the LVLH frame [ρ_X, ρ_Y, ρ_Z, ρ̇_X, ρ̇_Y, ρ̇_Z] (m, m/s)
 ///
-/// # References:
-/// - SANA Orbit-Relative Reference Frames registry, `LVLH_ROTATING`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
-/// - CCSDS 500.0-G-4, *Navigation Data—Definitions and Conventions*, Section 4.3.7.2, p. 4-7, November 2019
-///
 /// # Examples:
 /// ```
 /// use brahe::SVector6;
@@ -169,10 +161,6 @@ pub fn state_eci_to_lvlh(x_chief: SVector6, x_deputy: SVector6) -> SVector6 {
 ///
 /// # Returns:
 /// - `x_deputy`: 6D state vector of the deputy satellite in the ECI frame [x, y, z, vx, vy, vz] (m, m/s)
-///
-/// # References:
-/// - SANA Orbit-Relative Reference Frames registry, `LVLH_ROTATING`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
-/// - CCSDS 500.0-G-4, *Navigation Data—Definitions and Conventions*, Section 4.3.7.2, p. 4-7, November 2019
 ///
 /// # Examples:
 /// ```
@@ -237,10 +225,6 @@ pub fn rotations_lvlh_to_eci(x_eci: &[SVector6]) -> Vec<SMatrix3> {
 /// # Returns
 /// - Rotation matrices transforming ECI -> LVLH, one per state, in input order
 ///
-/// # References
-/// - SANA Orbit-Relative Reference Frames registry, `LVLH_ROTATING`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
-/// - CCSDS 500.0-G-4, *Navigation Data—Definitions and Conventions*, Section 4.3.7.2, p. 4-7, November 2019
-///
 /// # Examples
 /// ```
 /// use brahe::constants::{R_EARTH, AngleFormat};
@@ -267,10 +251,6 @@ pub fn rotations_eci_to_lvlh(x_eci: &[SVector6]) -> Vec<SMatrix3> {
 /// # Returns
 /// - Angular velocities of the LVLH frame relative to ECI, expressed in LVLH axes, one per
 ///   state, in input order. Units: (*rad/s*)
-///
-/// # References
-/// - SANA Orbit-Relative Reference Frames registry, `LVLH_ROTATING`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
-/// - CCSDS 500.0-G-4, *Navigation Data—Definitions and Conventions*, Section 4.3.7.2, p. 4-7, November 2019
 ///
 /// # Examples
 /// ```
@@ -303,10 +283,6 @@ pub fn omegas_lvlh(x_eci: &[SVector6]) -> Vec<Vector3<f64>> {
 /// # Returns
 /// - Deputy relative states in the chief LVLH frame, in input order. Units: (*m*; *m/s*)
 /// - Error if the lengths do not satisfy the broadcast rule
-///
-/// # References
-/// - SANA Orbit-Relative Reference Frames registry, `LVLH_ROTATING`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
-/// - CCSDS 500.0-G-4, *Navigation Data—Definitions and Conventions*, Section 4.3.7.2, p. 4-7, November 2019
 ///
 /// # Examples
 /// ```
@@ -346,10 +322,6 @@ pub fn states_eci_to_lvlh(
 /// # Returns
 /// - Deputy Cartesian ECI states, in input order. Units: (*m*; *m/s*)
 /// - Error if the lengths do not satisfy the broadcast rule
-///
-/// # References
-/// - SANA Orbit-Relative Reference Frames registry, `LVLH_ROTATING`, <https://sanaregistry.org/r/orbit_relative_reference_frames>
-/// - CCSDS 500.0-G-4, *Navigation Data—Definitions and Conventions*, Section 4.3.7.2, p. 4-7, November 2019
 ///
 /// # Examples
 /// ```

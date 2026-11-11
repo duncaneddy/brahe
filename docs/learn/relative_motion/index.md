@@ -10,7 +10,7 @@ An orbit-relative frame has its origin at an object and its axes built from that
 
 Each frame provides the same functions. `rotation_eci_to_<frame>` and `rotation_<frame>_to_eci` return the rotation matrix between the inertial axes and the frame, `omega_<frame>` returns the frame's angular velocity, and `state_eci_to_<frame>` and `state_<frame>_to_eci` convert between the inertial states of a chief and a deputy and the deputy's state relative to the chief. The [frame graph](../frames/frame_graph.md) evaluates the same frames for registered objects through `ReferenceFrame`.
 
-The table gives the axes of each frame, using $\hat{r}$ for the unit position, $\hat{v}$ for the unit velocity, and $\hat{h}$ for the unit orbital angular momentum $\mathbf{r} \times \mathbf{v}$.
+The table gives the axes of each frame, using $\hat{r}$ for the unit position, $\hat{v}$ for the unit velocity, $\hat{h}$ for the unit orbital angular momentum $\mathbf{r} \times \mathbf{v}$, and $\hat{e}$ for the eccentricity-vector direction.
 
 | Frame | X | Y | Z | Rate about |
 |---|---|---|---|---|
@@ -19,13 +19,14 @@ The table gives the axes of each frame, using $\hat{r}$ for the unit position, $
 | [NTW](ntw_frame.md) | $\hat{v} \times \hat{h}$ | $\hat{v}$ | $\hat{h}$ | $+Z$ |
 | [TNW](tnw_frame.md) | $\hat{v}$ | $\hat{h} \times \hat{v}$ | $\hat{h}$ | $+Z$ |
 | [VNC](vnc_frame.md) | $\hat{v}$ | $\hat{h}$ | $\hat{v} \times \hat{h}$ | $+Y$ |
+| [PQW](pqw_frame.md) | $\hat{e}$ | $\hat{h} \times \hat{e}$ | $\hat{h}$ | inertial only |
 
 !!! tip "CCSDS frame names"
     The frame definitions match the [SANA orbit-relative reference frame registry](https://sanaregistry.org/r/orbit_relative_reference_frames), which CCSDS orbit and attitude messages reference by name. RTN is the registry's RSW frame.
 
 ### Variants
 
-Each frame has a rotating variant, which carries the frame's angular velocity, and an inertial snapshot, which takes the same axes at the evaluation epoch with zero rate. The `state_*` functions use the rotating variant. A covariance transformation selects the variant through the rate it applies (see [Covariance](#covariance)), and the frame graph selects it through the `OrbitRelativeFrameVariant` of the `ReferenceFrame`.
+Each frame has a rotating variant, which carries the frame's angular velocity, and an inertial snapshot, which takes the same axes at the evaluation epoch with zero rate. The `state_*` functions use the rotating variant. A covariance transformation selects the variant through the rate it applies (see [Covariance](#covariance)), and the frame graph selects it through the `OrbitRelativeFrameVariant` of the `ReferenceFrame`. PQW exists only as an inertial snapshot, with no `omega_` function and no transport term in the `state_*` functions.
 
 ### Rates
 
@@ -75,6 +76,7 @@ $J$ holds the frame origin fixed, so it applies to a covariance referenced to th
 - [NTW Frame](ntw_frame.md)
 - [TNW Frame](tnw_frame.md)
 - [VNC Frame](vnc_frame.md)
+- [PQW Frame](pqw_frame.md)
 - [ROE Transformations](roe_transformations.md)
 - [Frame Graph](../frames/frame_graph.md)
 - [Relative Motion API Reference](../../library_api/relative_motion/index.md)

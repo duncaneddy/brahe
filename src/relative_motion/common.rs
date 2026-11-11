@@ -1,12 +1,16 @@
 /*!
- * Shared relative-state transport for the local orbital frames in this
- * module.
+ * Shared relative-state transport and rates for the local orbital frames in
+ * this module.
  */
 
 use nalgebra::Vector3;
 
 use crate::frames::{state_inertial_to_rotating, state_rotating_to_inertial};
 use crate::math::{SMatrix3, SVector6};
+
+/// Norm below which a direction vector is treated as undefined and a
+/// fallback direction is used in its place.
+pub(crate) const DEGENERATE_TOLERANCE: f64 = 1e-9;
 
 /// Relative state of a deputy with respect to a chief in a rotating local
 /// frame, from the absolute states of both in the base frame that the local

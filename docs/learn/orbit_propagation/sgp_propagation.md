@@ -38,7 +38,7 @@ Rather than hard-coding TLE strings, you can query live satellite data from Cele
         --8<-- "./docs/outputs/datasets/celestrak_as_propagator.rs.txt"
         ```
 
-For details on querying satellite data, see [Ephemeris Data Sources](../ephemeris/index.md).
+For details on querying satellite data, see [Ephemeris Data Sources](../clients/index.md).
 
 ## Initialization
 
@@ -436,5 +436,5 @@ Like Keplerian propagators, SGP propagators support identity tracking:
 - [Keplerian Propagation](keplerian_propagation.md) - Analytical two-body propagator
 - [Trajectories](../trajectories/index.md) - Trajectory storage and operations
 - [Two-Line Elements](../orbits/two_line_elements.md) - Working with TLE data
-- [Ephemeris Data Sources](../ephemeris/index.md) - Querying live satellite data from CelesTrak and Space-Track
+- [Ephemeris Data Sources](../clients/index.md) - Querying live satellite data from CelesTrak and Space-Track
 - [SGPPropagator API Reference](../../library_api/propagators/sgp_propagator.md)

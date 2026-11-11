@@ -34,6 +34,6 @@ Reader, writer and trajectory conversion for the Modified ITC ephemeris format.
 
 ## See Also
 
-- [Modified ITC Ephemeris Format](../../learn/ephemeris/itc.md) -- Format, frames and covariance conventions
+- [Modified ITC Ephemeris Format](../../learn/clients/itc.md) -- Format, frames and covariance conventions
 - [Starlink](starlink.md) -- Client that downloads files in this format
 - [Space-Track Responses](spacetrack/responses.md) -- `SpaceTrackEphemerisFileName` and `SpaceTrackEphemerisFileCategory`

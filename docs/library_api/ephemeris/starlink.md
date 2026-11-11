@@ -27,6 +27,6 @@ Client for Starlink's public Modified ITC ephemerides.
 
 ## See Also
 
-- [Starlink Public Ephemerides](../../learn/ephemeris/starlink.md) -- Overview, caching, and rate limits
+- [Starlink Public Ephemerides](../../learn/clients/starlink.md) -- Overview, caching, and rate limits
 - [Modified ITC Format](itc.md) -- The ephemeris format this client downloads
 - [Rate Limiting](spacetrack/rate_limiting.md) -- `RateLimitConfig` shared with the other clients

@@ -130,5 +130,5 @@ Group names and contents evolve as missions launch, deorbit, or change status. V
 
 ## See Also
 
-- [CelesTrak Data Source](../../learn/ephemeris/celestrak.md) -- Overview, caching, and satellite groups
+- [CelesTrak Data Source](../../learn/clients/celestrak.md) -- Overview, caching, and satellite groups
 - [SpaceTrack Client](spacetrack/client.md) -- Alternative GP data source with the same GPRecord type

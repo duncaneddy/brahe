@@ -3,7 +3,7 @@
 The datasets module in Brahe provides easy access to common static data sources used in astrodynamics, space mission analysis, and research. This includes planetary ephemeris kernels and locations of ground stations.
 
 !!! tip "Satellite Ephemeris Data"
-    For satellite ephemeris API clients (CelesTrak, Space-Track), see [Ephemeris Data Sources](../ephemeris/index.md).
+    For satellite ephemeris API clients (CelesTrak, Space-Track), see [Ephemeris Data Sources](../clients/index.md).
 
 ## Overview
 
@@ -100,7 +100,7 @@ Brahe's datasets module aims to:
 
 ## See Also
 
-- [Ephemeris Data Sources](../ephemeris/index.md) - CelesTrak and Space-Track API clients
+- [Ephemeris Data Sources](../clients/index.md) - CelesTrak and Space-Track API clients
 - [NAIF Ephemeris Kernels](naif.md) - Planetary ephemeris data
 - [GCAT Satellite Catalogs](gcat.md) - GCAT SATCAT and PSATCAT catalogs
 - [Star Catalogs](star_catalogs.md) - FK5, Hipparcos, and Tycho-2 fixed-epoch star catalogs

@@ -15,4 +15,4 @@ API reference for the satellite ephemeris data source clients. Both CelesTrak an
 
 ## See Also
 
-- [Ephemeris Data Sources Overview](../../learn/ephemeris/index.md) -- Conceptual introduction, GPRecord field tables, and source comparison
+- [Ephemeris Data Sources Overview](../../learn/clients/index.md) -- Conceptual introduction, GPRecord field tables, and source comparison

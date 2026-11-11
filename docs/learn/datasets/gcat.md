@@ -235,4 +235,4 @@ Two-letter codes (e.g. `BD`, `CD`) indicate shared management across categories.
 - [GCAT API Reference](../../library_api/datasets/gcat.md) - Complete function and class documentation
 - [GCAT Website](https://planet4589.org/space/gcat/) - Jonathan McDowell's catalog home page
 - [Datasets Overview](index.md) - Understanding datasets in Brahe
-- [CelesTrak Data Source](../ephemeris/celestrak.md) - Alternative satellite catalog from CelesTrak
+- [CelesTrak Data Source](../clients/celestrak.md) - Alternative satellite catalog from CelesTrak

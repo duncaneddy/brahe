@@ -37,7 +37,7 @@ computes the or orbital period of the satellite by converting the semi-major axi
 It then propagates the satellite to one full orbit past its epoch using the `propagate_to` method to ensure that the trajectory contains position data for one complete orbit.
 
 !!! note "to_sgp_propagator builds a propagator without TLE round-tripping"
-    [`GPRecord.to_sgp_propagator`](../learn/ephemeris/celestrak.md)
+    [`GPRecord.to_sgp_propagator`](../learn/clients/celestrak.md)
     ([API](../library_api/ephemeris/shared_types.md#brahe.GPRecord.to_sgp_propagator))
     constructs an [`SGPPropagator`](../library_api/propagators/sgp_propagator.md)
     directly from the record's OMM orbital elements rather than serializing
@@ -77,7 +77,7 @@ The resulting plot shows the complete GPS constellation orbiting Earth. The inte
 
 ## See Also
 
-- [CelesTrak Dataset](../learn/ephemeris/celestrak.md) - More details on using CelesTrak datasets
+- [CelesTrak Dataset](../learn/clients/celestrak.md) - More details on using CelesTrak datasets
 - [Two-Line Elements](../learn/orbits/two_line_elements.md) - Understanding TLE format and usage
 - [SGP4 Propagator](../learn/orbit_propagation/sgp_propagation.md) - How SGP4 works for orbit propagation
 - [3D Trajectory Plotting](../learn/plots/3d_trajectory.md) - Advanced options for trajectory visualization

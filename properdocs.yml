@@ -280,20 +280,20 @@ nav:
           - Batch Least Squares: learn/estimation/batch_least_squares.md
           - Custom Models: learn/estimation/custom_models.md
       - SPICE Kernels: learn/spice/index.md
-      - Ephemeris Data Sources:
-          - learn/ephemeris/index.md
+      - Clients:
+          - learn/clients/index.md
           - Space-Track:
-              - learn/ephemeris/spacetrack/index.md
-              - Query Builder: learn/ephemeris/spacetrack/query_builder.md
-              - Common Queries: learn/ephemeris/spacetrack/common_queries.md
-              - Conjunction Data: learn/ephemeris/spacetrack/cdm.md
-              - Client: learn/ephemeris/spacetrack/client.md
-              - File Operations: learn/ephemeris/spacetrack/file_operations.md
-              - Rate Limiting: learn/ephemeris/spacetrack/rate_limiting.md
-          - CelesTrak: learn/ephemeris/celestrak.md
-          - Starlink: learn/ephemeris/starlink.md
-          - IGS Products: learn/ephemeris/igs_products.md
-          - Modified ITC Format: learn/ephemeris/itc.md
+              - learn/clients/spacetrack/index.md
+              - Query Builder: learn/clients/spacetrack/query_builder.md
+              - Common Queries: learn/clients/spacetrack/common_queries.md
+              - Conjunction Data: learn/clients/spacetrack/cdm.md
+              - Client: learn/clients/spacetrack/client.md
+              - File Operations: learn/clients/spacetrack/file_operations.md
+              - Rate Limiting: learn/clients/spacetrack/rate_limiting.md
+          - CelesTrak: learn/clients/celestrak.md
+          - Starlink: learn/clients/starlink.md
+          - IGS Products: learn/clients/igs_products.md
+          - Modified ITC Format: learn/clients/itc.md
       - Data Files:
           - learn/datafiles/index.md
           - SP3: learn/datafiles/sp3.md
@@ -486,7 +486,7 @@ nav:
           - Measurement Models: library_api/estimation/measurement_models.md
           - Sensor Models: library_api/estimation/sensor_models.md
       - SPICE Kernels: library_api/spice/index.md
-      - Ephemeris Data Sources:
+      - Clients:
           - library_api/ephemeris/index.md
           - Shared Types: library_api/ephemeris/shared_types.md
           - CelesTrak: library_api/ephemeris/celestrak.md

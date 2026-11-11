@@ -63,8 +63,10 @@ fn nsw_axes(x_eci: SVector6, x_sun: SVector6) -> (SMatrix3, Vector3<f64>) {
 ///
 /// The NSW frame follows the SANA definition:
 /// - X: Unit vector toward nadir, opposite the position vector.
-/// - Y: As close to the direction of the Sun as possible while normal to X: the unit vector
-///   from the spacecraft to the Sun with its X component removed.
+/// - Y: As close to the direction of the Sun as possible while normal to X. With `ŝ` the unit
+///   vector from the spacecraft to the Sun, this is the unit vector perpendicular to `x̂` that
+///   maximizes `ŷ · ŝ`, which is the Sun direction with its X component removed and
+///   renormalized: `ŷ = (ŝ − (ŝ·x̂) x̂) / |ŝ − (ŝ·x̂) x̂|`.
 /// - Z: `X × Y`, completing the right-handed set.
 ///
 /// `x_sun` is the Sun's state relative to the same center as `x_eci`. Because X lies along the

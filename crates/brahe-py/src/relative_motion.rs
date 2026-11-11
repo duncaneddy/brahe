@@ -2783,8 +2783,10 @@ fn py_state_eqw_to_eci<'py>(
 ///
 /// The NSW frame follows the SANA definition:
 /// - X: Unit vector toward nadir, opposite the position vector.
-/// - Y: As close to the direction of the Sun as possible while normal to X: the unit vector
-///   from the spacecraft to the Sun with its X component removed.
+/// - Y: As close to the direction of the Sun as possible while normal to X. With `s` the unit
+///   vector from the spacecraft to the Sun, this is the unit vector perpendicular to `x` that
+///   maximizes `y . s`, which is the Sun direction with its X component removed and
+///   renormalized: `y = (s - (s . x) x) / |s - (s . x) x|`.
 /// - Z: `X x Y`, completing the right-handed set.
 ///
 /// `x_sun` is the Sun's state relative to the same center as `x_eci`. Because X lies along the

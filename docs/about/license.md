@@ -86,7 +86,7 @@ The original FEX-RKN1210 code can be found [here](https://github.com/rodyo/FEX-R
 
 ### Orekit Test Data
 
-Brahe includes CCSDS test data files from the Orekit project, which is licensed under the Apache License 2.0. For more information, visit the [Orekit website](https://www.orekit.org/).
+Brahe includes CCSDS and SP3 test data files from the Orekit project, which is licensed under the Apache License 2.0. For more information, visit the [Orekit website](https://www.orekit.org/).
 
 ```
 

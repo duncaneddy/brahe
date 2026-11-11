@@ -1,4 +1,4 @@
-# EQW Transformations
+# EQW Frame
 
 ::: brahe.rotation_eqw_to_eci
 

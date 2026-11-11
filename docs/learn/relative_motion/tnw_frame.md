@@ -28,4 +28,4 @@ TNW is NTW with its in-plane axes reordered, $X_\mathrm{TNW} = Y_\mathrm{NTW}$ a
 ## See Also
 
 - [Relative Motion](index.md) - Frame variants, rates, and covariance transformation
-- [TNW Transformations API Reference](../../library_api/relative_motion/tnw_transformations.md)
+- [TNW Frame API Reference](../../library_api/relative_motion/tnw_frame.md)

@@ -2616,6 +2616,34 @@ impl PySP3Satellite {
         sp3_vectors_to_numpy(py, &self.inner.positions())
     }
 
+    /// Velocities the file carries for the valid samples.
+    ///
+    /// Only velocity records read from the file are returned; nothing is
+    /// derived from the positions. Use the state methods for a velocity at any
+    /// epoch.
+    ///
+    /// Returns:
+    ///     numpy.ndarray: Array of shape (N, 3) with the ITRF velocity of each sample in meters per second, NaN where the file has none.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/example-a-2.sp3").satellites()[0]
+    ///     velocities = sat.velocities()
+    ///     assert velocities.shape == (len(sat), 3)
+    ///     ```
+    fn velocities<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray<f64, Ix2>> {
+        let velocities: Vec<[f64; 3]> = self
+            .inner
+            .velocities()
+            .into_iter()
+            .map(|velocity| velocity.unwrap_or([f64::NAN; 3]))
+            .collect();
+        sp3_vectors_to_numpy(py, &velocities)
+    }
+
     /// Clock corrections of the valid samples.
     ///
     /// Returns:

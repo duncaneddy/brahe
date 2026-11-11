@@ -215,6 +215,26 @@ def test_SP3Satellite_accessors_skip_invalid_and_keep_bad_clocks():
     assert record_key(g02.records()[7]) == record_key(expected)
 
 
+def test_SP3Satellite_velocities_from_file():
+    with_velocity = bh.SP3.from_file("test_assets/sp3/example-a-2.sp3")
+    present = 0
+    for sat in with_velocity.satellites():
+        velocities = sat.velocities()
+        assert velocities.shape == (len(sat), 3)
+        for velocity, record in zip(velocities, sat.records()):
+            if record.velocity is None:
+                assert np.isnan(velocity).all()
+            else:
+                assert np.array_equal(velocity, record.velocity)
+                present += 1
+    assert present > 0
+
+    without = bh.SP3.from_file("test_assets/sp3/example-a-1.sp3")
+    for sat in without.satellites():
+        assert sat.velocities().shape == (len(sat), 3)
+        assert np.isnan(sat.velocities()).all()
+
+
 def test_SP3Satellite_single_sample_run():
     sp3, _ = build_sp3()
     g03 = sp3.satellite("G03")

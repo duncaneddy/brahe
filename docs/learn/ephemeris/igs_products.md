@@ -4,7 +4,7 @@ The International GNSS Service (IGS) and its analysis centers publish precise or
 
 ## Sources
 
-A client reads from one of three archives, chosen with `IGSProductSource` or its name (`"CDDIS"`, `"GARNER"`, or `"BKG"`).
+A client reads from one archive, given to the constructor as an `IGSProductSource` or, in Python, its name (`"CDDIS"`, `"GARNER"`, or `"BKG"`).
 
 | Source | Default base URL | Holdings |
 |---|---|---|
@@ -14,15 +14,9 @@ A client reads from one of three archives, chosen with `IGSProductSource` or its
 
 Garner is served over plain HTTP. Its HTTPS certificate chain ends at a root authority (emSign Root TLS CA - G1) that is not in the Mozilla and `certifi` trust bundles, so verification fails, and the client therefore does not use HTTPS for it. Files downloaded from Garner are not protected in transit. BKG and CDDIS use HTTPS. A product that is missing on the chosen source is an error; the client never falls back to another source.
 
-## Default Source and Credentials
+## CDDIS Credentials
 
-`IGSProductsClient()` with no arguments uses CDDIS when the environment variables `CDDIS_EARTHDATA_USERNAME` and `CDDIS_EARTHDATA_PASSWORD` are both non-empty, and Garner otherwise. The Garner fallback prints a warning once per process:
-
-```
-Warning: CDDIS_EARTHDATA_USERNAME/CDDIS_EARTHDATA_PASSWORD not set; using the Garner (SIO) mirror over unencrypted HTTP. Set the variables or choose a source explicitly to silence this warning.
-```
-
-Choosing a source explicitly never warns. In Python, `IGSProductsClient(source="CDDIS", cddis_username=..., cddis_password=...)` passes credentials directly instead of reading the environment; in Rust, `IGSProductsClient::with_cddis_credentials` does the same. A `base_url` override requires an explicit source and keeps the credentials from the environment.
+CDDIS requires a NASA Earthdata login. `IGSProductsClient("CDDIS", cddis_username=..., cddis_password=...)` in Python and `IGSProductsClient::with_cddis_credentials` in Rust build a CDDIS client with credentials. The client reads no environment variables, and a CDDIS client built without credentials fails at the login.
 
 CDDIS redirects each request to the Earthdata login service. The client follows that redirect itself and sends the credentials, as HTTP Basic authentication, only to `urs.earthdata.nasa.gov`; the file host never receives them. The session cookie that CDDIS sets after login is kept for the redirects that follow.
 
@@ -30,9 +24,9 @@ CDDIS redirects each request to the Earthdata login service. The client follows 
 
 `list_products(epoch, ...)` lists the GPS week directory that contains `epoch`, and `list_products_between(start, end, ...)` lists every product whose coverage overlaps `[start, end]`. Each result is an `IGSProduct` holding the parsed `IGSProductFileName`, the published name, the URL, the size in bytes when the listing provides it (the Apache listings of Garner and BKG do not), and the GPS week of the directory it was listed in. `list_files(epoch)` returns the raw names of the directory, including files that are not products, and `list_weeks()` returns the week directories of the archive.
 
-Both typed listings accept the filters `center`, `solution`, `content`, and `format`. The center is a code such as `COD` or `IGS`, compared without regard to case, and the other three take an `IGSSolutionType`, `IGSContentType`, or `IGSFileFormat`, or in Python their string codes (`"FIN"`, `"ORB"`, `"SP3"`). Names that match neither file name convention are left out of typed listings.
+Both typed listings accept the filters `center`, `solution`, `content`, and `format`. They take an `IGSAnalysisCenter`, `IGSSolutionType`, `IGSContentType`, and `IGSFileFormat`, or in Python their string codes (`"COD"`, `"FIN"`, `"ORB"`, `"SP3"`). A code outside the listed variants is kept as an `Other` value and matches only products published with that code. Names that match neither file name convention are left out of typed listings.
 
-Two conventions name the files. Long names, used from GPS week 2238, look like `IGS0OPSFIN_20243150000_01D_15M_ORB.SP3.gz` and encode the center, version, campaign, solution, start epoch, span, sampling, content, format, and compression. Short names, used before week 2238, look like `igs21000.sp3.Z` and encode the center, GPS week, day of week, and an optional ultra-rapid hour, with the content and format taken from the extension. The center and solution of a short name come from a three-letter code: `igr` is the IGS rapid product, `igu` the IGS ultra-rapid product, and unlisted codes are final products. `IGSProductFileName.parse` decodes either form, and `list_analysis_centers` returns the table of centers.
+Two conventions name the files. Long names, used from GPS week 2238, look like `IGS0OPSFIN_20243150000_01D_15M_ORB.SP3.gz` and encode the center, version, campaign, solution, start epoch, span, sampling, content, format, and compression. Short names, used before week 2238, look like `igs21000.sp3.Z` and encode the center, GPS week, day of week, and an optional ultra-rapid hour, with the content and format taken from the extension. The center and solution of a short name come from a three-letter code: `igr` is the IGS rapid product, `igu` the IGS ultra-rapid product, and unlisted codes are final products. `IGSProductFileName.parse` decodes either form.
 
 An ultra-rapid product covers 48 hours: 24 hours fitted to observations and 24 hours predicted. A short-name ultra-rapid file is filed under the week of its named time, but its coverage begins 24 hours before that time. For this reason `list_products_between` lists, besides the weeks containing `start` through `end`, the weeks that can hold products filed up to one day after `end` or beginning up to three days before `start`. Such an extra week that does not exist on the source is skipped.
 
@@ -50,15 +44,15 @@ Listings are cached under `$BRAHE_CACHE/igs/listings/` for one hour by default, 
 
 ## Downloading Products
 
-`download(product)` fetches a product into the cache and returns the cached path of the file as published. Published products do not change, so a cached file is returned without a request. The cache path is `$BRAHE_CACHE/igs/<source>/<week>/<published name>`, and `get_igs_cache_dir()` returns the `igs` directory. `download_between(start, end, ...)` downloads every product that `list_products_between` returns for the same arguments and returns the cached paths in time order.
+`download(product)` fetches a product into the cache and returns the cached path of the file as published. Published products do not change, so a cached file is returned without a request. The cache path is `$BRAHE_CACHE/igs/<source>/<week>/<published name>`, and `get_igs_cache_dir()` returns the `igs` directory.
 
-`save(product, destination, keep_cached=False)` downloads a product and writes it outside the cache. An existing directory, or a path whose last component has no extension, is treated as a directory and the published name is kept, while a path with an extension is the file written; a missing directory is created. A gzip product is written decompressed, and in a directory it loses the `.gz` suffix. Unix-compressed `.Z` files and uncompressed files are written unchanged. A destination inside the cache is an error, checked before anything is downloaded. With `keep_cached` false the cached copy is removed, so a later `download` fetches the file again, and with `keep_cached` true the cache keeps it. `save_between(start, end, directory, ...)` saves every product that `download_between` would return into `directory` and returns the written paths in time order.
+`save(product, destination, keep_cached=False)` downloads a product and writes it outside the cache. An existing directory, or a path whose last component has no extension, is treated as a directory and the published name is kept, while a path with an extension is the file written; a missing directory is created. A gzip product is written decompressed, and in a directory it loses the `.gz` suffix. Unix-compressed `.Z` files and uncompressed files are written unchanged. A destination inside the cache is an error, checked before anything is downloaded. With `keep_cached` false the cached copy is removed, so a later `download` fetches the file again, and with `keep_cached` true the cache keeps it. To download or save every product in a range, loop over the result of `list_products_between`, as the range example below does.
 
 `download_sp3(product)` downloads an SP3 product and returns the parsed `SP3`. It raises an error for a product that is not an SP3 file.
 
 ## Downloading a Range of Orbit Files
 
-`download_sp3_range(start, end, center, solution, ...)` returns the daily orbit files of one center and solution that cover `[start, end]` as a list of `SP3` objects in time order, ready for `SP3Satellite.from_files`. With `pad=True`, the default, it adds the day before `start` and the day after `end`, so that velocities derived for the samples at the ends of the range come from centered fits. A padding file that is missing from the listing, that is a `.Z` file, or whose download answers 404 is skipped, while a missing file inside the range is an error that names the expected file and the source. Any other download or parse failure, for a padding file or a file inside the range, is an error. For long names the client selects the daily `01D` orbit file; when a center publishes several samplings, for example COD at 5 and 15 minutes, it chooses the coarsest unless `sampling` gives an interval in seconds. In either convention a gzip or uncompressed file is chosen over a `.Z` file for the same day, whatever their samplings. For short names it selects `cccwwwwd.sp3`, and `sampling` does not apply because those names do not encode one. A range that crosses GPS week 2238 returns short-name and long-name files together, and chaining them works.
+`download_sp3_range(start, end, center, solution, ...)` returns the daily orbit files of one center and solution that cover `[start, end]` as a list of `SP3` objects in time order, ready for `SP3Satellite.from_files`. With `pad=True`, the default, it adds the day before `start` and the day after `end`, so that velocities derived for the samples at the ends of the range come from centered fits. A padding file that is missing from the listing, that is a `.Z` file, or whose download answers 404 is skipped, while a missing file inside the range is an error that names the day and the source. Any other download or parse failure, for a padding file or a file inside the range, is an error. For long names the client selects the daily `01D` orbit file; when a center publishes several samplings, for example COD at 5 and 15 minutes, it chooses the coarsest unless `sampling` gives an interval in seconds. In either convention a gzip or uncompressed file is chosen over a `.Z` file for the same day, whatever their samplings. For short names it selects `cccwwwwd.sp3`, and `sampling` does not apply because those names do not encode one. A range that crosses GPS week 2238 returns short-name and long-name files together, and chaining them works.
 
 === "Python"
     ``` python

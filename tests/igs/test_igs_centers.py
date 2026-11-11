@@ -1,57 +1,55 @@
 """Tests mirroring src/clients/igs/centers.rs."""
 
+import pytest
+
 import brahe as bh
 
-
-def test_igs_analysis_center_from_code_case_insensitive():
-    center = bh.IGSAnalysisCenter.from_code("cod")
-    assert center.code == "COD"
-    assert center.name == "Center for Orbit Determination in Europe"
-    assert bh.IGSAnalysisCenter.from_code("Cod") == center
-
-
-def test_igs_analysis_center_from_code_unknown():
-    assert bh.IGSAnalysisCenter.from_code("XYZ") is None
-    assert bh.IGSAnalysisCenter.from_code("") is None
-    assert bh.IGSAnalysisCenter.from_code("CODE") is None
-
-
-def test_igs_list_analysis_centers_contents():
-    codes = [center.code for center in bh.list_analysis_centers()]
-    for expected in [
-        "COD",
-        "EMR",
-        "ESA",
-        "GFZ",
-        "GRG",
-        "JPL",
-        "MIT",
-        "NGS",
-        "SIO",
-        "USN",
-        "WHU",
-        "IGS",
-    ]:
-        assert expected in codes
+CODES = [
+    "COD",
+    "EMR",
+    "ESA",
+    "GFZ",
+    "GOP",
+    "GRG",
+    "JGX",
+    "JPL",
+    "MIT",
+    "NGS",
+    "SIO",
+    "USN",
+    "WHU",
+    "IGS",
+]
 
 
-def test_igs_list_analysis_centers_well_formed():
-    centers = bh.list_analysis_centers()
-    codes = [center.code for center in centers]
-    assert len(set(codes)) == len(codes)
-    for center in centers:
-        assert len(center.code) == 3
-        assert center.code.isupper()
-        assert center.name
+@pytest.mark.parametrize("code", CODES)
+def test_igs_analysis_center_code_round_trip(code):
+    center = getattr(bh.IGSAnalysisCenter, code)
+    assert bh.IGSAnalysisCenter.parse(code) == center
+    assert bh.IGSAnalysisCenter.parse(code.lower()) == center
+    assert center.code == code
+    assert center.name
+
+
+def test_igs_analysis_center_parse_case_insensitive():
+    assert bh.IGSAnalysisCenter.parse("Cod") == bh.IGSAnalysisCenter.COD
+    assert bh.IGSAnalysisCenter.COD.name == "Center for Orbit Determination in Europe"
+
+
+def test_igs_analysis_center_parse_unknown():
+    center = bh.IGSAnalysisCenter.parse("xyz")
+    assert center.code == "XYZ"
+    assert center.name is None
+    assert center == bh.IGSAnalysisCenter.parse("XYZ")
+    assert bh.IGSAnalysisCenter.parse("CODE").code == "CODE"
 
 
 def test_igs_analysis_center_str_repr_eq_hash():
-    center = bh.IGSAnalysisCenter.from_code("JPL")
+    center = bh.IGSAnalysisCenter.JPL
     assert str(center) == "JPL"
-    assert repr(center) == (
-        "IGSAnalysisCenter(code='JPL', name='Jet Propulsion Laboratory')"
-    )
-    assert center == bh.IGSAnalysisCenter.from_code("jpl")
-    assert center != bh.IGSAnalysisCenter.from_code("MIT")
-    assert hash(center) == hash(bh.IGSAnalysisCenter.from_code("jpl"))
-    assert len({center, bh.IGSAnalysisCenter.from_code("jpl")}) == 1
+    assert repr(center) == "IGSAnalysisCenter.JPL"
+    assert repr(bh.IGSAnalysisCenter.parse("igl")) == "IGSAnalysisCenter.parse('IGL')"
+    assert center == bh.IGSAnalysisCenter.parse("jpl")
+    assert center != bh.IGSAnalysisCenter.MIT
+    assert hash(center) == hash(bh.IGSAnalysisCenter.parse("jpl"))
+    assert len({center, bh.IGSAnalysisCenter.parse("jpl")}) == 1

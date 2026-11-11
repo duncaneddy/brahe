@@ -16,12 +16,14 @@ import brahe as bh
 
 bh.initialize_eop()
 
-client = bh.IGSProductsClient(source="GARNER")
+client = bh.IGSProductsClient(bh.IGSProductSource.GARNER)
 start = bh.Epoch(2024, 11, 11, 0, 0, 0.0, time_system=bh.GPS)
 end = bh.Epoch(2024, 11, 12, 0, 0, 0.0, time_system=bh.GPS)
 
 # Daily CODE final orbit files covering the range, plus one day on each side
-files = client.download_sp3_range(start, end, "COD", "FIN")
+files = client.download_sp3_range(
+    start, end, bh.IGSAnalysisCenter.COD, bh.IGSSolutionType.FINAL
+)
 print(f"Downloaded {len(files)} daily SP3 files")
 for sp3 in files:
     print(f"  {sp3.start_epoch} to {sp3.end_epoch}: {sp3.num_epochs} epochs")
@@ -40,16 +42,16 @@ for hours in (0.0, 6.0, 12.0, 18.0):
     )
 
 # Save the files covering the range, decompressed, to a directory of choice
+products = client.list_products_between(
+    start,
+    end,
+    center=bh.IGSAnalysisCenter.COD,
+    solution=bh.IGSSolutionType.FINAL,
+    content=bh.IGSContentType.ORBIT,
+    format=bh.IGSFileFormat.SP3,
+)
 with tempfile.TemporaryDirectory() as directory:
-    paths = client.save_between(
-        start,
-        end,
-        directory,
-        center="COD",
-        solution=bh.IGSSolutionType.FINAL,
-        content=bh.IGSContentType.ORBIT,
-        format=bh.IGSFileFormat.SP3,
-    )
+    paths = [client.save(product, directory) for product in products]
     print(f"\nSaved {len(paths)} files:")
     for path in paths:
         print(f"  {Path(path).name}")

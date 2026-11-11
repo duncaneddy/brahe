@@ -3,6 +3,7 @@
  * for SP3 range downloads.
  */
 
+use crate::clients::igs::centers::IGSAnalysisCenter;
 use crate::clients::igs::file_name::{
     IGSContentType, IGSFileFormat, IGSProductFileName, IGSSolutionType,
 };
@@ -22,7 +23,7 @@ use crate::clients::igs::file_name::{
 ///     size: None,
 ///     gps_week: 2340,
 /// };
-/// assert_eq!(product.file_name.center(), "COD");
+/// assert_eq!(product.file_name.center().code(), "COD");
 /// ```
 #[derive(Debug, Clone, PartialEq)]
 pub struct IGSProduct {
@@ -47,18 +48,18 @@ pub struct IGSProduct {
 /// # Examples
 ///
 /// ```
-/// use brahe::igs::{IGSContentType, IGSProductFilter, IGSSolutionType};
+/// use brahe::igs::{IGSAnalysisCenter, IGSContentType, IGSProductFilter, IGSSolutionType};
 ///
 /// let filter = IGSProductFilter::new()
-///     .with_center("cod")
+///     .with_center(IGSAnalysisCenter::COD)
 ///     .with_solution(IGSSolutionType::Final)
 ///     .with_content(IGSContentType::Orbit);
-/// assert_eq!(filter.center.as_deref(), Some("cod"));
+/// assert_eq!(filter.center, Some(IGSAnalysisCenter::COD));
 /// ```
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct IGSProductFilter {
-    /// Analysis center code, such as `COD`, compared without regard to case.
-    pub center: Option<String>,
+    /// Analysis center, such as COD or IGS.
+    pub center: Option<IGSAnalysisCenter>,
     /// Solution type, such as Final or Rapid.
     pub solution: Option<IGSSolutionType>,
     /// Content type, such as Orbit or Clock.
@@ -87,7 +88,7 @@ impl IGSProductFilter {
     /// Restricts the filter to one analysis center.
     ///
     /// # Arguments
-    /// * `center` - Three-character analysis center code, in any case
+    /// * `center` - Analysis center the products must come from
     ///
     /// # Returns
     /// * `IGSProductFilter`: The filter, for chaining
@@ -95,13 +96,13 @@ impl IGSProductFilter {
     /// # Examples
     ///
     /// ```
-    /// use brahe::igs::IGSProductFilter;
+    /// use brahe::igs::{IGSAnalysisCenter, IGSProductFilter};
     ///
-    /// let filter = IGSProductFilter::new().with_center("COD");
-    /// assert_eq!(filter.center.as_deref(), Some("COD"));
+    /// let filter = IGSProductFilter::new().with_center(IGSAnalysisCenter::COD);
+    /// assert_eq!(filter.center, Some(IGSAnalysisCenter::COD));
     /// ```
-    pub fn with_center(mut self, center: &str) -> Self {
-        self.center = Some(center.to_string());
+    pub fn with_center(mut self, center: IGSAnalysisCenter) -> Self {
+        self.center = Some(center);
         self
     }
 
@@ -179,7 +180,9 @@ impl IGSProductFilter {
     /// # Examples
     ///
     /// ```
-    /// use brahe::igs::{IGSProduct, IGSProductFileName, IGSProductFilter, IGSSolutionType};
+    /// use brahe::igs::{
+    ///     IGSAnalysisCenter, IGSProduct, IGSProductFileName, IGSProductFilter, IGSSolutionType,
+    /// };
     ///
     /// let name = "COD0OPSFIN_20243150000_01D_05M_ORB.SP3.gz";
     /// let product = IGSProduct {
@@ -189,14 +192,14 @@ impl IGSProductFilter {
     ///     size: None,
     ///     gps_week: 2340,
     /// };
-    /// assert!(IGSProductFilter::new().with_center("cod").matches(&product));
+    /// assert!(IGSProductFilter::new().with_center(IGSAnalysisCenter::COD).matches(&product));
     /// assert!(!IGSProductFilter::new().with_solution(IGSSolutionType::Rapid).matches(&product));
     /// ```
     pub fn matches(&self, product: &IGSProduct) -> bool {
         let name = &product.file_name;
         self.center
-            .as_deref()
-            .is_none_or(|center| center.eq_ignore_ascii_case(name.center()))
+            .as_ref()
+            .is_none_or(|center| center == name.center())
             && self
                 .solution
                 .as_ref()
@@ -341,7 +344,7 @@ mod tests {
         let cod = product("COD0OPSFIN_20243150000_01D_05M_ORB.SP3.gz");
         let esa = product("ESA0OPSFIN_20243150000_01D_05M_ORB.SP3.gz");
         for center in ["cod", "COD", "Cod"] {
-            let filter = IGSProductFilter::new().with_center(center);
+            let filter = IGSProductFilter::new().with_center(IGSAnalysisCenter::parse(center));
             assert!(filter.matches(&cod), "{center}");
             assert!(!filter.matches(&esa), "{center}");
         }
@@ -370,14 +373,14 @@ mod tests {
     #[parallel]
     fn test_igs_product_filter_builders_set_fields() {
         let filter = IGSProductFilter::new()
-            .with_center("esa")
+            .with_center(IGSAnalysisCenter::ESA)
             .with_solution(IGSSolutionType::Rapid)
             .with_content(IGSContentType::Clock)
             .with_format(IGSFileFormat::CLK);
         assert_eq!(
             filter,
             IGSProductFilter {
-                center: Some("esa".to_string()),
+                center: Some(IGSAnalysisCenter::ESA),
                 solution: Some(IGSSolutionType::Rapid),
                 content: Some(IGSContentType::Clock),
                 format: Some(IGSFileFormat::CLK),

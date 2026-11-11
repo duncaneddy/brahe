@@ -4,20 +4,19 @@
 
 use std::cmp::Ordering as CmpOrdering;
 use std::collections::{BTreeMap, HashSet};
-use std::env;
 use std::fmt;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread::sleep;
 
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD as BASE64;
 use ureq::http::{Response, Uri};
 
+use crate::clients::igs::centers::IGSAnalysisCenter;
 use crate::clients::igs::file_name::{
     IGS_LONG_NAME_FIRST_WEEK, IGSCompression, IGSContentType, IGSFileFormat, IGSNameStyle,
-    IGSProductFileName, IGSSolutionType, short_code,
+    IGSProductFileName, IGSSolutionType,
 };
 use crate::clients::igs::product::{IGSProduct, IGSProductFilter, IGSRangeOptions};
 use crate::clients::igs::source::IGSProductSource;
@@ -26,7 +25,7 @@ use crate::datafiles::compression::{
     Compression, UNIX_COMPRESS_UNSUPPORTED, compression_of, decompress,
 };
 use crate::datafiles::sp3::SP3;
-use crate::time::{Epoch, TimeSystem};
+use crate::time::Epoch;
 use crate::utils::cache::is_older_than;
 use crate::utils::download::{backoff_delay, is_retryable_error};
 use crate::utils::fs::{
@@ -62,99 +61,11 @@ const MAX_REDIRECTS: usize = 10;
 /// Largest response body read into memory, in bytes (1 GiB).
 const MAX_RESPONSE_BYTES: u64 = 1 << 30;
 
-/// Environment variable holding the NASA Earthdata username used for CDDIS.
-const CDDIS_USERNAME_VAR: &str = "CDDIS_EARTHDATA_USERNAME";
-
-/// Environment variable holding the NASA Earthdata password used for CDDIS.
-const CDDIS_PASSWORD_VAR: &str = "CDDIS_EARTHDATA_PASSWORD";
-
-const GARNER_WARNING: &str = "Warning: CDDIS_EARTHDATA_USERNAME/CDDIS_EARTHDATA_PASSWORD not set; using the Garner (SIO) mirror over unencrypted HTTP. Set the variables or choose a source explicitly to silence this warning.";
-
-static GARNER_WARNED: AtomicBool = AtomicBool::new(false);
-
-/// Allows the next default selection that falls back to Garner to warn again.
-///
-/// # Examples
-///
-/// ```ignore
-/// reset_garner_warning();
-/// let (source, warned) = select_source(None, None);
-/// assert_eq!(source, IGSProductSource::Garner);
-/// assert!(warned);
-/// ```
-#[cfg(test)]
-pub(crate) fn reset_garner_warning() {
-    GARNER_WARNED.store(false, Ordering::SeqCst);
-}
-
-/// Reads the CDDIS credentials from the environment when both are non-empty.
-///
-/// # Returns
-/// * `Option<(String, String)>`: The username and password, or `None` when either variable is unset or empty
-///
-/// # Examples
-///
-/// ```ignore
-/// // With CDDIS_EARTHDATA_USERNAME=user and CDDIS_EARTHDATA_PASSWORD=pass set:
-/// assert_eq!(credentials_from_env(), Some(("user".to_string(), "pass".to_string())));
-/// ```
-fn credentials_from_env() -> Option<(String, String)> {
-    let username = env::var(CDDIS_USERNAME_VAR)
-        .ok()
-        .filter(|v| !v.is_empty())?;
-    let password = env::var(CDDIS_PASSWORD_VAR)
-        .ok()
-        .filter(|v| !v.is_empty())?;
-    Some((username, password))
-}
-
-/// Chooses the source for a client built without an explicit one.
-///
-/// An explicit source is returned as is. Otherwise CDDIS is chosen when
-/// credentials are available and Garner when they are not, printing the
-/// Garner warning the first time that happens in the process. The boolean is
-/// `true` when this call printed the warning.
-///
-/// # Arguments
-/// * `explicit` - Source chosen by the caller, if any
-/// * `credentials` - CDDIS credentials available to the client, if any
-///
-/// # Returns
-/// * `(IGSProductSource, bool)`: The chosen source, and whether this call printed the Garner warning
-///
-/// # Examples
-///
-/// ```ignore
-/// let credentials = ("user".to_string(), "pass".to_string());
-/// assert_eq!(select_source(None, Some(&credentials)), (IGSProductSource::CDDIS, false));
-/// assert_eq!(select_source(Some(IGSProductSource::BKG), None), (IGSProductSource::BKG, false));
-/// ```
-fn select_source(
-    explicit: Option<IGSProductSource>,
-    credentials: Option<&(String, String)>,
-) -> (IGSProductSource, bool) {
-    if let Some(source) = explicit {
-        return (source, false);
-    }
-    if credentials.is_some() {
-        return (IGSProductSource::CDDIS, false);
-    }
-    let warned = !GARNER_WARNED.swap(true, Ordering::SeqCst);
-    if warned {
-        eprintln!("{GARNER_WARNING}");
-    }
-    (IGSProductSource::Garner, warned)
-}
-
 /// Client for IGS precise-product archives.
 ///
-/// The client reads from one of the sources in [`IGSProductSource`]. A client
-/// built with [`IGSProductsClient::new`] uses CDDIS when the
-/// `CDDIS_EARTHDATA_USERNAME` and `CDDIS_EARTHDATA_PASSWORD` environment
-/// variables are both non-empty. Otherwise it prints a warning, once per
-/// process, and uses the Garner mirror, which is served over unencrypted HTTP.
-/// A client built with an explicit source or base URL uses exactly that
-/// source and never falls back to another.
+/// The client reads from one of the sources in [`IGSProductSource`] and never
+/// falls back to another. CDDIS requires NASA Earthdata credentials, given to
+/// [`IGSProductsClient::with_cddis_credentials`].
 ///
 /// Requests are blocking, retried on transient failures, and honour
 /// `BRAHE_NETWORK_MODE`. Listings and downloaded files are cached under
@@ -169,7 +80,7 @@ fn select_source(
 /// ```
 /// use brahe::igs::{IGSProductSource, IGSProductsClient};
 ///
-/// let client = IGSProductsClient::with_source(IGSProductSource::BKG);
+/// let client = IGSProductsClient::new(IGSProductSource::BKG);
 /// assert_eq!(client.source(), IGSProductSource::BKG);
 /// assert_eq!(client.base_url(), "https://igs.bkg.bund.de/root_ftp/IGS/products/");
 /// ```
@@ -193,12 +104,6 @@ impl fmt::Debug for IGSProductsClient {
             .field("listing_max_age", &self.listing_max_age)
             .field("max_retries", &self.max_retries)
             .finish()
-    }
-}
-
-impl Default for IGSProductsClient {
-    fn default() -> Self {
-        Self::new()
     }
 }
 
@@ -244,35 +149,11 @@ impl IGSProductsClient {
         self
     }
 
-    /// Creates a client with the default source.
+    /// Creates a client for a source at its default base URL.
     ///
-    /// The source is CDDIS when `CDDIS_EARTHDATA_USERNAME` and
-    /// `CDDIS_EARTHDATA_PASSWORD` are both set and non-empty, and the Garner
-    /// mirror otherwise. The Garner fallback prints a warning once per
-    /// process because that mirror is served over unencrypted HTTP.
-    ///
-    /// # Returns
-    /// * `IGSProductsClient`: Client using the default source and base URL
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use brahe::igs::IGSProductsClient;
-    ///
-    /// let client = IGSProductsClient::new();
-    /// assert!(client.base_url().ends_with('/'));
-    /// ```
-    pub fn new() -> Self {
-        let credentials = credentials_from_env();
-        let (source, _) = select_source(None, credentials.as_ref());
-        Self::build(source, source.default_base_url(), credentials)
-    }
-
-    /// Creates a client for a specific source.
-    ///
-    /// No warning is printed and no other source is tried. A CDDIS client
-    /// takes its credentials from the environment variables
-    /// `CDDIS_EARTHDATA_USERNAME` and `CDDIS_EARTHDATA_PASSWORD`.
+    /// A CDDIS client built this way has no credentials, so its requests
+    /// fail at the Earthdata login; use
+    /// [`IGSProductsClient::with_cddis_credentials`] for CDDIS.
     ///
     /// # Arguments
     /// * `source` - Archive to read from
@@ -285,11 +166,12 @@ impl IGSProductsClient {
     /// ```
     /// use brahe::igs::{IGSProductSource, IGSProductsClient};
     ///
-    /// let client = IGSProductsClient::with_source(IGSProductSource::Garner);
+    /// let client = IGSProductsClient::new(IGSProductSource::Garner);
     /// assert_eq!(client.source(), IGSProductSource::Garner);
+    /// assert_eq!(client.base_url(), "http://garner.ucsd.edu/pub/products/");
     /// ```
-    pub fn with_source(source: IGSProductSource) -> Self {
-        Self::with_base_url(source, source.default_base_url())
+    pub fn new(source: IGSProductSource) -> Self {
+        Self::build(source, source.default_base_url(), None)
     }
 
     /// Creates a CDDIS client with explicit NASA Earthdata credentials.
@@ -324,9 +206,8 @@ impl IGSProductsClient {
     /// Listings are cached per source, so a client with a different base URL
     /// shares the listing cache of the source it stands in for.
     ///
-    /// A trailing `/` is added to `base_url` when it is missing. A CDDIS
-    /// client takes its credentials from the environment variables
-    /// `CDDIS_EARTHDATA_USERNAME` and `CDDIS_EARTHDATA_PASSWORD`.
+    /// A trailing `/` is added to `base_url` when it is missing. The client
+    /// has no credentials.
     ///
     /// # Arguments
     /// * `source` - Archive the base URL stands in for
@@ -344,11 +225,7 @@ impl IGSProductsClient {
     /// assert_eq!(client.base_url(), "http://127.0.0.1:8080/products/");
     /// ```
     pub fn with_base_url(source: IGSProductSource, base_url: &str) -> Self {
-        let credentials = match source {
-            IGSProductSource::CDDIS => credentials_from_env(),
-            _ => None,
-        };
-        Self::build(source, base_url, credentials)
+        Self::build(source, base_url, None)
     }
 
     /// Sets how long a cached directory listing is served before it is refreshed.
@@ -364,7 +241,7 @@ impl IGSProductsClient {
     /// ```
     /// use brahe::igs::{IGSProductSource, IGSProductsClient};
     ///
-    /// let client = IGSProductsClient::with_source(IGSProductSource::Garner).with_cache_age(600.0);
+    /// let client = IGSProductsClient::new(IGSProductSource::Garner).with_cache_age(600.0);
     /// ```
     pub fn with_cache_age(mut self, listing_max_age: f64) -> Self {
         self.listing_max_age = listing_max_age;
@@ -384,7 +261,7 @@ impl IGSProductsClient {
     /// ```
     /// use brahe::igs::{IGSProductSource, IGSProductsClient};
     ///
-    /// let client = IGSProductsClient::with_source(IGSProductSource::Garner).max_retries(0);
+    /// let client = IGSProductsClient::new(IGSProductSource::Garner).max_retries(0);
     /// ```
     pub fn max_retries(mut self, max_retries: u32) -> Self {
         self.max_retries = max_retries;
@@ -401,7 +278,7 @@ impl IGSProductsClient {
     /// ```
     /// use brahe::igs::{IGSProductSource, IGSProductsClient};
     ///
-    /// let client = IGSProductsClient::with_source(IGSProductSource::BKG);
+    /// let client = IGSProductsClient::new(IGSProductSource::BKG);
     /// assert_eq!(client.source(), IGSProductSource::BKG);
     /// ```
     pub fn source(&self) -> IGSProductSource {
@@ -418,7 +295,7 @@ impl IGSProductsClient {
     /// ```
     /// use brahe::igs::{IGSProductSource, IGSProductsClient};
     ///
-    /// let client = IGSProductsClient::with_source(IGSProductSource::Garner);
+    /// let client = IGSProductsClient::new(IGSProductSource::Garner);
     /// assert_eq!(client.base_url(), "http://garner.ucsd.edu/pub/products/");
     /// ```
     pub fn base_url(&self) -> &str {
@@ -436,7 +313,7 @@ impl IGSProductsClient {
     /// ```
     /// use brahe::igs::{IGSProductSource, IGSProductsClient};
     ///
-    /// let dir = IGSProductsClient::with_source(IGSProductSource::Garner).cache_dir().unwrap();
+    /// let dir = IGSProductsClient::new(IGSProductSource::Garner).cache_dir().unwrap();
     /// assert!(dir.ends_with("igs"));
     /// ```
     pub fn cache_dir(&self) -> Result<PathBuf, BraheError> {
@@ -458,7 +335,7 @@ impl IGSProductsClient {
     /// ```no_run
     /// use brahe::igs::{IGSProductSource, IGSProductsClient};
     ///
-    /// let weeks = IGSProductsClient::with_source(IGSProductSource::Garner).list_weeks().unwrap();
+    /// let weeks = IGSProductsClient::new(IGSProductSource::Garner).list_weeks().unwrap();
     /// assert_eq!(weeks.first(), Some(&576));
     /// ```
     pub fn list_weeks(&self) -> Result<Vec<u32>, BraheError> {
@@ -484,7 +361,7 @@ impl IGSProductsClient {
     /// use brahe::igs::{IGSProductSource, IGSProductsClient};
     /// use brahe::time::{Epoch, TimeSystem};
     ///
-    /// let client = IGSProductsClient::with_source(IGSProductSource::Garner);
+    /// let client = IGSProductsClient::new(IGSProductSource::Garner);
     /// let epoch = Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::GPS);
     /// let files = client.list_files(epoch).unwrap();
     /// assert!(files.iter().any(|f| f == "COD0OPSFIN_20243150000_01D_05M_ORB.SP3.gz"));
@@ -515,13 +392,13 @@ impl IGSProductsClient {
     /// # Examples
     ///
     /// ```no_run
-    /// use brahe::igs::{IGSContentType, IGSProductFilter, IGSProductSource, IGSProductsClient, IGSSolutionType};
+    /// use brahe::igs::{IGSAnalysisCenter, IGSContentType, IGSProductFilter, IGSProductSource, IGSProductsClient, IGSSolutionType};
     /// use brahe::time::{Epoch, TimeSystem};
     ///
-    /// let client = IGSProductsClient::with_source(IGSProductSource::Garner);
+    /// let client = IGSProductsClient::new(IGSProductSource::Garner);
     /// let epoch = Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::GPS);
     /// let filter = IGSProductFilter::new()
-    ///     .with_center("COD")
+    ///     .with_center(IGSAnalysisCenter::COD)
     ///     .with_solution(IGSSolutionType::Final)
     ///     .with_content(IGSContentType::Orbit);
     /// for product in client.list_products(epoch, &filter).unwrap() {
@@ -566,13 +443,13 @@ impl IGSProductsClient {
     /// # Examples
     ///
     /// ```no_run
-    /// use brahe::igs::{IGSContentType, IGSProductFilter, IGSProductSource, IGSProductsClient};
+    /// use brahe::igs::{IGSAnalysisCenter, IGSContentType, IGSProductFilter, IGSProductSource, IGSProductsClient};
     /// use brahe::time::{Epoch, TimeSystem};
     ///
-    /// let client = IGSProductsClient::with_source(IGSProductSource::Garner);
+    /// let client = IGSProductsClient::new(IGSProductSource::Garner);
     /// let start = Epoch::from_datetime(2024, 11, 13, 0, 0, 0.0, 0.0, TimeSystem::GPS);
     /// let end = Epoch::from_datetime(2024, 11, 20, 0, 0, 0.0, 0.0, TimeSystem::GPS);
-    /// let filter = IGSProductFilter::new().with_center("IGS").with_content(IGSContentType::Orbit);
+    /// let filter = IGSProductFilter::new().with_center(IGSAnalysisCenter::IGS).with_content(IGSContentType::Orbit);
     /// let products = client.list_products_between(start, end, &filter).unwrap();
     /// ```
     pub fn list_products_between(
@@ -636,13 +513,13 @@ impl IGSProductsClient {
     /// # Examples
     ///
     /// ```no_run
-    /// use brahe::igs::{IGSContentType, IGSProductFilter, IGSProductSource, IGSProductsClient, IGSSolutionType};
+    /// use brahe::igs::{IGSAnalysisCenter, IGSContentType, IGSProductFilter, IGSProductSource, IGSProductsClient, IGSSolutionType};
     /// use brahe::time::{Epoch, TimeSystem};
     ///
-    /// let client = IGSProductsClient::with_source(IGSProductSource::Garner);
+    /// let client = IGSProductsClient::new(IGSProductSource::Garner);
     /// let epoch = Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::GPS);
     /// let filter = IGSProductFilter::new()
-    ///     .with_center("IGS")
+    ///     .with_center(IGSAnalysisCenter::IGS)
     ///     .with_solution(IGSSolutionType::Final)
     ///     .with_content(IGSContentType::Orbit);
     /// let product = &client.list_products(epoch, &filter).unwrap()[0];
@@ -726,12 +603,12 @@ impl IGSProductsClient {
     /// # Examples
     ///
     /// ```no_run
-    /// use brahe::igs::{IGSContentType, IGSProductFilter, IGSProductSource, IGSProductsClient};
+    /// use brahe::igs::{IGSAnalysisCenter, IGSContentType, IGSProductFilter, IGSProductSource, IGSProductsClient};
     /// use brahe::time::{Epoch, TimeSystem};
     ///
-    /// let client = IGSProductsClient::with_source(IGSProductSource::Garner);
+    /// let client = IGSProductsClient::new(IGSProductSource::Garner);
     /// let epoch = Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::GPS);
-    /// let filter = IGSProductFilter::new().with_center("COD").with_content(IGSContentType::Orbit);
+    /// let filter = IGSProductFilter::new().with_center(IGSAnalysisCenter::COD).with_content(IGSContentType::Orbit);
     /// let product = &client.list_products(epoch, &filter).unwrap()[0];
     /// let path = client.save(product, "./igs", false).unwrap();
     /// println!("{}", path.display());
@@ -755,123 +632,6 @@ impl IGSProductsClient {
         Ok(target)
     }
 
-    /// Downloads every product matching `filter` whose coverage overlaps
-    /// `[start, end]`.
-    ///
-    /// The products are those [`IGSProductsClient::list_products_between`]
-    /// returns, each downloaded as [`IGSProductsClient::download`] does.
-    ///
-    /// # Arguments
-    /// * `start` - Start of the time range
-    /// * `end` - End of the time range, inclusive
-    /// * `filter` - Criteria the products must match
-    ///
-    /// # Returns
-    /// * `Ok(Vec<PathBuf>)`: Cached paths, ordered by product start epoch, then name
-    /// * `Err(BraheError)`: If the listing fails or any download fails
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// use brahe::igs::{IGSContentType, IGSProductFilter, IGSProductSource, IGSProductsClient, IGSSolutionType};
-    /// use brahe::time::{Epoch, TimeSystem};
-    ///
-    /// let client = IGSProductsClient::with_source(IGSProductSource::Garner);
-    /// let start = Epoch::from_datetime(2024, 11, 13, 0, 0, 0.0, 0.0, TimeSystem::GPS);
-    /// let end = Epoch::from_datetime(2024, 11, 15, 0, 0, 0.0, 0.0, TimeSystem::GPS);
-    /// let filter = IGSProductFilter::new()
-    ///     .with_center("IGS")
-    ///     .with_solution(IGSSolutionType::Final)
-    ///     .with_content(IGSContentType::Orbit);
-    /// let paths = client.download_between(start, end, &filter).unwrap();
-    /// ```
-    pub fn download_between(
-        &self,
-        start: Epoch,
-        end: Epoch,
-        filter: &IGSProductFilter,
-    ) -> Result<Vec<PathBuf>, BraheError> {
-        self.list_products_between(start, end, filter)?
-            .iter()
-            .map(|product| self.download(product))
-            .collect()
-    }
-
-    /// Downloads every product [`IGSProductsClient::download_between`] would
-    /// and writes each into `directory`.
-    ///
-    /// Every product is downloaded before any is written. Each is then
-    /// written as [`IGSProductsClient::save`] writes into a directory: gzip
-    /// products decompressed under their name without `.gz`, other products
-    /// unchanged. `directory` is created if missing. With `keep_cached`
-    /// false the cached files are removed; with `keep_cached` true they stay.
-    ///
-    /// # Arguments
-    /// * `start` - Start of the time range
-    /// * `end` - End of the time range, inclusive
-    /// * `filter` - Criteria the products must match
-    /// * `directory` - Directory to write into, outside the cache directory
-    /// * `keep_cached` - Leave the cached files in place
-    ///
-    /// # Returns
-    /// * `Ok(Vec<PathBuf>)`: Paths written, ordered by product start epoch, then name
-    /// * `Err(BraheError)`: If `directory` is an existing file or resolves inside the cache directory, both checked before anything is downloaded, or if the listing, a download, or a write fails
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// use brahe::igs::{IGSContentType, IGSProductFilter, IGSProductSource, IGSProductsClient, IGSSolutionType};
-    /// use brahe::time::{Epoch, TimeSystem};
-    ///
-    /// let client = IGSProductsClient::with_source(IGSProductSource::Garner);
-    /// let start = Epoch::from_datetime(2024, 11, 13, 0, 0, 0.0, 0.0, TimeSystem::GPS);
-    /// let end = Epoch::from_datetime(2024, 11, 15, 0, 0, 0.0, 0.0, TimeSystem::GPS);
-    /// let filter = IGSProductFilter::new()
-    ///     .with_center("IGS")
-    ///     .with_solution(IGSSolutionType::Final)
-    ///     .with_content(IGSContentType::Orbit);
-    /// let paths = client.save_between(start, end, &filter, "./igs", false).unwrap();
-    /// ```
-    pub fn save_between<P: AsRef<Path>>(
-        &self,
-        start: Epoch,
-        end: Epoch,
-        filter: &IGSProductFilter,
-        directory: P,
-        keep_cached: bool,
-    ) -> Result<Vec<PathBuf>, BraheError> {
-        let directory = directory.as_ref();
-        if directory.is_file() {
-            return Err(BraheError::Error(format!(
-                "save_between directory {} is a file, expected a directory",
-                directory.display()
-            )));
-        }
-        if is_within(directory, &self.cache_dir()?) {
-            return Err(BraheError::Error(format!(
-                "save_between directory {} is inside the IGS cache directory",
-                directory.display()
-            )));
-        }
-        let products = self.list_products_between(start, end, filter)?;
-        let cached = products
-            .iter()
-            .map(|product| self.download(product))
-            .collect::<Result<Vec<_>, _>>()?;
-        fs::create_dir_all(directory).map_err(|e| {
-            BraheError::IoError(format!("Failed to create {}: {e}", directory.display()))
-        })?;
-        products
-            .iter()
-            .zip(cached)
-            .map(|(product, cached)| {
-                let target = directory.join(saved_name(product));
-                write_saved(product, &cached, &target, keep_cached)?;
-                Ok(target)
-            })
-            .collect()
-    }
-
     /// Downloads an SP3 orbit product, if it is not cached, and parses it.
     ///
     /// The product is downloaded as [`IGSProductsClient::download`] does and
@@ -890,13 +650,13 @@ impl IGSProductsClient {
     /// # Examples
     ///
     /// ```no_run
-    /// use brahe::igs::{IGSContentType, IGSProductFilter, IGSProductSource, IGSProductsClient, IGSSolutionType};
+    /// use brahe::igs::{IGSAnalysisCenter, IGSContentType, IGSProductFilter, IGSProductSource, IGSProductsClient, IGSSolutionType};
     /// use brahe::time::{Epoch, TimeSystem};
     ///
-    /// let client = IGSProductsClient::with_source(IGSProductSource::Garner);
+    /// let client = IGSProductsClient::new(IGSProductSource::Garner);
     /// let epoch = Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::GPS);
     /// let filter = IGSProductFilter::new()
-    ///     .with_center("IGS")
+    ///     .with_center(IGSAnalysisCenter::IGS)
     ///     .with_solution(IGSSolutionType::Final)
     ///     .with_content(IGSContentType::Orbit);
     /// let product = &client.list_products(epoch, &filter).unwrap()[0];
@@ -952,7 +712,7 @@ impl IGSProductsClient {
     /// # Arguments
     /// * `start` - Start of the time range
     /// * `end` - End of the time range, inclusive
-    /// * `center` - Analysis center code, in any case, for example `"COD"`
+    /// * `center` - Analysis center, for example [`IGSAnalysisCenter::COD`]
     /// * `solution` - Solution type, for example [`IGSSolutionType::Final`]
     /// * `options` - Padding and sampling selection
     ///
@@ -964,14 +724,22 @@ impl IGSProductsClient {
     ///
     /// ```no_run
     /// use brahe::datafiles::sp3::SP3Satellite;
-    /// use brahe::igs::{IGSProductSource, IGSProductsClient, IGSRangeOptions, IGSSolutionType};
+    /// use brahe::igs::{
+    ///     IGSAnalysisCenter, IGSProductSource, IGSProductsClient, IGSRangeOptions, IGSSolutionType,
+    /// };
     /// use brahe::time::{Epoch, TimeSystem};
     ///
-    /// let client = IGSProductsClient::with_source(IGSProductSource::Garner);
+    /// let client = IGSProductsClient::new(IGSProductSource::Garner);
     /// let start = Epoch::from_datetime(2024, 11, 11, 0, 0, 0.0, 0.0, TimeSystem::GPS);
     /// let end = Epoch::from_datetime(2024, 11, 12, 0, 0, 0.0, 0.0, TimeSystem::GPS);
     /// let files = client
-    ///     .download_sp3_range(start, end, "COD", IGSSolutionType::Final, &IGSRangeOptions::new())
+    ///     .download_sp3_range(
+    ///         start,
+    ///         end,
+    ///         IGSAnalysisCenter::COD,
+    ///         IGSSolutionType::Final,
+    ///         &IGSRangeOptions::new(),
+    ///     )
     ///     .unwrap();
     /// let satellites = SP3Satellite::from_files(&files).unwrap();
     /// ```
@@ -979,11 +747,11 @@ impl IGSProductsClient {
         &self,
         start: Epoch,
         end: Epoch,
-        center: &str,
+        center: IGSAnalysisCenter,
         solution: IGSSolutionType,
         options: &IGSRangeOptions,
     ) -> Result<Vec<SP3>, BraheError> {
-        let files = self.sp3_range_files(start, end, center, &solution, options)?;
+        let files = self.sp3_range_files(start, end, &center, &solution, options)?;
         let mut downloaded = Vec::with_capacity(files.len());
         for file in &files {
             match self.fetch_product(&file.product)? {
@@ -1028,7 +796,7 @@ impl IGSProductsClient {
     /// # Arguments
     /// * `start` - Start of the time range
     /// * `end` - End of the time range, inclusive
-    /// * `center` - Analysis center code, in any case
+    /// * `center` - Analysis center
     /// * `solution` - Solution type
     /// * `options` - Padding and sampling selection
     ///
@@ -1039,7 +807,7 @@ impl IGSProductsClient {
         &self,
         start: Epoch,
         end: Epoch,
-        center: &str,
+        center: &IGSAnalysisCenter,
         solution: &IGSSolutionType,
         options: &IGSRangeOptions,
     ) -> Result<Vec<SP3RangeFile>, BraheError> {
@@ -1064,7 +832,7 @@ impl IGSProductsClient {
         };
         let span_weeks = first_day / 7..=last_day / 7;
         let filter = IGSProductFilter::new()
-            .with_center(center)
+            .with_center(center.clone())
             .with_solution(solution.clone())
             .with_content(IGSContentType::Orbit)
             .with_format(IGSFileFormat::SP3);
@@ -1103,30 +871,24 @@ impl IGSProductsClient {
             }
         }
         if let Some(&day) = missing.first() {
-            let sampling = options.sampling.or_else(|| {
-                selected
-                    .iter()
-                    .filter_map(|file| file.product.file_name.sampling())
-                    .max_by(f64::total_cmp)
-            });
             let week = day / 7;
+            let listing = self.listing_url(Some(week));
             let reason = if absent_weeks.contains(&week) {
-                format!(
-                    "the GPS week {week:04} listing {} answered 404",
-                    self.listing_url(Some(week))
-                )
+                format!("{listing} answered 404")
             } else {
-                format!(
-                    "the GPS week {week:04} listing {} has no daily {} {} SP3 orbit file for that day",
-                    self.listing_url(Some(week)),
-                    center.to_ascii_uppercase(),
-                    solution.code()
-                )
+                format!("{listing} lists none")
             };
+            let sampling = options
+                .sampling
+                .map(|sampling| format!(" with {sampling} s sampling"))
+                .unwrap_or_default();
             return Err(BraheError::Error(format!(
-                "IGS {} product {} not found: {reason}",
+                "IGS {} has no daily {} {} SP3 orbit file{sampling} for {} (GPS week {week:04}, day {}): {reason}",
                 self.source,
-                expected_daily_orbit_name(center, solution, day, sampling),
+                center.code(),
+                solution.code(),
+                gps_day_start(day),
+                day % 7
             )));
         }
         Ok(selected)
@@ -1446,7 +1208,7 @@ impl IGSProductsClient {
     fn login_hint(&self) -> &'static str {
         match self.source {
             IGSProductSource::CDDIS => {
-                "; the NASA Earthdata login likely failed, so check CDDIS_EARTHDATA_USERNAME and CDDIS_EARTHDATA_PASSWORD"
+                "; the NASA Earthdata login likely failed, so check the client's credentials"
             }
             IGSProductSource::Garner | IGSProductSource::BKG => "",
         }
@@ -1560,7 +1322,7 @@ impl IGSProductsClient {
             if login {
                 let (username, password) = self.credentials.as_ref().ok_or_else(|| {
                     failed(format!(
-                        "{resource} requires NASA Earthdata credentials: set {CDDIS_USERNAME_VAR} and {CDDIS_PASSWORD_VAR} or use IGSProductsClient::with_cddis_credentials"
+                        "{resource} requires NASA Earthdata credentials: build the client with IGSProductsClient::with_cddis_credentials"
                     ))
                 })?;
                 let token = BASE64.encode(format!("{username}:{password}"));
@@ -1570,7 +1332,7 @@ impl IGSProductsClient {
                 Ok(response) => response,
                 Err(ureq::Error::StatusCode(status @ (401 | 403))) if login => {
                     return Err(failed(format!(
-                        "{resource}: NASA Earthdata login at {} rejected the credentials (HTTP {status}); check {CDDIS_USERNAME_VAR} and {CDDIS_PASSWORD_VAR}",
+                        "{resource}: NASA Earthdata login at {} rejected the credentials (HTTP {status})",
                         self.urs_url
                     )));
                 }
@@ -2012,84 +1774,6 @@ fn daily_orbit_preference(a: &IGSProduct, b: &IGSProduct) -> CmpOrdering {
         .then_with(|| a.name.cmp(&b.name))
 }
 
-/// Name of the daily SP3 orbit file expected for `day`, used in errors.
-///
-/// From week 2238 this is the operational long name,
-/// `CCC0OPSTTT_YYYYDDD0000_01D_SMP_ORB.SP3.gz`, with `*` for an unknown
-/// sampling. Before it, the short name `cccwwwwd.sp3`, followed by
-/// `[.gz|.Z]`.
-///
-/// # Arguments
-/// * `center` - Analysis center code, in any case
-/// * `solution` - Solution type
-/// * `day` - Day count since the GPS epoch
-/// * `sampling` - Sampling interval in seconds, if known
-///
-/// # Returns
-/// * `String`: The expected name
-///
-/// # Examples
-///
-/// ```ignore
-/// assert_eq!(
-///     expected_daily_orbit_name("igs", &IGSSolutionType::Final, 2340 * 7, Some(900.0)),
-///     "IGS0OPSFIN_20243150000_01D_15M_ORB.SP3.gz"
-/// );
-/// assert_eq!(
-///     expected_daily_orbit_name("IGS", &IGSSolutionType::Rapid, 2000 * 7 + 3, None),
-///     "igr20003.sp3[.gz|.Z]"
-/// );
-/// ```
-fn expected_daily_orbit_name(
-    center: &str,
-    solution: &IGSSolutionType,
-    day: u32,
-    sampling: Option<f64>,
-) -> String {
-    let week = day / 7;
-    if week < IGS_LONG_NAME_FIRST_WEEK {
-        return format!(
-            "{}{week:04}{}.sp3[.gz|.Z]",
-            short_code(center, solution),
-            day % 7
-        );
-    }
-    // Read the calendar date at noon so that rounding cannot move it a day.
-    let noon = gps_day_start(day) + SECONDS_PER_DAY / 2.0;
-    let year = noon.to_datetime_as_time_system(TimeSystem::GPS).0;
-    let day_of_year = noon.day_of_year_as_time_system(TimeSystem::GPS).floor() as u32;
-    let sampling = sampling.map_or_else(|| "*".to_string(), duration_code);
-    format!(
-        "{}0OPS{}_{year:04}{day_of_year:03}0000_01D_{sampling}_ORB.SP3.gz",
-        center.to_ascii_uppercase(),
-        solution.code()
-    )
-}
-
-/// Long-name duration code of an interval, such as `15M` for 900 seconds.
-///
-/// # Arguments
-/// * `seconds` - Interval in seconds
-///
-/// # Returns
-/// * `String`: Two-digit count and unit (`D`, `H`, `M`, or `S`), using the largest unit that divides the interval
-///
-/// # Examples
-///
-/// ```ignore
-/// assert_eq!(duration_code(900.0), "15M");
-/// assert_eq!(duration_code(86400.0), "01D");
-/// assert_eq!(duration_code(30.0), "30S");
-/// ```
-fn duration_code(seconds: f64) -> String {
-    let seconds = seconds.round() as u64;
-    let (count, unit) = [(86400, 'D'), (3600, 'H'), (60, 'M')]
-        .into_iter()
-        .find(|(size, _)| seconds > 0 && seconds.is_multiple_of(*size))
-        .map_or((seconds, 'S'), |(size, unit)| (seconds / size, unit));
-    format!("{count:02}{unit}")
-}
-
 /// Whether a product's coverage overlaps `[start, end]`.
 ///
 /// A product covers `[start_epoch, start_epoch + span)`, or its archive GPS
@@ -2283,133 +1967,18 @@ mod tests {
     use crate::utils::testing::{CacheRedirect, NetworkModeGuard};
     use httpmock::prelude::*;
     use serial_test::{parallel, serial};
+    use std::env;
     use std::time::{Duration, SystemTime};
 
-    /// Sets the CDDIS credential variables for a test and restores the prior
-    /// values on drop.
-    struct EnvGuard {
-        saved: [(&'static str, Option<String>); 2],
-    }
-
-    impl EnvGuard {
-        fn set(username: Option<&str>, password: Option<&str>) -> Self {
-            let saved = [
-                (CDDIS_USERNAME_VAR, env::var(CDDIS_USERNAME_VAR).ok()),
-                (CDDIS_PASSWORD_VAR, env::var(CDDIS_PASSWORD_VAR).ok()),
-            ];
-            Self::apply(CDDIS_USERNAME_VAR, username);
-            Self::apply(CDDIS_PASSWORD_VAR, password);
-            Self { saved }
-        }
-
-        fn apply(name: &str, value: Option<&str>) {
-            // SAFETY: only used from #[serial] tests, so no other thread reads
-            // the environment concurrently.
-            unsafe {
-                match value {
-                    Some(v) => env::set_var(name, v),
-                    None => env::remove_var(name),
-                }
-            }
-        }
-    }
-
-    impl Drop for EnvGuard {
-        fn drop(&mut self) {
-            for (name, value) in &self.saved {
-                Self::apply(name, value.as_deref());
-            }
-        }
-    }
-
     #[test]
     #[serial]
-    fn test_igs_products_client_select_source_with_credentials_is_cddis() {
-        let _env = EnvGuard::set(Some("user"), Some("secret"));
-        reset_garner_warning();
-        let credentials = credentials_from_env();
-        assert!(credentials.is_some());
-        let (source, warned) = select_source(None, credentials.as_ref());
-        assert_eq!(source, IGSProductSource::CDDIS);
-        assert!(!warned);
-    }
-
-    #[test]
-    #[serial]
-    fn test_igs_products_client_select_source_with_empty_variable_is_garner() {
-        let _env = EnvGuard::set(Some("user"), Some(""));
-        reset_garner_warning();
-        let credentials = credentials_from_env();
-        assert!(credentials.is_none());
-        let (source, warned) = select_source(None, credentials.as_ref());
-        assert_eq!(source, IGSProductSource::Garner);
-        assert!(warned);
-    }
-
-    #[test]
-    #[serial]
-    fn test_igs_products_client_select_source_with_missing_variable_is_garner() {
-        let _env = EnvGuard::set(None, Some("secret"));
-        reset_garner_warning();
-        let (source, warned) = select_source(None, credentials_from_env().as_ref());
-        assert_eq!(source, IGSProductSource::Garner);
-        assert!(warned);
-    }
-
-    #[test]
-    #[serial]
-    fn test_igs_products_client_new_warns_once() {
-        let _env = EnvGuard::set(None, None);
-        reset_garner_warning();
-        let (_, first) = select_source(None, credentials_from_env().as_ref());
-        let (_, second) = select_source(None, credentials_from_env().as_ref());
-        assert!(first);
-        assert!(!second);
-    }
-
-    #[test]
-    #[serial]
-    fn test_igs_products_client_explicit_source_never_warns() {
-        reset_garner_warning();
-        let (source, warned) = select_source(Some(IGSProductSource::Garner), None);
-        assert_eq!(source, IGSProductSource::Garner);
-        assert!(!warned);
-        // The explicit selection did not consume the one-time warning.
-        let (_, warned) = select_source(None, None);
-        assert!(warned);
-    }
-
-    #[test]
-    #[serial]
-    fn test_igs_products_client_new_uses_environment() {
-        reset_garner_warning();
-        let _env = EnvGuard::set(Some("user"), Some("secret"));
-        let client = IGSProductsClient::new();
-        assert_eq!(client.source(), IGSProductSource::CDDIS);
-        assert_eq!(
-            client.base_url(),
-            IGSProductSource::CDDIS.default_base_url()
-        );
-        drop(_env);
-
-        let _env = EnvGuard::set(None, None);
-        let client = IGSProductsClient::default();
-        assert_eq!(client.source(), IGSProductSource::Garner);
-        assert_eq!(
-            client.base_url(),
-            IGSProductSource::Garner.default_base_url()
-        );
-    }
-
-    #[test]
-    #[serial]
-    fn test_igs_products_client_with_source_uses_default_base_url() {
+    fn test_igs_products_client_new_uses_default_base_url() {
         for source in [
             IGSProductSource::CDDIS,
             IGSProductSource::Garner,
             IGSProductSource::BKG,
         ] {
-            let client = IGSProductsClient::with_source(source);
+            let client = IGSProductsClient::new(source);
             assert_eq!(client.source(), source);
             assert_eq!(client.base_url(), source.default_base_url());
         }
@@ -2418,7 +1987,6 @@ mod tests {
     #[test]
     #[serial]
     fn test_igs_products_client_with_cddis_credentials() {
-        let _env = EnvGuard::set(None, None);
         let client = IGSProductsClient::with_cddis_credentials("user", "secret");
         assert_eq!(client.source(), IGSProductSource::CDDIS);
         assert_eq!(
@@ -2433,14 +2001,12 @@ mod tests {
 
     #[test]
     #[serial]
-    fn test_igs_products_client_with_cddis_source_reads_environment_credentials() {
-        let _env = EnvGuard::set(Some("user"), Some("secret"));
-        let client = IGSProductsClient::with_source(IGSProductSource::CDDIS);
-        assert_eq!(
-            client.credentials,
-            Some(("user".to_string(), "secret".to_string()))
-        );
-        let client = IGSProductsClient::with_source(IGSProductSource::BKG);
+    fn test_igs_products_client_new_has_no_credentials() {
+        for source in [IGSProductSource::CDDIS, IGSProductSource::BKG] {
+            assert_eq!(IGSProductsClient::new(source).credentials, None);
+        }
+        let client =
+            IGSProductsClient::with_base_url(IGSProductSource::CDDIS, "http://localhost:1/");
         assert_eq!(client.credentials, None);
     }
 
@@ -2460,7 +2026,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_igs_products_client_builders() {
-        let client = IGSProductsClient::with_source(IGSProductSource::Garner);
+        let client = IGSProductsClient::new(IGSProductSource::Garner);
         assert_eq!(client.listing_max_age, DEFAULT_IGS_LISTING_MAX_AGE);
         assert_eq!(client.max_retries, 3);
 
@@ -2482,7 +2048,7 @@ mod tests {
     #[serial]
     fn test_igs_products_client_cache_dir() {
         let redirect = CacheRedirect::new();
-        let dir = IGSProductsClient::with_source(IGSProductSource::Garner)
+        let dir = IGSProductsClient::new(IGSProductSource::Garner)
             .cache_dir()
             .unwrap();
         assert!(dir.ends_with("igs"));
@@ -2608,14 +2174,24 @@ mod tests {
         let client = garner_client(&server);
 
         let lower = client
-            .list_products(week_2340(), &IGSProductFilter::new().with_center("cod"))
+            .list_products(
+                week_2340(),
+                &IGSProductFilter::new().with_center(IGSAnalysisCenter::parse("cod")),
+            )
             .unwrap();
         let upper = client
-            .list_products(week_2340(), &IGSProductFilter::new().with_center("COD"))
+            .list_products(
+                week_2340(),
+                &IGSProductFilter::new().with_center(IGSAnalysisCenter::COD),
+            )
             .unwrap();
         assert_eq!(lower, upper);
         assert!(lower.len() >= 20, "{}", lower.len());
-        assert!(lower.iter().all(|p| p.file_name.center() == "COD"));
+        assert!(
+            lower
+                .iter()
+                .all(|p| *p.file_name.center() == IGSAnalysisCenter::COD)
+        );
         assert!(names(&lower).contains(&"COD0OPSFIN_20243150000_01D_05M_ORB.SP3.gz"));
         assert!(!names(&lower).iter().any(|name| name.starts_with("ESA")));
         week.assert_calls(1);
@@ -2650,7 +2226,7 @@ mod tests {
             .list_products(
                 week_2340(),
                 &IGSProductFilter::new()
-                    .with_center("ESA")
+                    .with_center(IGSAnalysisCenter::ESA)
                     .with_format(IGSFileFormat::CLK),
             )
             .unwrap();
@@ -2720,7 +2296,7 @@ mod tests {
             .list_products(
                 week_2340(),
                 &IGSProductFilter::new()
-                    .with_center("cod")
+                    .with_center(IGSAnalysisCenter::parse("cod"))
                     .with_solution(IGSSolutionType::Final)
                     .with_content(IGSContentType::Orbit),
             )
@@ -2767,7 +2343,11 @@ mod tests {
         let end = gps(2024, 11, 20, 12);
 
         let cod = client
-            .list_products_between(start, end, &IGSProductFilter::new().with_center("cod"))
+            .list_products_between(
+                start,
+                end,
+                &IGSProductFilter::new().with_center(IGSAnalysisCenter::parse("cod")),
+            )
             .unwrap();
         assert_eq!(
             names(&cod),
@@ -2788,7 +2368,11 @@ mod tests {
         );
 
         let igs = client
-            .list_products_between(start, end, &IGSProductFilter::new().with_center("IGS"))
+            .list_products_between(
+                start,
+                end,
+                &IGSProductFilter::new().with_center(IGSAnalysisCenter::IGS),
+            )
             .unwrap();
         let listed = names(&igs);
         for kept in [
@@ -2845,7 +2429,7 @@ mod tests {
             .list_products_between(
                 gps(2024, 11, 16, 6),
                 gps(2024, 11, 16, 12),
-                &IGSProductFilter::new().with_center("igs"),
+                &IGSProductFilter::new().with_center(IGSAnalysisCenter::parse("igs")),
             )
             .unwrap();
         let listed = names(&products);
@@ -2860,7 +2444,7 @@ mod tests {
             .list_products_between(
                 gps(2024, 11, 10, 0),
                 gps(2024, 11, 10, 6),
-                &IGSProductFilter::new().with_center("COD"),
+                &IGSProductFilter::new().with_center(IGSAnalysisCenter::COD),
             )
             .unwrap();
         assert!(names(&products).contains(&"COD0OPSFIN_20243150000_01D_05M_ORB.SP3.gz"));
@@ -3118,7 +2702,7 @@ mod tests {
             when.method(GET).path("/pub/products/2341/");
             then.status(404);
         });
-        let filter = IGSProductFilter::new().with_center("COD");
+        let filter = IGSProductFilter::new().with_center(IGSAnalysisCenter::COD);
         let (start, end) = (gps(2024, 11, 16, 6), gps(2024, 11, 16, 12));
         let expected = garner_client(&server)
             .list_products_between(start, end, &filter)
@@ -3146,7 +2730,7 @@ mod tests {
             .unwrap();
         drop(online);
 
-        let filter = IGSProductFilter::new().with_center("COD");
+        let filter = IGSProductFilter::new().with_center(IGSAnalysisCenter::COD);
         let (start, end) = (gps(2024, 11, 11, 0), gps(2024, 11, 12, 0));
         let client = offline_garner_client();
         let mode = NetworkModeGuard::set(Some("offline"));
@@ -3451,7 +3035,7 @@ mod tests {
             plain_listing_files(&text),
             vec![(SP3_NAME.to_string(), Some(12))]
         );
-        let client = IGSProductsClient::with_source(IGSProductSource::Garner);
+        let client = IGSProductsClient::new(IGSProductSource::Garner);
         let products = client.products_from_listing(2340, &html, &IGSProductFilter::new());
         assert_eq!(names(&products), vec![SP3_NAME]);
     }
@@ -3543,120 +3127,6 @@ mod tests {
         any.assert_calls(0);
     }
 
-    /// Mocks a Garner week 2340 listing of three COD daily orbits, listed
-    /// out of time order, and their gzip files. Returns the names in time
-    /// order.
-    fn mock_week_of_orbits(server: &MockServer) -> [&'static str; 3] {
-        let ordered = [
-            "COD0OPSFIN_20243150000_01D_05M_ORB.SP3.gz",
-            "COD0OPSFIN_20243160000_01D_05M_ORB.SP3.gz",
-            "COD0OPSFIN_20243170000_01D_05M_ORB.SP3.gz",
-        ];
-        mock_listing(
-            server,
-            "/pub/products/2340/",
-            apache_listing(&[
-                ordered[2],
-                ordered[0],
-                "COD0OPSFIN_20243150000_01D_30S_CLK.CLK.gz",
-                ordered[1],
-            ]),
-        );
-        for name in ordered {
-            mock_file(
-                server,
-                &format!("/pub/products/2340/{name}"),
-                gzip(format!("{name}\n").as_bytes()).unwrap(),
-            );
-        }
-        ordered
-    }
-
-    #[test]
-    #[serial]
-    fn test_igs_products_client_download_between_orders_by_start() {
-        let _cache = CacheRedirect::new();
-        let _mode = NetworkModeGuard::set(Some("online"));
-        let server = MockServer::start();
-        mock_listing(&server, "/pub/products/2339/", apache_listing(&[]));
-        let ordered = mock_week_of_orbits(&server);
-        let client = garner_client(&server);
-        let filter = IGSProductFilter::new().with_content(IGSContentType::Orbit);
-
-        let paths = client
-            .download_between(gps(2024, 11, 10, 0), gps(2024, 11, 12, 12), &filter)
-            .unwrap();
-        let week_dir = client.cache_dir().unwrap().join("garner/2340");
-        let expected: Vec<PathBuf> = ordered.iter().map(|name| week_dir.join(name)).collect();
-        assert_eq!(paths, expected);
-        assert!(paths.iter().all(|path| path.is_file()));
-    }
-
-    #[test]
-    #[serial]
-    fn test_igs_products_client_save_between_writes_in_time_order() {
-        let _cache = CacheRedirect::new();
-        let _mode = NetworkModeGuard::set(Some("online"));
-        let out = tempfile::tempdir().unwrap();
-        let server = MockServer::start();
-        mock_listing(&server, "/pub/products/2339/", apache_listing(&[]));
-        let ordered = mock_week_of_orbits(&server);
-        let client = garner_client(&server);
-        let filter = IGSProductFilter::new().with_content(IGSContentType::Orbit);
-        let directory = out.path().join("orbits");
-
-        let paths = client
-            .save_between(
-                gps(2024, 11, 10, 0),
-                gps(2024, 11, 12, 12),
-                &filter,
-                &directory,
-                false,
-            )
-            .unwrap();
-        let expected: Vec<PathBuf> = ordered
-            .iter()
-            .map(|name| directory.join(name.strip_suffix(".gz").unwrap()))
-            .collect();
-        assert_eq!(paths, expected);
-        for (path, name) in paths.iter().zip(ordered) {
-            assert_eq!(fs::read_to_string(path).unwrap(), format!("{name}\n"));
-        }
-        let week_dir = client.cache_dir().unwrap().join("garner/2340");
-        assert_eq!(fs::read_dir(&week_dir).unwrap().count(), 0);
-    }
-
-    #[test]
-    #[serial]
-    fn test_igs_products_client_save_between_rejects_bad_directory_before_download() {
-        let _cache = CacheRedirect::new();
-        let _mode = NetworkModeGuard::set(Some("online"));
-        let out = tempfile::tempdir().unwrap();
-        let server = MockServer::start();
-        let any = server.mock(|when, then| {
-            when.any_request();
-            then.status(200).body(apache_listing(&[]));
-        });
-        let client = garner_client(&server);
-        let file = out.path().join("file.txt");
-        fs::write(&file, "x").unwrap();
-        let (start, end) = (gps(2024, 11, 12, 0), gps(2024, 11, 13, 0));
-        let filter = IGSProductFilter::new();
-
-        let inside = client.cache_dir().unwrap().join("saved");
-        let err = client
-            .save_between(start, end, &filter, &inside, false)
-            .unwrap_err()
-            .to_string();
-        assert!(err.contains("inside the IGS cache directory"), "{err}");
-        let err = client
-            .save_between(start, end, &filter, &file, false)
-            .unwrap_err()
-            .to_string();
-        assert!(err.contains("is a file"), "{err}");
-        any.assert_calls(0);
-    }
-
     #[test]
     #[serial]
     fn test_igs_products_client_cddis_download_signs_in_through_earthdata() {
@@ -3719,7 +3189,7 @@ mod tests {
 
         let err = client.list_files(week_2340()).unwrap_err().to_string();
         assert!(err.contains("HTML page"), "{err}");
-        assert!(err.contains("CDDIS_EARTHDATA_USERNAME"), "{err}");
+        assert!(err.contains("check the client's credentials"), "{err}");
         assert!(
             !client
                 .cache_dir()
@@ -3850,7 +3320,7 @@ mod tests {
             .unwrap_err()
             .to_string();
         assert!(err.contains("is an HTML page"), "{err}");
-        assert!(err.contains("CDDIS_EARTHDATA_USERNAME"), "{err}");
+        assert!(err.contains("check the client's credentials"), "{err}");
         assert!(
             !client
                 .cache_dir()
@@ -4021,7 +3491,7 @@ mod tests {
             &self,
             start: Epoch,
             end: Epoch,
-            center: &str,
+            center: &IGSAnalysisCenter,
             solution: &IGSSolutionType,
             options: &IGSRangeOptions,
         ) -> Result<Vec<IGSProduct>, BraheError> {
@@ -4147,24 +3617,48 @@ mod tests {
         let options = IGSRangeOptions::new();
 
         let sp3s = client
-            .download_sp3_range(start, end, "cod", IGSSolutionType::Final, &options)
+            .download_sp3_range(
+                start,
+                end,
+                IGSAnalysisCenter::parse("cod"),
+                IGSSolutionType::Final,
+                &options,
+            )
             .unwrap();
         let expected: Vec<String> = (315..=318).map(|doy| cod_daily(doy, "15M")).collect();
         assert_eq!(sp3s.len(), 4);
         assert!(sp3s.iter().all(|sp3| *sp3 == sp3s[0]));
         assert_downloaded(&files, &expected);
         let chosen = client
-            .sp3_range_products(start, end, "COD", &IGSSolutionType::Final, &options)
+            .sp3_range_products(
+                start,
+                end,
+                &IGSAnalysisCenter::COD,
+                &IGSSolutionType::Final,
+                &options,
+            )
             .unwrap();
         assert_eq!(names(&chosen), expected);
 
         let fine = options.with_sampling(300.0);
         let sp3s = client
-            .download_sp3_range(start, end, "COD", IGSSolutionType::Final, &fine)
+            .download_sp3_range(
+                start,
+                end,
+                IGSAnalysisCenter::COD,
+                IGSSolutionType::Final,
+                &fine,
+            )
             .unwrap();
         assert_eq!(sp3s.len(), 4);
         let chosen = client
-            .sp3_range_products(start, end, "COD", &IGSSolutionType::Final, &fine)
+            .sp3_range_products(
+                start,
+                end,
+                &IGSAnalysisCenter::COD,
+                &IGSSolutionType::Final,
+                &fine,
+            )
             .unwrap();
         let expected_fine: Vec<String> = (315..=318).map(|doy| cod_daily(doy, "05M")).collect();
         assert_eq!(names(&chosen), expected_fine);
@@ -4184,13 +3678,25 @@ mod tests {
         let options = IGSRangeOptions::new().with_pad(false);
 
         let sp3s = client
-            .download_sp3_range(start, end, "COD", IGSSolutionType::Final, &options)
+            .download_sp3_range(
+                start,
+                end,
+                IGSAnalysisCenter::COD,
+                IGSSolutionType::Final,
+                &options,
+            )
             .unwrap();
         assert_eq!(sp3s.len(), 2);
         let expected = vec![cod_daily(316, "15M"), cod_daily(317, "15M")];
         assert_downloaded(&files, &expected);
         let chosen = client
-            .sp3_range_products(start, end, "COD", &IGSSolutionType::Final, &options)
+            .sp3_range_products(
+                start,
+                end,
+                &IGSAnalysisCenter::COD,
+                &IGSSolutionType::Final,
+                &options,
+            )
             .unwrap();
         assert_eq!(names(&chosen), expected);
     }
@@ -4214,7 +3720,7 @@ mod tests {
             .download_sp3_range(
                 gps(2024, 11, 11, 0),
                 gps(2024, 11, 12, 0),
-                "COD",
+                IGSAnalysisCenter::COD,
                 IGSSolutionType::Final,
                 &options,
             )
@@ -4230,7 +3736,7 @@ mod tests {
             .sp3_range_products(
                 gps(2024, 11, 11, 6),
                 gps(2024, 11, 11, 12),
-                "COD",
+                &IGSAnalysisCenter::COD,
                 &IGSSolutionType::Final,
                 &options,
             )
@@ -4243,13 +3749,13 @@ mod tests {
             .sp3_range_products(
                 gps(2024, 11, 10, 6),
                 gps(2024, 11, 11, 12),
-                "COD",
+                &IGSAnalysisCenter::COD,
                 &IGSSolutionType::Final,
                 &options,
             )
             .unwrap_err()
             .to_string();
-        assert!(err.contains(&cod_daily(315, "15M")), "{err}");
+        assert!(err.contains("for 2024-11-10"), "{err}");
         before.assert_calls(1);
     }
 
@@ -4281,14 +3787,26 @@ mod tests {
         let (start, end) = (gps(2024, 11, 11, 0), gps(2024, 11, 12, 0));
 
         let chosen = client
-            .sp3_range_files(start, end, "COD", &IGSSolutionType::Final, &options)
+            .sp3_range_files(
+                start,
+                end,
+                &IGSAnalysisCenter::COD,
+                &IGSSolutionType::Final,
+                &options,
+            )
             .unwrap();
         let padding: Vec<bool> = chosen.iter().map(|file| file.padding).collect();
         assert_eq!(padding, [true, false, false, true]);
 
         // Day 318, the padding day after the span, is listed but answers 404.
         let sp3s = client
-            .download_sp3_range(start, end, "COD", IGSSolutionType::Final, &options)
+            .download_sp3_range(
+                start,
+                end,
+                IGSAnalysisCenter::COD,
+                IGSSolutionType::Final,
+                &options,
+            )
             .unwrap();
         assert_eq!(sp3s.len(), 3);
         let expected: Vec<String> = (315..=318).map(|doy| cod_daily(doy, "15M")).collect();
@@ -4301,7 +3819,7 @@ mod tests {
             .download_sp3_range(
                 gps(2024, 11, 12, 0),
                 gps(2024, 11, 13, 0),
-                "COD",
+                IGSAnalysisCenter::COD,
                 IGSSolutionType::Final,
                 &options,
             )
@@ -4326,7 +3844,7 @@ mod tests {
             .download_sp3_range(
                 gps(2024, 11, 11, 0),
                 gps(2024, 11, 12, 0),
-                "COD",
+                IGSAnalysisCenter::COD,
                 IGSSolutionType::Final,
                 &IGSRangeOptions::new(),
             )
@@ -4354,7 +3872,7 @@ mod tests {
             .sp3_range_products(
                 gps(2024, 11, 10, 6),
                 gps(2024, 11, 10, 12),
-                "COD",
+                &IGSAnalysisCenter::COD,
                 &IGSSolutionType::Final,
                 &IGSRangeOptions::new(),
             )
@@ -4368,7 +3886,7 @@ mod tests {
 
     #[test]
     #[serial]
-    fn test_igs_products_client_download_sp3_range_missing_day_names_file_and_source() {
+    fn test_igs_products_client_download_sp3_range_missing_day_names_day_and_source() {
         let _cache = CacheRedirect::new();
         let _mode = NetworkModeGuard::set(Some("online"));
         let server = MockServer::start();
@@ -4380,30 +3898,31 @@ mod tests {
             .download_sp3_range(
                 start,
                 end,
-                "COD",
+                IGSAnalysisCenter::COD,
                 IGSSolutionType::Final,
                 &IGSRangeOptions::new(),
             )
             .unwrap_err()
             .to_string();
         assert!(
-            err.contains("COD0OPSFIN_20243170000_01D_15M_ORB.SP3.gz"),
+            err.contains("IGS Garner has no daily COD FIN SP3 orbit file for 2024-11-12"),
             "{err}"
         );
-        assert!(err.contains("Garner"), "{err}");
+        assert!(err.contains("GPS week 2340, day 2"), "{err}");
+        assert!(err.contains("/pub/products/2340/ lists none"), "{err}");
 
         let err = client
             .download_sp3_range(
                 start,
                 end,
-                "COD",
+                IGSAnalysisCenter::COD,
                 IGSSolutionType::Final,
                 &IGSRangeOptions::new().with_sampling(30.0),
             )
             .unwrap_err()
             .to_string();
         assert!(
-            err.contains("COD0OPSFIN_20243160000_01D_30S_ORB.SP3.gz"),
+            err.contains("SP3 orbit file with 30 s sampling for 2024-11-11"),
             "{err}"
         );
         assert_downloaded(&files, &[]);
@@ -4425,7 +3944,7 @@ mod tests {
             .download_sp3_range(
                 gps(2024, 11, 11, 0),
                 gps(2024, 11, 12, 0),
-                "IGS",
+                IGSAnalysisCenter::IGS,
                 IGSSolutionType::UltraRapid,
                 &IGSRangeOptions::new(),
             )
@@ -4437,7 +3956,7 @@ mod tests {
             .download_sp3_range(
                 gps(2024, 11, 12, 0),
                 gps(2024, 11, 11, 0),
-                "IGS",
+                IGSAnalysisCenter::IGS,
                 IGSSolutionType::Final,
                 &IGSRangeOptions::new(),
             )
@@ -4477,7 +3996,7 @@ mod tests {
             .download_sp3_range(
                 gps(2020, 4, 5, 6),
                 gps(2020, 4, 6, 6),
-                "cod",
+                IGSAnalysisCenter::parse("cod"),
                 IGSSolutionType::Final,
                 &options,
             )
@@ -4492,7 +4011,7 @@ mod tests {
             .sp3_range_products(
                 gps(2020, 4, 6, 6),
                 gps(2020, 4, 6, 12),
-                "COD",
+                &IGSAnalysisCenter::COD,
                 &IGSSolutionType::Final,
                 &options,
             )
@@ -4502,7 +4021,7 @@ mod tests {
             .sp3_range_products(
                 gps(2020, 4, 8, 6),
                 gps(2020, 4, 8, 12),
-                "COD",
+                &IGSAnalysisCenter::COD,
                 &IGSSolutionType::Final,
                 &options.clone().with_pad(false),
             )
@@ -4510,18 +4029,22 @@ mod tests {
         assert_eq!(names(&chosen), ["cod21003.sp3.gz"]);
         files.assert_calls(0);
 
-        // A missing short-name day names the expected short file.
+        // A missing short-name day names the day.
         let err = client
             .sp3_range_products(
                 gps(2020, 4, 9, 6),
                 gps(2020, 4, 9, 12),
-                "COD",
+                &IGSAnalysisCenter::COD,
                 &IGSSolutionType::Rapid,
                 &options,
             )
             .unwrap_err()
             .to_string();
-        assert!(err.contains("cor21004.sp3"), "{err}");
+        assert!(
+            err.contains("no daily COD RAP SP3 orbit file for 2020-04-09"),
+            "{err}"
+        );
+        assert!(err.contains("GPS week 2100, day 4"), "{err}");
     }
 
     #[test]
@@ -4578,7 +4101,13 @@ mod tests {
         let options = IGSRangeOptions::new();
 
         let sp3s = client
-            .download_sp3_range(start, end, "COD", IGSSolutionType::Final, &options)
+            .download_sp3_range(
+                start,
+                end,
+                IGSAnalysisCenter::COD,
+                IGSSolutionType::Final,
+                &options,
+            )
             .unwrap();
         assert_eq!(sp3s.len(), 4);
         let fixture = SP3::from_file(SP3_FIXTURE).unwrap();
@@ -4587,33 +4116,23 @@ mod tests {
             mock.assert_calls(1);
         }
         let chosen = client
-            .sp3_range_products(start, end, "COD", &IGSSolutionType::Final, &options)
+            .sp3_range_products(
+                start,
+                end,
+                &IGSAnalysisCenter::COD,
+                &IGSSolutionType::Final,
+                &options,
+            )
             .unwrap();
         assert_eq!(names(&chosen), [short[0], short[1], long[0], long[1]]);
     }
 
     #[test]
     #[parallel]
-    fn test_igs_gps_day_and_expected_daily_orbit_name() {
+    fn test_igs_gps_day() {
         assert_eq!(gps_day(gps(2024, 11, 10, 0)), 2340 * 7);
         assert_eq!(gps_day(gps(2024, 11, 16, 23)), 2340 * 7 + 6);
         assert_eq!(gps_day_start(2340 * 7 + 2), gps(2024, 11, 12, 0));
-        assert_eq!(
-            expected_daily_orbit_name("cod", &IGSSolutionType::Final, 2340 * 7 + 2, Some(900.0)),
-            "COD0OPSFIN_20243170000_01D_15M_ORB.SP3.gz"
-        );
-        assert_eq!(
-            expected_daily_orbit_name("IGS", &IGSSolutionType::Rapid, 2238 * 7, None),
-            "IGS0OPSRAP_20223310000_01D_*_ORB.SP3.gz"
-        );
-        assert_eq!(
-            expected_daily_orbit_name("IGS", &IGSSolutionType::Rapid, 2237 * 7 + 6, None),
-            "igr22376.sp3[.gz|.Z]"
-        );
-        assert_eq!(duration_code(900.0), "15M");
-        assert_eq!(duration_code(30.0), "30S");
-        assert_eq!(duration_code(7200.0), "02H");
-        assert_eq!(duration_code(86400.0), "01D");
     }
 
     #[test]
@@ -4672,7 +4191,7 @@ mod tests {
             .list_products(
                 integration_week_2340(),
                 &IGSProductFilter::new()
-                    .with_center("IGS")
+                    .with_center(IGSAnalysisCenter::IGS)
                     .with_solution(IGSSolutionType::Final)
                     .with_content(IGSContentType::Orbit)
                     .with_format(IGSFileFormat::SP3),
@@ -4693,7 +4212,7 @@ mod tests {
     fn test_integration_garner_listing_and_download() {
         let _cache = CacheRedirect::new();
         let _mode = NetworkModeGuard::set(None);
-        let client = IGSProductsClient::with_source(IGSProductSource::Garner);
+        let client = IGSProductsClient::new(IGSProductSource::Garner);
         let files = client.list_files(integration_week_2340()).unwrap();
         assert!(files.iter().any(|f| f == INTEGRATION_FINAL_ORBIT));
         assert_integration_final_orbit(&client);
@@ -4705,10 +4224,13 @@ mod tests {
     fn test_integration_garner_raw_unix_compress_download() {
         let _cache = CacheRedirect::new();
         let _mode = NetworkModeGuard::set(None);
-        let client = IGSProductsClient::with_source(IGSProductSource::Garner);
+        let client = IGSProductsClient::new(IGSProductSource::Garner);
         let epoch = Epoch::from_datetime(2020, 4, 8, 12, 0, 0.0, 0.0, TimeSystem::GPS);
         let products = client
-            .list_products(epoch, &IGSProductFilter::new().with_center("IGS"))
+            .list_products(
+                epoch,
+                &IGSProductFilter::new().with_center(IGSAnalysisCenter::IGS),
+            )
             .unwrap();
         let product = products
             .iter()
@@ -4726,7 +4248,7 @@ mod tests {
     fn test_integration_bkg_listing_and_download() {
         let _cache = CacheRedirect::new();
         let _mode = NetworkModeGuard::set(None);
-        let client = IGSProductsClient::with_source(IGSProductSource::BKG);
+        let client = IGSProductsClient::new(IGSProductSource::BKG);
         let files = client.list_files(integration_week_2340()).unwrap();
         assert!(files.iter().any(|f| f == INTEGRATION_FINAL_ORBIT));
         assert_integration_final_orbit(&client);
@@ -4736,8 +4258,8 @@ mod tests {
     #[serial]
     #[cfg_attr(not(feature = "integration"), ignore)]
     fn test_integration_cddis_listing_and_download() {
-        let username = env::var(CDDIS_USERNAME_VAR).unwrap_or_default();
-        let password = env::var(CDDIS_PASSWORD_VAR).unwrap_or_default();
+        let username = env::var("CDDIS_EARTHDATA_USERNAME").unwrap_or_default();
+        let password = env::var("CDDIS_EARTHDATA_PASSWORD").unwrap_or_default();
         if username.is_empty() || password.is_empty() {
             eprintln!("skipping: CDDIS credentials not set");
             return;
@@ -4926,7 +4448,7 @@ mod tests {
             .download_sp3_range(
                 gps(2024, 11, 11, 6),
                 gps(2024, 11, 11, 12),
-                "COD",
+                IGSAnalysisCenter::COD,
                 IGSSolutionType::Final,
                 &options,
             )
@@ -4938,7 +4460,7 @@ mod tests {
             .download_sp3_range(
                 gps(2024, 11, 12, 6),
                 gps(2024, 11, 12, 12),
-                "COD",
+                IGSAnalysisCenter::COD,
                 IGSSolutionType::Final,
                 &options,
             )
@@ -4951,7 +4473,7 @@ mod tests {
 
     #[test]
     #[serial]
-    fn test_igs_products_client_download_sp3_range_missing_week_names_expected_file() {
+    fn test_igs_products_client_download_sp3_range_missing_week_names_day_and_listing() {
         let _cache = CacheRedirect::new();
         let _mode = NetworkModeGuard::set(Some("online"));
         let server = MockServer::start();
@@ -4966,17 +4488,17 @@ mod tests {
             .download_sp3_range(
                 gps(2024, 11, 18, 6),
                 gps(2024, 11, 18, 12),
-                "COD",
+                IGSAnalysisCenter::COD,
                 IGSSolutionType::Final,
                 &IGSRangeOptions::new().with_pad(false),
             )
             .unwrap_err()
             .to_string();
         assert!(
-            err.contains("IGS Garner product COD0OPSFIN_20243230000_01D_*_ORB.SP3.gz not found"),
+            err.contains("IGS Garner has no daily COD FIN SP3 orbit file for 2024-11-18"),
             "{err}"
         );
-        assert!(err.contains("2341"), "{err}");
+        assert!(err.contains("GPS week 2341, day 1"), "{err}");
         assert!(err.contains("answered 404"), "{err}");
         week.assert_calls(1);
     }
@@ -5010,7 +4532,7 @@ mod tests {
             .download_sp3_range(
                 gps(2024, 11, 11, 6),
                 gps(2024, 11, 11, 12),
-                "COD",
+                IGSAnalysisCenter::COD,
                 IGSSolutionType::Final,
                 &IGSRangeOptions::new().with_pad(false),
             )

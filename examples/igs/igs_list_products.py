@@ -11,7 +11,7 @@ plain HTTP, so the downloaded files are not transport-secured.
 
 import brahe as bh
 
-client = bh.IGSProductsClient(source="GARNER")
+client = bh.IGSProductsClient(bh.IGSProductSource.GARNER)
 print(f"Source: {client.source}, base URL: {client.base_url}")
 
 # Any epoch inside the week selects it; this one falls in GPS week 2340
@@ -19,7 +19,7 @@ epoch = bh.Epoch(2024, 11, 12, 12, 0, 0.0, time_system=bh.GPS)
 print(f"Files published for the week: {len(client.list_files(epoch))}")
 
 # Final orbit products in SP3 format from the CODE and IGS analysis centers
-for center in ("COD", "IGS"):
+for center in (bh.IGSAnalysisCenter.COD, bh.IGSAnalysisCenter.IGS):
     products = client.list_products(
         epoch,
         center=center,

@@ -21,7 +21,7 @@
 use std::fmt;
 use std::str::FromStr;
 
-use crate::constants::GPS_ZERO;
+use crate::clients::igs::centers::IGSAnalysisCenter;
 use crate::time::{Epoch, TimeSystem};
 use crate::utils::BraheError;
 
@@ -42,10 +42,6 @@ const SHORT_ULTRA_SPAN: f64 = 2.0 * SECONDS_PER_DAY;
 /// short-name product, in seconds. The named day and hour mark the start of
 /// the predicted half, so coverage begins this long before it.
 const SHORT_ULTRA_OBSERVED_LEAD: f64 = SECONDS_PER_DAY;
-
-/// Modified Julian Date of 1970-01-01, the epoch of the day-count in
-/// [`days_from_civil`].
-const MJD_UNIX_EPOCH: i64 = 40587;
 
 /// Short-name codes of centers whose rapid products are published under their
 /// own code, as `(short code, center)`.
@@ -409,10 +405,10 @@ pub enum IGSNameStyle {
 /// # Examples
 ///
 /// ```
-/// use brahe::igs::{IGSContentType, IGSProductFileName, IGSSolutionType};
+/// use brahe::igs::{IGSAnalysisCenter, IGSContentType, IGSProductFileName, IGSSolutionType};
 ///
 /// let name = IGSProductFileName::parse("COD0OPSFIN_20243150000_01D_05M_ORB.SP3.gz").unwrap();
-/// assert_eq!(name.center(), "COD");
+/// assert_eq!(name.center(), &IGSAnalysisCenter::COD);
 /// assert_eq!(name.solution(), &IGSSolutionType::Final);
 /// assert_eq!(name.content(), &IGSContentType::Orbit);
 /// assert_eq!(name.gps_week(), 2340);
@@ -425,7 +421,7 @@ pub enum IGSNameStyle {
 pub struct IGSProductFileName {
     name: String,
     style: IGSNameStyle,
-    center: String,
+    center: IGSAnalysisCenter,
     version: Option<u8>,
     campaign: Option<String>,
     solution: IGSSolutionType,
@@ -467,11 +463,11 @@ impl IGSProductFileName {
     /// # Examples
     ///
     /// ```
-    /// use brahe::igs::{IGSNameStyle, IGSProductFileName, IGSSolutionType};
+    /// use brahe::igs::{IGSAnalysisCenter, IGSNameStyle, IGSProductFileName, IGSSolutionType};
     ///
     /// let name = IGSProductFileName::parse("igr21003.clk.Z").unwrap();
     /// assert_eq!(name.name_style(), IGSNameStyle::Short);
-    /// assert_eq!(name.center(), "IGS");
+    /// assert_eq!(name.center(), &IGSAnalysisCenter::IGS);
     /// assert_eq!(name.solution(), &IGSSolutionType::Rapid);
     /// assert_eq!(name.gps_week(), 2100);
     ///
@@ -520,19 +516,20 @@ impl IGSProductFileName {
         self.style
     }
 
-    /// Returns the analysis-center code in uppercase.
+    /// Returns the analysis center.
     ///
     /// # Returns
-    /// * `&str`: Three-character center code, for example `"COD"`
+    /// * `&IGSAnalysisCenter`: The center that produced the product
     ///
     /// # Examples
     ///
     /// ```
-    /// use brahe::igs::IGSProductFileName;
+    /// use brahe::igs::{IGSAnalysisCenter, IGSProductFileName};
     ///
-    /// assert_eq!(IGSProductFileName::parse("cod21000.sp3").unwrap().center(), "COD");
+    /// let name = IGSProductFileName::parse("cod21000.sp3").unwrap();
+    /// assert_eq!(name.center(), &IGSAnalysisCenter::COD);
     /// ```
-    pub fn center(&self) -> &str {
+    pub fn center(&self) -> &IGSAnalysisCenter {
         &self.center
     }
 
@@ -769,31 +766,6 @@ fn parse_digits(name: &str, field: &str, text: &str) -> Result<u32, BraheError> 
         .map_err(|_| name_error(name, &format!("{} '{}' is out of range", field, text)))
 }
 
-/// Days since 1970-01-01 of a proleptic Gregorian calendar date.
-fn days_from_civil(year: i64, month: i64, day: i64) -> i64 {
-    let y = if month <= 2 { year - 1 } else { year };
-    let era = y.div_euclid(400);
-    let yoe = y - era * 400;
-    let mp = (month + 9) % 12;
-    let doy = (153 * mp + 2) / 5 + day - 1;
-    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
-    era * 146097 + doe - 719468
-}
-
-fn is_leap_year(year: u32) -> bool {
-    (year.is_multiple_of(4) && !year.is_multiple_of(100)) || year.is_multiple_of(400)
-}
-
-/// GPS week containing a calendar day, from integer day counts.
-fn gps_week_of_day(name: &str, year: u32, day_of_year: u32) -> Result<u32, BraheError> {
-    let mjd = days_from_civil(i64::from(year), 1, 1) + MJD_UNIX_EPOCH + i64::from(day_of_year) - 1;
-    let days_since_gps = mjd - GPS_ZERO as i64;
-    if days_since_gps < 0 {
-        return Err(name_error(name, "start time precedes the GPS epoch"));
-    }
-    Ok((days_since_gps / 7) as u32)
-}
-
 /// Converts a long-name span or sampling code such as `01D` to seconds.
 fn parse_duration_code(name: &str, field: &str, code: &str) -> Result<Option<f64>, BraheError> {
     let Some(unit) = code.chars().last() else {
@@ -832,7 +804,7 @@ fn parse_long(
             "center, version, campaign and solution must be alphanumeric",
         ));
     }
-    let center = head[0..3].to_ascii_uppercase();
+    let center = IGSAnalysisCenter::parse(&head[0..3]);
     let version = head.as_bytes()[3];
     if !version.is_ascii_digit() {
         return Err(name_error(name, "version must be a digit"));
@@ -851,7 +823,12 @@ fn parse_long(
     let day_of_year = parse_digits(name, "day of year", &start[4..7])?;
     let hour = parse_digits(name, "hour", &start[7..9])?;
     let minute = parse_digits(name, "minute", &start[9..11])?;
-    let days_in_year = if is_leap_year(year) { 366 } else { 365 };
+    if year < 1980 {
+        return Err(name_error(name, "start time precedes the GPS epoch"));
+    }
+    let year_start = Epoch::from_date(year, 1, 1, TimeSystem::GPS);
+    let next_year_start = Epoch::from_date(year + 1, 1, 1, TimeSystem::GPS);
+    let days_in_year = ((next_year_start - year_start) / SECONDS_PER_DAY).round() as u32;
     if day_of_year < 1 || day_of_year > days_in_year {
         return Err(name_error(
             name,
@@ -864,17 +841,14 @@ fn parse_long(
             &format!("start time {:02}:{:02} is out of range", hour, minute),
         ));
     }
-    let gps_week = gps_week_of_day(name, year, day_of_year)?;
-    let start_epoch = Epoch::from_datetime(
-        year,
-        1,
-        1,
-        hour as u8,
-        minute as u8,
-        0.0,
-        0.0,
-        TimeSystem::GPS,
-    ) + f64::from(day_of_year - 1) * SECONDS_PER_DAY;
+    let day_start = year_start + f64::from(day_of_year - 1) * SECONDS_PER_DAY;
+    if day_start < Epoch::from_gps_date(0, 0.0) {
+        return Err(name_error(name, "start time precedes the GPS epoch"));
+    }
+    // The week is read at noon so that rounding cannot move it across a week boundary.
+    let gps_week = (day_start + SECONDS_PER_DAY / 2.0).gps_date().0;
+    let start_epoch =
+        day_start + f64::from(hour) * SECONDS_PER_HOUR + f64::from(minute) * SECONDS_PER_MINUTE;
 
     let span = parse_duration_code(name, "span", fields[2])?;
     let sampling = parse_duration_code(name, "sampling", fields[3])?;
@@ -923,48 +897,17 @@ fn short_content_and_format(extension: &str) -> (IGSContentType, IGSFileFormat) 
 }
 
 /// Resolves a three-letter short-name code to its center and solution type.
-fn short_center_and_solution(code: &str) -> (String, IGSSolutionType) {
+fn short_center_and_solution(code: &str) -> (IGSAnalysisCenter, IGSSolutionType) {
     if let Some((_, center)) = SHORT_RAPID_CODES.iter().find(|(c, _)| *c == code) {
-        return (center.to_string(), IGSSolutionType::Rapid);
+        return (IGSAnalysisCenter::parse(center), IGSSolutionType::Rapid);
     }
     if let Some((_, center)) = SHORT_ULTRA_CODES.iter().find(|(c, _)| *c == code) {
-        return (center.to_string(), IGSSolutionType::UltraRapid);
+        return (
+            IGSAnalysisCenter::parse(center),
+            IGSSolutionType::UltraRapid,
+        );
     }
-    (code.to_ascii_uppercase(), IGSSolutionType::Final)
-}
-
-/// Three-letter short-name code under which `center` publishes products of
-/// `solution`.
-///
-/// This is the inverse of [`short_center_and_solution`]: a rapid or
-/// ultra-rapid product uses the center's code from [`SHORT_RAPID_CODES`] or
-/// [`SHORT_ULTRA_CODES`], and every other product uses the lowercased center.
-///
-/// # Arguments
-/// * `center` - Analysis center code, in any case
-/// * `solution` - Solution type of the product
-///
-/// # Returns
-/// * `String`: Lowercase three-letter code, for example `"igr"` for IGS rapid products
-///
-/// # Examples
-///
-/// ```ignore
-/// assert_eq!(short_code("IGS", &IGSSolutionType::Rapid), "igr");
-/// assert_eq!(short_code("cod", &IGSSolutionType::UltraRapid), "cou");
-/// assert_eq!(short_code("COD", &IGSSolutionType::Final), "cod");
-/// ```
-pub(crate) fn short_code(center: &str, solution: &IGSSolutionType) -> String {
-    let table = match solution {
-        IGSSolutionType::Rapid => SHORT_RAPID_CODES,
-        IGSSolutionType::UltraRapid => SHORT_ULTRA_CODES,
-        _ => &[],
-    };
-    table
-        .iter()
-        .find(|(_, c)| c.eq_ignore_ascii_case(center))
-        .map(|(code, _)| code.to_string())
-        .unwrap_or_else(|| center.to_ascii_lowercase())
+    (IGSAnalysisCenter::parse(code), IGSSolutionType::Final)
 }
 
 fn parse_short(
@@ -1154,7 +1097,7 @@ mod tests {
     ) {
         let name = IGSProductFileName::parse(input).unwrap();
         assert_eq!(name.name_style(), style);
-        assert_eq!(name.center(), center);
+        assert_eq!(name.center().code(), center);
         assert_eq!(name.solution(), &solution);
         assert_eq!(name.start_epoch(), start);
         assert_eq!(name.gps_week(), week);
@@ -1339,7 +1282,7 @@ mod tests {
         #[case] solution: IGSSolutionType,
     ) {
         let name = IGSProductFileName::parse(input).unwrap();
-        assert_eq!(name.center(), center);
+        assert_eq!(name.center().code(), center);
         assert_eq!(name.solution(), &solution);
     }
 
@@ -1495,29 +1438,5 @@ mod tests {
             assert_eq!(IGSFileFormat::parse(code).code(), code);
         }
         assert_eq!(IGSSolutionType::parse("fin"), IGSSolutionType::Final);
-    }
-
-    #[rstest]
-    #[case("IGS", IGSSolutionType::Final, "igs")]
-    #[case("igs", IGSSolutionType::Rapid, "igr")]
-    #[case("IGS", IGSSolutionType::UltraRapid, "igu")]
-    #[case("COD", IGSSolutionType::Final, "cod")]
-    #[case("cod", IGSSolutionType::Rapid, "cor")]
-    #[case("EMR", IGSSolutionType::Rapid, "emp")]
-    #[case("JPL", IGSSolutionType::Rapid, "jpl")]
-    #[case("COD", IGSSolutionType::Predicted, "cod")]
-    #[parallel]
-    fn test_igs_short_code(
-        #[case] center: &str,
-        #[case] solution: IGSSolutionType,
-        #[case] expected: &str,
-    ) {
-        let code = short_code(center, &solution);
-        assert_eq!(code, expected);
-        if expected != "jpl" && solution != IGSSolutionType::Predicted {
-            let (parsed_center, parsed_solution) = short_center_and_solution(&code);
-            assert!(parsed_center.eq_ignore_ascii_case(center));
-            assert_eq!(parsed_solution, solution);
-        }
     }
 }

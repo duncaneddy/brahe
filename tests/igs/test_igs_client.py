@@ -4,8 +4,6 @@ import gzip
 import itertools
 import os
 import re
-import subprocess
-import sys
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -27,8 +25,6 @@ SP3_NAME = "COD0OPSFIN_20243150000_01D_05M_ORB.SP3.gz"
 SP3_TEXT = "#dP2024 11 10  0  0  0.00000000     289 ORBIT IGS20 FIT  COD\n"
 SHORT_Z_NAME = "igr23400.sp3.Z"
 SHORT_Z_BYTES = bytes([0x1F, 0x9D, 0x90, 0x23, 0x64, 0x50])
-GARNER_WARNING = "Warning: CDDIS_EARTHDATA_USERNAME/CDDIS_EARTHDATA_PASSWORD not set"
-CDDIS_VARS = ("CDDIS_EARTHDATA_USERNAME", "CDDIS_EARTHDATA_PASSWORD")
 UNIX_COMPRESS_UNSUPPORTED = "Unix compress (.Z) data is not supported"
 
 
@@ -125,8 +121,6 @@ class Archive:
 def archive(tmp_path, monkeypatch):
     """Serve the registered routes over HTTP on 127.0.0.1; yields an Archive."""
     monkeypatch.setenv("BRAHE_NETWORK_MODE", "online")
-    for var in CDDIS_VARS:
-        monkeypatch.delenv(var, raising=False)
     state = Archive(tmp_path, monkeypatch)
 
     class Handler(BaseHTTPRequestHandler):
@@ -182,22 +176,6 @@ def listed_product(archive, client, name, week, epoch):
     return next(product for product in products if product.name == name)
 
 
-def run_client_script(tmp_path, code, **env_values):
-    """Run code in a new interpreter with the CDDIS variables set as given; returns stderr."""
-    env = {k: v for k, v in os.environ.items() if k not in CDDIS_VARS}
-    env["BRAHE_CACHE"] = str(tmp_path / "subprocess-cache")
-    env.update(env_values)
-    script = "import sys\nimport brahe as bh\n" + code
-    result = subprocess.run(
-        [sys.executable, "-c", script],
-        env=env,
-        capture_output=True,
-        text=True,
-        check=True,
-    )
-    return result.stderr
-
-
 # Sources
 
 
@@ -228,99 +206,30 @@ def test_igs_product_source_display():
     assert len({bh.IGSProductSource.BKG, bh.IGSProductSource.BKG}) == 1
 
 
-# Construction and default source selection
+# Construction
 
 
-def test_igs_products_client_select_source_with_credentials_is_cddis(tmp_path):
-    """Rust: test_igs_products_client_select_source_with_credentials_is_cddis"""
-    stderr = run_client_script(
-        tmp_path,
-        "assert bh.IGSProductsClient().source == bh.IGSProductSource.CDDIS\n",
-        CDDIS_EARTHDATA_USERNAME="user",
-        CDDIS_EARTHDATA_PASSWORD="secret",
-    )
-    assert GARNER_WARNING not in stderr
-
-
-def test_igs_products_client_select_source_with_empty_variable_is_garner(tmp_path):
-    """Rust: test_igs_products_client_select_source_with_empty_variable_is_garner"""
-    stderr = run_client_script(
-        tmp_path,
-        "assert bh.IGSProductsClient().source == bh.IGSProductSource.GARNER\n",
-        CDDIS_EARTHDATA_USERNAME="user",
-        CDDIS_EARTHDATA_PASSWORD="",
-    )
-    assert stderr.count(GARNER_WARNING) == 1
-
-
-def test_igs_products_client_select_source_with_missing_variable_is_garner(tmp_path):
-    """Rust: test_igs_products_client_select_source_with_missing_variable_is_garner"""
-    stderr = run_client_script(
-        tmp_path,
-        "assert bh.IGSProductsClient().source == bh.IGSProductSource.GARNER\n",
-        CDDIS_EARTHDATA_PASSWORD="secret",
-    )
-    assert stderr.count(GARNER_WARNING) == 1
-
-
-def test_igs_products_client_new_warns_once(tmp_path):
-    """Rust: test_igs_products_client_new_warns_once"""
-    stderr = run_client_script(
-        tmp_path, "bh.IGSProductsClient()\nbh.IGSProductsClient()\n"
-    )
-    assert stderr.count(GARNER_WARNING) == 1
-
-
-def test_igs_products_client_explicit_source_never_warns(tmp_path):
-    """Rust: test_igs_products_client_explicit_source_never_warns"""
-    stderr = run_client_script(
-        tmp_path,
-        "bh.IGSProductsClient(source='GARNER')\n"
-        "sys.stderr.write('explicit done\\n')\n"
-        "sys.stderr.flush()\n"
-        "bh.IGSProductsClient()\n",
-    )
-    explicit, default = stderr.split("explicit done\n")
-    assert GARNER_WARNING not in explicit
-    # The explicit selection did not consume the one-time warning.
-    assert default.count(GARNER_WARNING) == 1
-
-
-def test_igs_products_client_new_uses_environment(monkeypatch):
-    """Rust: test_igs_products_client_new_uses_environment"""
-    monkeypatch.setenv("CDDIS_EARTHDATA_USERNAME", "user")
-    monkeypatch.setenv("CDDIS_EARTHDATA_PASSWORD", "secret")
-    client = bh.IGSProductsClient()
-    assert client.source == bh.IGSProductSource.CDDIS
-    assert client.base_url == bh.IGSProductSource.CDDIS.default_base_url
-
-    for var in CDDIS_VARS:
-        monkeypatch.delenv(var)
-    client = bh.IGSProductsClient()
-    assert client.source == bh.IGSProductSource.GARNER
-    assert client.base_url == bh.IGSProductSource.GARNER.default_base_url
-
-
-def test_igs_products_client_with_source_uses_default_base_url():
-    """Rust: test_igs_products_client_with_source_uses_default_base_url"""
+def test_igs_products_client_new_uses_default_base_url():
+    """Rust: test_igs_products_client_new_uses_default_base_url"""
     for source, code in [
         (bh.IGSProductSource.CDDIS, "cddis"),
         (bh.IGSProductSource.GARNER, "Garner"),
         (bh.IGSProductSource.BKG, "BKG"),
     ]:
         for given in (source, code):
-            client = bh.IGSProductsClient(source=given)
-            assert client.source == source
-            assert client.base_url == source.default_base_url
+            for client in (
+                bh.IGSProductsClient(given),
+                bh.IGSProductsClient(source=given),
+            ):
+                assert client.source == source
+                assert client.base_url == source.default_base_url
 
 
-def test_igs_products_client_with_cddis_credentials(monkeypatch):
+def test_igs_products_client_with_cddis_credentials():
     """Rust: test_igs_products_client_with_cddis_credentials"""
-    for var in CDDIS_VARS:
-        monkeypatch.delenv(var, raising=False)
-    for source in (None, "CDDIS", bh.IGSProductSource.CDDIS):
+    for source in ("CDDIS", bh.IGSProductSource.CDDIS):
         client = bh.IGSProductsClient(
-            source=source, cddis_username="user", cddis_password="secret"
+            source, cddis_username="user", cddis_password="secret"
         )
         assert client.source == bh.IGSProductSource.CDDIS
         assert client.base_url == bh.IGSProductSource.CDDIS.default_base_url
@@ -328,7 +237,7 @@ def test_igs_products_client_with_cddis_credentials(monkeypatch):
 
 def test_igs_products_client_debug_omits_credentials():
     """Rust: test_igs_products_client_debug_omits_credentials"""
-    client = bh.IGSProductsClient(cddis_username="u", cddis_password="secret")
+    client = bh.IGSProductsClient("CDDIS", cddis_username="u", cddis_password="secret")
     text = repr(client)
     assert "secret" not in text
     assert "CDDIS" in text
@@ -344,12 +253,14 @@ def test_igs_products_client_with_base_url_normalises_trailing_slash():
 
 
 def test_igs_products_client_rejects_invalid_arguments():
-    with pytest.raises(ValueError, match="base_url requires source"):
+    with pytest.raises(TypeError):
+        bh.IGSProductsClient()
+    with pytest.raises(TypeError):
         bh.IGSProductsClient(base_url="http://localhost:1/")
     with pytest.raises(ValueError, match="together"):
-        bh.IGSProductsClient(cddis_username="user")
+        bh.IGSProductsClient("CDDIS", cddis_username="user")
     with pytest.raises(ValueError, match="together"):
-        bh.IGSProductsClient(cddis_password="secret")
+        bh.IGSProductsClient("CDDIS", cddis_password="secret")
     with pytest.raises(ValueError, match="only to the CDDIS source"):
         bh.IGSProductsClient(source="GARNER", cddis_username="u", cddis_password="p")
     with pytest.raises(ValueError, match="cannot be combined with base_url"):
@@ -364,7 +275,7 @@ def test_igs_products_client_rejects_invalid_arguments():
     with pytest.raises(TypeError):
         bh.IGSProductsClient(source=3)
     with pytest.raises(TypeError):
-        bh.IGSProductsClient("GARNER")
+        bh.IGSProductsClient("GARNER", "http://localhost:1/")
 
 
 def test_igs_products_client_cache_dir(tmp_path, monkeypatch):
@@ -430,9 +341,12 @@ def test_igs_products_client_list_products_center_is_case_insensitive(archive):
 
     lower = client.list_products(week_2340(), center="cod")
     upper = client.list_products(week_2340(), center="COD")
-    assert lower == upper
+    typed = client.list_products(week_2340(), center=bh.IGSAnalysisCenter.COD)
+    assert lower == upper == typed
     assert len(lower) >= 20
-    assert all(product.file_name.center == "COD" for product in lower)
+    assert all(
+        product.file_name.center == bh.IGSAnalysisCenter.COD for product in lower
+    )
     assert SP3_NAME in names(lower)
     assert not any(name.startswith("ESA") for name in names(lower))
     assert archive.calls("/pub/products/2340/") == 1
@@ -998,87 +912,8 @@ def test_igs_products_client_cddis_html_product_is_rejected(archive):
 
     with pytest.raises(bh.BraheError, match="is an HTML page") as error:
         client.download(product)
-    assert "CDDIS_EARTHDATA_USERNAME" in str(error.value)
+    assert "check the client's credentials" in str(error.value)
     assert not (Path(client.cache_dir()) / "cddis" / "2340" / "igr23400.sp3").exists()
-
-
-ORDERED_ORBITS = [
-    "COD0OPSFIN_20243150000_01D_05M_ORB.SP3.gz",
-    "COD0OPSFIN_20243160000_01D_05M_ORB.SP3.gz",
-    "COD0OPSFIN_20243170000_01D_05M_ORB.SP3.gz",
-]
-
-
-def serve_week_of_orbits(archive):
-    """Serve a week 2340 listing of three COD daily orbits, out of time order, and their files."""
-    archive.listing("/pub/products/2339/", apache_listing([]))
-    archive.listing(
-        "/pub/products/2340/",
-        apache_listing(
-            [
-                ORDERED_ORBITS[2],
-                ORDERED_ORBITS[0],
-                "COD0OPSFIN_20243150000_01D_30S_CLK.CLK.gz",
-                ORDERED_ORBITS[1],
-            ]
-        ),
-    )
-    for name in ORDERED_ORBITS:
-        archive.serve(f"/pub/products/2340/{name}", gzip.compress(f"{name}\n".encode()))
-
-
-def test_igs_products_client_download_between_orders_by_start(archive):
-    """Rust: test_igs_products_client_download_between_orders_by_start"""
-    serve_week_of_orbits(archive)
-    client = garner_client(archive)
-
-    paths = client.download_between(
-        gps(2024, 11, 10, 0), gps(2024, 11, 12, 12), content="ORB"
-    )
-    week_dir = Path(client.cache_dir()) / "garner" / "2340"
-    assert [Path(path) for path in paths] == [
-        week_dir / name for name in ORDERED_ORBITS
-    ]
-    assert all(Path(path).is_file() for path in paths)
-
-
-def test_igs_products_client_save_between_writes_in_time_order(archive, tmp_path):
-    """Rust: test_igs_products_client_save_between_writes_in_time_order"""
-    serve_week_of_orbits(archive)
-    client = garner_client(archive)
-    directory = tmp_path / "orbits"
-
-    paths = client.save_between(
-        gps(2024, 11, 10, 0),
-        gps(2024, 11, 12, 12),
-        directory,
-        content=bh.IGSContentType.ORBIT,
-        keep_cached=False,
-    )
-    assert [Path(path) for path in paths] == [
-        directory / name.removesuffix(".gz") for name in ORDERED_ORBITS
-    ]
-    for path, name in zip(paths, ORDERED_ORBITS):
-        assert Path(path).read_text() == f"{name}\n"
-    week_dir = Path(client.cache_dir()) / "garner" / "2340"
-    assert list(week_dir.iterdir()) == []
-
-
-def test_igs_products_client_save_between_rejects_bad_directory_before_download(
-    archive, tmp_path
-):
-    """Rust: test_igs_products_client_save_between_rejects_bad_directory_before_download"""
-    client = garner_client(archive)
-    file = tmp_path / "file.txt"
-    file.write_text("x")
-    start, end = gps(2024, 11, 12, 0), gps(2024, 11, 13, 0)
-
-    inside = Path(client.cache_dir()) / "saved"
-    with pytest.raises(bh.BraheError, match="inside the IGS cache directory"):
-        client.save_between(start, end, inside)
-    with pytest.raises(bh.BraheError, match="is a file"):
-        client.save_between(start, end, str(file))
-    assert archive.hits == []
 
 
 # SP3 downloads
@@ -1165,7 +1000,9 @@ def test_igs_products_client_download_sp3_range_pads_with_coarsest_sampling(arch
     assert downloaded_files(archive) == expected
     assert_downloaded(archive, listed, expected)
 
-    sp3s = client.download_sp3_range(start, end, "COD", "FIN", sampling=300.0)
+    sp3s = client.download_sp3_range(
+        start, end, bh.IGSAnalysisCenter.COD, "FIN", sampling=300.0
+    )
     assert len(sp3s) == 4
     expected_fine = [cod_daily(doy, "05M") for doy in range(315, 319)]
     assert downloaded_files(archive) == expected + expected_fine
@@ -1217,7 +1054,7 @@ def test_igs_products_client_download_sp3_range_skips_missing_padding(archive):
         client.download_sp3_range(
             gps(2024, 11, 10, 6), gps(2024, 11, 11, 12), "COD", "FIN"
         )
-    assert cod_daily(315, "15M") in str(error.value)
+    assert "for 2024-11-10" in str(error.value)
     assert archive.calls("/pub/products/2339/") == 1
     assert downloaded_files(archive) == []
 
@@ -1280,22 +1117,24 @@ def test_igs_products_client_download_sp3_range_skips_missing_padding_week(archi
     assert archive.calls("/pub/products/2339/") == 1
 
 
-def test_igs_products_client_download_sp3_range_missing_day_names_file_and_source(
+def test_igs_products_client_download_sp3_range_missing_day_names_day_and_source(
     archive,
 ):
-    """Rust: test_igs_products_client_download_sp3_range_missing_day_names_file_and_source"""
+    """Rust: test_igs_products_client_download_sp3_range_missing_day_names_day_and_source"""
     listed = serve_cod_week_2340(archive, [315, 316, 318])
     client = garner_client(archive)
     start, end = gps(2024, 11, 11, 0), gps(2024, 11, 12, 0)
 
     with pytest.raises(bh.BraheError) as error:
         client.download_sp3_range(start, end, "COD", "FIN")
-    assert "COD0OPSFIN_20243170000_01D_15M_ORB.SP3.gz" in str(error.value)
-    assert "Garner" in str(error.value)
+    message = str(error.value)
+    assert "IGS Garner has no daily COD FIN SP3 orbit file for 2024-11-12" in message
+    assert "GPS week 2340, day 2" in message
+    assert "/pub/products/2340/ lists none" in message
 
     with pytest.raises(bh.BraheError) as error:
         client.download_sp3_range(start, end, "COD", "FIN", sampling=30.0)
-    assert "COD0OPSFIN_20243160000_01D_30S_ORB.SP3.gz" in str(error.value)
+    assert "SP3 orbit file with 30 s sampling for 2024-11-11" in str(error.value)
     assert_downloaded(archive, listed, [])
 
 
@@ -1354,8 +1193,10 @@ def test_igs_products_client_download_sp3_range_unix_compress(archive):
     assert len(sp3s) == 1
     assert downloaded_files(archive) == ["cod21003.sp3.gz"]
 
-    # A missing short-name day names the expected short file.
-    with pytest.raises(bh.BraheError, match="cor21004.sp3"):
+    # A missing short-name day names the day.
+    with pytest.raises(
+        bh.BraheError, match="no daily COD RAP SP3 orbit file for 2020-04-09"
+    ):
         client.download_sp3_range(
             gps(2020, 4, 9, 6), gps(2020, 4, 9, 12), "COD", bh.IGSSolutionType.RAPID
         )
@@ -1389,10 +1230,10 @@ def test_igs_products_client_download_sp3_range_prefers_parseable_finer_file(arc
     assert downloaded_files(archive) == []
 
 
-def test_igs_products_client_download_sp3_range_missing_week_names_expected_file(
+def test_igs_products_client_download_sp3_range_missing_week_names_day_and_listing(
     archive,
 ):
-    """Rust: test_igs_products_client_download_sp3_range_missing_week_names_expected_file"""
+    """Rust: test_igs_products_client_download_sp3_range_missing_week_names_day_and_listing"""
     archive.missing("/pub/products/2341/")
     client = garner_client(archive)
 
@@ -1402,11 +1243,8 @@ def test_igs_products_client_download_sp3_range_missing_week_names_expected_file
             gps(2024, 11, 18, 6), gps(2024, 11, 18, 12), "COD", "FIN", pad=False
         )
     message = str(error.value)
-    assert (
-        "IGS Garner product COD0OPSFIN_20243230000_01D_*_ORB.SP3.gz not found"
-        in message
-    )
-    assert "2341" in message
+    assert "IGS Garner has no daily COD FIN SP3 orbit file for 2024-11-18" in message
+    assert "GPS week 2341, day 1" in message
     assert "answered 404" in message
     assert archive.calls("/pub/products/2341/") == 1
 

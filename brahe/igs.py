@@ -14,8 +14,7 @@ This module provides:
 - get_igs_cache_dir: The IGS cache directory
 - IGSProductFileName: Parser for long and short product file names
 - IGSSolutionType, IGSContentType, IGSFileFormat, IGSCompression, IGSNameStyle: Typed fields of a product file name
-- IGSAnalysisCenter: Analysis-center code and institution name
-- list_analysis_centers: The table of analysis centers
+- IGSAnalysisCenter: Analysis centers that publish the products
 
 Example:
     ```python
@@ -23,10 +22,9 @@ Example:
 
     name = bh.igs.IGSProductFileName.parse("COD0OPSFIN_20243150000_01D_05M_ORB.SP3.gz")
     print(name.center, name.solution, name.gps_week, name.is_sp3)
-    center = bh.igs.IGSAnalysisCenter.from_code(name.center)
-    print(center.name)
+    print(name.center.name)
 
-    client = bh.igs.IGSProductsClient(source="GARNER")
+    client = bh.igs.IGSProductsClient("GARNER")
     epoch = bh.Epoch(2024, 11, 10, 0, 0, 0.0, 0.0, time_system=bh.GPS)
     for product in client.list_products(epoch, center="COD", solution="FIN", content="ORB"):
         print(product.name, product.url)
@@ -48,7 +46,6 @@ from brahe._brahe import (
     IGSProductSource,
     IGSSolutionType,
     get_igs_cache_dir,
-    list_analysis_centers,
 )
 
 __all__ = [
@@ -63,5 +60,4 @@ __all__ = [
     "IGSProductsClient",
     "IGSSolutionType",
     "get_igs_cache_dir",
-    "list_analysis_centers",
 ]

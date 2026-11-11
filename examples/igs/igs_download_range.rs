@@ -8,8 +8,8 @@
 use brahe as bh;
 use bh::datafiles::sp3::SP3Satellite;
 use bh::igs::{
-    IGSContentType, IGSFileFormat, IGSProductFilter, IGSProductSource, IGSProductsClient,
-    IGSRangeOptions, IGSSolutionType,
+    IGSAnalysisCenter, IGSContentType, IGSFileFormat, IGSProductFilter, IGSProductSource,
+    IGSProductsClient, IGSRangeOptions, IGSSolutionType,
 };
 use bh::time::{Epoch, TimeSystem};
 use bh::traits::DOrbitStateProvider;
@@ -18,7 +18,7 @@ use bh::utils::Identifiable;
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     bh::initialize_eop()?;
 
-    let client = IGSProductsClient::with_source(IGSProductSource::Garner);
+    let client = IGSProductsClient::new(IGSProductSource::Garner);
     let start = Epoch::from_datetime(2024, 11, 11, 0, 0, 0.0, 0.0, TimeSystem::GPS);
     let end = Epoch::from_datetime(2024, 11, 12, 0, 0, 0.0, 0.0, TimeSystem::GPS);
 
@@ -26,7 +26,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let files = client.download_sp3_range(
         start,
         end,
-        "COD",
+        IGSAnalysisCenter::COD,
         IGSSolutionType::Final,
         &IGSRangeOptions::default(),
     )?;
@@ -69,11 +69,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Save the files covering the range, decompressed, to a directory of choice
     let directory = std::env::temp_dir().join("brahe_igs_download_range");
     let filter = IGSProductFilter::new()
-        .with_center("COD")
+        .with_center(IGSAnalysisCenter::COD)
         .with_solution(IGSSolutionType::Final)
         .with_content(IGSContentType::Orbit)
         .with_format(IGSFileFormat::SP3);
-    let paths = client.save_between(start, end, &filter, &directory, false)?;
+    let mut paths = Vec::new();
+    for product in client.list_products_between(start, end, &filter)? {
+        paths.push(client.save(&product, &directory, false)?);
+    }
     println!("\nSaved {} files:", paths.len());
     for path in &paths {
         println!("  {}", path.file_name().unwrap().to_string_lossy());

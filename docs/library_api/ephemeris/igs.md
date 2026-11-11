@@ -72,13 +72,6 @@ Client for the IGS precise product archives, and the types that describe the pro
       show_root_heading: true
       show_root_full_path: false
 
-## list_analysis_centers
-
-::: brahe.list_analysis_centers
-    options:
-      show_root_heading: true
-      show_root_full_path: false
-
 ## get_igs_cache_dir
 
 ::: brahe.get_igs_cache_dir

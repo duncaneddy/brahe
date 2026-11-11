@@ -77,7 +77,7 @@ def test_igs_product_file_name_parse_identity(
 ):
     name = bh.IGSProductFileName.parse(name_str)
     assert name.name_style == style
-    assert name.center == center
+    assert name.center.code == center
     assert name.solution == solution
     assert name.start_epoch == start
     assert name.gps_week == week
@@ -220,7 +220,7 @@ def test_igs_product_file_name_malformed_fields(name_str):
 )
 def test_igs_product_file_name_short_center_codes(name_str, center, solution):
     name = bh.IGSProductFileName.parse(name_str)
-    assert name.center == center
+    assert name.center.code == center
     assert name.solution == solution
 
 

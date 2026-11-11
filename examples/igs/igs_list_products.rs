@@ -7,13 +7,13 @@
 
 use brahe as bh;
 use bh::igs::{
-    IGSContentType, IGSFileFormat, IGSProductFilter, IGSProductSource, IGSProductsClient,
-    IGSSolutionType,
+    IGSAnalysisCenter, IGSContentType, IGSFileFormat, IGSProductFilter, IGSProductSource,
+    IGSProductsClient, IGSSolutionType,
 };
 use bh::time::{Epoch, TimeSystem};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let client = IGSProductsClient::with_source(IGSProductSource::Garner);
+    let client = IGSProductsClient::new(IGSProductSource::Garner);
     println!("Source: {}, base URL: {}", client.source(), client.base_url());
 
     // Any epoch inside the week selects it; this one falls in GPS week 2340
@@ -21,14 +21,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Files published for the week: {}", client.list_files(epoch)?.len());
 
     // Final orbit products in SP3 format from the CODE and IGS analysis centers
-    for center in ["COD", "IGS"] {
+    for center in [IGSAnalysisCenter::COD, IGSAnalysisCenter::IGS] {
         let filter = IGSProductFilter::new()
-            .with_center(center)
+            .with_center(center.clone())
             .with_solution(IGSSolutionType::Final)
             .with_content(IGSContentType::Orbit)
             .with_format(IGSFileFormat::SP3);
         let products = client.list_products(epoch, &filter)?;
-        println!("\n{center} final SP3 orbits: {}", products.len());
+        println!("\n{} final SP3 orbits: {}", center.code(), products.len());
         for product in products.iter().take(3) {
             let name = &product.file_name;
             println!(

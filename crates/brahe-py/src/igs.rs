@@ -530,7 +530,7 @@ impl PyIGSNameStyle {
 ///     import brahe as bh
 ///
 ///     name = bh.IGSProductFileName.parse("COD0OPSFIN_20243150000_01D_05M_ORB.SP3.gz")
-///     assert name.center == "COD"
+///     assert name.center == bh.IGSAnalysisCenter.COD
 ///     assert name.solution == bh.IGSSolutionType.FINAL
 ///     assert name.content == bh.IGSContentType.ORBIT
 ///     assert name.gps_week == 2340
@@ -564,7 +564,7 @@ impl PyIGSProductFileName {
     ///     import brahe as bh
     ///
     ///     name = bh.IGSProductFileName.parse("IGS0OPSFIN_20243150000_01D_15M_ORB.SP3.gz")
-    ///     assert name.center == "IGS"
+    ///     assert name.center == bh.IGSAnalysisCenter.IGS
     ///     assert name.gps_week == 2340
     ///     assert name.is_sp3
     ///
@@ -587,13 +587,13 @@ impl PyIGSProductFileName {
         PyIGSNameStyle { inner: self.inner.name_style() }
     }
 
-    /// Analysis-center code in uppercase, for example ``COD``.
+    /// Analysis center that produced the product.
     ///
     /// Returns:
-    ///     str: Center code.
+    ///     IGSAnalysisCenter: The analysis center.
     #[getter]
-    fn center(&self) -> String {
-        self.inner.center().to_string()
+    fn center(&self) -> PyIGSAnalysisCenter {
+        PyIGSAnalysisCenter { inner: self.inner.center().clone() }
     }
 
     /// Product version digit. Only long names carry one.
@@ -722,48 +722,148 @@ impl PyIGSProductFileName {
     }
 }
 
-/// An IGS analysis center: its product file-name code and institution name.
+/// Analysis center that produced an IGS product.
+///
+/// Codes other than the listed ones, such as the short-name combination codes
+/// ``IGL`` and ``IGV``, are kept as they appear, uppercased, and compare equal
+/// to other centers parsed from the same code.
 ///
 /// Example:
 ///     ```python
 ///     import brahe as bh
 ///
-///     center = bh.IGSAnalysisCenter.from_code("cod")
-///     assert center.code == "COD"
-///     assert center.name == "Center for Orbit Determination in Europe"
-///     assert bh.IGSAnalysisCenter.from_code("XYZ") is None
+///     assert bh.IGSAnalysisCenter.parse("cod") == bh.IGSAnalysisCenter.COD
+///     assert bh.IGSAnalysisCenter.JPL.code == "JPL"
+///     assert bh.IGSAnalysisCenter.JPL.name == "Jet Propulsion Laboratory"
+///     assert bh.IGSAnalysisCenter.parse("igl").code == "IGL"
 ///     ```
 #[pyclass(module = "brahe._brahe", from_py_object)]
 #[pyo3(name = "IGSAnalysisCenter")]
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct PyIGSAnalysisCenter {
     pub(crate) inner: igs::IGSAnalysisCenter,
 }
 
 #[pymethods]
 impl PyIGSAnalysisCenter {
-    /// Look up an analysis center by its product file-name code.
+    /// Center for Orbit Determination in Europe (``COD``).
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn COD() -> Self {
+        Self { inner: igs::IGSAnalysisCenter::COD }
+    }
+
+    /// Natural Resources Canada (``EMR``).
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn EMR() -> Self {
+        Self { inner: igs::IGSAnalysisCenter::EMR }
+    }
+
+    /// European Space Agency/ESOC (``ESA``).
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn ESA() -> Self {
+        Self { inner: igs::IGSAnalysisCenter::ESA }
+    }
+
+    /// GFZ Helmholtz Centre for Geosciences (``GFZ``).
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn GFZ() -> Self {
+        Self { inner: igs::IGSAnalysisCenter::GFZ }
+    }
+
+    /// Geodetic Observatory Pecny (``GOP``).
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn GOP() -> Self {
+        Self { inner: igs::IGSAnalysisCenter::GOP }
+    }
+
+    /// Space geodesy team of the CNES (``GRG``).
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn GRG() -> Self {
+        Self { inner: igs::IGSAnalysisCenter::GRG }
+    }
+
+    /// Geospatial Information Authority of Japan and Japan Aerospace Exploration Agency (``JGX``).
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn JGX() -> Self {
+        Self { inner: igs::IGSAnalysisCenter::JGX }
+    }
+
+    /// Jet Propulsion Laboratory (``JPL``).
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn JPL() -> Self {
+        Self { inner: igs::IGSAnalysisCenter::JPL }
+    }
+
+    /// Massachusetts Institute of Technology (``MIT``).
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn MIT() -> Self {
+        Self { inner: igs::IGSAnalysisCenter::MIT }
+    }
+
+    /// NOAA/National Geodetic Survey (``NGS``).
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn NGS() -> Self {
+        Self { inner: igs::IGSAnalysisCenter::NGS }
+    }
+
+    /// Scripps Institution of Oceanography (``SIO``).
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn SIO() -> Self {
+        Self { inner: igs::IGSAnalysisCenter::SIO }
+    }
+
+    /// U.S. Naval Observatory (``USN``).
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn USN() -> Self {
+        Self { inner: igs::IGSAnalysisCenter::USN }
+    }
+
+    /// Wuhan University (``WHU``).
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn WHU() -> Self {
+        Self { inner: igs::IGSAnalysisCenter::WHU }
+    }
+
+    /// International GNSS Service combined products (``IGS``).
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn IGS() -> Self {
+        Self { inner: igs::IGSAnalysisCenter::IGS }
+    }
+
+    /// Parse a center code.
     ///
-    /// Short-name combination and variant codes such as IGL, IGV and COF are not
-    /// analysis centers in the table and return None.
+    /// Matching is case-insensitive. Unlisted codes are kept, uppercased.
     ///
     /// Args:
-    ///     code (str): Three-letter center code, case-insensitive.
+    ///     code (str): Three-letter center code, for example ``"COD"``.
     ///
     /// Returns:
-    ///     IGSAnalysisCenter | None: The matching center, or None if the code is not in the table.
+    ///     IGSAnalysisCenter: The parsed center.
     ///
     /// Example:
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     center = bh.IGSAnalysisCenter.from_code("cod")
-    ///     assert center.code == "COD"
-    ///     assert bh.IGSAnalysisCenter.from_code("IGV") is None
+    ///     assert bh.IGSAnalysisCenter.parse("gfz") == bh.IGSAnalysisCenter.GFZ
+    ///     assert bh.IGSAnalysisCenter.parse("xyz").code == "XYZ"
     ///     ```
     #[staticmethod]
-    fn from_code(code: &str) -> Option<Self> {
-        igs::IGSAnalysisCenter::from_code(code).map(|center| Self { inner: *center })
+    fn parse(code: &str) -> Self {
+        Self { inner: igs::IGSAnalysisCenter::parse(code) }
     }
 
     /// Three-letter code used in product file names, uppercase.
@@ -772,24 +872,29 @@ impl PyIGSAnalysisCenter {
     ///     str: Center code.
     #[getter]
     fn code(&self) -> String {
-        self.inner.code.to_string()
+        self.inner.code().to_string()
     }
 
-    /// Full name of the institution.
+    /// Name of the institution.
     ///
     /// Returns:
-    ///     str: Institution name.
+    ///     str | None: Institution name, or None for an unlisted code.
     #[getter]
-    fn name(&self) -> String {
-        self.inner.name.to_string()
+    fn name(&self) -> Option<&'static str> {
+        self.inner.name()
     }
 
     fn __str__(&self) -> String {
-        self.inner.code.to_string()
+        self.inner.code().to_string()
     }
 
     fn __repr__(&self) -> String {
-        format!("IGSAnalysisCenter(code='{}', name='{}')", self.inner.code, self.inner.name)
+        match self.inner {
+            igs::IGSAnalysisCenter::Other(ref code) => {
+                format!("IGSAnalysisCenter.parse('{}')", code)
+            }
+            ref center => format!("IGSAnalysisCenter.{}", center.code()),
+        }
     }
 
     fn __eq__(&self, other: &Self) -> bool {
@@ -799,27 +904,6 @@ impl PyIGSAnalysisCenter {
     fn __hash__(&self) -> u64 {
         igs_hash(&self.inner)
     }
-}
-
-/// List every IGS analysis center in the table.
-///
-/// Returns:
-///     list[IGSAnalysisCenter]: The centers, ordered by code with ``IGS`` last.
-///
-/// Example:
-///     ```python
-///     import brahe as bh
-///
-///     codes = [center.code for center in bh.list_analysis_centers()]
-///     assert "JPL" in codes
-///     ```
-#[pyfunction]
-#[pyo3(name = "list_analysis_centers")]
-fn py_list_analysis_centers() -> Vec<PyIGSAnalysisCenter> {
-    igs::list_analysis_centers()
-        .iter()
-        .map(|center| PyIGSAnalysisCenter { inner: *center })
-        .collect()
 }
 
 /// Convert a Rust error into the Python `BraheError`.
@@ -848,6 +932,19 @@ fn extract_igs_product_source(obj: &Bound<'_, PyAny>) -> PyResult<igs::IGSProduc
     }
     Err(exceptions::PyTypeError::new_err(
         "expected an IGSProductSource or a source name string",
+    ))
+}
+
+/// Extract an `igs::IGSAnalysisCenter` from an `IGSAnalysisCenter` or its code.
+fn extract_igs_analysis_center(obj: &Bound<'_, PyAny>) -> PyResult<igs::IGSAnalysisCenter> {
+    if let Ok(center) = obj.extract::<PyIGSAnalysisCenter>() {
+        return Ok(center.inner);
+    }
+    if let Ok(text) = obj.extract::<String>() {
+        return Ok(igs::IGSAnalysisCenter::parse(&text));
+    }
+    Err(exceptions::PyTypeError::new_err(
+        "expected an IGSAnalysisCenter or a center code string",
     ))
 }
 
@@ -892,14 +989,14 @@ fn extract_igs_file_format(obj: &Bound<'_, PyAny>) -> PyResult<igs::IGSFileForma
 
 /// Build an `igs::IGSProductFilter` from the keyword arguments of a listing call.
 fn igs_product_filter(
-    center: Option<&str>,
+    center: Option<&Bound<'_, PyAny>>,
     solution: Option<&Bound<'_, PyAny>>,
     content: Option<&Bound<'_, PyAny>>,
     format: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<igs::IGSProductFilter> {
     let mut filter = igs::IGSProductFilter::new();
     if let Some(center) = center {
-        filter = filter.with_center(center);
+        filter = filter.with_center(extract_igs_analysis_center(center)?);
     }
     if let Some(solution) = solution {
         filter = filter.with_solution(extract_igs_solution_type(solution)?);
@@ -911,14 +1008,6 @@ fn igs_product_filter(
         filter = filter.with_format(extract_igs_file_format(format)?);
     }
     Ok(filter)
-}
-
-/// Convert cached or written paths to strings.
-fn igs_path_strings(paths: Vec<PathBuf>) -> Vec<String> {
-    paths
-        .into_iter()
-        .map(|path| path.to_string_lossy().into_owned())
-        .collect()
 }
 
 /// Public archive that serves IGS products.
@@ -1083,17 +1172,10 @@ impl PyIGSProduct {
 
 /// Client for IGS precise-product archives.
 ///
-/// The client reads from one ``IGSProductSource``. With no ``source``, it
-/// uses CDDIS when the ``CDDIS_EARTHDATA_USERNAME`` and
-/// ``CDDIS_EARTHDATA_PASSWORD`` environment variables are both non-empty.
-/// Otherwise it prints a warning to standard error, once per process, and
-/// uses the Garner mirror, which is served over unencrypted HTTP. A client
-/// built with an explicit source never falls back to another source.
-///
-/// Passing ``cddis_username`` and ``cddis_password`` selects CDDIS with those
-/// credentials. A CDDIS client built without them reads the environment
-/// variables. Credentials are sent only to the NASA Earthdata login service
-/// and are never shown by ``repr``.
+/// The client reads from one ``IGSProductSource`` and never falls back to
+/// another. CDDIS requires NASA Earthdata credentials, passed as
+/// ``cddis_username`` and ``cddis_password``. Credentials are sent only to
+/// the NASA Earthdata login service and are never shown by ``repr``.
 ///
 /// Requests are blocking, retried on transient failures, and honour
 /// ``BRAHE_NETWORK_MODE``. Listings and downloaded files are cached under
@@ -1103,21 +1185,21 @@ impl PyIGSProduct {
 /// clients sharing it.
 ///
 /// Args:
-///     source (IGSProductSource | str, optional): Archive to read from, or its name (``"CDDIS"``, ``"GARNER"``, ``"BKG"``, case-insensitive). Default: chosen from the environment as above.
-///     base_url (str, optional): Directory URL that contains one subdirectory per GPS week, for mirrors and tests. Requires ``source``. A trailing ``/`` is added when missing.
-///     cddis_username (str, optional): NASA Earthdata username. Requires ``cddis_password``, a CDDIS or unset ``source``, and no ``base_url``.
+///     source (IGSProductSource | str): Archive to read from, or its name (``"CDDIS"``, ``"GARNER"``, ``"BKG"``, case-insensitive).
+///     base_url (str, optional): Directory URL that contains one subdirectory per GPS week, for mirrors and tests. A trailing ``/`` is added when missing.
+///     cddis_username (str, optional): NASA Earthdata username. Requires ``cddis_password``, the CDDIS ``source``, and no ``base_url``.
 ///     cddis_password (str, optional): NASA Earthdata password. Requires ``cddis_username``.
 ///     cache_max_age (float, optional): Seconds a cached directory listing is served before it is refreshed. Default: 3600.0.
 ///     max_retries (int, optional): Extra attempts after the first on transient failures. Default: 3.
 ///
 /// Raises:
-///     ValueError: If ``base_url`` is given without ``source``, only one credential is given, credentials are given with a non-CDDIS source or with ``base_url``, or ``source`` is not a known source name.
+///     ValueError: If only one credential is given, credentials are given with a non-CDDIS source or with ``base_url``, or ``source`` is not a known source name.
 ///
 /// Example:
 ///     ```python
 ///     import brahe as bh
 ///
-///     client = bh.IGSProductsClient(source="GARNER")
+///     client = bh.IGSProductsClient("GARNER")
 ///     start = bh.Epoch(2024, 11, 11, 0, 0, 0.0, 0.0, time_system=bh.GPS)
 ///     end = bh.Epoch(2024, 11, 12, 0, 0, 0.0, 0.0, time_system=bh.GPS)
 ///     files = client.download_sp3_range(start, end, "COD", bh.IGSSolutionType.FINAL)
@@ -1132,18 +1214,18 @@ pub struct PyIGSProductsClient {
 impl PyIGSProductsClient {
     #[new]
     #[pyo3(signature = (
-        *, source=None, base_url=None, cddis_username=None, cddis_password=None,
+        source, *, base_url=None, cddis_username=None, cddis_password=None,
         cache_max_age=None, max_retries=None
     ))]
     fn new(
-        source: Option<&Bound<'_, PyAny>>,
+        source: &Bound<'_, PyAny>,
         base_url: Option<&str>,
         cddis_username: Option<&str>,
         cddis_password: Option<&str>,
         cache_max_age: Option<f64>,
         max_retries: Option<u32>,
     ) -> PyResult<Self> {
-        let source = source.map(extract_igs_product_source).transpose()?;
+        let source = extract_igs_product_source(source)?;
         let credentials = match (cddis_username, cddis_password) {
             (Some(username), Some(password)) => Some((username, password)),
             (None, None) => None,
@@ -1153,28 +1235,22 @@ impl PyIGSProductsClient {
                 ));
             }
         };
-        let mut client = match (source, base_url, credentials) {
-            (None, Some(_), _) => {
+        let mut client = match (base_url, credentials) {
+            (Some(_), Some(_)) => {
                 return Err(exceptions::PyValueError::new_err(
-                    "base_url requires source: name the archive the URL stands in for",
+                    "cddis_username and cddis_password cannot be combined with base_url",
                 ));
             }
-            (_, Some(_), Some(_)) => {
-                return Err(exceptions::PyValueError::new_err(
-                    "cddis_username and cddis_password cannot be combined with base_url; a CDDIS client with a base_url reads CDDIS_EARTHDATA_USERNAME and CDDIS_EARTHDATA_PASSWORD",
-                ));
-            }
-            (Some(source), _, Some(_)) if source != igs::IGSProductSource::CDDIS => {
+            (_, Some(_)) if source != igs::IGSProductSource::CDDIS => {
                 return Err(exceptions::PyValueError::new_err(format!(
                     "cddis_username and cddis_password apply only to the CDDIS source, not {source}"
                 )));
             }
-            (_, None, Some((username, password))) => {
+            (None, Some((username, password))) => {
                 igs::IGSProductsClient::with_cddis_credentials(username, password)
             }
-            (Some(source), Some(url), None) => igs::IGSProductsClient::with_base_url(source, url),
-            (Some(source), None, None) => igs::IGSProductsClient::with_source(source),
-            (None, None, None) => igs::IGSProductsClient::new(),
+            (Some(url), None) => igs::IGSProductsClient::with_base_url(source, url),
+            (None, None) => igs::IGSProductsClient::new(source),
         };
         if let Some(age) = cache_max_age {
             client = client.with_cache_age(age);
@@ -1215,7 +1291,7 @@ impl PyIGSProductsClient {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     client = bh.IGSProductsClient()
+    ///     client = bh.IGSProductsClient("GARNER")
     ///     print(client.cache_dir())
     ///     ```
     fn cache_dir(&self) -> PyResult<String> {
@@ -1240,7 +1316,7 @@ impl PyIGSProductsClient {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     client = bh.IGSProductsClient(source="GARNER")
+    ///     client = bh.IGSProductsClient("GARNER")
     ///     weeks = client.list_weeks()
     ///     assert 2340 in weeks
     ///     ```
@@ -1267,7 +1343,7 @@ impl PyIGSProductsClient {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     client = bh.IGSProductsClient(source="GARNER")
+    ///     client = bh.IGSProductsClient("GARNER")
     ///     epoch = bh.Epoch(2024, 11, 10, 0, 0, 0.0, 0.0, time_system=bh.GPS)
     ///     names = client.list_files(epoch)
     ///     ```
@@ -1280,13 +1356,13 @@ impl PyIGSProductsClient {
     ///
     /// Files whose names parse as IGS product names are returned; other files
     /// are skipped. Each filter left as None matches every product.
-    /// A solution, content, or format code that is not a known type is kept
-    /// as an ``Other`` value and matches only products published with that
-    /// code, so a misspelled code matches nothing.
+    /// A center, solution, content, or format code that is not a known type
+    /// is kept as an ``Other`` value and matches only products published
+    /// with that code, so a misspelled code matches nothing.
     ///
     /// Args:
     ///     epoch (Epoch): Any instant in the GPS week to list.
-    ///     center (str, optional): Analysis center code, such as ``"COD"``, in any case.
+    ///     center (IGSAnalysisCenter | str, optional): Analysis center or its code, such as ``"COD"``.
     ///     solution (IGSSolutionType | str, optional): Solution type or its code, such as ``"FIN"``.
     ///     content (IGSContentType | str, optional): Content type or its code, such as ``"ORB"``.
     ///     format (IGSFileFormat | str, optional): File format or its code, such as ``"SP3"``.
@@ -1301,7 +1377,7 @@ impl PyIGSProductsClient {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     client = bh.IGSProductsClient(source="GARNER")
+    ///     client = bh.IGSProductsClient("GARNER")
     ///     epoch = bh.Epoch(2024, 11, 10, 0, 0, 0.0, 0.0, time_system=bh.GPS)
     ///     for product in client.list_products(epoch, center="COD", solution="FIN", content="ORB"):
     ///         print(product.name, product.url)
@@ -1311,7 +1387,7 @@ impl PyIGSProductsClient {
         &self,
         py: Python<'_>,
         epoch: &PyEpoch,
-        center: Option<&str>,
+        center: Option<&Bound<'_, PyAny>>,
         solution: Option<&Bound<'_, PyAny>>,
         content: Option<&Bound<'_, PyAny>>,
         format: Option<&Bound<'_, PyAny>>,
@@ -1340,14 +1416,14 @@ impl PyIGSProductsClient {
     /// served only from the cache and skipped when they are not cached; a
     /// week containing part of the range must still be cached.
     ///
-    /// A solution, content, or format code that is not a known type is kept
-    /// as an ``Other`` value and matches only products published with that
-    /// code, so a misspelled code matches nothing.
+    /// A center, solution, content, or format code that is not a known type
+    /// is kept as an ``Other`` value and matches only products published
+    /// with that code, so a misspelled code matches nothing.
     ///
     /// Args:
     ///     start (Epoch): Start of the time range.
     ///     end (Epoch): End of the time range, inclusive.
-    ///     center (str, optional): Analysis center code, such as ``"COD"``, in any case.
+    ///     center (IGSAnalysisCenter | str, optional): Analysis center or its code, such as ``"COD"``.
     ///     solution (IGSSolutionType | str, optional): Solution type or its code, such as ``"FIN"``.
     ///     content (IGSContentType | str, optional): Content type or its code, such as ``"ORB"``.
     ///     format (IGSFileFormat | str, optional): File format or its code, such as ``"SP3"``.
@@ -1362,7 +1438,7 @@ impl PyIGSProductsClient {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     client = bh.IGSProductsClient(source="GARNER")
+    ///     client = bh.IGSProductsClient("GARNER")
     ///     start = bh.Epoch(2024, 11, 11, 0, 0, 0.0, 0.0, time_system=bh.GPS)
     ///     end = bh.Epoch(2024, 11, 12, 0, 0, 0.0, 0.0, time_system=bh.GPS)
     ///     products = client.list_products_between(start, end, center="IGS", solution="FIN", content="ORB")
@@ -1374,7 +1450,7 @@ impl PyIGSProductsClient {
         py: Python<'_>,
         start: &PyEpoch,
         end: &PyEpoch,
-        center: Option<&str>,
+        center: Option<&Bound<'_, PyAny>>,
         solution: Option<&Bound<'_, PyAny>>,
         content: Option<&Bound<'_, PyAny>>,
         format: Option<&Bound<'_, PyAny>>,
@@ -1413,7 +1489,7 @@ impl PyIGSProductsClient {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     client = bh.IGSProductsClient(source="GARNER")
+    ///     client = bh.IGSProductsClient("GARNER")
     ///     epoch = bh.Epoch(2024, 11, 10, 0, 0, 0.0, 0.0, time_system=bh.GPS)
     ///     product = client.list_products(epoch, center="COD", solution="FIN", content="ORB", format="SP3")[0]
     ///     path = client.download(product)
@@ -1452,7 +1528,7 @@ impl PyIGSProductsClient {
     ///
     ///     import brahe as bh
     ///
-    ///     client = bh.IGSProductsClient(source="GARNER")
+    ///     client = bh.IGSProductsClient("GARNER")
     ///     epoch = bh.Epoch(2024, 11, 10, 0, 0, 0.0, 0.0, time_system=bh.GPS)
     ///     product = client.list_products(epoch, center="COD", solution="FIN", content="ORB", format="SP3")[0]
     ///     with tempfile.TemporaryDirectory() as directory:
@@ -1470,112 +1546,6 @@ impl PyIGSProductsClient {
         py.detach(|| self.inner.save(&product, &destination, keep_cached))
             .map(|path| path.to_string_lossy().into_owned())
             .map_err(igs_py_err)
-    }
-
-    /// Downloads every product whose coverage overlaps ``[start, end]``.
-    ///
-    /// The products are those ``list_products_between`` returns, each
-    /// downloaded as ``download`` does.
-    ///
-    /// A solution, content, or format code that is not a known type is kept
-    /// as an ``Other`` value and matches only products published with that
-    /// code, so a misspelled code matches nothing.
-    ///
-    /// Args:
-    ///     start (Epoch): Start of the time range.
-    ///     end (Epoch): End of the time range, inclusive.
-    ///     center (str, optional): Analysis center code, such as ``"COD"``, in any case.
-    ///     solution (IGSSolutionType | str, optional): Solution type or its code, such as ``"FIN"``.
-    ///     content (IGSContentType | str, optional): Content type or its code, such as ``"ORB"``.
-    ///     format (IGSFileFormat | str, optional): File format or its code, such as ``"SP3"``.
-    ///
-    /// Returns:
-    ///     list[str]: Cached paths, ordered by product start epoch, then name.
-    ///
-    /// Raises:
-    ///     BraheError: If the listing fails or any download fails.
-    ///
-    /// Example:
-    ///     ```python
-    ///     import brahe as bh
-    ///
-    ///     client = bh.IGSProductsClient(source="GARNER")
-    ///     start = bh.Epoch(2024, 11, 11, 0, 0, 0.0, 0.0, time_system=bh.GPS)
-    ///     end = bh.Epoch(2024, 11, 12, 0, 0, 0.0, 0.0, time_system=bh.GPS)
-    ///     paths = client.download_between(start, end, center="IGS", solution="FIN", content="ORB", format="SP3")
-    ///     ```
-    #[allow(clippy::too_many_arguments)]
-    #[pyo3(signature = (start, end, *, center=None, solution=None, content=None, format=None))]
-    fn download_between(
-        &self,
-        py: Python<'_>,
-        start: &PyEpoch,
-        end: &PyEpoch,
-        center: Option<&str>,
-        solution: Option<&Bound<'_, PyAny>>,
-        content: Option<&Bound<'_, PyAny>>,
-        format: Option<&Bound<'_, PyAny>>,
-    ) -> PyResult<Vec<String>> {
-        let (start, end) = (start.obj, end.obj);
-        let filter = igs_product_filter(center, solution, content, format)?;
-        py.detach(|| self.inner.download_between(start, end, &filter))
-            .map(igs_path_strings)
-            .map_err(igs_py_err)
-    }
-
-    /// Downloads every product ``download_between`` would and writes each into ``directory``.
-    ///
-    /// Every product is downloaded before any is written. Each is then
-    /// written as ``save`` writes into a directory: gzip products
-    /// decompressed under their name without ``.gz``, other products
-    /// unchanged. ``directory`` is created if missing. With ``keep_cached``
-    /// False the cached files are removed; with ``keep_cached`` True they
-    /// stay.
-    ///
-    /// A solution, content, or format code that is not a known type is kept
-    /// as an ``Other`` value and matches only products published with that
-    /// code, so a misspelled code matches nothing.
-    ///
-    /// Args:
-    ///     start (Epoch): Start of the time range.
-    ///     end (Epoch): End of the time range, inclusive.
-    ///     directory (str): Directory to write into, outside the cache directory; any ``os.PathLike`` is accepted.
-    ///     center (str, optional): Analysis center code, such as ``"COD"``, in any case.
-    ///     solution (IGSSolutionType | str, optional): Solution type or its code, such as ``"FIN"``.
-    ///     content (IGSContentType | str, optional): Content type or its code, such as ``"ORB"``.
-    ///     format (IGSFileFormat | str, optional): File format or its code, such as ``"SP3"``.
-    ///     keep_cached (bool, optional): Leave the cached files in place. Default: False.
-    ///
-    /// Returns:
-    ///     list[str]: Paths written, ordered by product start epoch, then name.
-    ///
-    /// Raises:
-    ///     BraheError: If ``directory`` is an existing file or resolves inside the cache directory, both checked before anything is downloaded, or if the listing, a download, or a write fails.
-    #[allow(clippy::too_many_arguments)]
-    #[pyo3(signature = (
-        start, end, directory, *, center=None, solution=None, content=None, format=None,
-        keep_cached=false
-    ))]
-    fn save_between(
-        &self,
-        py: Python<'_>,
-        start: &PyEpoch,
-        end: &PyEpoch,
-        directory: PathBuf,
-        center: Option<&str>,
-        solution: Option<&Bound<'_, PyAny>>,
-        content: Option<&Bound<'_, PyAny>>,
-        format: Option<&Bound<'_, PyAny>>,
-        keep_cached: bool,
-    ) -> PyResult<Vec<String>> {
-        let (start, end) = (start.obj, end.obj);
-        let filter = igs_product_filter(center, solution, content, format)?;
-        py.detach(|| {
-            self.inner
-                .save_between(start, end, &filter, &directory, keep_cached)
-        })
-        .map(igs_path_strings)
-        .map_err(igs_py_err)
     }
 
     /// Downloads an SP3 orbit product, if it is not cached, and parses it.
@@ -1599,7 +1569,7 @@ impl PyIGSProductsClient {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     client = bh.IGSProductsClient(source="GARNER")
+    ///     client = bh.IGSProductsClient("GARNER")
     ///     epoch = bh.Epoch(2024, 11, 10, 0, 0, 0.0, 0.0, time_system=bh.GPS)
     ///     product = client.list_products(epoch, center="COD", solution="FIN", content="ORB", format="SP3")[0]
     ///     sp3 = client.download_sp3(product)
@@ -1642,7 +1612,7 @@ impl PyIGSProductsClient {
     /// Args:
     ///     start (Epoch): Start of the time range.
     ///     end (Epoch): End of the time range, inclusive.
-    ///     center (str): Analysis center code, in any case, for example ``"COD"``.
+    ///     center (IGSAnalysisCenter | str): Analysis center or its code, for example ``"COD"``.
     ///     solution (IGSSolutionType | str): Solution type or its code, for example ``"FIN"``.
     ///     pad (bool, optional): Add the days before and after the span when available. Default: True.
     ///     sampling (float, optional): Sampling interval of the long-name files to use, seconds. Default: the coarsest published.
@@ -1657,7 +1627,7 @@ impl PyIGSProductsClient {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     client = bh.IGSProductsClient(source="GARNER")
+    ///     client = bh.IGSProductsClient("GARNER")
     ///     start = bh.Epoch(2024, 11, 11, 0, 0, 0.0, 0.0, time_system=bh.GPS)
     ///     end = bh.Epoch(2024, 11, 12, 0, 0, 0.0, 0.0, time_system=bh.GPS)
     ///     files = client.download_sp3_range(start, end, "COD", "FIN")
@@ -1670,12 +1640,13 @@ impl PyIGSProductsClient {
         py: Python<'_>,
         start: &PyEpoch,
         end: &PyEpoch,
-        center: &str,
+        center: &Bound<'_, PyAny>,
         solution: &Bound<'_, PyAny>,
         pad: bool,
         sampling: Option<f64>,
     ) -> PyResult<Vec<PySP3>> {
         let (start, end) = (start.obj, end.obj);
+        let center = extract_igs_analysis_center(center)?;
         let solution = extract_igs_solution_type(solution)?;
         let mut options = igs::IGSRangeOptions::new().with_pad(pad);
         if let Some(sampling) = sampling {

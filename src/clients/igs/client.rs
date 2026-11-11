@@ -108,6 +108,27 @@ impl fmt::Debug for IGSProductsClient {
 }
 
 impl IGSProductsClient {
+    /// Creates a client for a source, base URL, and optional credentials.
+    ///
+    /// A trailing `/` is added to `base_url` when it is missing. The
+    /// credentials are sent only to the NASA Earthdata login service, and
+    /// only by a CDDIS client. The agent follows no redirects on its own;
+    /// [`IGSProductsClient::request`] follows them.
+    ///
+    /// # Arguments
+    /// * `source` - Archive to read from
+    /// * `base_url` - Directory URL that contains one subdirectory per GPS week
+    /// * `credentials` - NASA Earthdata username and password, for CDDIS
+    ///
+    /// # Returns
+    /// * `IGSProductsClient`: Client with the default listing cache age and retry count
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// let client = IGSProductsClient::build(IGSProductSource::BKG, "https://example.org/products", None);
+    /// assert_eq!(client.base_url(), "https://example.org/products/");
+    /// ```
     fn build(
         source: IGSProductSource,
         base_url: &str,
@@ -920,6 +941,14 @@ impl IGSProductsClient {
     /// # Returns
     /// * `Ok(Vec<(String, Option<u64>)>)`: File names and sizes in bytes, in listing order
     /// * `Err(BraheError)`: If the directory does not exist or the listing cannot be obtained
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// let client = IGSProductsClient::new(IGSProductSource::Garner);
+    /// let files = client.week_files(2340).unwrap();
+    /// assert!(files.iter().any(|(name, _)| name == "IGS0OPSFIN_20243150000_01D_15M_ORB.SP3.gz"));
+    /// ```
     fn week_files(&self, week: u32) -> Result<Vec<(String, Option<u64>)>, BraheError> {
         Ok(self.parse_files(&self.listing(Some(week))?))
     }
@@ -981,6 +1010,16 @@ impl IGSProductsClient {
     ///
     /// # Returns
     /// * `Vec<(String, Option<u64>)>`: File names and sizes in bytes, in listing order
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// let client = IGSProductsClient::with_cddis_credentials("user", "password");
+    /// assert_eq!(
+    ///     client.parse_files("igs23400.sp3.Z 97280\n"),
+    ///     vec![("igs23400.sp3.Z".to_string(), Some(97280))]
+    /// );
+    /// ```
     fn parse_files(&self, listing: &str) -> Vec<(String, Option<u64>)> {
         match self.source {
             IGSProductSource::CDDIS => plain_listing_files(listing),
@@ -1302,6 +1341,15 @@ impl IGSProductsClient {
     /// # Returns
     /// * `Ok(Response)`: The final `200` response, with its body unread
     /// * `Err(RequestError)`: `NotFound` for a 404, `Http` for a transport or status failure that may be retried, `Failed` for a failure that must not be
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// let client = IGSProductsClient::new(IGSProductSource::BKG);
+    /// let url = format!("{}2340/", client.base_url());
+    /// let response = client.request(&url, "BKG listing for GPS week 2340").unwrap();
+    /// assert_eq!(response.status(), 200);
+    /// ```
     fn request(&self, url: &str, resource: &str) -> Result<Response<ureq::Body>, RequestError> {
         let failed = |detail: String| RequestError::Failed(BraheError::Error(detail));
         let mut current = url.to_string();

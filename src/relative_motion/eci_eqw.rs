@@ -5,8 +5,9 @@
 use nalgebra::Vector3;
 
 use crate::math::{SMatrix3, SVector6};
+use crate::orbits::ascending_node_direction;
 use crate::relative_motion::common::{
-    absolute_states_to_relative_state, ascending_node_direction, relative_state_to_absolute_state,
+    absolute_states_to_relative_state, relative_state_to_absolute_state,
 };
 use crate::utils::BraheError;
 use crate::utils::batch::{batch_map, batch_zip};
@@ -56,7 +57,7 @@ pub fn rotation_eqw_to_eci(x_eci: SVector6) -> SMatrix3 {
     let h = r.cross(&v);
     let w_hat = h / h.norm();
 
-    let e_hat = ascending_node_direction(&w_hat);
+    let e_hat = ascending_node_direction(&x_eci);
     let q_hat = w_hat.cross(&e_hat);
 
     SMatrix3::from_columns(&[e_hat, q_hat, w_hat])

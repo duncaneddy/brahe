@@ -1,4 +1,4 @@
-# NSW Transformations
+# NSW Frame
 
 ::: brahe.rotation_nsw_to_eci
 

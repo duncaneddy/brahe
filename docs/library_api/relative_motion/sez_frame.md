@@ -1,4 +1,4 @@
-# SEZ Transformations
+# SEZ Frame
 
 ::: brahe.rotation_ecef_to_sez
 

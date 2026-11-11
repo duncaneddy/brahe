@@ -1,4 +1,4 @@
-# TNW Transformations
+# TNW Frame
 
 TNW is NTW with its in-plane axes reordered, $X_\mathrm{TNW} = Y_\mathrm{NTW}$ and $Y_\mathrm{TNW} = -X_\mathrm{NTW}$, so X lies along the velocity and Y points inward. Its rate is the NTW rate about Z.
 

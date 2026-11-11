@@ -5,7 +5,7 @@
 A `ReferenceFrame` is one of three variants:
 
 - **Celestial**: any `CelestialFrame` (`GCRF`, `ITRF`, `LFPA`, ...). Evaluable analytically from an epoch alone, exactly as in the router.
-- **Orbit-relative**: a local orbital frame of one object (`RTN`, `LVLH`, `NTW`, `TNW`, `PQW`, `EQW`, `SEZ`, `VNC`, `NSW`, or `ENZ`), either rotating with the orbit or frozen as an inertial snapshot at each evaluation epoch. Every kind has an axes derivation (../relative_motion/index.md#orbit-relative-frames)); `SEZ` and `ENZ` are topocentric frames on the WGS84 ellipsoid and are evaluable only for Earth-centered objects.
+- **Orbit-relative**: a local orbital frame of one object (`RTN`, `LVLH`, `NTW`, `TNW`, `PQW`, `EQW`, `SEZ`, `VNC`, `NSW`, or `ENZ`), either rotating with the orbit or frozen as an inertial snapshot at each evaluation epoch. Every kind has an axes derivation (see [Orbit-Relative Frames](../relative_motion/index.md#orbit-relative-frames)); `SEZ` and `ENZ` are topocentric frames on the WGS84 ellipsoid and are evaluable only for Earth-centered objects.
 
 - **Body**: an object-local frame with no global transformation, such as a spacecraft body frame, a sensor, an actuator, or an instrument.
 

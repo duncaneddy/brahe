@@ -530,7 +530,7 @@ impl PyIGSNameStyle {
 ///     import brahe as bh
 ///
 ///     name = bh.IGSProductFileName.parse("COD0OPSFIN_20243150000_01D_05M_ORB.SP3.gz")
-///     assert name.center == "COD"
+///     assert name.center == bh.IGSAnalysisCenter.COD
 ///     assert name.solution == bh.IGSSolutionType.FINAL
 ///     assert name.content == bh.IGSContentType.ORBIT
 ///     assert name.gps_week == 2340
@@ -564,7 +564,7 @@ impl PyIGSProductFileName {
     ///     import brahe as bh
     ///
     ///     name = bh.IGSProductFileName.parse("IGS0OPSFIN_20243150000_01D_15M_ORB.SP3.gz")
-    ///     assert name.center == "IGS"
+    ///     assert name.center == bh.IGSAnalysisCenter.IGS
     ///     assert name.gps_week == 2340
     ///     assert name.is_sp3
     ///
@@ -587,13 +587,13 @@ impl PyIGSProductFileName {
         PyIGSNameStyle { inner: self.inner.name_style() }
     }
 
-    /// Analysis-center code in uppercase, for example ``COD``.
+    /// Analysis center that produced the product.
     ///
     /// Returns:
-    ///     str: Center code.
+    ///     IGSAnalysisCenter: The analysis center.
     #[getter]
-    fn center(&self) -> String {
-        self.inner.center().to_string()
+    fn center(&self) -> PyIGSAnalysisCenter {
+        PyIGSAnalysisCenter { inner: self.inner.center().clone() }
     }
 
     /// Product version digit. Only long names carry one.
@@ -722,48 +722,148 @@ impl PyIGSProductFileName {
     }
 }
 
-/// An IGS analysis center: its product file-name code and institution name.
+/// Analysis center that produced an IGS product.
+///
+/// Codes other than the listed ones, such as the short-name combination codes
+/// ``IGL`` and ``IGV``, are kept as they appear, uppercased, and compare equal
+/// to other centers parsed from the same code.
 ///
 /// Example:
 ///     ```python
 ///     import brahe as bh
 ///
-///     center = bh.IGSAnalysisCenter.from_code("cod")
-///     assert center.code == "COD"
-///     assert center.name == "Center for Orbit Determination in Europe"
-///     assert bh.IGSAnalysisCenter.from_code("XYZ") is None
+///     assert bh.IGSAnalysisCenter.parse("cod") == bh.IGSAnalysisCenter.COD
+///     assert bh.IGSAnalysisCenter.JPL.code == "JPL"
+///     assert bh.IGSAnalysisCenter.JPL.name == "Jet Propulsion Laboratory"
+///     assert bh.IGSAnalysisCenter.parse("igl").code == "IGL"
 ///     ```
 #[pyclass(module = "brahe._brahe", from_py_object)]
 #[pyo3(name = "IGSAnalysisCenter")]
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct PyIGSAnalysisCenter {
     pub(crate) inner: igs::IGSAnalysisCenter,
 }
 
 #[pymethods]
 impl PyIGSAnalysisCenter {
-    /// Look up an analysis center by its product file-name code.
+    /// Center for Orbit Determination in Europe (``COD``).
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn COD() -> Self {
+        Self { inner: igs::IGSAnalysisCenter::COD }
+    }
+
+    /// Natural Resources Canada (``EMR``).
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn EMR() -> Self {
+        Self { inner: igs::IGSAnalysisCenter::EMR }
+    }
+
+    /// European Space Agency/ESOC (``ESA``).
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn ESA() -> Self {
+        Self { inner: igs::IGSAnalysisCenter::ESA }
+    }
+
+    /// GFZ Helmholtz Centre for Geosciences (``GFZ``).
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn GFZ() -> Self {
+        Self { inner: igs::IGSAnalysisCenter::GFZ }
+    }
+
+    /// Geodetic Observatory Pecny (``GOP``).
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn GOP() -> Self {
+        Self { inner: igs::IGSAnalysisCenter::GOP }
+    }
+
+    /// Space geodesy team of the CNES (``GRG``).
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn GRG() -> Self {
+        Self { inner: igs::IGSAnalysisCenter::GRG }
+    }
+
+    /// Geospatial Information Authority of Japan and Japan Aerospace Exploration Agency (``JGX``).
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn JGX() -> Self {
+        Self { inner: igs::IGSAnalysisCenter::JGX }
+    }
+
+    /// Jet Propulsion Laboratory (``JPL``).
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn JPL() -> Self {
+        Self { inner: igs::IGSAnalysisCenter::JPL }
+    }
+
+    /// Massachusetts Institute of Technology (``MIT``).
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn MIT() -> Self {
+        Self { inner: igs::IGSAnalysisCenter::MIT }
+    }
+
+    /// NOAA/National Geodetic Survey (``NGS``).
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn NGS() -> Self {
+        Self { inner: igs::IGSAnalysisCenter::NGS }
+    }
+
+    /// Scripps Institution of Oceanography (``SIO``).
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn SIO() -> Self {
+        Self { inner: igs::IGSAnalysisCenter::SIO }
+    }
+
+    /// U.S. Naval Observatory (``USN``).
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn USN() -> Self {
+        Self { inner: igs::IGSAnalysisCenter::USN }
+    }
+
+    /// Wuhan University (``WHU``).
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn WHU() -> Self {
+        Self { inner: igs::IGSAnalysisCenter::WHU }
+    }
+
+    /// International GNSS Service combined products (``IGS``).
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn IGS() -> Self {
+        Self { inner: igs::IGSAnalysisCenter::IGS }
+    }
+
+    /// Parse a center code.
     ///
-    /// Short-name combination and variant codes such as IGL, IGV and COF are not
-    /// analysis centers in the table and return None.
+    /// Matching is case-insensitive. Unlisted codes are kept, uppercased.
     ///
     /// Args:
-    ///     code (str): Three-letter center code, case-insensitive.
+    ///     code (str): Three-letter center code, for example ``"COD"``.
     ///
     /// Returns:
-    ///     IGSAnalysisCenter | None: The matching center, or None if the code is not in the table.
+    ///     IGSAnalysisCenter: The parsed center.
     ///
     /// Example:
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     center = bh.IGSAnalysisCenter.from_code("cod")
-    ///     assert center.code == "COD"
-    ///     assert bh.IGSAnalysisCenter.from_code("IGV") is None
+    ///     assert bh.IGSAnalysisCenter.parse("gfz") == bh.IGSAnalysisCenter.GFZ
+    ///     assert bh.IGSAnalysisCenter.parse("xyz").code == "XYZ"
     ///     ```
     #[staticmethod]
-    fn from_code(code: &str) -> Option<Self> {
-        igs::IGSAnalysisCenter::from_code(code).map(|center| Self { inner: *center })
+    fn parse(code: &str) -> Self {
+        Self { inner: igs::IGSAnalysisCenter::parse(code) }
     }
 
     /// Three-letter code used in product file names, uppercase.
@@ -772,24 +872,29 @@ impl PyIGSAnalysisCenter {
     ///     str: Center code.
     #[getter]
     fn code(&self) -> String {
-        self.inner.code.to_string()
+        self.inner.code().to_string()
     }
 
-    /// Full name of the institution.
+    /// Name of the institution.
     ///
     /// Returns:
-    ///     str: Institution name.
+    ///     str | None: Institution name, or None for an unlisted code.
     #[getter]
-    fn name(&self) -> String {
-        self.inner.name.to_string()
+    fn name(&self) -> Option<&'static str> {
+        self.inner.name()
     }
 
     fn __str__(&self) -> String {
-        self.inner.code.to_string()
+        self.inner.code().to_string()
     }
 
     fn __repr__(&self) -> String {
-        format!("IGSAnalysisCenter(code='{}', name='{}')", self.inner.code, self.inner.name)
+        match self.inner {
+            igs::IGSAnalysisCenter::Other(ref code) => {
+                format!("IGSAnalysisCenter.parse('{}')", code)
+            }
+            ref center => format!("IGSAnalysisCenter.{}", center.code()),
+        }
     }
 
     fn __eq__(&self, other: &Self) -> bool {
@@ -799,25 +904,4 @@ impl PyIGSAnalysisCenter {
     fn __hash__(&self) -> u64 {
         igs_hash(&self.inner)
     }
-}
-
-/// List every IGS analysis center in the table.
-///
-/// Returns:
-///     list[IGSAnalysisCenter]: The centers, ordered by code with ``IGS`` last.
-///
-/// Example:
-///     ```python
-///     import brahe as bh
-///
-///     codes = [center.code for center in bh.list_analysis_centers()]
-///     assert "JPL" in codes
-///     ```
-#[pyfunction]
-#[pyo3(name = "list_analysis_centers")]
-fn py_list_analysis_centers() -> Vec<PyIGSAnalysisCenter> {
-    igs::list_analysis_centers()
-        .iter()
-        .map(|center| PyIGSAnalysisCenter { inner: *center })
-        .collect()
 }

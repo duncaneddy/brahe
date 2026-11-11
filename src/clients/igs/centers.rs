@@ -1,7 +1,7 @@
 /*!
  * IGS analysis centers.
  *
- * The table lists the three-letter center codes that appear in IGS product
+ * The variants are the three-letter center codes that appear in IGS product
  * file names, with the institution names from the IGS Analysis Center
  * Coordinator page, <https://igs.org/acc/#ac-list>. That page abbreviates a
  * few centers differently from their file-name codes (CODE is `COD`, USNO is
@@ -9,180 +9,219 @@
  * here. `IGS` is the code of the combined IGS products.
  */
 
-/// An IGS analysis center.
+/// Analysis center that produced an IGS product.
+///
+/// Codes that are not listed, such as the short-name combination codes `IGL`
+/// and `IGV`, are kept, uppercased, in [`IGSAnalysisCenter::Other`].
 ///
 /// # Examples
 ///
 /// ```
 /// use brahe::igs::IGSAnalysisCenter;
 ///
-/// let center = IGSAnalysisCenter::from_code("cod").unwrap();
-/// assert_eq!(center.code, "COD");
-/// assert_eq!(center.name, "Center for Orbit Determination in Europe");
+/// assert_eq!(IGSAnalysisCenter::parse("cod"), IGSAnalysisCenter::COD);
+/// assert_eq!(IGSAnalysisCenter::JPL.code(), "JPL");
+/// assert_eq!(IGSAnalysisCenter::JPL.name(), Some("Jet Propulsion Laboratory"));
+/// assert_eq!(IGSAnalysisCenter::parse("igl"), IGSAnalysisCenter::Other("IGL".to_string()));
 /// ```
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct IGSAnalysisCenter {
-    /// Three-letter code used in product file names, uppercase.
-    pub code: &'static str,
-    /// Full name of the institution.
-    pub name: &'static str,
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[allow(clippy::upper_case_acronyms)]
+pub enum IGSAnalysisCenter {
+    /// Center for Orbit Determination in Europe (`COD`).
+    COD,
+    /// Natural Resources Canada (`EMR`).
+    EMR,
+    /// European Space Agency/ESOC (`ESA`).
+    ESA,
+    /// GFZ Helmholtz Centre for Geosciences (`GFZ`).
+    GFZ,
+    /// Geodetic Observatory Pecny (`GOP`).
+    GOP,
+    /// Space geodesy team of the CNES (`GRG`).
+    GRG,
+    /// Geospatial Information Authority of Japan and Japan Aerospace Exploration Agency (`JGX`).
+    JGX,
+    /// Jet Propulsion Laboratory (`JPL`).
+    JPL,
+    /// Massachusetts Institute of Technology (`MIT`).
+    MIT,
+    /// NOAA/National Geodetic Survey (`NGS`).
+    NGS,
+    /// Scripps Institution of Oceanography (`SIO`).
+    SIO,
+    /// U.S. Naval Observatory (`USN`).
+    USN,
+    /// Wuhan University (`WHU`).
+    WHU,
+    /// International GNSS Service combined products (`IGS`).
+    IGS,
+    /// Any other center code, stored uppercased.
+    Other(String),
 }
 
-static ANALYSIS_CENTERS: [IGSAnalysisCenter; 14] = [
-    IGSAnalysisCenter {
-        code: "COD",
-        name: "Center for Orbit Determination in Europe",
-    },
-    IGSAnalysisCenter {
-        code: "EMR",
-        name: "Natural Resources Canada",
-    },
-    IGSAnalysisCenter {
-        code: "ESA",
-        name: "European Space Agency/ESOC",
-    },
-    IGSAnalysisCenter {
-        code: "GFZ",
-        name: "GFZ Helmholtz Centre for Geosciences",
-    },
-    IGSAnalysisCenter {
-        code: "GOP",
-        name: "Geodetic Observatory Pecny",
-    },
-    IGSAnalysisCenter {
-        code: "GRG",
-        name: "Space geodesy team of the CNES",
-    },
-    IGSAnalysisCenter {
-        code: "JGX",
-        name: "Geospatial Information Authority of Japan and Japan Aerospace Exploration Agency",
-    },
-    IGSAnalysisCenter {
-        code: "JPL",
-        name: "Jet Propulsion Laboratory",
-    },
-    IGSAnalysisCenter {
-        code: "MIT",
-        name: "Massachusetts Institute of Technology",
-    },
-    IGSAnalysisCenter {
-        code: "NGS",
-        name: "NOAA/National Geodetic Survey",
-    },
-    IGSAnalysisCenter {
-        code: "SIO",
-        name: "Scripps Institution of Oceanography",
-    },
-    IGSAnalysisCenter {
-        code: "USN",
-        name: "U.S. Naval Observatory",
-    },
-    IGSAnalysisCenter {
-        code: "WHU",
-        name: "Wuhan University",
-    },
-    IGSAnalysisCenter {
-        code: "IGS",
-        name: "International GNSS Service (combined products)",
-    },
-];
-
 impl IGSAnalysisCenter {
-    /// Looks up an analysis center by its product file-name code.
+    /// Parses a center code.
     ///
-    /// Matching is case-insensitive. Short-name combination and variant codes
-    /// such as `IGL`, `IGV` and `COF` are not analysis centers in the table
-    /// and return `None`.
+    /// Matching is case-insensitive. Unlisted codes are kept, uppercased, in
+    /// [`IGSAnalysisCenter::Other`].
     ///
     /// # Arguments
     /// * `code` - Three-letter center code, for example `"COD"` or `"cod"`
     ///
     /// # Returns
-    /// * `Some(&IGSAnalysisCenter)`: The matching center
-    /// * `None`: If the code is not in the table
+    /// * `IGSAnalysisCenter`: The parsed center
     ///
     /// # Examples
     ///
     /// ```
     /// use brahe::igs::IGSAnalysisCenter;
     ///
-    /// assert_eq!(IGSAnalysisCenter::from_code("gfz").unwrap().code, "GFZ");
-    /// assert!(IGSAnalysisCenter::from_code("XYZ").is_none());
+    /// assert_eq!(IGSAnalysisCenter::parse("gfz"), IGSAnalysisCenter::GFZ);
+    /// assert_eq!(IGSAnalysisCenter::parse("xyz"), IGSAnalysisCenter::Other("XYZ".to_string()));
     /// ```
-    pub fn from_code(code: &str) -> Option<&'static IGSAnalysisCenter> {
-        ANALYSIS_CENTERS
-            .iter()
-            .find(|center| center.code.eq_ignore_ascii_case(code))
+    pub fn parse(code: &str) -> Self {
+        let upper = code.to_ascii_uppercase();
+        match upper.as_str() {
+            "COD" => Self::COD,
+            "EMR" => Self::EMR,
+            "ESA" => Self::ESA,
+            "GFZ" => Self::GFZ,
+            "GOP" => Self::GOP,
+            "GRG" => Self::GRG,
+            "JGX" => Self::JGX,
+            "JPL" => Self::JPL,
+            "MIT" => Self::MIT,
+            "NGS" => Self::NGS,
+            "SIO" => Self::SIO,
+            "USN" => Self::USN,
+            "WHU" => Self::WHU,
+            "IGS" => Self::IGS,
+            _ => Self::Other(upper),
+        }
     }
-}
 
-/// Returns every analysis center in the table.
-///
-/// # Returns
-/// * `&'static [IGSAnalysisCenter]`: The centers, ordered by code with `IGS` last
-///
-/// # Examples
-///
-/// ```
-/// use brahe::igs::list_analysis_centers;
-///
-/// let codes: Vec<&str> = list_analysis_centers().iter().map(|c| c.code).collect();
-/// assert!(codes.contains(&"JPL"));
-/// assert!(codes.contains(&"IGS"));
-/// ```
-pub fn list_analysis_centers() -> &'static [IGSAnalysisCenter] {
-    &ANALYSIS_CENTERS
+    /// Returns the three-letter code used in product file names.
+    ///
+    /// # Returns
+    /// * `&str`: The uppercase center code, for example `"COD"`
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::igs::IGSAnalysisCenter;
+    ///
+    /// assert_eq!(IGSAnalysisCenter::COD.code(), "COD");
+    /// assert_eq!(IGSAnalysisCenter::Other("IGL".to_string()).code(), "IGL");
+    /// ```
+    pub fn code(&self) -> &str {
+        match self {
+            Self::COD => "COD",
+            Self::EMR => "EMR",
+            Self::ESA => "ESA",
+            Self::GFZ => "GFZ",
+            Self::GOP => "GOP",
+            Self::GRG => "GRG",
+            Self::JGX => "JGX",
+            Self::JPL => "JPL",
+            Self::MIT => "MIT",
+            Self::NGS => "NGS",
+            Self::SIO => "SIO",
+            Self::USN => "USN",
+            Self::WHU => "WHU",
+            Self::IGS => "IGS",
+            Self::Other(code) => code,
+        }
+    }
+
+    /// Returns the name of the institution.
+    ///
+    /// # Returns
+    /// * `Option<&'static str>`: The institution name, or `None` for [`IGSAnalysisCenter::Other`]
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::igs::IGSAnalysisCenter;
+    ///
+    /// assert_eq!(IGSAnalysisCenter::WHU.name(), Some("Wuhan University"));
+    /// assert_eq!(IGSAnalysisCenter::parse("xyz").name(), None);
+    /// ```
+    pub fn name(&self) -> Option<&'static str> {
+        match self {
+            Self::COD => Some("Center for Orbit Determination in Europe"),
+            Self::EMR => Some("Natural Resources Canada"),
+            Self::ESA => Some("European Space Agency/ESOC"),
+            Self::GFZ => Some("GFZ Helmholtz Centre for Geosciences"),
+            Self::GOP => Some("Geodetic Observatory Pecny"),
+            Self::GRG => Some("Space geodesy team of the CNES"),
+            Self::JGX => Some(
+                "Geospatial Information Authority of Japan and Japan Aerospace Exploration Agency",
+            ),
+            Self::JPL => Some("Jet Propulsion Laboratory"),
+            Self::MIT => Some("Massachusetts Institute of Technology"),
+            Self::NGS => Some("NOAA/National Geodetic Survey"),
+            Self::SIO => Some("Scripps Institution of Oceanography"),
+            Self::USN => Some("U.S. Naval Observatory"),
+            Self::WHU => Some("Wuhan University"),
+            Self::IGS => Some("International GNSS Service (combined products)"),
+            Self::Other(_) => None,
+        }
+    }
 }
 
 #[cfg(test)]
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
+    use rstest::rstest;
     use serial_test::parallel;
 
-    #[test]
+    #[rstest]
+    #[case("COD", IGSAnalysisCenter::COD)]
+    #[case("EMR", IGSAnalysisCenter::EMR)]
+    #[case("ESA", IGSAnalysisCenter::ESA)]
+    #[case("GFZ", IGSAnalysisCenter::GFZ)]
+    #[case("GOP", IGSAnalysisCenter::GOP)]
+    #[case("GRG", IGSAnalysisCenter::GRG)]
+    #[case("JGX", IGSAnalysisCenter::JGX)]
+    #[case("JPL", IGSAnalysisCenter::JPL)]
+    #[case("MIT", IGSAnalysisCenter::MIT)]
+    #[case("NGS", IGSAnalysisCenter::NGS)]
+    #[case("SIO", IGSAnalysisCenter::SIO)]
+    #[case("USN", IGSAnalysisCenter::USN)]
+    #[case("WHU", IGSAnalysisCenter::WHU)]
+    #[case("IGS", IGSAnalysisCenter::IGS)]
     #[parallel]
-    fn test_igs_analysis_center_from_code_case_insensitive() {
-        let center = IGSAnalysisCenter::from_code("cod").unwrap();
-        assert_eq!(center.code, "COD");
-        assert_eq!(center.name, "Center for Orbit Determination in Europe");
-        assert_eq!(IGSAnalysisCenter::from_code("Cod"), Some(center));
+    fn test_igs_analysis_center_code_round_trip(
+        #[case] code: &str,
+        #[case] center: IGSAnalysisCenter,
+    ) {
+        assert_eq!(IGSAnalysisCenter::parse(code), center);
+        assert_eq!(IGSAnalysisCenter::parse(&code.to_ascii_lowercase()), center);
+        assert_eq!(center.code(), code);
+        assert!(center.name().is_some_and(|name| !name.is_empty()));
     }
 
     #[test]
     #[parallel]
-    fn test_igs_analysis_center_from_code_unknown() {
-        assert!(IGSAnalysisCenter::from_code("XYZ").is_none());
-        assert!(IGSAnalysisCenter::from_code("").is_none());
-        assert!(IGSAnalysisCenter::from_code("CODE").is_none());
+    fn test_igs_analysis_center_parse_case_insensitive() {
+        assert_eq!(IGSAnalysisCenter::parse("Cod"), IGSAnalysisCenter::COD);
+        assert_eq!(
+            IGSAnalysisCenter::COD.name(),
+            Some("Center for Orbit Determination in Europe")
+        );
     }
 
     #[test]
     #[parallel]
-    fn test_igs_list_analysis_centers_contents() {
-        let codes: Vec<&str> = list_analysis_centers().iter().map(|c| c.code).collect();
-        for expected in [
-            "COD", "EMR", "ESA", "GFZ", "GRG", "JPL", "MIT", "NGS", "SIO", "USN", "WHU", "IGS",
-        ] {
-            assert!(codes.contains(&expected), "missing {}", expected);
-        }
-    }
-
-    #[test]
-    #[parallel]
-    fn test_igs_list_analysis_centers_well_formed() {
-        let centers = list_analysis_centers();
-        for (i, center) in centers.iter().enumerate() {
-            assert_eq!(center.code.len(), 3);
-            assert!(center.code.chars().all(|c| c.is_ascii_uppercase()));
-            assert!(!center.name.is_empty());
-            assert!(
-                centers[i + 1..]
-                    .iter()
-                    .all(|other| other.code != center.code),
-                "duplicate code {}",
-                center.code
-            );
-        }
+    fn test_igs_analysis_center_parse_unknown() {
+        let center = IGSAnalysisCenter::parse("xyz");
+        assert_eq!(center, IGSAnalysisCenter::Other("XYZ".to_string()));
+        assert_eq!(center.code(), "XYZ");
+        assert_eq!(center.name(), None);
+        assert_eq!(
+            IGSAnalysisCenter::parse("CODE"),
+            IGSAnalysisCenter::Other("CODE".to_string())
+        );
     }
 }

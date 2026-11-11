@@ -6,13 +6,13 @@
  * parses the archive's two file-name conventions, the long
  * `CCCVPPPTTT_YYYYDDDHHMM_LEN_SMP_CNT.FMT` names used from GPS week 2238 and
  * the short `cccwwwwd.ext` names used before it, into typed fields.
- * [`IGSAnalysisCenter`] lists the analysis centers that publish them.
+ * [`IGSAnalysisCenter`] names the analysis centers that publish them.
  */
 
 pub mod centers;
 pub mod file_name;
 
-pub use centers::{IGSAnalysisCenter, list_analysis_centers};
+pub use centers::IGSAnalysisCenter;
 pub use file_name::{
     IGSCompression, IGSContentType, IGSFileFormat, IGSNameStyle, IGSProductFileName,
     IGSSolutionType,

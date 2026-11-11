@@ -53,14 +53,18 @@ pub(crate) fn relative_state_to_absolute_state(
     x_chief + state_rotating_to_inertial(r_eci_to_frame, omega, &x_rel)
 }
 
-/// True-anomaly rate of an orbit, `ḟ = |r × v| / r²`, the rate at which the
-/// radial direction rotates under two-body motion.
+/// Angular rate of the radial direction about the orbit normal,
+/// `|r × v| / r²`.
+///
+/// The expression is the instantaneous rotation rate of the position vector
+/// for any motion. On a two-body orbit the apsidal line is fixed, so it is
+/// also the true-anomaly rate `ḟ`.
 ///
 /// # Arguments
 /// - `x_inertial`: Cartesian state in an inertial frame (position, velocity) (m, m/s)
 ///
 /// # Returns
-/// - True-anomaly rate (rad/s)
+/// - Angular rate of the radial direction, equal to the two-body true-anomaly rate (rad/s)
 ///
 /// # References:
 /// - K. T. Alfriend, S. R. Vadali, P. Gurfil, J. P. How, L. S. Breger, *Spacecraft Formation Flying*, Elsevier, 2010, eq. 2.16

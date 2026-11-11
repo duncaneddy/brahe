@@ -1,4 +1,4 @@
-# LVLH Transformations
+# LVLH Frame
 
 LVLH (Local Vertical, Local Horizontal) places Z along nadir, Y opposite the orbit normal, and X completing the right-handed set. Its rate is the true-anomaly rate about $-Y$. Some references, including Vallado and STK, use the name LVLH for the RTN axes. In brahe the two are distinct frames, related by $X_\mathrm{LVLH} = T$, $Y_\mathrm{LVLH} = -N$, and $Z_\mathrm{LVLH} = -R$.
 

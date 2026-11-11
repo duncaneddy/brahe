@@ -295,7 +295,7 @@ nav:
           - Modified ITC Format: learn/ephemeris/itc.md
       - Data Files:
           - learn/datafiles/index.md
-          - SP3 Precise Orbits: learn/datafiles/sp3.md
+          - SP3: learn/datafiles/sp3.md
       - Space Weather:
           - learn/space_weather/index.md
           - learn/space_weather/managing_space_weather_data.md

@@ -1,4 +1,4 @@
-# PQW Transformations
+# PQW Frame
 
 ::: brahe.rotation_pqw_to_eci
 

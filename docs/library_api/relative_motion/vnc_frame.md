@@ -1,4 +1,4 @@
-# VNC Transformations
+# VNC Frame
 
 ::: brahe.rotation_vnc_to_eci
 

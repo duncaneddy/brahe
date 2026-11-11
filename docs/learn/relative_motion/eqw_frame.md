@@ -28,4 +28,4 @@ The equinoctial frame EQW places E along the ascending node, W along the orbit n
 ## See Also
 
 - [Relative Motion](index.md) - Frame variants, rates, and covariance transformation
-- [EQW Transformations API Reference](../../library_api/relative_motion/eqw_transformations.md)
+- [EQW Frame API Reference](../../library_api/relative_motion/eqw_frame.md)

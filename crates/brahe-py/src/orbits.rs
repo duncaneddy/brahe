@@ -142,6 +142,54 @@ fn py_orbital_period_from_state<'py>(
     })
 }
 
+/// Computes the unit vector toward the ascending node of an orbit from its Cartesian state.
+///
+/// The line of nodes is perpendicular to both the inertial z axis and the orbit normal
+/// `h = r x v`, and `z x h` points at the ascending node. On an equatorial orbit the node is
+/// undefined and the inertial x axis projected into the orbit plane is returned, which
+/// corresponds to a right ascension of the ascending node of zero.
+///
+/// Args:
+///     state_eci (numpy.ndarray or list): Cartesian inertial state vector [x, y, z, vx, vy, vz] in meters and meters/second.
+///         Also accepts a batch of states with the 6 components along `axis`
+///         (for example shape `(n, 6)`).
+///     axis (int, optional): The axis of `state_eci` along which the 6 state components of a
+///         single vector lie; the remaining axes enumerate the batch. For a batch of
+///         shape `(n, 6)` the components lie along the last axis, so the default `-1`
+///         applies; a `(6, n)` column layout uses `axis=0`.
+///
+/// Returns:
+///     numpy.ndarray: Unit vector toward the ascending node, in inertial axes.
+///         Batched input returns the batch dimensions with the 3 components along `axis`.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     oe = np.array([bh.R_EARTH + 500e3, 0.01, 97.8, 15.0, 30.0, 45.0])
+///     state_eci = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
+///
+///     # [cos(15 deg), sin(15 deg), 0]
+///     node = bh.ascending_node_direction(state_eci)
+///     ```
+#[pyfunction]
+#[pyo3(signature = (state_eci, axis=-1), text_signature = "(state_eci, axis=-1)")]
+#[pyo3(name = "ascending_node_direction")]
+fn py_ascending_node_direction<'py>(
+    py: Python<'py>,
+    state_eci: &Bound<'py, PyAny>,
+    axis: isize,
+) -> PyResult<Bound<'py, PyAny>> {
+    dispatch_vec_map::<6, 3>(
+        py,
+        state_eci,
+        axis,
+        |s| orbits::ascending_node_direction(&s),
+        |states| states.iter().map(orbits::ascending_node_direction).collect(),
+    )
+}
+
 /// Computes the mean motion of an astronomical object around Earth.
 ///
 /// Args:

@@ -89,8 +89,8 @@ pub fn rotation_eci_to_vnc(x_eci: SVector6) -> SMatrix3 {
 /// VNC axes.
 ///
 /// The VNC axes are built from the velocity direction and the orbit normal, and the orbit
-/// normal is the Y axis, so the frame turns about Y at `ω_v = μ|h|/(r³v²)`, the two-body rate
-/// at which the unit velocity rotates. The rate is exact under two-body motion and is the rate
+/// normal is the Y axis, so the frame turns about Y at `ω_v = μ|h|/(r³v²)`, the rate `|v × a|/v²` at
+/// which the unit velocity rotates under the two-body acceleration `a = −μr/r³`. The rate is exact under two-body motion and is the rate
 /// of the osculating frame otherwise. On a circular orbit it equals the mean motion.
 ///
 /// # Arguments:
@@ -99,9 +99,6 @@ pub fn rotation_eci_to_vnc(x_eci: SVector6) -> SMatrix3 {
 ///
 /// # Returns:
 /// - `omega`: Angular velocity of the VNC frame relative to the inertial frame, expressed in VNC axes (rad/s)
-///
-/// # References:
-/// - H. Schaub and J. L. Junkins, *Analytical Mechanics of Space Systems*, 4th ed., AIAA, 2018, Section 3.3
 ///
 /// # Examples:
 /// ```
@@ -345,9 +342,6 @@ pub fn rotations_eci_to_vnc(x_eci: &[SVector6]) -> Vec<SMatrix3> {
 /// # Returns
 /// - Angular velocities of the VNC frame relative to the inertial frame, expressed in VNC
 ///   axes, one per state, in input order. Units: (*rad/s*)
-///
-/// # References
-/// - H. Schaub and J. L. Junkins, *Analytical Mechanics of Space Systems*, 4th ed., AIAA, 2018, Section 3.3
 ///
 /// # Examples
 /// ```

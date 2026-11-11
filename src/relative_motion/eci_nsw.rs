@@ -136,7 +136,8 @@ pub fn rotation_eci_to_nsw(x_eci: SVector6, x_sun: SVector6) -> SMatrix3 {
 /// NSW axes.
 ///
 /// The rate follows from the time derivatives of the basis vectors,
-/// `ω = [ẏ·ẑ, ż·x̂, ẋ·ŷ]`, with the nadir derivative from the spacecraft velocity and the
+/// `ω = [ẏ·ẑ, ż·x̂, ẋ·ŷ]`, which holds because each basis vector satisfies `ė = ω × e`,
+/// with the nadir derivative from the spacecraft velocity and the
 /// Sun-direction derivative from the Sun's velocity relative to the spacecraft. It is purely
 /// kinematic and needs no gravitational parameter. Passing a Sun state with zero velocity gives
 /// the fixed-Sun approximation, which omits a term of order 2e-7 rad/s for an Earth orbit.
@@ -151,9 +152,6 @@ pub fn rotation_eci_to_nsw(x_eci: SVector6, x_sun: SVector6) -> SMatrix3 {
 ///
 /// # Returns:
 /// - `omega`: Angular velocity of the NSW frame relative to ECI, expressed in NSW axes (rad/s)
-///
-/// # References:
-/// - H. Schaub and J. L. Junkins, *Analytical Mechanics of Space Systems*, 4th ed., AIAA, 2018, Section 3.3
 ///
 /// # Examples:
 /// ```
@@ -325,9 +323,6 @@ pub fn rotations_eci_to_nsw(
 /// - Angular velocities of the NSW frame relative to ECI, expressed in NSW axes, in input
 ///   order. Units: (*rad/s*)
 /// - Error if the lengths do not satisfy the broadcast rule
-///
-/// # References
-/// - H. Schaub and J. L. Junkins, *Analytical Mechanics of Space Systems*, 4th ed., AIAA, 2018, Section 3.3
 ///
 /// # Examples
 /// ```

@@ -1,4 +1,4 @@
-# NTW Transformations
+# NTW Frame
 
 NTW places Y along the velocity, Z along the orbit normal, and $X = Y \times Z$ in the orbit plane, pointing outward. It coincides with RTN on a circular orbit and differs from it by the flight-path angle otherwise. Its rate is the two-body turn rate of the velocity direction, $\mu |h| / (r^3 v^2)$ about Z.
 

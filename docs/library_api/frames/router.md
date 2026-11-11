@@ -50,4 +50,4 @@
 - [Mars Frames](mars.md) - Mars-centered frame transformations
 - [CentralBody / ForceModelConfig](../propagators/force_model_config.md) - Multibody propagation configuration
 - [Reference Frames Module](index.md) - Complete API reference for frames module
-- [Orbit-Relative Frames (Learn)](../../learn/relative_motion/orbit_relative_frames.md) - Covariance transformation into local orbital frames
+- [Orbit-Relative Frames (Learn)](../../learn/relative_motion/index.md#covariance) - Covariance transformation into local orbital frames

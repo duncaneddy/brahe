@@ -1,4 +1,4 @@
-# RTN Transformations
+# RTN Frame
 
 The RTN (Radial-Transverse-Normal) frame is an orbital reference frame that moves
 with the satellite. It is commonly used for relative motion analysis and formation

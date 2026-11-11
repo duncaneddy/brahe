@@ -1,4 +1,4 @@
-# ENZ Transformations
+# ENZ Frame
 
 ENZ is the topocentric horizon frame with E pointing east, N north, and Z along the geodetic vertical. It is SEZ with its horizontal axes reordered, $E_\mathrm{ENZ} = E_\mathrm{SEZ}$ and $N_\mathrm{ENZ} = -S_\mathrm{SEZ}$, and its functions take the same ECEF site and target states.
 

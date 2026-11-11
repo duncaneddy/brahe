@@ -47,6 +47,14 @@ pub(crate) fn is_retryable_error(e: &ureq::Error) -> bool {
 /// # Returns
 /// * `Some(Duration)`: The wait, zero for a date in the past, at most 30 seconds
 /// * `None`: If the value is neither form
+///
+/// # Examples
+///
+/// ```ignore
+/// assert_eq!(parse_retry_after("5"), Some(Duration::from_secs(5)));
+/// assert_eq!(parse_retry_after("86400"), Some(Duration::from_secs(30)));
+/// assert_eq!(parse_retry_after("soon"), None);
+/// ```
 pub(crate) fn parse_retry_after(value: &str) -> Option<Duration> {
     let value = value.trim();
     if !value.is_empty() && value.bytes().all(|b| b.is_ascii_digit()) {

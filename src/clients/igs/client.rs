@@ -888,6 +888,17 @@ impl IGSProductsClient {
     /// * `Ok(Some(SP3))`: The parsed file
     /// * `Ok(None)`: If the file is padding and the source answered 404
     /// * `Err(BraheError)`: If the download or parse fails, or a file inside the span answered 404
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// let client = IGSProductsClient::new(IGSProductSource::Garner);
+    /// let start = Epoch::from_datetime(2024, 11, 11, 0, 0, 0.0, 0.0, TimeSystem::GPS);
+    /// let files = client
+    ///     .sp3_range_files(start, start, &IGSAnalysisCenter::IGS, &IGSSolutionType::Final, &IGSRangeOptions::new())
+    ///     .unwrap();
+    /// let sp3 = client.range_file_sp3(&files[0]).unwrap();
+    /// ```
     fn range_file_sp3(&self, file: &SP3RangeFile) -> Result<Option<SP3>, BraheError> {
         match self.fetch_product(&file.product)? {
             Some(path) => self.parse_sp3(&file.product, &path).map(Some),
@@ -1359,9 +1370,8 @@ impl IGSProductsClient {
 
     /// GETs `url`, retrying transient failures up to `max_retries` times.
     ///
-    /// Every attempt first waits for the rate limiter. A retry also waits
-    /// for the backoff delay, or for the server's `Retry-After` when that is
-    /// longer.
+    /// Every attempt waits for the rate limiter. A retry first waits for the
+    /// backoff delay, or for the server's `Retry-After` when that is longer.
     ///
     /// # Arguments
     /// * `url` - The URL to fetch
@@ -1377,7 +1387,6 @@ impl IGSProductsClient {
         loop {
             ensure_online(url, &format!("{resource} ({url})"))?;
             sleep(delay);
-            self.wait_for_rate_limit();
             let retry_after = match self.request_in_session(url, resource) {
                 Ok(mut response) => {
                     match response
@@ -1413,7 +1422,15 @@ impl IGSProductsClient {
         }
     }
 
-    /// Blocks until the rate limiter allows one more request.
+    /// Blocks until the rate limiter allows one more request, and counts
+    /// that request against the limits.
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// let client = IGSProductsClient::new(IGSProductSource::Garner);
+    /// client.wait_for_rate_limit();
+    /// ```
     fn wait_for_rate_limit(&self) {
         let wait = self
             .rate_limiter
@@ -1423,12 +1440,15 @@ impl IGSProductsClient {
         sleep(wait);
     }
 
-    /// Sends one GET for `url` as [`IGSProductsClient::request`] does, one
-    /// at a time for CDDIS until a request has succeeded.
+    /// Waits for the rate limiter and sends one GET for `url` as
+    /// [`IGSProductsClient::request`] does, one at a time for CDDIS until a
+    /// request has succeeded.
     ///
     /// The first successful CDDIS request leaves an Earthdata session cookie
     /// with the agent. Holding the other threads back until then lets them
-    /// reuse that session instead of each signing in.
+    /// reuse that session instead of each signing in. The rate limiter is
+    /// consulted after that wait, so a request is sent at the time the
+    /// limiter granted it.
     ///
     /// # Arguments
     /// * `url` - The URL to fetch
@@ -1437,24 +1457,32 @@ impl IGSProductsClient {
     /// # Returns
     /// * `Ok(Response)`: The final `200` response, with its body unread
     /// * `Err(RequestError)`: As for [`IGSProductsClient::request`]
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// let client = IGSProductsClient::with_cddis_credentials("user", "password");
+    /// let url = format!("{}2340/*?list", client.base_url());
+    /// let response = client.request_in_session(&url, "CDDIS listing for GPS week 2340").unwrap();
+    /// assert_eq!(response.status(), 200);
+    /// ```
     fn request_in_session(
         &self,
         url: &str,
         resource: &str,
     ) -> Result<Response<ureq::Body>, RequestError> {
-        if self.source != IGSProductSource::CDDIS {
-            return self.request(url, resource);
-        }
-        let mut signed_in = self
-            .signed_in
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
-        if *signed_in {
-            drop(signed_in);
-            return self.request(url, resource);
-        }
+        let mut signing_in = (self.source == IGSProductSource::CDDIS)
+            .then(|| {
+                self.signed_in
+                    .lock()
+                    .unwrap_or_else(|poisoned| poisoned.into_inner())
+            })
+            .filter(|signed_in| !**signed_in);
+        self.wait_for_rate_limit();
         let result = self.request(url, resource);
-        *signed_in = result.is_ok();
+        if let Some(signed_in) = signing_in.as_mut() {
+            **signed_in = result.is_ok();
+        }
         result
     }
 

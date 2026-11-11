@@ -1,4 +1,4 @@
-# RTN Transformations
+# RTN Frame
 
 Rotation matrices between ECI (Earth-Centered Inertial) and RTN (Radial-Tangential-Normal) orbital frames.
 

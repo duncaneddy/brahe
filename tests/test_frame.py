@@ -410,6 +410,52 @@ def test_two_object_rtn_matches_state_eci_to_rtn(clear_frame_registries):
     np.testing.assert_allclose(got, bh.state_eci_to_rtn(x_a, x_b), atol=1e-9)
 
 
+def test_lvlh_rotation_matches_relative_motion(clear_frame_registries):
+    epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+    oe = np.array([bh.R_EARTH + 500e3, 0.001, 97.8, 15.0, 30.0, 45.0])
+    x = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
+    bh.register_object("A", lambda epc: x, bh.CelestialFrame.GCRF)
+    r = bh.rotation_frame_to_frame(
+        bh.CelestialFrame.GCRF, bh.ReferenceFrame.LVLH("A"), epc
+    )
+    np.testing.assert_allclose(r, bh.rotation_eci_to_lvlh(x), atol=1e-14)
+
+
+def test_lvlh_covariance_route_matches_relative_motion(clear_frame_registries):
+    epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+    oe = np.array([bh.R_EARTH + 500e3, 0.001, 97.8, 15.0, 30.0, 45.0])
+    x = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
+    bh.register_object("A", lambda epc: x, bh.CelestialFrame.GCRF)
+
+    p = np.diag([10.0, 20.0, 30.0, 40.0, 50.0, 60.0])
+
+    # covariance_frame_to_frame probes the router's state map, which is affine
+    # for a fixed origin, so it reproduces the analytic Jacobian to rounding.
+    p_graph = bh.covariance_frame_to_frame(
+        bh.CelestialFrame.GCRF, bh.ReferenceFrame.LVLH("A"), epc, p
+    )
+    j = bh.jacobian_inertial_to_rotating(bh.rotation_eci_to_lvlh(x), bh.omega_lvlh(x))
+    p_expected = bh.rotate_covariance(p, j)
+    assert np.linalg.norm(p_graph - p_expected) / np.linalg.norm(p_expected) < 1e-12
+
+
+def test_two_object_lvlh_matches_state_eci_to_lvlh(clear_frame_registries):
+    epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+    x_a = bh.state_koe_to_eci(
+        np.array([bh.R_EARTH + 500e3, 0.001, 97.8, 15.0, 30.0, 45.0]),
+        bh.AngleFormat.DEGREES,
+    )
+    x_b = bh.state_koe_to_eci(
+        np.array([bh.R_EARTH + 500e3, 0.001, 97.8, 15.0, 30.0, 45.2]),
+        bh.AngleFormat.DEGREES,
+    )
+    bh.register_object("A", lambda epc: x_a, bh.CelestialFrame.GCRF)
+    got = bh.state_frame_to_frame(
+        bh.CelestialFrame.GCRF, bh.ReferenceFrame.LVLH("A"), epc, x_b
+    )
+    np.testing.assert_allclose(got, bh.state_eci_to_lvlh(x_a, x_b), atol=1e-9)
+
+
 def test_sun_vector_in_sensor_frame(eop, clear_frame_registries):
     epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
     x_sc = bh.state_koe_to_eci(

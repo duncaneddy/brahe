@@ -28,4 +28,4 @@ LVLH (Local Vertical, Local Horizontal) places Z along nadir, Y opposite the orb
 ## See Also
 
 - [Relative Motion](index.md) - Frame variants, rates, and covariance transformation
-- [LVLH Transformations API Reference](../../library_api/relative_motion/lvlh_transformations.md)
+- [LVLH Frame API Reference](../../library_api/relative_motion/lvlh_frame.md)

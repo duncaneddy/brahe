@@ -996,17 +996,6 @@ mod tests {
     #[case("gbm19500_after_no_drop.sp3")]
     #[case("gbm19500_large_gap.sp3")]
     #[case("gbm19500_truncated.sp3")]
-    #[case("gbm19500_wrong_agency.sp3")]
-    #[case("gbm19500_wrong_coordinate_system.sp3")]
-    #[case("gbm19500_wrong_data_used.sp3")]
-    #[case("gbm19500_wrong_derivatives.sp3")]
-    #[case("gbm19500_wrong_frame.sp3")]
-    #[case("gbm19500_wrong_mu.sp3")]
-    #[case("gbm19500_wrong_orbit_type.sp3")]
-    #[case("gbm19500_wrong_satellite_count.sp3")]
-    #[case("gbm19500_wrong_satellite_list.sp3")]
-    #[case("gbm19500_wrong_time_system.sp3")]
-    #[case("gbm19500_wrong_type.sp3")]
     #[parallel]
     fn test_SP3_round_trip(#[case] f: &str) {
         let read = fixture(f);

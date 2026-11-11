@@ -83,7 +83,7 @@ Client for the IGS precise product archives, and the types that describe the pro
 
 ## See Also
 
-- [IGS Products](../../learn/ephemeris/igs_products.md) -- Sources, listing, and downloads
+- [IGS Products](../../learn/ephemeris/igs_products.md) -- Sources, credentials, listing, and downloads
 - [SP3 Precise Orbit Files](../../learn/datafiles/sp3.md) -- The format `download_sp3` and `download_sp3_range` return
 - [SP3 Library API](../datafiles/sp3.md) -- `SP3` and `SP3Satellite`
 - [Starlink](starlink.md) -- Another ephemeris client with the same cache and network mode behavior

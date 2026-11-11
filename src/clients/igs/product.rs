@@ -20,6 +20,7 @@ use crate::clients::igs::file_name::{
 ///     file_name: IGSProductFileName::parse(name).unwrap(),
 ///     name: name.to_string(),
 ///     url: format!("http://garner.ucsd.edu/pub/products/2340/{name}"),
+///     size: None,
 ///     gps_week: 2340,
 /// };
 /// assert_eq!(product.file_name.center().code(), "COD");
@@ -32,6 +33,8 @@ pub struct IGSProduct {
     pub name: String,
     /// URL the file is served from.
     pub url: String,
+    /// File size in bytes, when the listing gives it.
+    pub size: Option<u64>,
     /// GPS week of the archive directory the file is listed in.
     pub gps_week: u32,
 }
@@ -186,6 +189,7 @@ impl IGSProductFilter {
     ///     file_name: IGSProductFileName::parse(name).unwrap(),
     ///     name: name.to_string(),
     ///     url: format!("http://garner.ucsd.edu/pub/products/2340/{name}"),
+    ///     size: None,
     ///     gps_week: 2340,
     /// };
     /// assert!(IGSProductFilter::new().with_center(IGSAnalysisCenter::COD).matches(&product));
@@ -320,6 +324,7 @@ mod tests {
             file_name: IGSProductFileName::parse(name).unwrap(),
             name: name.to_string(),
             url: format!("http://localhost/2340/{name}"),
+            size: None,
             gps_week: 2340,
         }
     }

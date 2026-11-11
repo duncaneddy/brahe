@@ -36,6 +36,8 @@ jobs:
             CARGO_TERM_COLOR: always
             TEST_SPACETRACK_USER: ${{ secrets.TEST_SPACETRACK_USER }}
             TEST_SPACETRACK_PASS: ${{ secrets.TEST_SPACETRACK_PASS }}
+            CDDIS_EARTHDATA_USERNAME: ${{ secrets.CDDIS_EARTHDATA_USERNAME }}
+            CDDIS_EARTHDATA_PASSWORD: ${{ secrets.CDDIS_EARTHDATA_PASSWORD }}
             TEST_SPACETRACK_BASE_URL: https://for-testing-only.space-track.org
         steps:
             -   uses: actions/checkout@v7.0.1
@@ -146,6 +148,8 @@ jobs:
         env:
             TEST_SPACETRACK_USER: ${{ secrets.TEST_SPACETRACK_USER }}
             TEST_SPACETRACK_PASS: ${{ secrets.TEST_SPACETRACK_PASS }}
+            CDDIS_EARTHDATA_USERNAME: ${{ secrets.CDDIS_EARTHDATA_USERNAME }}
+            CDDIS_EARTHDATA_PASSWORD: ${{ secrets.CDDIS_EARTHDATA_PASSWORD }}
             # The project is installed by the explicit build step below, not by
             # `uv sync`. Without this, `uv run` would notice it missing and
             # rebuild it, relocating the cost rather than removing it.

@@ -100,6 +100,10 @@ class Archive:
             body = body.encode()
         self.routes[path] = (status, body, headers or {})
 
+    def redirect(self, path, location):
+        """Answer GET path with a 302 to location."""
+        self.serve(path, b"", status=302, headers={"Location": location})
+
     def missing(self, path):
         self.serve(path, b"", status=404)
 
@@ -178,6 +182,10 @@ def listed_product(archive, client, name, week, epoch):
 def test_igs_product_source_default_base_url():
     """Rust: test_igs_product_source_default_base_url"""
     assert (
+        bh.IGSProductSource.CDDIS.default_base_url
+        == "https://cddis.nasa.gov/archive/gnss/products/"
+    )
+    assert (
         bh.IGSProductSource.GARNER.default_base_url
         == "http://garner.ucsd.edu/pub/products/"
     )
@@ -189,11 +197,12 @@ def test_igs_product_source_default_base_url():
 
 def test_igs_product_source_display():
     """Rust: test_igs_product_source_display"""
+    assert str(bh.IGSProductSource.CDDIS) == "CDDIS"
     assert str(bh.IGSProductSource.GARNER) == "Garner"
     assert str(bh.IGSProductSource.BKG) == "BKG"
     assert repr(bh.IGSProductSource.GARNER) == "IGSProductSource.GARNER"
     assert bh.IGSProductSource.BKG == bh.IGSProductSource.BKG
-    assert bh.IGSProductSource.BKG != bh.IGSProductSource.GARNER
+    assert bh.IGSProductSource.BKG != bh.IGSProductSource.CDDIS
     assert len({bh.IGSProductSource.BKG, bh.IGSProductSource.BKG}) == 1
 
 
@@ -203,6 +212,7 @@ def test_igs_product_source_display():
 def test_igs_products_client_new_uses_default_base_url():
     """Rust: test_igs_products_client_new_uses_default_base_url"""
     for source, code in [
+        (bh.IGSProductSource.CDDIS, "cddis"),
         (bh.IGSProductSource.GARNER, "Garner"),
         (bh.IGSProductSource.BKG, "BKG"),
     ]:
@@ -213,6 +223,24 @@ def test_igs_products_client_new_uses_default_base_url():
             ):
                 assert client.source == source
                 assert client.base_url == source.default_base_url
+
+
+def test_igs_products_client_with_cddis_credentials():
+    """Rust: test_igs_products_client_with_cddis_credentials"""
+    for source in ("CDDIS", bh.IGSProductSource.CDDIS):
+        client = bh.IGSProductsClient(
+            source, cddis_username="user", cddis_password="secret"
+        )
+        assert client.source == bh.IGSProductSource.CDDIS
+        assert client.base_url == bh.IGSProductSource.CDDIS.default_base_url
+
+
+def test_igs_products_client_debug_omits_credentials():
+    """Rust: test_igs_products_client_debug_omits_credentials"""
+    client = bh.IGSProductsClient("CDDIS", cddis_username="u", cddis_password="secret")
+    text = repr(client)
+    assert "secret" not in text
+    assert "CDDIS" in text
 
 
 def test_igs_products_client_with_base_url_normalises_trailing_slash():
@@ -229,6 +257,19 @@ def test_igs_products_client_rejects_invalid_arguments():
         bh.IGSProductsClient()
     with pytest.raises(TypeError):
         bh.IGSProductsClient(base_url="http://localhost:1/")
+    with pytest.raises(ValueError, match="together"):
+        bh.IGSProductsClient("CDDIS", cddis_username="user")
+    with pytest.raises(ValueError, match="together"):
+        bh.IGSProductsClient("CDDIS", cddis_password="secret")
+    with pytest.raises(ValueError, match="only to the CDDIS source"):
+        bh.IGSProductsClient(source="GARNER", cddis_username="u", cddis_password="p")
+    with pytest.raises(ValueError, match="cannot be combined with base_url"):
+        bh.IGSProductsClient(
+            source="CDDIS",
+            base_url="http://localhost:1/",
+            cddis_username="u",
+            cddis_password="p",
+        )
     with pytest.raises(ValueError, match="unknown IGS product source"):
         bh.IGSProductsClient(source="SIO")
     with pytest.raises(TypeError):
@@ -367,8 +408,31 @@ def test_igs_products_client_list_products_skips_unparseable_names(archive):
         assert product.name in files
         assert str(product.file_name) == product.name
         assert product.url == f"{client.base_url}2340/{product.name}"
+        assert product.size is None
         assert product.gps_week == 2340
         assert isinstance(product.file_name, bh.IGSProductFileName)
+
+
+def test_igs_products_client_cddis_listing_reports_sizes(archive):
+    """Rust: test_igs_products_client_cddis_listing_reports_sizes"""
+    archive.listing("/archive/gnss/products/2340/*", asset("cddis_2340.txt"))
+    client = bh.IGSProductsClient(
+        source="CDDIS", base_url=archive.url("/archive/gnss/products/")
+    )
+
+    files = client.list_files(week_2340())
+    assert len(files) == len(asset("cddis_2340.txt").splitlines())
+    assert "readme.txt" in files
+
+    products = client.list_products(
+        week_2340(), center="cod", solution="FIN", content="ORB"
+    )
+    orbit = next(product for product in products if product.name == SP3_NAME)
+    assert orbit.size == 617472
+    assert orbit.url == archive.url(f"/archive/gnss/products/2340/{SP3_NAME}")
+    assert all(product.size is not None for product in products)
+    assert archive.calls("/archive/gnss/products/2340/*") == 1
+    assert all(urlsplit(hit).query == "list" for hit in archive.hits)
 
 
 def test_igs_products_client_list_products_between_spans_weeks(archive):
@@ -602,6 +666,14 @@ def test_igs_listings_drop_traversal_names(archive):
     assert client.list_files(week_2340()) == ["..%2F..%2Fetc", SP3_NAME]
     assert names(client.list_products(week_2340())) == [SP3_NAME]
 
+    archive.listing(
+        "/archive/2340/*",
+        f"../../{SP3_NAME} 10\n..\\{SP3_NAME} 10\nC:{SP3_NAME} 10\n.. 1\n{SP3_NAME} 12\n",
+    )
+    cddis = bh.IGSProductsClient(source="CDDIS", base_url=archive.url("/archive/"))
+    assert cddis.list_files(week_2340()) == [SP3_NAME]
+    assert [p.size for p in cddis.list_products(week_2340())] == [12]
+
 
 def test_igs_products_client_list_products_between_offline_repeats_online_query(
     archive, monkeypatch
@@ -744,6 +816,33 @@ def test_igs_products_client_download_rejects_truncated_gzip_without_caching(arc
     assert archive.calls(path) == 2
 
 
+def test_igs_products_client_redirects_are_checked_against_network_mode(
+    archive, monkeypatch
+):
+    """Rust: test_igs_products_client_redirects_are_checked_against_network_mode"""
+    body = gzip.compress(SP3_TEXT.encode())
+    name = "COD0OPSFIN_20243160000_01D_05M_ORB.SP3.gz"
+    archive.listing("/pub/products/2340/", apache_listing([SP3_NAME, name]))
+    archive.redirect(f"/pub/products/2340/{SP3_NAME}", f"/mirror/{SP3_NAME}")
+    archive.serve(f"/mirror/{SP3_NAME}", body)
+    archive.redirect(
+        f"/pub/products/2340/{name}", f"http://brahe-redirect-test.invalid/{name}"
+    )
+    client = garner_client(archive)
+    listed = {product.name: product for product in client.list_products(week_2340())}
+    assert Path(client.download(listed[SP3_NAME])).read_bytes() == body
+    assert archive.calls(f"/mirror/{SP3_NAME}") == 1
+
+    external = listed[name]
+    for mode in ("offline", "offline-strict"):
+        monkeypatch.setenv("BRAHE_NETWORK_MODE", mode)
+        with pytest.raises(bh.BraheError) as error:
+            client.download(external)
+        assert f"BRAHE_NETWORK_MODE is {mode}" in str(error.value)
+        assert "brahe-redirect-test.invalid" in str(error.value)
+    assert archive.calls(f"/pub/products/2340/{name}") == 2
+
+
 def test_igs_products_client_save_gzip_decompresses(archive, tmp_path):
     """Rust: test_igs_products_client_save_gzip_decompresses"""
     out = tmp_path / "out"
@@ -810,6 +909,23 @@ def test_igs_products_client_listing_rejects_non_utf8_body(archive):
     with pytest.raises(bh.BraheError, match="is not UTF-8 text"):
         client.list_files(week_2340())
     assert not (Path(client.cache_dir()) / "listings" / "garner" / "2340.txt").exists()
+
+
+def test_igs_products_client_cddis_html_product_is_rejected(archive):
+    """Rust: test_igs_products_client_cddis_html_product_is_rejected"""
+    archive.listing("/archive/gnss/products/2340/*", "igr23400.sp3 1024\n")
+    archive.serve(
+        "/archive/gnss/products/2340/igr23400.sp3", "<html>Earthdata Login</html>"
+    )
+    client = bh.IGSProductsClient(
+        source="CDDIS", base_url=archive.url("/archive/gnss/products/")
+    )
+    product = client.list_products(week_2340())[0]
+
+    with pytest.raises(bh.BraheError, match="is an HTML page") as error:
+        client.download(product)
+    assert "check the client's credentials" in str(error.value)
+    assert not (Path(client.cache_dir()) / "cddis" / "2340" / "igr23400.sp3").exists()
 
 
 # SP3 downloads
@@ -1240,5 +1356,19 @@ def test_integration_garner_raw_unix_compress_download(live_cache):
 def test_integration_bkg_listing_and_download(live_cache):
     """Rust: test_integration_bkg_listing_and_download"""
     client = bh.IGSProductsClient(source="BKG")
+    assert INTEGRATION_FINAL_ORBIT in client.list_files(week_2340())
+    assert_integration_final_orbit(client)
+
+
+@pytest.mark.integration
+def test_integration_cddis_listing_and_download(live_cache):
+    """Rust: test_integration_cddis_listing_and_download"""
+    username = os.environ.get("CDDIS_EARTHDATA_USERNAME", "")
+    password = os.environ.get("CDDIS_EARTHDATA_PASSWORD", "")
+    if not username or not password:
+        pytest.skip("CDDIS credentials not set")
+    client = bh.IGSProductsClient(
+        source="CDDIS", cddis_username=username, cddis_password=password
+    )
     assert INTEGRATION_FINAL_ORBIT in client.list_files(week_2340())
     assert_integration_final_orbit(client)

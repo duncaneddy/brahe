@@ -25,7 +25,8 @@ Files copied unchanged from `src/test/resources/sp3/`:
   `issue895-hours-increment.sp3`, `issue895-minutes-increment.sp3`,
   `issue895-no-eof.sp3`, `issue895-second-digits.sp3`,
   `issue1014-days-increment.sp3`, `issue1327-136-sats.sp3`
-- `gbm19500_*.sp3`
+- `gbm19500_after_drop.sp3`, `gbm19500_after_no_drop.sp3`,
+  `gbm19500_large_gap.sp3`, `gbm19500_truncated.sp3`
 - `gbm18432.sp3.Z`, `nsgf.orb.stella.v00.sp3.gz`
 
 Files derived from Orekit resources:

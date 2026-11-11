@@ -29,7 +29,7 @@ The Extended Standard Product 3 (SP3) format is the exchange format for precise 
 
 ## Compressed Files
 
-IGS products are distributed as gzip files with a `.gz` suffix. `SP3.from_file` detects gzip data from the first bytes of the file, so the file name does not matter, and decompresses it before parsing; the result equals the object read from the plain file. `SP3.from_bytes` takes the contents of a file already held in memory, either plain text or a gzip stream, which is the entry point for data fetched over the network or read from an archive.
+IGS products are distributed as gzip files with a `.gz` suffix. `SP3.from_file` detects gzip data from the first bytes of the file, so the file name does not matter, and decompresses it before parsing; the result equals the object read from the plain file. `SP3.from_bytes` takes the contents of a file already held in memory, as plain text or a gzip or Unix compress stream, which is the entry point for data fetched over the network or read from an archive.
 
 === "Python"
     ``` python

@@ -1828,7 +1828,7 @@ impl PySP3 {
     /// Gzip and Unix compress (``.Z``) data is detected from its leading bytes and decompressed; the decompressed size is limited to 1 GiB.
     ///
     /// Args:
-    ///     data (bytes): File contents, either SP3 text or a gzip stream of SP3 text.
+    ///     data (bytes): File contents: SP3 text, or a gzip or Unix compress stream of SP3 text.
     ///
     /// Returns:
     ///     SP3: The parsed file.

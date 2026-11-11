@@ -1,4 +1,4 @@
-# EQW Transformations
+# EQW Frame
 
 The equinoctial frame EQW places E along the ascending node, W along the orbit normal, and $Q = W \times E$, so a satellite's own position is $r[\cos u, \sin u, 0]$ with $u$ the argument of latitude. On an equatorial orbit E is taken along the inertial x axis projected into the orbit plane.
 

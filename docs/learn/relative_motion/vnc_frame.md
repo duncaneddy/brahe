@@ -1,4 +1,4 @@
-# VNC Transformations
+# VNC Frame
 
 VNC (Velocity, Normal, Co-normal) places X along the velocity, Y along the orbit normal, and the co-normal $Z = X \times Y$ in the orbit plane, pointing outward, so $Z_\mathrm{VNC} = X_\mathrm{NTW}$. STK calls this frame VNB. Its rate is the NTW rate about Y.
 

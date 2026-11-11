@@ -552,6 +552,18 @@ def test_igs_products_client_listing_offline_strict_rejects_stale_cache(
         client.list_files(week_2340())
 
 
+def test_igs_products_client_listing_rejects_non_200_status(archive):
+    """Rust: test_igs_products_client_listing_rejects_non_200_status"""
+    archive.serve("/pub/products/2340/", b"", status=204)
+    client = garner_client(archive)
+
+    with pytest.raises(bh.BraheError, match="unexpected HTTP status 204"):
+        client.list_files(week_2340())
+    assert archive.calls("/pub/products/2340/") == 1
+    cached = Path(client.cache_dir()) / "listings" / "garner" / "2340.txt"
+    assert not cached.exists()
+
+
 def test_igs_products_client_listing_retries_server_errors(archive):
     """Rust: test_igs_products_client_listing_retries_server_errors"""
     archive.serve("/pub/products/2340/", b"", status=503)

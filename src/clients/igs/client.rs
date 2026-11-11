@@ -129,12 +129,17 @@ impl IGSProductsClient {
         if !base_url.ends_with('/') {
             base_url.push('/');
         }
+        // A source served over HTTPS is never followed to a plain HTTP redirect.
+        let agent = ureq::Agent::config_builder()
+            .https_only(base_url.starts_with("https://"))
+            .build()
+            .into();
         Self {
             source,
             base_url,
             listing_max_age: DEFAULT_IGS_LISTING_MAX_AGE,
             max_retries: DEFAULT_MAX_RETRIES,
-            agent: ureq::Agent::new_with_defaults(),
+            agent,
         }
     }
 
@@ -1107,6 +1112,12 @@ impl IGSProductsClient {
                 sleep(backoff_delay(attempt));
             }
             match self.agent.get(url).call() {
+                Ok(response) if response.status().as_u16() != 200 => {
+                    return Err(BraheError::IoError(format!(
+                        "{resource} request {url} answered unexpected HTTP status {}",
+                        response.status()
+                    )));
+                }
                 Ok(mut response) => {
                     match response
                         .body_mut()
@@ -1525,6 +1536,39 @@ mod tests {
         let client = client.with_cache_age(600.0).max_retries(0);
         assert_eq!(client.listing_max_age, 600.0);
         assert_eq!(client.max_retries, 0);
+    }
+
+    #[test]
+    #[serial]
+    fn test_igs_products_client_https_source_refuses_plain_http() {
+        let garner = IGSProductsClient::new(IGSProductSource::Garner);
+        assert!(!garner.agent.config().https_only());
+        let bkg = IGSProductsClient::new(IGSProductSource::BKG);
+        assert!(bkg.agent.config().https_only());
+    }
+
+    #[test]
+    #[serial]
+    fn test_igs_products_client_listing_rejects_non_200_status() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("online"));
+        let server = MockServer::start();
+        let week = server.mock(|when, then| {
+            when.method(GET).path("/pub/products/2340/");
+            then.status(204);
+        });
+        let client = garner_client(&server);
+
+        let err = client.list_files(week_2340()).unwrap_err().to_string();
+        assert!(err.contains("unexpected HTTP status 204"), "{err}");
+        week.assert_calls(1);
+        assert!(
+            !client
+                .cache_dir()
+                .unwrap()
+                .join("listings/garner/2340.txt")
+                .exists()
+        );
     }
 
     #[test]

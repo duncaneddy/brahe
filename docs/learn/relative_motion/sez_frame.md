@@ -28,4 +28,4 @@ SEZ is the topocentric horizon frame of a site on the WGS84 ellipsoid: S points 
 ## See Also
 
 - [Relative Motion](index.md) - Frame variants, rates, and covariance transformation
-- [SEZ Transformations API Reference](../../library_api/relative_motion/sez_transformations.md)
+- [SEZ Frame API Reference](../../library_api/relative_motion/sez_frame.md)

@@ -8,13 +8,13 @@ For conceptual explanations and usage examples, see the
 
 ## Module Contents
 
-- [RTN Transformations](rtn_transformations.md) - Rotation matrices between ECI and RTN frames
-- [LVLH Transformations](lvlh_transformations.md) - Transforms between ECI and the LVLH frame
-- [NTW Transformations](ntw_transformations.md) - Transforms between ECI and the NTW frame
-- [TNW Transformations](tnw_transformations.md) - Transforms between ECI and the TNW frame
-- [VNC Transformations](vnc_transformations.md) - Transforms between ECI and the VNC frame
-- [PQW Transformations](pqw_transformations.md) - Transforms between ECI and the PQW frame
-- [EQW Transformations](eqw_transformations.md) - Transforms between ECI and the EQW frame
-- [NSW Transformations](nsw_transformations.md) - Transforms between ECI and the NSW frame
-- [SEZ Transformations](sez_transformations.md) - Transforms between ECEF and the SEZ frame
-- [ENZ Transformations](enz_transformations.md) - Transforms between ECEF and the ENZ frame
+- [RTN Frame](rtn_frame.md) - Rotation matrices between ECI and RTN frames
+- [LVLH Frame](lvlh_frame.md) - Transforms between ECI and the LVLH frame
+- [NTW Frame](ntw_frame.md) - Transforms between ECI and the NTW frame
+- [TNW Frame](tnw_frame.md) - Transforms between ECI and the TNW frame
+- [VNC Frame](vnc_frame.md) - Transforms between ECI and the VNC frame
+- [PQW Frame](pqw_frame.md) - Transforms between ECI and the PQW frame
+- [EQW Frame](eqw_frame.md) - Transforms between ECI and the EQW frame
+- [NSW Frame](nsw_frame.md) - Transforms between ECI and the NSW frame
+- [SEZ Frame](sez_frame.md) - Transforms between ECEF and the SEZ frame
+- [ENZ Frame](enz_frame.md) - Transforms between ECEF and the ENZ frame

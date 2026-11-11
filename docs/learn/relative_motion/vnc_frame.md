@@ -28,4 +28,4 @@ VNC (Velocity, Normal, Co-normal) places X along the velocity, Y along the orbit
 ## See Also
 
 - [Relative Motion](index.md) - Frame variants, rates, and covariance transformation
-- [VNC Transformations API Reference](../../library_api/relative_motion/vnc_transformations.md)
+- [VNC Frame API Reference](../../library_api/relative_motion/vnc_frame.md)

@@ -28,4 +28,4 @@ NTW places Y along the velocity, Z along the orbit normal, and $X = Y \times Z$ 
 ## See Also
 
 - [Relative Motion](index.md) - Frame variants, rates, and covariance transformation
-- [NTW Transformations API Reference](../../library_api/relative_motion/ntw_transformations.md)
+- [NTW Frame API Reference](../../library_api/relative_motion/ntw_frame.md)

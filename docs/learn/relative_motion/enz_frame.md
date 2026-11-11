@@ -28,4 +28,4 @@ ENZ is the topocentric horizon frame with E pointing east, N north, and Z along 
 ## See Also
 
 - [Relative Motion](index.md) - Frame variants, rates, and covariance transformation
-- [ENZ Transformations API Reference](../../library_api/relative_motion/enz_transformations.md)
+- [ENZ Frame API Reference](../../library_api/relative_motion/enz_frame.md)

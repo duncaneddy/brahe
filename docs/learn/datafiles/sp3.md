@@ -52,7 +52,7 @@ IGS products are distributed as gzip files with a `.gz` suffix. `SP3.from_file` 
         --8<-- "./docs/outputs/datafiles/sp3_compressed.rs.txt"
         ```
 
-`to_file` writes gzip when the path ends in `.gz`, in any letter case, and plain text otherwise. Files compressed with the Unix `compress` utility, which carry a `.Z` suffix and are common in older IGS archives, are not supported. Reading one raises an error that asks for the file to be decompressed first. Decompress it externally with `gzip -d file.sp3.Z` and read the resulting plain file.
+`to_file` writes gzip when the path ends in `.gz`, in any letter case, and plain text otherwise. Files compressed with the Unix `compress` utility, which carry a `.Z` suffix and are common in older IGS archives, are read the same way as gzip files. Brahe does not write them.
 
 ## Format and Versions
 

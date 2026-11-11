@@ -25,7 +25,7 @@ SP3_NAME = "COD0OPSFIN_20243150000_01D_05M_ORB.SP3.gz"
 SP3_TEXT = "#dP2024 11 10  0  0  0.00000000     289 ORBIT IGS20 FIT  COD\n"
 SHORT_Z_NAME = "igr23400.sp3.Z"
 SHORT_Z_BYTES = bytes([0x1F, 0x9D, 0x90, 0x23, 0x64, 0x50])
-UNIX_COMPRESS_UNSUPPORTED = "Unix compress (.Z) data is not supported"
+UNIX_SP3_FIXTURE = ROOT / "test_assets" / "sp3" / "gbm18432.sp3.Z"
 
 
 def gps(year, month, day, hour):
@@ -865,15 +865,15 @@ def test_igs_products_client_save_gzip_decompresses(archive, tmp_path):
     assert archive.calls(f"/pub/products/2340/{SP3_NAME}") == 1
 
 
-def test_igs_products_client_save_unix_compress_unchanged(archive, tmp_path):
-    """Rust: test_igs_products_client_save_unix_compress_unchanged"""
+def test_igs_products_client_save_unix_compress_decompresses(archive, tmp_path):
+    """Rust: test_igs_products_client_save_unix_compress_decompresses"""
     archive.serve(f"/pub/products/2340/{SHORT_Z_NAME}", SHORT_Z_BYTES)
     client = garner_client(archive)
     product = listed_product(archive, client, SHORT_Z_NAME, 2340, week_2340())
 
     saved = client.save(product, tmp_path)
-    assert Path(saved) == tmp_path / SHORT_Z_NAME
-    assert Path(saved).read_bytes() == SHORT_Z_BYTES
+    assert Path(saved) == tmp_path / "igr23400.sp3"
+    assert Path(saved).read_bytes() == b"#2"
     assert not (Path(client.cache_dir()) / "garner" / "2340" / SHORT_Z_NAME).exists()
 
 
@@ -889,14 +889,15 @@ def test_igs_products_client_save_into_cache_errors_before_download(archive):
     assert archive.hits == []
 
 
-def test_igs_products_client_save_unix_compress_keep_cached_copies(archive, tmp_path):
-    """Rust: test_igs_products_client_save_unix_compress_keep_cached_copies"""
+def test_igs_products_client_save_unix_compress_keep_cached(archive, tmp_path):
+    """Rust: test_igs_products_client_save_unix_compress_keep_cached"""
     archive.serve(f"/pub/products/2340/{SHORT_Z_NAME}", SHORT_Z_BYTES)
     client = garner_client(archive)
     product = listed_product(archive, client, SHORT_Z_NAME, 2340, week_2340())
 
     saved = client.save(product, tmp_path, keep_cached=True)
-    assert Path(saved).read_bytes() == SHORT_Z_BYTES
+    assert Path(saved) == tmp_path / "igr23400.sp3"
+    assert Path(saved).read_bytes() == b"#2"
     cached = Path(client.cache_dir()) / "garner" / "2340" / SHORT_Z_NAME
     assert cached.read_bytes() == SHORT_Z_BYTES
 
@@ -978,20 +979,25 @@ def test_igs_products_client_download_sp3_parses_file(archive):
     assert archive.calls(f"/pub/products/2340/{name}") == 1
 
 
+def test_igs_products_client_download_sp3_unix_compress(archive):
+    """Rust: test_igs_products_client_download_sp3_unix_compress"""
+    name = "gbm18432.sp3.Z"
+    client = garner_client(archive)
+    product = listed_product(archive, client, name, 1843, gps(2015, 5, 5, 0))
+    archive.serve(f"/pub/products/1843/{name}", UNIX_SP3_FIXTURE.read_bytes())
+
+    sp3 = client.download_sp3(product)
+    assert same_sp3(sp3, bh.SP3.from_file(UNIX_SP3_FIXTURE))
+    assert sp3.num_epochs == 288
+    assert archive.calls(f"/pub/products/1843/{name}") == 1
+
+
 def test_igs_products_client_download_sp3_rejects_before_download(archive):
     """Rust: test_igs_products_client_download_sp3_rejects_before_download"""
     client = garner_client(archive)
-    short_z = listed_product(
-        archive, client, "cod21000.sp3.Z", 2100, gps(2020, 4, 6, 0)
-    )
     clock = listed_product(
         archive, client, "COD0OPSFIN_20243150000_01D_30S_CLK.CLK.gz", 2340, week_2340()
     )
-
-    with pytest.raises(bh.BraheError) as error:
-        client.download_sp3(short_z)
-    assert UNIX_COMPRESS_UNSUPPORTED in str(error.value)
-    assert "cod21000.sp3.Z" in str(error.value)
 
     with pytest.raises(bh.BraheError, match="not an SP3"):
         client.download_sp3(clock)
@@ -1172,38 +1178,28 @@ def test_igs_products_client_download_sp3_range_rejects_ultra_rapid_before_reque
 
 def test_igs_products_client_download_sp3_range_unix_compress(archive):
     """Rust: test_igs_products_client_download_sp3_range_unix_compress"""
-    listed = [
-        "cod21000.sp3.Z",
-        "cod21001.sp3.gz",
-        "cod21002.sp3.Z",
-        "cod21003.sp3.Z",
-        "cod21003.sp3.gz",
-        "cod21003.clk.Z",
-    ]
+    listed = ["cod21000.sp3.Z", "cod21001.sp3.gz", "cod21002.sp3.Z", "cod21003.clk.Z"]
     archive.listing("/pub/products/2100/", apache_listing(listed))
     for name in listed:
-        archive.serve(f"/pub/products/2100/{name}", SP3_FIXTURE.read_bytes())
+        body = SP3_FIXTURE if name.endswith(".gz") else UNIX_SP3_FIXTURE
+        archive.serve(f"/pub/products/2100/{name}", body.read_bytes())
     client = garner_client(archive)
 
-    # Sunday 2020-04-05 is day 0 of week 2100.
-    with pytest.raises(bh.BraheError) as error:
-        client.download_sp3_range(gps(2020, 4, 5, 6), gps(2020, 4, 6, 6), "cod", "FIN")
-    assert UNIX_COMPRESS_UNSUPPORTED in str(error.value)
-    assert "cod21000.sp3.Z" in str(error.value)
-    assert downloaded_files(archive) == []
-
-    # The `.Z` padding days are skipped, and gzip is preferred to `.Z`.
+    # Sunday 2020-04-05 is day 0 of week 2100. Unix-compressed files are
+    # chosen like any other, inside the span and as padding.
     sp3s = client.download_sp3_range(
         gps(2020, 4, 6, 6), gps(2020, 4, 6, 12), "COD", "FIN"
     )
-    assert len(sp3s) == 1
-    assert downloaded_files(archive) == ["cod21001.sp3.gz"]
+    assert len(sp3s) == 3
+    assert downloaded_files(archive) == listed[:3]
+
     archive.reset()
     sp3s = client.download_sp3_range(
-        gps(2020, 4, 8, 6), gps(2020, 4, 8, 12), "COD", "FIN", pad=False
+        gps(2020, 4, 5, 6), gps(2020, 4, 6, 6), "cod", "FIN", pad=False
     )
-    assert len(sp3s) == 1
-    assert downloaded_files(archive) == ["cod21003.sp3.gz"]
+    assert len(sp3s) == 2
+    assert same_sp3(sp3s[0], bh.SP3.from_file(UNIX_SP3_FIXTURE))
+    assert same_sp3(sp3s[1], bh.SP3.from_file(SP3_FIXTURE))
 
     # A missing short-name day names the day.
     with pytest.raises(
@@ -1212,34 +1208,6 @@ def test_igs_products_client_download_sp3_range_unix_compress(archive):
         client.download_sp3_range(
             gps(2020, 4, 9, 6), gps(2020, 4, 9, 12), "COD", bh.IGSSolutionType.RAPID
         )
-
-
-def test_igs_products_client_download_sp3_range_prefers_parseable_finer_file(archive):
-    """Rust: test_igs_products_client_download_sp3_range_prefers_parseable_finer_file"""
-    coarse_z = "COD0OPSFIN_20243160000_01D_15M_ORB.SP3.Z"
-    fine_gz = cod_daily(316, "05M")
-    only_z = "COD0OPSFIN_20243170000_01D_15M_ORB.SP3.Z"
-    archive.listing("/pub/products/2340/", apache_listing([coarse_z, fine_gz, only_z]))
-    archive.serve(f"/pub/products/2340/{fine_gz}", SP3_FIXTURE.read_bytes())
-    for name in (coarse_z, only_z):
-        archive.serve(f"/pub/products/2340/{name}", SHORT_Z_BYTES)
-    client = garner_client(archive)
-
-    sp3s = client.download_sp3_range(
-        gps(2024, 11, 11, 6), gps(2024, 11, 11, 12), "COD", "FIN", pad=False
-    )
-    assert len(sp3s) == 1
-    assert same_sp3(sp3s[0], bh.SP3.from_file(SP3_FIXTURE))
-    assert downloaded_files(archive) == [fine_gz]
-
-    archive.reset()
-    with pytest.raises(bh.BraheError) as error:
-        client.download_sp3_range(
-            gps(2024, 11, 12, 6), gps(2024, 11, 12, 12), "COD", "FIN", pad=False
-        )
-    assert UNIX_COMPRESS_UNSUPPORTED in str(error.value)
-    assert only_z in str(error.value)
-    assert downloaded_files(archive) == []
 
 
 def test_igs_products_client_download_sp3_range_missing_week_names_day_and_listing(
@@ -1341,15 +1309,16 @@ def test_integration_garner_listing_and_download(live_cache):
 
 
 @pytest.mark.integration
-def test_integration_garner_raw_unix_compress_download(live_cache):
-    """Rust: test_integration_garner_raw_unix_compress_download"""
+def test_integration_garner_unix_compress_download(live_cache):
+    """Rust: test_integration_garner_unix_compress_download"""
     client = bh.IGSProductsClient(source="GARNER")
     products = client.list_products(gps(2020, 4, 8, 12), center="IGS")
     product = next((p for p in products if p.name == "igs21000.sp3.Z"), None)
     assert product is not None, "igs21000.sp3.Z not listed"
     assert Path(client.download(product)).read_bytes()[:2] == b"\x1f\x9d"
-    with pytest.raises(bh.BraheError, match="Unix compress"):
-        client.download_sp3(product)
+    sp3 = client.download_sp3(product)
+    assert sp3.num_epochs == 96
+    assert sp3.num_satellites >= 30
 
 
 @pytest.mark.integration

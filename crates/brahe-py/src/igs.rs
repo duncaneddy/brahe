@@ -1504,11 +1504,11 @@ impl PyIGSProductsClient {
     /// Downloads a product, if it is not cached, and writes it to ``destination``.
     ///
     /// An existing directory, or a path whose last component has no
-    /// extension, is treated as a directory (created if missing). A gzip
-    /// product is written decompressed, in a directory under its published
-    /// name without ``.gz``. Unix-compressed (``.Z``) and uncompressed
-    /// products are written unchanged under their published name. A path
-    /// with an extension is the file written. With ``keep_cached`` False the
+    /// extension, is treated as a directory (created if missing). A gzip or
+    /// Unix-compressed (``.Z``) product is written decompressed, in a
+    /// directory under its published name without ``.gz`` or ``.Z``. An
+    /// uncompressed product is written unchanged under its published name. A
+    /// path with an extension is the file written. With ``keep_cached`` False the
     /// cached file is removed; with ``keep_cached`` True it stays.
     ///
     /// Args:
@@ -1551,10 +1551,8 @@ impl PyIGSProductsClient {
     /// Downloads an SP3 orbit product, if it is not cached, and parses it.
     ///
     /// The product is downloaded as ``download`` does and read with
-    /// ``SP3.from_file``, which decompresses gzip data. Unix compress
-    /// (``.Z``) data cannot be decompressed, so a ``.Z`` product is rejected
-    /// before anything is downloaded; download it with ``save`` and
-    /// decompress it externally.
+    /// ``SP3.from_file``, which decompresses gzip and Unix compress
+    /// (``.Z``) data.
     ///
     /// Args:
     ///     product (IGSProduct): SP3 product to download, as returned by a listing.
@@ -1563,7 +1561,7 @@ impl PyIGSProductsClient {
     ///     SP3: The parsed file.
     ///
     /// Raises:
-    ///     BraheError: If the product is not an SP3 file or is Unix-compressed, both checked before anything is downloaded, or if the download or parse fails.
+    ///     BraheError: If the product is not an SP3 file, which is checked before anything is downloaded, or if the download or parse fails.
     ///
     /// Example:
     ///     ```python
@@ -1594,17 +1592,15 @@ impl PyIGSProductsClient {
     /// intervals are published, the coarsest is used unless ``sampling`` is
     /// set, in which case only that interval is used. Before GPS week 2238 it
     /// is the short-name daily SP3 file, such as ``cod21003.sp3``, and
-    /// ``sampling`` is ignored. Uncompressed and gzip files are preferred to
-    /// Unix-compressed (``.Z``) ones before sampling is compared. A solution
+    /// ``sampling`` is ignored. A solution
     /// code that is not a known type is kept as an ``Other`` value and
     /// matches only files published with that code, so a misspelled code
     /// finds no file for the first day of the span and raises.
     ///
     /// Every file is chosen, and every listing and selection error is raised,
     /// before anything is downloaded. Ultra-rapid orbits are rejected because
-    /// successive issues overlap in time. A day inside the span with no file,
-    /// or whose file is only published Unix-compressed, is an error; such a
-    /// padding day is skipped. A padding file that is listed but whose
+    /// successive issues overlap in time. A day inside the span with no file
+    /// is an error; such a padding day is skipped. A padding file that is listed but whose
     /// download answers 404 is also skipped, and its day is left out of the
     /// result; any other failure to download or parse a padding file, and any
     /// failure for a file inside the span, including a 404, is an error.
@@ -1621,7 +1617,7 @@ impl PyIGSProductsClient {
     ///     list[SP3]: Parsed daily files in time order.
     ///
     /// Raises:
-    ///     BraheError: If ``solution`` is ultra-rapid, ``end`` is before ``start``, a week listing containing part of the span cannot be obtained, a day inside the span has no file on the source (including when its week directory answers 404) or only a Unix-compressed one, or a download or parse fails other than a 404 for a padding file; a parse error names the product.
+    ///     BraheError: If ``solution`` is ultra-rapid, ``end`` is before ``start``, a week listing containing part of the span cannot be obtained, a day inside the span has no file on the source (including when its week directory answers 404), or a download or parse fails other than a 404 for a padding file; a parse error names the product.
     ///
     /// Example:
     ///     ```python

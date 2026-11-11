@@ -1009,14 +1009,16 @@ def test_SP3_from_file_igs_combination_subset():
     assert record.position[0] == pytest.approx(14_377_257.631, abs=1e-6)
 
 
-def test_SP3_from_file_unix_compress_unsupported():
-    msg = file_error("gbm18432.sp3.Z")
-    assert msg.startswith("SP3: ")
-    assert "(.Z) data is not supported" in msg
-    assert (
-        "Unix compress (.Z) data is not supported; decompress it externally "
-        "(gzip -d) and read the plain file" in msg
-    )
+def test_SP3_from_file_unix_compress():
+    sp3 = bh.SP3.from_file(fixture("gbm18432.sp3.Z"))
+    assert sp3.header.agency == "GFZ"
+    assert sp3.header.epoch_interval == 300.0
+    assert sp3.num_satellites == 71
+    assert sp3.num_epochs == 288
+    assert sp3.start_epoch == bh.Epoch(2015, 5, 5, 0, 0, 0.0, 0.0, time_system=bh.GPS)
+    record = sp3.record("C01", 0)
+    assert record.position[0] == pytest.approx(-32_323_399.959, abs=1e-6)
+    assert record.clock == pytest.approx(-0.000434415658, abs=1e-15)
 
 
 def test_SP3_from_bytes():
@@ -1049,7 +1051,7 @@ def test_SP3_from_bytes_truncated_gzip():
         (b"", "SP3: empty file"),
         (b"\xff\xfe\x00", "SP3: data is not valid UTF-8"),
         (b"\x1f\x8b\x00\x00", "SP3: invalid gzip data"),
-        (b"\x1f\x9d\x90", "SP3: Unix compress (.Z)"),
+        (b"\x1f\x9d\x88", "SP3: invalid Unix compress data"),
     ],
 )
 def test_SP3_from_bytes_errors(data, expected):

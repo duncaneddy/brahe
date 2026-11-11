@@ -185,23 +185,21 @@ impl SP3 {
         parser.finish()
     }
 
-    /// Parse an SP3 file from bytes that are plain text or gzip-compressed.
+    /// Parse an SP3 file from bytes that are plain text or compressed.
     ///
-    /// The compression is detected from the leading magic bytes: gzip data is
-    /// decompressed and anything else is read as UTF-8 text. The decompressed
-    /// size is limited to 1 GiB. Unix compress (`.Z`) data is rejected because
-    /// it cannot be decoded.
+    /// The compression is detected from the leading magic bytes: gzip and
+    /// Unix compress (`.Z`) data is decompressed and anything else is read as
+    /// UTF-8 text. The decompressed size is limited to 1 GiB.
     ///
     /// # Arguments
     ///
-    /// * `data` - File contents, either SP3 text or a gzip stream of SP3 text
+    /// * `data` - File contents: SP3 text, or a gzip or Unix compress stream of SP3 text
     ///
     /// # Returns
     ///
     /// * `Result<SP3, BraheError>` - The parsed file, a `ParseError` of the form
-    ///   `"SP3: <detail>"` if the gzip stream is corrupt or decompresses to more than 1 GiB,
-    ///   the text is not UTF-8, or the data is Unix compress data, or a `ParseError` as for
-    ///   [`SP3::from_str`]
+    ///   `"SP3: <detail>"` if the compressed stream is corrupt or decompresses to more than
+    ///   1 GiB or the text is not UTF-8, or a `ParseError` as for [`SP3::from_str`]
     ///
     /// # Examples
     ///
@@ -223,9 +221,6 @@ impl SP3 {
     /// ";
     /// let sp3 = SP3::from_bytes(content).unwrap();
     /// assert_eq!(sp3.num_satellites(), 1);
-    ///
-    /// // Unix compress (.Z) data starts with the bytes 1f 9d and is rejected.
-    /// assert!(SP3::from_bytes(&[0x1f, 0x9d, 0x90]).is_err());
     /// ```
     pub fn from_bytes(data: &[u8]) -> Result<Self, BraheError> {
         let decoded = decompress(data).map_err(|e| sp3_error(&e.to_string()))?;
@@ -236,12 +231,12 @@ impl SP3 {
 
     /// Parse an SP3 file from disk.
     ///
-    /// Gzip-compressed files are decompressed based on their leading bytes,
-    /// independent of the file name. Unix compress (`.Z`) files are rejected.
+    /// Gzip and Unix compress (`.Z`) files are decompressed based on their
+    /// leading bytes, independent of the file name.
     ///
     /// # Arguments
     ///
-    /// * `path` - Path to a plain-text or gzip-compressed SP3 file
+    /// * `path` - Path to a plain-text, gzip-compressed, or Unix-compressed SP3 file
     ///
     /// # Returns
     ///
@@ -1292,7 +1287,6 @@ impl Parser {
 #[allow(non_snake_case)]
 mod tests {
     use super::*;
-    use crate::datafiles::compression::UNIX_COMPRESS_UNSUPPORTED;
     use crate::datafiles::sp3::{
         GNSSSystem, SP3, SP3FileType, SP3OrbitType, SP3SatelliteId, SP3TimeSystem, SP3Version,
     };
@@ -1683,15 +1677,28 @@ mod tests {
 
     #[test]
     #[parallel]
-    fn test_SP3_from_file_unix_compress_unsupported() {
-        match SP3::from_file(fixture("gbm18432.sp3.Z")) {
-            Err(BraheError::ParseError(msg)) => {
-                assert!(msg.starts_with("SP3: "), "{msg}");
-                assert!(msg.contains("(.Z) data is not supported"), "{msg}");
-                assert!(msg.contains(UNIX_COMPRESS_UNSUPPORTED), "{msg}");
-            }
-            other => panic!("expected a parse error, got {other:?}"),
-        }
+    fn test_SP3_from_file_unix_compress() {
+        let sp3 = SP3::from_file(fixture("gbm18432.sp3.Z")).unwrap();
+        assert_eq!(sp3.header.agency, "GFZ");
+        assert_eq!(sp3.header.epoch_interval, 300.0);
+        assert_eq!(sp3.num_satellites(), 71);
+        assert_eq!(sp3.num_epochs(), 288);
+        assert_eq!(
+            sp3.start_epoch(),
+            Some(Epoch::from_datetime(
+                2015,
+                5,
+                5,
+                0,
+                0,
+                0.0,
+                0.0,
+                TimeSystem::GPS
+            ))
+        );
+        let record = sp3.record(sat("C01"), 0).unwrap().unwrap();
+        assert_abs_diff_eq!(record.position[0], -32_323_399.959, epsilon = 1e-6);
+        assert_abs_diff_eq!(record.clock.unwrap(), -0.000434415658, epsilon = 1e-15);
     }
 
     #[test]
@@ -1717,7 +1724,7 @@ mod tests {
             (&b""[..], "SP3: empty file"),
             (&[0xff, 0xfe, 0x00][..], "SP3: data is not valid UTF-8"),
             (&[0x1f, 0x8b, 0x00, 0x00][..], "SP3: invalid gzip data"),
-            (&[0x1f, 0x9d, 0x90][..], "SP3: Unix compress (.Z)"),
+            (&[0x1f, 0x9d, 0x88][..], "SP3: invalid Unix compress data"),
         ] {
             match SP3::from_bytes(data) {
                 Err(BraheError::ParseError(msg)) => {

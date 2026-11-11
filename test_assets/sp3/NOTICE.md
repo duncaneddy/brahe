@@ -6,7 +6,22 @@ The SP3 files in this directory come from the test resources of Orekit
 (https://gitlab.orekit.org/orekit/orekit), directory
 `src/test/resources/sp3/`. Orekit is Copyright 2002-2026 CS GROUP and is
 distributed under the Apache License, Version 2.0
-(https://www.apache.org/licenses/LICENSE-2.0).
+(https://www.apache.org/licenses/LICENSE-2.0). A copy of the license is in
+`LICENSE-APACHE-2.0.txt` in this directory.
+
+The attribution notices of Orekit's `NOTICE.txt` that pertain to these files
+are:
+
+```
+OREKIT
+Copyright 2002-2026 CS GROUP
+
+This product includes software developed by
+CS GROUP (https://www.cs-soprasteria.com/en/)
+```
+
+The other notices in that file credit software and data that are not part of
+these fixtures.
 
 Files copied unchanged from `src/test/resources/sp3/`:
 

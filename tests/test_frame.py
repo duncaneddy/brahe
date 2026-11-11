@@ -643,6 +643,25 @@ def test_pqw_rotation_matches_relative_motion(clear_frame_registries):
     np.testing.assert_allclose(got, bh.state_eci_to_pqw(x, x_b), atol=1e-9)
 
 
+def test_eqw_rotation_matches_relative_motion(clear_frame_registries):
+    epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+    oe = np.array([bh.R_EARTH + 500e3, 0.05, 97.8, 15.0, 30.0, 45.0])
+    x = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
+    bh.register_object("A", lambda epc: x, bh.CelestialFrame.GCRF)
+    r = bh.rotation_frame_to_frame(
+        bh.CelestialFrame.GCRF, bh.ReferenceFrame.EQW("A"), epc
+    )
+    np.testing.assert_allclose(r, bh.rotation_eci_to_eqw(x), atol=1e-14)
+    x_b = bh.state_koe_to_eci(
+        np.array([bh.R_EARTH + 500e3, 0.05, 97.8, 15.0, 30.0, 45.2]),
+        bh.AngleFormat.DEGREES,
+    )
+    got = bh.state_frame_to_frame(
+        bh.CelestialFrame.GCRF, bh.ReferenceFrame.EQW("A"), epc, x_b
+    )
+    np.testing.assert_allclose(got, bh.state_eci_to_eqw(x, x_b), atol=1e-9)
+
+
 def test_pqw_uses_the_declared_center_gm(clear_frame_registries):
     epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
     oe = np.array([bh.R_MARS + 400e3, 0.05, 92.6, 45.0, 270.0, 10.0])
@@ -681,13 +700,13 @@ def test_pqw_needs_gm_for_its_axes(clear_frame_registries):
 
 def test_unsupported_orbit_relative_kind_names_issue(clear_frame_registries):
     epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
-    with pytest.raises(RuntimeError, match="EQW"):
+    with pytest.raises(RuntimeError, match="NSW"):
         bh.rotation_frame_to_frame(
-            bh.CelestialFrame.GCRF, bh.ReferenceFrame.EQW("A"), epc
+            bh.CelestialFrame.GCRF, bh.ReferenceFrame.NSW("A"), epc
         )
-    with pytest.raises(RuntimeError, match="RTN, LVLH, NTW, TNW, VNC, PQW"):
+    with pytest.raises(RuntimeError, match="RTN, LVLH, NTW, TNW, VNC, PQW, EQW"):
         bh.rotation_frame_to_frame(
-            bh.CelestialFrame.GCRF, bh.ReferenceFrame.EQW("A"), epc
+            bh.CelestialFrame.GCRF, bh.ReferenceFrame.NSW("A"), epc
         )
 
 

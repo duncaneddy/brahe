@@ -10,4 +10,4 @@
 
 ## See Also
 
-- [Learn: EQW Transformations](../../learn/relative_motion/eqw_transformations.md)
+- [Learn: EQW Frame](../../learn/relative_motion/eqw_frame.md)

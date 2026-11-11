@@ -12,4 +12,4 @@
 
 ## See Also
 
-- [Learn: SEZ Transformations](../../learn/relative_motion/sez_transformations.md)
+- [Learn: SEZ Frame](../../learn/relative_motion/sez_frame.md)

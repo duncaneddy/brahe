@@ -149,5 +149,5 @@ them.
 
 - [Starlink Public Ephemerides](starlink.md) -- The public mirror that publishes files in this format
 - [File Operations](spacetrack/file_operations.md) -- Space-Track's own SP Ephemeris downloads, in the same format
-- [Modified ITC API Reference](../../library_api/ephemeris/itc.md) -- Class and function documentation
-- [Space-Track Response Types](../../library_api/ephemeris/spacetrack/responses.md) -- `SpaceTrackEphemerisFileName` and `SpaceTrackEphemerisFileCategory`
+- [Modified ITC API Reference](../../library_api/clients/itc.md) -- Class and function documentation
+- [Space-Track Response Types](../../library_api/clients/spacetrack/responses.md) -- `SpaceTrackEphemerisFileName` and `SpaceTrackEphemerisFileCategory`

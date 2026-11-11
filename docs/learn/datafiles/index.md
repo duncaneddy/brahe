@@ -13,4 +13,4 @@ The Extended Standard Product 3 format distributes precise satellite positions, 
 ## See Also
 
 - [Datafiles Library API](../../library_api/datafiles/index.md) -- Reference for the datafile types
-- [Ephemeris Data Sources](../clients/index.md) -- Clients that download satellite ephemeris data
+- [Clients](../clients/index.md) -- Clients that download satellite ephemeris data

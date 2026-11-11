@@ -14,7 +14,7 @@ Before starting, we need to import brahe and ensure that we have Earth orientati
 
 ## Download GPS TLEs
 
-We'll use the [CelesTrak client](../library_api/ephemeris/celestrak.md) to fetch the latest GP data for all GPS satellites, then convert each record into an SGP4 propagator:
+We'll use the [CelesTrak client](../library_api/clients/celestrak.md) to fetch the latest GP data for all GPS satellites, then convert each record into an SGP4 propagator:
 
 ``` python
 --8<-- "./examples/examples/visualizing_gps.py:download_gps"
@@ -38,7 +38,7 @@ It then propagates the satellite to one full orbit past its epoch using the `pro
 
 !!! note "to_sgp_propagator builds a propagator without TLE round-tripping"
     [`GPRecord.to_sgp_propagator`](../learn/clients/celestrak.md)
-    ([API](../library_api/ephemeris/shared_types.md#brahe.GPRecord.to_sgp_propagator))
+    ([API](../library_api/clients/shared_types.md#brahe.GPRecord.to_sgp_propagator))
     constructs an [`SGPPropagator`](../library_api/propagators/sgp_propagator.md)
     directly from the record's OMM orbital elements rather than serializing
     them through fixed-width TLE text first, so no numeric precision is lost

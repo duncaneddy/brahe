@@ -6,7 +6,7 @@ By default, the client uses conservative limits of **25 requests per minute** an
 
 The limiter itself is shared by every brahe client that exposes a configurable request rate. `RateLimitConfig` is the same type whichever client it is passed to; only the defaults differ, and `SpaceTrackClient` uses the Space-Track values above. `StarlinkClient` uses `RateLimitConfig(max_per_minute=1000, max_per_hour=30000)` by default.
 
-For the complete API reference, see the [RateLimitConfig Reference](../../../library_api/ephemeris/spacetrack/rate_limiting.md).
+For the complete API reference, see the [RateLimitConfig Reference](../../../library_api/clients/spacetrack/rate_limiting.md).
 
 ## Configuration
 
@@ -48,6 +48,6 @@ The limiter applies to all client operations: authentication, queries, file oper
 
 ## See Also
 
-- [RateLimitConfig Reference](../../../library_api/ephemeris/spacetrack/rate_limiting.md) -- Complete API documentation
+- [RateLimitConfig Reference](../../../library_api/clients/spacetrack/rate_limiting.md) -- Complete API documentation
 - [Client](client.md) -- Client creation and query execution
 - [Space-Track API Overview](index.md) -- Module architecture and type catalog

@@ -487,20 +487,20 @@ nav:
           - Sensor Models: library_api/estimation/sensor_models.md
       - SPICE Kernels: library_api/spice/index.md
       - Clients:
-          - library_api/ephemeris/index.md
-          - Shared Types: library_api/ephemeris/shared_types.md
-          - CelesTrak: library_api/ephemeris/celestrak.md
-          - Starlink: library_api/ephemeris/starlink.md
-          - IGS Products: library_api/ephemeris/igs.md
-          - Modified ITC: library_api/ephemeris/itc.md
+          - library_api/clients/index.md
+          - Shared Types: library_api/clients/shared_types.md
+          - CelesTrak: library_api/clients/celestrak.md
+          - Starlink: library_api/clients/starlink.md
+          - IGS Products: library_api/clients/igs.md
+          - Modified ITC: library_api/clients/itc.md
           - Space-Track:
-              - library_api/ephemeris/spacetrack/index.md
-              - Client: library_api/ephemeris/spacetrack/client.md
-              - Query Builder: library_api/ephemeris/spacetrack/query.md
-              - Responses: library_api/ephemeris/spacetrack/responses.md
-              - Enumerations: library_api/ephemeris/spacetrack/enums.md
-              - Operators: library_api/ephemeris/spacetrack/operators.md
-              - Rate Limiting: library_api/ephemeris/spacetrack/rate_limiting.md
+              - library_api/clients/spacetrack/index.md
+              - Client: library_api/clients/spacetrack/client.md
+              - Query Builder: library_api/clients/spacetrack/query.md
+              - Responses: library_api/clients/spacetrack/responses.md
+              - Enumerations: library_api/clients/spacetrack/enums.md
+              - Operators: library_api/clients/spacetrack/operators.md
+              - Rate Limiting: library_api/clients/spacetrack/rate_limiting.md
       - Data Files:
           - library_api/datafiles/index.md
           - SP3: library_api/datafiles/sp3.md

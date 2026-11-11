@@ -95,7 +95,7 @@ brahe starlink download 100001 100002 100003
 
 ## See Also
 
-- [Ephemeris Data Sources](../clients/index.md) - CelesTrak, Space-Track, and Starlink ephemeris sources
+- [Clients](../clients/index.md) - CelesTrak, Space-Track, and Starlink ephemeris sources
 - [Starlink Public Ephemerides](../clients/starlink.md) - The `StarlinkClient` this command wraps
 - [Modified ITC Ephemeris Format](../clients/itc.md) - The file format these commands download
 - [Datasets CLI](datasets.md) - Other satellite dataset downloads

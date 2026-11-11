@@ -1,4 +1,4 @@
-# Ephemeris Data Sources
+# Clients
 
 API reference for the satellite ephemeris data source clients. Both CelesTrak and Space-Track return `GPRecord` for GP queries, with shared operator functions for filtering.
 
@@ -15,4 +15,4 @@ API reference for the satellite ephemeris data source clients. Both CelesTrak an
 
 ## See Also
 
-- [Ephemeris Data Sources Overview](../../learn/clients/index.md) -- Conceptual introduction, GPRecord field tables, and source comparison
+- [Clients Overview](../../learn/clients/index.md) -- Conceptual introduction, GPRecord field tables, and source comparison

@@ -3,7 +3,7 @@ name = "brahe"
 dynamic = ["version"]
 description = "Brahe is a modern satellite dynamics library for research and engineering applications designed to be easy-to-learn, high-performance, and quick-to-deploy. The north-star of the development is enabling users to solve meaningful problems and answer questions quickly, easily, and correctly."
 readme = { file = "README.md", content-type = "text/markdown" }
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = { file = "LICENSE.md" }
 keywords = ["space", "astrodynamics", "satellite", "research"]
 authors = [
@@ -21,7 +21,6 @@ classifiers = [
     "Operating System :: POSIX :: Linux",
     # Specify the Python versions you support here.
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",

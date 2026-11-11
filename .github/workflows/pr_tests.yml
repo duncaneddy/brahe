@@ -84,8 +84,8 @@ jobs:
       # PR runs test only the oldest supported Python (the declared floor in pyproject.toml)
       # across all 3 OSes to catch breakage of the minimum-supported version.
       # The full matrix runs on push to main.
-      python-versions: '["3.10"]'
-      coverage-python-version: '3.10'
+      python-versions: '["3.11"]'
+      coverage-python-version: '3.11'
     secrets: inherit
 
   test-examples:

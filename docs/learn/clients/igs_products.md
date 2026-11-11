@@ -54,6 +54,8 @@ Listings are cached under `$BRAHE_CACHE/igs/listings/` for one hour by default, 
 
 `download_sp3_range(start, end, center, solution, ...)` returns the daily orbit files of one center and solution that cover `[start, end]` as a list of `SP3` objects in time order, ready for `SP3Satellite.from_files`. With `pad=True`, the default, it adds the day before `start` and the day after `end`, so that velocities derived for the samples at the ends of the range come from centered fits. A padding file that is missing from the listing or whose download answers 404 is skipped, while a missing file inside the range is an error that names the day and the source. Any other download or parse failure, for a padding file or a file inside the range, is an error. For long names the client selects the daily `01D` orbit file; when a center publishes several samplings, for example COD at 5 and 15 minutes, it chooses the coarsest unless `sampling` gives an interval in seconds. For short names it selects `cccwwwwd.sp3`, and `sampling` does not apply because those names do not encode one. A range that crosses GPS week 2238 returns short-name and long-name files together, and chaining them works.
 
+The files are downloaded and parsed on up to `concurrency` threads, 4 by default, set with the `concurrency` argument in Python and `IGSRangeOptions::with_concurrency` in Rust. The threads share the client's rate limiter, and a value of 1 downloads the files one after another. Once a file fails, no further file is started, and the error is that of the earliest file that failed. CDDIS requests run one at a time until one has succeeded, so that the threads share one Earthdata session.
+
 === "Python"
     ``` python
     --8<-- "./examples/igs/igs_download_range.py:12"
@@ -71,6 +73,12 @@ IGS issues an ultra-rapid orbit file every six hours, and each covers 48 hours. 
 ### Unix-Compressed Files
 
 Files with a `.Z` suffix were compressed with the Unix `compress` utility and are common for the short-name weeks before GPS week 2238. Brahe decompresses them like gzip files: `download` caches the file as published, `save` writes it decompressed, and `download_sp3` and `download_sp3_range` parse it.
+
+## Rate Limits, Retries, and Timeouts
+
+The client limits itself to 60 requests per minute and 3600 per hour, counting each attempt to fetch a listing or a file. A request over a cap waits until the cap allows it. The `rate_limit` argument takes a `RateLimitConfig` with other caps, and `RateLimitConfig.disabled()` removes them. Files and fresh listings served from the cache make no request and do not count.
+
+A request that fails with HTTP 429, 500, 502, 503, or 504, or with a connection failure, is retried up to `max_retries` times, 3 by default. Each retry waits for an exponential backoff with jitter, drawn from a window that starts at 0.5 s and doubles up to 30 s, or for the time in the server's `Retry-After` header when that is longer, also up to 30 s. A connection must open within 30 s, and the response must start, and each read of its body must return, within 60 s. Every request sends the `User-Agent` `brahe/<version>`.
 
 ## Offline and Network Mode
 

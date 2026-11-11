@@ -78,6 +78,7 @@ class Archive:
     def __init__(self, tmp_path, monkeypatch):
         self.routes = {}
         self.hits = []
+        self.user_agents = []
         self.base = ""
         self._tmp_path = tmp_path
         self._monkeypatch = monkeypatch
@@ -128,6 +129,7 @@ def archive(tmp_path, monkeypatch):
 
         def do_GET(self):
             state.hits.append(self.path)
+            state.user_agents.append(self.headers.get("User-Agent"))
             status, body, headers = state.routes.get(
                 urlsplit(self.path).path, (404, b"", {})
             )
@@ -959,12 +961,12 @@ def assert_downloaded(archive, listed, expected):
 
 
 def downloaded_files(archive):
-    """Names of the files requested, in request order, excluding listings."""
-    return [
+    """Names of the files requested, sorted, excluding listings."""
+    return sorted(
         urlsplit(hit).path.rsplit("/", 1)[1]
         for hit in archive.hits
         if not urlsplit(hit).path.endswith("/")
-    ]
+    )
 
 
 def test_igs_products_client_download_sp3_parses_file(archive):
@@ -1023,7 +1025,7 @@ def test_igs_products_client_download_sp3_range_pads_with_coarsest_sampling(arch
     )
     assert len(sp3s) == 4
     expected_fine = [cod_daily(doy, "05M") for doy in range(315, 319)]
-    assert downloaded_files(archive) == expected + expected_fine
+    assert downloaded_files(archive) == sorted(expected + expected_fine)
     assert_downloaded(archive, listed, expected + expected_fine)
 
 
@@ -1210,6 +1212,84 @@ def test_igs_products_client_download_sp3_range_unix_compress(archive):
         )
 
 
+def test_igs_products_client_retry_waits_for_retry_after(archive):
+    """Rust: test_igs_products_client_retry_waits_for_retry_after"""
+    archive.serve("/pub/products/2340/", b"", status=503, headers={"Retry-After": "1"})
+    client = garner_client(archive, max_retries=1)
+
+    started = time.monotonic()
+    with pytest.raises(bh.BraheError, match="503"):
+        client.list_files(week_2340())
+    # The backoff before a first retry is at most 0.5 s.
+    assert time.monotonic() - started >= 1.0
+    assert archive.calls("/pub/products/2340/") == 2
+
+
+def test_igs_products_client_rate_limit_counts_requests(archive):
+    """Rust: test_igs_products_client_rate_limit_counts_requests"""
+    archive.listing("/pub/products/2340/", apache_listing([SP3_NAME]))
+    client = garner_client(
+        archive, rate_limit=bh.RateLimitConfig(max_per_minute=1, max_per_hour=100)
+    )
+    assert client.list_files(week_2340()) == [SP3_NAME]
+
+
+def test_igs_products_client_sends_user_agent(archive):
+    """Rust: test_igs_products_client_sends_user_agent"""
+    archive.listing("/pub/products/2340/", apache_listing([SP3_NAME]))
+    garner_client(archive).list_files(week_2340())
+    assert archive.user_agents == [f"brahe/{bh.__version__}"]
+
+
+@pytest.mark.parametrize("concurrency", [1, 3])
+def test_igs_products_client_download_sp3_range_concurrency_keeps_time_order(
+    archive, concurrency
+):
+    """Rust: test_igs_products_client_download_sp3_range_concurrency_keeps_time_order"""
+    listed = ["cod21000.sp3.Z", "cod21001.sp3.gz", "cod21002.sp3.Z"]
+    archive.listing("/pub/products/2100/", apache_listing(listed))
+    for name in listed:
+        body = SP3_FIXTURE if name.endswith(".gz") else UNIX_SP3_FIXTURE
+        archive.serve(f"/pub/products/2100/{name}", body.read_bytes())
+
+    sp3s = garner_client(archive).download_sp3_range(
+        gps(2020, 4, 6, 6), gps(2020, 4, 6, 12), "COD", "FIN", concurrency=concurrency
+    )
+    unix, gzipped = bh.SP3.from_file(UNIX_SP3_FIXTURE), bh.SP3.from_file(SP3_FIXTURE)
+    assert len(sp3s) == 3
+    assert same_sp3(sp3s[0], unix)
+    assert same_sp3(sp3s[1], gzipped)
+    assert same_sp3(sp3s[2], unix)
+    assert downloaded_files(archive) == listed
+
+
+def test_igs_products_client_download_sp3_range_rejects_zero_concurrency(archive):
+    """Rust: test_igs_products_client_download_sp3_range_rejects_zero_concurrency"""
+    with pytest.raises(bh.BraheError, match="concurrency >= 1"):
+        garner_client(archive).download_sp3_range(
+            gps(2020, 4, 6, 6), gps(2020, 4, 6, 12), "COD", "FIN", concurrency=0
+        )
+    assert archive.hits == []
+
+
+def test_igs_products_client_download_sp3_range_cddis(archive):
+    """Rust: test_igs_products_client_download_sp3_range_cddis"""
+    archive.listing("/archive/2340/*", asset("cddis_2340.txt"))
+    expected = [cod_daily(doy, "05M") for doy in (315, 316)]
+    for name in expected:
+        archive.serve(f"/archive/2340/{name}", SP3_FIXTURE.read_bytes())
+    client = bh.IGSProductsClient("CDDIS", base_url=archive.url("/archive/"))
+
+    sp3s = client.download_sp3_range(
+        gps(2024, 11, 10, 0), gps(2024, 11, 11, 0), "COD", "FIN", pad=False
+    )
+    assert len(sp3s) == 2
+    assert sorted(urlsplit(hit).path.rsplit("/", 1)[1] for hit in archive.hits) == [
+        "*",
+        *expected,
+    ]
+
+
 def test_igs_products_client_download_sp3_range_missing_week_names_day_and_listing(
     archive,
 ):
@@ -1272,7 +1352,7 @@ def test_igs_products_client_download_sp3_range_crosses_long_name_week(archive):
     fixture = bh.SP3.from_file(SP3_FIXTURE)
     assert len(sp3s) == 4
     assert all(same_sp3(sp3, fixture) for sp3 in sp3s)
-    assert downloaded_files(archive) == [*short, *long]
+    assert downloaded_files(archive) == sorted([*short, *long])
 
 
 INTEGRATION_FINAL_ORBIT = "IGS0OPSFIN_20243150000_01D_15M_ORB.SP3.gz"

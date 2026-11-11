@@ -14,8 +14,8 @@ The table gives the axes of each frame, using $\hat{r}$ for the unit position an
 
 | Frame | X | Y | Z | Rate about |
 |---|---|---|---|---|
-| [RTN](rtn_transformations.md) (also RSW, QSW, RIC) | $\hat{r}$ | $\hat{h} \times \hat{r}$ | $\hat{h}$ | $+Z$ |
-| [LVLH](lvlh_transformations.md) | $\hat{h} \times \hat{r}$ | $-\hat{h}$ | $-\hat{r}$ | $-Y$ |
+| [RTN](rtn_frame.md) (also RSW, QSW, RIC) | $\hat{r}$ | $\hat{h} \times \hat{r}$ | $\hat{h}$ | $+Z$ |
+| [LVLH](lvlh_frame.md) | $\hat{h} \times \hat{r}$ | $-\hat{h}$ | $-\hat{r}$ | $-Y$ |
 
 !!! tip "CCSDS frame names"
     The frame definitions match the [SANA orbit-relative reference frame registry](https://sanaregistry.org/r/orbit_relative_reference_frames), which CCSDS orbit and attitude messages reference by name. RTN is the registry's RSW frame.
@@ -67,8 +67,8 @@ $J$ holds the frame origin fixed, so it applies to a covariance referenced to th
 
 ## See Also
 
-- [RTN Transformations](rtn_transformations.md)
-- [LVLH Transformations](lvlh_transformations.md)
+- [RTN Frame](rtn_frame.md)
+- [LVLH Frame](lvlh_frame.md)
 - [ROE Transformations](roe_transformations.md)
 - [Frame Graph](../frames/frame_graph.md)
 - [Relative Motion API Reference](../../library_api/relative_motion/index.md)

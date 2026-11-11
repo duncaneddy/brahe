@@ -15,7 +15,8 @@ use crate::utils::errors::BraheError;
 /// existing RTN vocabulary (`state_eci_to_rtn`, `covariance_rtn`).
 ///
 /// Every kind has an axes derivation in [`crate::relative_motion`]; `SEZ`
-/// is evaluable only for Earth-centered objects.
+/// and `ENZ` are topocentric frames on the WGS84 ellipsoid and are
+/// evaluable only for Earth-centered objects.
 ///
 /// # Examples
 ///
@@ -44,6 +45,8 @@ pub enum OrbitRelativeFrameKind {
     VNC,
     /// Nadir / Sun / normal.
     NSW,
+    /// Topocentric east / north / zenith. Not a SANA kind; brahe's ENZ vocabulary.
+    ENZ,
 }
 
 impl fmt::Display for OrbitRelativeFrameKind {
@@ -58,6 +61,7 @@ impl fmt::Display for OrbitRelativeFrameKind {
             Self::SEZ => "SEZ",
             Self::VNC => "VNC",
             Self::NSW => "NSW",
+            Self::ENZ => "ENZ",
         };
         write!(f, "{}", token)
     }
@@ -216,6 +220,7 @@ mod tests {
             (OrbitRelativeFrameKind::SEZ, "SEZ"),
             (OrbitRelativeFrameKind::VNC, "VNC"),
             (OrbitRelativeFrameKind::NSW, "NSW"),
+            (OrbitRelativeFrameKind::ENZ, "ENZ"),
         ];
         for (kind, expected) in cases {
             assert_eq!(kind.to_string(), expected);
@@ -273,6 +278,7 @@ mod tests {
             OrbitRelativeFrameKind::SEZ,
             OrbitRelativeFrameKind::VNC,
             OrbitRelativeFrameKind::NSW,
+            OrbitRelativeFrameKind::ENZ,
         ] {
             assert!(OrbitRelativeFrame::new(kind, OrbitRelativeFrameVariant::Rotating).is_ok());
             assert!(OrbitRelativeFrame::new(kind, OrbitRelativeFrameVariant::Inertial).is_ok());

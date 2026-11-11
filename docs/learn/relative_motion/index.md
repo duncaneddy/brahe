@@ -6,7 +6,7 @@ Every relative-motion function accepts batches: passing `(n, 6)` arrays for the 
 
 ## Orbit-Relative Frames
 
-An orbit-relative frame has its origin at an object and its axes built from that object's position and velocity, so the axes turn as the object moves along its orbit. Expressing a second object's state, a thrust direction, or a covariance in such a frame separates it into components tied to the orbit geometry, such as radial, along-track, and cross-track. SEZ is the same construction for a site on the Earth's surface, built from the site's ECEF state.
+An orbit-relative frame has its origin at an object and its axes built from that object's position and velocity, so the axes turn as the object moves along its orbit. Expressing a second object's state, a thrust direction, or a covariance in such a frame separates it into components tied to the orbit geometry, such as radial, along-track, and cross-track. SEZ and ENZ are the same construction for a site on the Earth's surface, built from the site's ECEF state.
 
 Each frame provides the same functions. `rotation_eci_to_<frame>` and `rotation_<frame>_to_eci` return the rotation matrix between the inertial axes and the frame, `omega_<frame>` returns the frame's angular velocity, and `state_eci_to_<frame>` and `state_<frame>_to_eci` convert between the inertial states of a chief and a deputy and the deputy's state relative to the chief. The [frame graph](../frames/frame_graph.md) evaluates the same frames for registered objects through `ReferenceFrame`.
 
@@ -23,9 +23,10 @@ The table gives the axes of each frame, using $\hat{r}$ for the unit position, $
 | [EQW](eqw_frame.md) | $\hat{n}$ | $\hat{h} \times \hat{n}$ | $\hat{h}$ | inertial only |
 | [NSW](nsw_frame.md) | $-\hat{r}$ | $\hat{s}$ projected normal to X | $X \times Y$ | rate from basis derivatives |
 | [SEZ](sez_frame.md) | south | east | geodetic up | rate relative to ECEF |
+| [ENZ](enz_frame.md) | east | north | geodetic up | rate relative to ECEF |
 
 !!! tip "CCSDS frame names"
-    The frame definitions match the [SANA orbit-relative reference frame registry](https://sanaregistry.org/r/orbit_relative_reference_frames), which CCSDS orbit and attitude messages reference by name. RTN is the registry's RSW frame.
+    The frame definitions match the [SANA orbit-relative reference frame registry](https://sanaregistry.org/r/orbit_relative_reference_frames), which CCSDS orbit and attitude messages reference by name. RTN is the registry's RSW frame. ENZ is not in the registry; brahe reads and writes it in CCSDS messages as `ENZ_ROTATING` and `ENZ_INERTIAL`, and also reads `ENU_*`.
 
 ### Variants
 
@@ -43,7 +44,7 @@ $$
 J = \begin{bmatrix} R & 0 \\ -[\omega]_\times R & R \end{bmatrix}, \qquad P_\mathrm{frame} = J \, P_\mathrm{inertial} \, J^T
 $$
 
-`jacobian_inertial_to_rotating` builds $J$ from a frame's `rotation_eci_to_*` and `omega_*` outputs, `jacobian_rotating_to_inertial` builds its inverse, and `rotate_covariance` applies either one. For SEZ, `rotation_ecef_to_*` and `omega_*` give the Jacobian between ECEF and the topocentric frame in the same way. RTN also provides `covariance_eci_to_rtn` and `covariance_rtn_to_eci`, which take the variant directly. For an object registered with the frame graph, `covariance_frame_to_frame` performs the same transformation from the object's registered state.
+`jacobian_inertial_to_rotating` builds $J$ from a frame's `rotation_eci_to_*` and `omega_*` outputs, `jacobian_rotating_to_inertial` builds its inverse, and `rotate_covariance` applies either one. For SEZ and ENZ, `rotation_ecef_to_*` and `omega_*` give the Jacobian between ECEF and the topocentric frame in the same way. RTN also provides `covariance_eci_to_rtn` and `covariance_rtn_to_eci`, which take the variant directly. For an object registered with the frame graph, `covariance_frame_to_frame` performs the same transformation from the object's registered state.
 
 The inertial snapshot uses $\omega = 0$, which reduces $J$ to $\mathrm{blockdiag}(R, R)$. The rotating variant adds the $-[\omega]_\times R$ coupling between position and velocity.
 
@@ -83,6 +84,7 @@ $J$ holds the frame origin fixed, so it applies to a covariance referenced to th
 - [EQW Frame](eqw_frame.md)
 - [NSW Frame](nsw_frame.md)
 - [SEZ Frame](sez_frame.md)
+- [ENZ Frame](enz_frame.md)
 - [ROE Transformations](roe_transformations.md)
 - [Frame Graph](../frames/frame_graph.md)
 - [Relative Motion API Reference](../../library_api/relative_motion/index.md)

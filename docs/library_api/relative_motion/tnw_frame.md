@@ -1,4 +1,4 @@
-# TNW Transformations
+# TNW Frame
 
 ::: brahe.rotation_tnw_to_eci
 

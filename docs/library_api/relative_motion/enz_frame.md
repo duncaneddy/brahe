@@ -1,4 +1,4 @@
-# ENZ Transformations
+# ENZ Frame
 
 ::: brahe.rotation_ecef_to_enz
 

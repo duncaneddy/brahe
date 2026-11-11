@@ -523,6 +523,34 @@ impl SP3Satellite {
         self.records.iter().map(|r| r.position).collect()
     }
 
+    /// ITRF velocities the file carries for the valid samples.
+    ///
+    /// Only velocity records read from the file are returned; nothing is
+    /// derived from the positions. Use the state methods for a velocity at any
+    /// epoch.
+    ///
+    /// # Returns
+    ///
+    /// * `Vec<Option<[f64; 3]>>` - One velocity per sample, `None` where the file has
+    ///   none. Units: m/s
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use brahe::datafiles::sp3::{SP3, SP3Header, SP3Record, SP3SatelliteId};
+    /// # use brahe::time::{Epoch, TimeSystem};
+    /// # let id: SP3SatelliteId = "G01".parse().unwrap();
+    /// # let mut sp3 = SP3::new(vec![id], 900.0, SP3Header::default()).unwrap();
+    /// # let t0 = Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::GPS);
+    /// # sp3.push_epoch(t0).unwrap();
+    /// let record = SP3Record::new([2.0e7, 1.0e7, 1.0e7]).with_velocity([0.0, 3.0e3, 0.0]);
+    /// sp3.set_record(id, 0, record).unwrap();
+    /// assert_eq!(sp3.satellite(id).unwrap().velocities(), vec![Some([0.0, 3.0e3, 0.0])]);
+    /// ```
+    pub fn velocities(&self) -> Vec<Option<[f64; 3]>> {
+        self.records.iter().map(|r| r.velocity).collect()
+    }
+
     /// Clock corrections of the valid samples.
     ///
     /// # Returns
@@ -960,6 +988,28 @@ mod tests {
         let expected = sp3.record(sid("G02"), 8).unwrap().unwrap();
         assert_eq!(g02.positions()[7], expected.position);
         assert_eq!(&g02.records()[7], expected);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_SP3Satellite_velocities_from_file() {
+        let with = SP3::from_file("test_assets/sp3/example-a-2.sp3").unwrap();
+        let mut present = 0;
+        for sat in with.satellites().unwrap() {
+            let velocities = sat.velocities();
+            assert_eq!(velocities.len(), sat.len());
+            for (velocity, record) in velocities.iter().zip(sat.records()) {
+                assert_eq!(*velocity, record.velocity);
+                present += usize::from(velocity.is_some());
+            }
+        }
+        assert!(present > 0);
+
+        let without = SP3::from_file("test_assets/sp3/example-a-1.sp3").unwrap();
+        for sat in without.satellites().unwrap() {
+            assert_eq!(sat.velocities().len(), sat.len());
+            assert!(sat.velocities().iter().all(Option::is_none));
+        }
     }
 
     #[test]

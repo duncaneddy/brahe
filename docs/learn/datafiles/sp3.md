@@ -156,7 +156,7 @@ The parser does not enforce the comment count, comment length, or satellite coun
 
 `sp3.satellite(id)` extracts one satellite as an `SP3Satellite`, and `sp3.satellites()` extracts every satellite that has at least one valid sample, in header order. A sample is valid when the satellite has a record at that epoch with a non-zero position. `satellite(id)` raises an error for a satellite with no valid sample.
 
-An `SP3Satellite` stores the epoch and the `SP3Record` of each valid sample, so the clock values, standard deviations, flags, and correlations of the file stay available. `epochs()` and `records()` return them, and `positions()`, `clocks()`, and `clock_rates()` return one value per sample in m, s, and s/s. In Python the positions are an $N \times 3$ NumPy array and the clock arrays hold `NaN` where the file has no clock. In Rust the clock accessors return `Option<f64>` values.
+An `SP3Satellite` stores the epoch and the `SP3Record` of each valid sample, so the clock values, standard deviations, flags, and correlations of the file stay available. `epochs()` and `records()` return them, and `positions()`, `velocities()`, `clocks()`, and `clock_rates()` return one value per sample in m, m/s, s, and s/s. `velocities()` returns only the velocity records the file carries and derives nothing from the positions. In Python the positions and velocities are $N \times 3$ NumPy arrays, and the velocity and clock arrays hold `NaN` where the file has no value. In Rust those accessors return `Option` values.
 
 ### Orbit State Provider
 

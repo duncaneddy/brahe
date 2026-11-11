@@ -437,8 +437,8 @@ def compute_brahe_rust_accesses(
         # Convert accesses
         accesses = []
         for acc in loc_result.get("accesses", []):
-            aos = datetime.fromisoformat(acc["aos"].replace("Z", "+00:00"))
-            los = datetime.fromisoformat(acc["los"].replace("Z", "+00:00"))
+            aos = datetime.fromisoformat(acc["aos"])
+            los = datetime.fromisoformat(acc["los"])
             accesses.append(Access(aos=aos, los=los, target=target))
 
         timing = loc_result["timing"]

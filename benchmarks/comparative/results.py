@@ -17,7 +17,7 @@ import statistics
 import uuid
 from collections.abc import Iterable
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 
@@ -159,9 +159,7 @@ class BenchmarkRun:
     """Complete benchmark run with all results and comparisons."""
 
     run_id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
-    timestamp: str = field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
-    )
+    timestamp: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
     system_info: dict = field(default_factory=dict)
     task_results: list[TaskResult] = field(default_factory=list)
     accuracy_comparisons: list[AccuracyComparison] = field(default_factory=list)

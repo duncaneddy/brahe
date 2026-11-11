@@ -8,7 +8,7 @@ For conceptual explanations and usage examples, see the
 
 ## Module Contents
 
-- [RTN Transformations](rtn_transformations.md) - Rotation matrices between ECI and RTN frames
-- [LVLH Transformations](lvlh_transformations.md) - Transforms between ECI and the LVLH frame
-- [NTW Transformations](ntw_transformations.md) - Transforms between ECI and the NTW frame
-- [TNW Transformations](tnw_transformations.md) - Transforms between ECI and the TNW frame
+- [RTN Frame](rtn_frame.md) - Rotation matrices between ECI and RTN frames
+- [LVLH Frame](lvlh_frame.md) - Transforms between ECI and the LVLH frame
+- [NTW Frame](ntw_frame.md) - Transforms between ECI and the NTW frame
+- [TNW Frame](tnw_frame.md) - Transforms between ECI and the TNW frame

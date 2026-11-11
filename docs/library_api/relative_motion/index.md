@@ -16,3 +16,4 @@ For conceptual explanations and usage examples, see the
 - [PQW Frame](pqw_frame.md) - Transforms between ECI and the PQW frame
 - [EQW Frame](eqw_frame.md) - Transforms between ECI and the EQW frame
 - [NSW Frame](nsw_frame.md) - Transforms between ECI and the NSW frame
+- [SEZ Frame](sez_frame.md) - Transforms between ECEF and the SEZ frame

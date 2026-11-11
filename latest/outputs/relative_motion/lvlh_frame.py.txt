@@ -1,0 +1,5 @@
+LVLH X equals RTN T: True
+LVLH Z equals -RTN R: True
+omega_lvlh (rad/s): [0.000e+00, -1.075e-03, 0.000e+00]
+Relative state round trip error: 2.49e-10
+Frame graph matches rotation_eci_to_lvlh: True

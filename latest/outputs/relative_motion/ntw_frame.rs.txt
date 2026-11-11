@@ -1,0 +1,6 @@
+Circular: NTW equals RTN: true
+Eccentric: flight-path angle from the RTN along-track axis to the NTW T axis: 4.360 deg
+omega_ntw z: 1.133215e-3 rad/s, omega_rtn z: 1.207042e-3 rad/s
+omega_ntw_for_body about Mars: 9.316295e-4 rad/s
+Round trip error: 1.21e-10
+Frame graph matches rotation_eci_to_ntw: true

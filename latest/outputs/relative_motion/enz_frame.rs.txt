@@ -1,0 +1,4 @@
+Azimuth: 94.481 deg, Elevation: 27.511 deg
+ENZ columns are the SEZ permutation (E=E, N=-S, Z=Z): true
+Moving site omega_enz matches the permuted SEZ rate: true
+Frame graph matches state_ecef_to_enz: true

@@ -11,13 +11,13 @@ Position std (X, Y, Z):
 --- RTN Frame Results ---
 Position std (R, T, N):
   Radial (R):     10.0 m  <- Altitude uncertainty
-  Tangential (T): 260.8 m  <- Along-track timing
+  Transverse (T): 260.8 m  <- Along-track timing
   Normal (N):     10.0 m  <- Cross-track offset
 
 --- Physical Interpretation ---
 RTN frame aligns with the orbit:
   R (Radial): Points from Earth center to satellite
-  T (Tangential): Points along velocity direction
+  T (Transverse): In-plane, perpendicular to R (along-track)
   N (Normal): Completes right-hand system (cross-track)
 
 Key insight: Along-track (T) uncertainty grows fastest because

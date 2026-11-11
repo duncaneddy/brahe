@@ -1,0 +1,4 @@
+Azimuth: 94.481 deg, Elevation: 27.511 deg
+Static station omega norm is zero: True
+Moving site omega norm: 4.916e-05 rad/s
+Frame graph matches state_ecef_to_sez: True

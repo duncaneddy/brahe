@@ -1,0 +1,5 @@
+Y . sun_direction > 0: true
+|Y . X| < 1e-12: true
+Fixed-Sun approximation error within (1e-8, 1e-6) rad/s: true
+Round trip error: 2.22e-10
+Frame graph matches rotation_eci_to_nsw: true

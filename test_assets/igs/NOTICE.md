@@ -19,6 +19,3 @@ published by the International GNSS Service (IGS) and its analysis centers.
 - `bkg_2340.html`: the Apache listing of
   `https://igs.bkg.bund.de/root_ftp/IGS/products/2340/` (BKG), captured
   2026-11-03 and trimmed the same way, with the same two added rows.
-- `cddis_2340.txt`: a hand-written CDDIS `*?list` listing of week 2340 with one
-  `name size` line per file of `garner_2340.html`. Sizes are in bytes,
-  converted from the Garner listing's rounded sizes.

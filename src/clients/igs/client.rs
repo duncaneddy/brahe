@@ -4,14 +4,9 @@
 
 use std::cmp::Ordering as CmpOrdering;
 use std::collections::{BTreeMap, HashSet};
-use std::fmt;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::thread::sleep;
-
-use base64::Engine;
-use base64::engine::general_purpose::STANDARD as BASE64;
-use ureq::http::{Response, Uri};
 
 use crate::clients::igs::centers::IGSAnalysisCenter;
 use crate::clients::igs::file_name::{
@@ -52,28 +47,19 @@ const RANGE_LOOKAHEAD: f64 = SECONDS_PER_DAY;
 /// Seconds in a GPS week.
 const SECONDS_PER_WEEK: f64 = 7.0 * SECONDS_PER_DAY;
 
-/// NASA Earthdata login service that CDDIS redirects to for authentication.
-const URS_URL: &str = "https://urs.earthdata.nasa.gov/";
-
-/// Most redirects followed for one request.
-const MAX_REDIRECTS: usize = 10;
-
 /// Largest response body read into memory, in bytes (1 GiB).
 const MAX_RESPONSE_BYTES: u64 = 1 << 30;
 
 /// Client for IGS precise-product archives.
 ///
 /// The client reads from one of the sources in [`IGSProductSource`] and never
-/// falls back to another. CDDIS requires NASA Earthdata credentials, given to
-/// [`IGSProductsClient::with_cddis_credentials`].
+/// falls back to another.
 ///
 /// Requests are blocking, retried on transient failures, and honour
 /// `BRAHE_NETWORK_MODE`. Listings and downloaded files are cached under
 /// [`get_igs_cache_dir`](crate::utils::get_igs_cache_dir). The cache
 /// directory is not coordinated across processes or across clients sharing
 /// it.
-///
-/// Credentials are held privately and are never printed by `Debug`.
 ///
 /// # Examples
 ///
@@ -84,76 +70,17 @@ const MAX_RESPONSE_BYTES: u64 = 1 << 30;
 /// assert_eq!(client.source(), IGSProductSource::BKG);
 /// assert_eq!(client.base_url(), "https://igs.bkg.bund.de/root_ftp/IGS/products/");
 /// ```
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct IGSProductsClient {
     source: IGSProductSource,
     base_url: String,
-    credentials: Option<(String, String)>,
     listing_max_age: f64,
     max_retries: u32,
     agent: ureq::Agent,
-    urs_url: String,
-}
-
-impl fmt::Debug for IGSProductsClient {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("IGSProductsClient")
-            .field("source", &self.source)
-            .field("base_url", &self.base_url)
-            .field("has_credentials", &self.credentials.is_some())
-            .field("listing_max_age", &self.listing_max_age)
-            .field("max_retries", &self.max_retries)
-            .finish()
-    }
 }
 
 impl IGSProductsClient {
-    fn build(
-        source: IGSProductSource,
-        base_url: &str,
-        credentials: Option<(String, String)>,
-    ) -> Self {
-        let mut base_url = base_url.to_string();
-        if !base_url.ends_with('/') {
-            base_url.push('/');
-        }
-        // Redirects are followed by the client itself, so that the network
-        // mode is checked for every host contacted and CDDIS credentials
-        // reach only the Earthdata login service.
-        let agent = ureq::Agent::config_builder()
-            .max_redirects(0)
-            .build()
-            .into();
-        Self {
-            source,
-            base_url,
-            credentials,
-            listing_max_age: DEFAULT_IGS_LISTING_MAX_AGE,
-            max_retries: DEFAULT_MAX_RETRIES,
-            agent,
-            urs_url: URS_URL.to_string(),
-        }
-    }
-
-    /// Sets the URL prefix treated as the NASA Earthdata login service, the
-    /// only place CDDIS credentials are sent.
-    ///
-    /// # Arguments
-    /// * `urs_url` - Scheme, host, optional port, and path prefix of the login service
-    ///
-    /// # Returns
-    /// * `IGSProductsClient`: The client, for chaining
-    #[cfg(test)]
-    pub(crate) fn with_urs_url(mut self, urs_url: &str) -> Self {
-        self.urs_url = urs_url.to_string();
-        self
-    }
-
     /// Creates a client for a source at its default base URL.
-    ///
-    /// A CDDIS client built this way has no credentials, so its requests
-    /// fail at the Earthdata login; use
-    /// [`IGSProductsClient::with_cddis_credentials`] for CDDIS.
     ///
     /// # Arguments
     /// * `source` - Archive to read from
@@ -171,33 +98,7 @@ impl IGSProductsClient {
     /// assert_eq!(client.base_url(), "http://garner.ucsd.edu/pub/products/");
     /// ```
     pub fn new(source: IGSProductSource) -> Self {
-        Self::build(source, source.default_base_url(), None)
-    }
-
-    /// Creates a CDDIS client with explicit NASA Earthdata credentials.
-    ///
-    /// # Arguments
-    /// * `username` - NASA Earthdata username
-    /// * `password` - NASA Earthdata password
-    ///
-    /// # Returns
-    /// * `IGSProductsClient`: CDDIS client using the default CDDIS base URL
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use brahe::igs::{IGSProductSource, IGSProductsClient};
-    ///
-    /// let client = IGSProductsClient::with_cddis_credentials("user", "password");
-    /// assert_eq!(client.source(), IGSProductSource::CDDIS);
-    /// assert!(!format!("{client:?}").contains("password"));
-    /// ```
-    pub fn with_cddis_credentials(username: &str, password: &str) -> Self {
-        Self::build(
-            IGSProductSource::CDDIS,
-            IGSProductSource::CDDIS.default_base_url(),
-            Some((username.to_string(), password.to_string())),
-        )
+        Self::with_base_url(source, source.default_base_url())
     }
 
     /// Creates a client for a source served from a different base URL, for
@@ -206,8 +107,7 @@ impl IGSProductsClient {
     /// Listings are cached per source, so a client with a different base URL
     /// shares the listing cache of the source it stands in for.
     ///
-    /// A trailing `/` is added to `base_url` when it is missing. The client
-    /// has no credentials.
+    /// A trailing `/` is added to `base_url` when it is missing.
     ///
     /// # Arguments
     /// * `source` - Archive the base URL stands in for
@@ -225,7 +125,17 @@ impl IGSProductsClient {
     /// assert_eq!(client.base_url(), "http://127.0.0.1:8080/products/");
     /// ```
     pub fn with_base_url(source: IGSProductSource, base_url: &str) -> Self {
-        Self::build(source, base_url, None)
+        let mut base_url = base_url.to_string();
+        if !base_url.ends_with('/') {
+            base_url.push('/');
+        }
+        Self {
+            source,
+            base_url,
+            listing_max_age: DEFAULT_IGS_LISTING_MAX_AGE,
+            max_retries: DEFAULT_MAX_RETRIES,
+            agent: ureq::Agent::new_with_defaults(),
+        }
     }
 
     /// Sets how long a cached directory listing is served before it is refreshed.
@@ -368,11 +278,7 @@ impl IGSProductsClient {
     /// ```
     pub fn list_files(&self, epoch: Epoch) -> Result<Vec<String>, BraheError> {
         let week = epoch.gps_date().0;
-        Ok(self
-            .week_files(week)?
-            .into_iter()
-            .map(|(name, _)| name)
-            .collect())
+        Ok(html_listing_files(&self.listing(Some(week))?))
     }
 
     /// Lists the products in the GPS week directory containing `epoch` that
@@ -499,16 +405,14 @@ impl IGSProductsClient {
     /// source in lowercase, the product's four-digit archive week, and the
     /// name as published. Published products do not change, so a cached file
     /// is returned without a request and without an age check. When the file
-    /// is not cached, `BRAHE_NETWORK_MODE` must allow the request. A CDDIS
-    /// download signs in to NASA Earthdata with the client's credentials,
-    /// which are sent only to the Earthdata login service.
+    /// is not cached, `BRAHE_NETWORK_MODE` must allow the request.
     ///
     /// # Arguments
     /// * `product` - Product to download, as returned by a listing
     ///
     /// # Returns
     /// * `Ok(PathBuf)`: Path of the cached file, compressed as published
-    /// * `Err(BraheError)`: If the product's name is not a plain IGS product file name, the file does not exist on the source, the network mode forbids the request, the Earthdata login fails, the body does not match the name's compression, or the cache cannot be written
+    /// * `Err(BraheError)`: If the product's name is not a plain IGS product file name, the file does not exist on the source, the network mode forbids the request, the body does not match the name's compression, or the cache cannot be written
     ///
     /// # Examples
     ///
@@ -912,18 +816,6 @@ impl IGSProductsClient {
         Ok(())
     }
 
-    /// Lists the files of a week directory with their sizes.
-    ///
-    /// # Arguments
-    /// * `week` - GPS week of the directory
-    ///
-    /// # Returns
-    /// * `Ok(Vec<(String, Option<u64>)>)`: File names and sizes in bytes, in listing order
-    /// * `Err(BraheError)`: If the directory does not exist or the listing cannot be obtained
-    fn week_files(&self, week: u32) -> Result<Vec<(String, Option<u64>)>, BraheError> {
-        Ok(self.parse_files(&self.listing(Some(week))?))
-    }
-
     /// Lists the products of a week directory that match `filter`.
     ///
     /// # Arguments
@@ -958,34 +850,19 @@ impl IGSProductsClient {
         listing: &str,
         filter: &IGSProductFilter,
     ) -> Vec<IGSProduct> {
-        self.parse_files(listing)
+        html_listing_files(listing)
             .into_iter()
-            .filter_map(|(name, size)| {
+            .filter_map(|name| {
                 let file_name = IGSProductFileName::parse(&name).ok()?;
                 Some(IGSProduct {
                     url: format!("{}{week:04}/{name}", self.base_url),
                     file_name,
                     name,
-                    size,
                     gps_week: week,
                 })
             })
             .filter(|product| filter.matches(product))
             .collect()
-    }
-
-    /// Reads the files of a week listing in the source's listing format.
-    ///
-    /// # Arguments
-    /// * `listing` - Listing body as served
-    ///
-    /// # Returns
-    /// * `Vec<(String, Option<u64>)>`: File names and sizes in bytes, in listing order
-    fn parse_files(&self, listing: &str) -> Vec<(String, Option<u64>)> {
-        match self.source {
-            IGSProductSource::CDDIS => plain_listing_files(listing),
-            IGSProductSource::Garner | IGSProductSource::BKG => html_listing_files(listing),
-        }
     }
 
     /// URL of the top-level listing (`week` of `None`) or of a week listing.
@@ -996,10 +873,9 @@ impl IGSProductsClient {
     /// # Returns
     /// * `String`: The listing URL
     fn listing_url(&self, week: Option<u32>) -> String {
-        match (week, self.source) {
-            (None, _) => self.base_url.clone(),
-            (Some(week), IGSProductSource::CDDIS) => format!("{}{week:04}/*?list", self.base_url),
-            (Some(week), _) => format!("{}{week:04}/", self.base_url),
+        match week {
+            None => self.base_url.clone(),
+            Some(week) => format!("{}{week:04}/", self.base_url),
         }
     }
 
@@ -1102,12 +978,6 @@ impl IGSProductsClient {
         let Some(body) = self.fetch_text(&url, &resource)? else {
             return Ok(None);
         };
-        if self.source == IGSProductSource::CDDIS && week.is_some() && is_html(body.as_bytes()) {
-            return Err(BraheError::Error(format!(
-                "{resource} from {url} is an HTML page, not a file list{}",
-                self.login_hint()
-            )));
-        }
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent).map_err(|e| {
                 BraheError::IoError(format!(
@@ -1163,7 +1033,7 @@ impl IGSProductsClient {
     ///
     /// A `.gz` or `.Z` product must start with that format's magic bytes, and
     /// a `.gz` product must decompress completely within the decompression
-    /// size limit. An uncompressed CDDIS product must not be an HTML page.
+    /// size limit.
     ///
     /// # Arguments
     /// * `product` - Product the body was downloaded for
@@ -1171,7 +1041,7 @@ impl IGSProductsClient {
     ///
     /// # Returns
     /// * `Ok(())`: The body matches the product
-    /// * `Err(BraheError)`: If the body does not match, which for CDDIS usually means the Earthdata login failed
+    /// * `Err(BraheError)`: If the body does not match
     fn check_product_body(&self, product: &IGSProduct, body: &[u8]) -> Result<(), BraheError> {
         let expected = match product.file_name.compression() {
             IGSCompression::Gzip => Some((Compression::Gzip, "gzip")),
@@ -1185,32 +1055,15 @@ impl IGSProductsClient {
             Some((Compression::Gzip, _)) => decompress(body)
                 .err()
                 .map(|e| format!("is not valid gzip data ({e})")),
-            None if self.source == IGSProductSource::CDDIS && is_html(body) => {
-                Some("is an HTML page".to_string())
-            }
             _ => None,
         };
         match mismatch {
             Some(detail) => Err(BraheError::Error(format!(
-                "{} downloaded from {} {detail}{}",
+                "{} downloaded from {} {detail}",
                 self.product_resource(product),
-                product.url,
-                self.login_hint()
+                product.url
             ))),
             None => Ok(()),
-        }
-    }
-
-    /// Hint appended to errors that a failed Earthdata login can cause.
-    ///
-    /// # Returns
-    /// * `&str`: The hint for CDDIS, empty for other sources
-    fn login_hint(&self) -> &'static str {
-        match self.source {
-            IGSProductSource::CDDIS => {
-                "; the NASA Earthdata login likely failed, so check the client's credentials"
-            }
-            IGSProductSource::Garner | IGSProductSource::BKG => "",
         }
     }
 
@@ -1245,7 +1098,7 @@ impl IGSProductsClient {
     /// # Returns
     /// * `Ok(Some(Vec<u8>))`: The response body
     /// * `Ok(None)`: If the server answered 404
-    /// * `Err(BraheError)`: If the network mode forbids a request, the Earthdata login fails, or every attempt fails
+    /// * `Err(BraheError)`: If the network mode forbids the request or every attempt fails
     fn fetch_bytes(&self, url: &str, resource: &str) -> Result<Option<Vec<u8>>, BraheError> {
         let mut attempt = 0;
         loop {
@@ -1253,7 +1106,7 @@ impl IGSProductsClient {
             if attempt > 0 {
                 sleep(backoff_delay(attempt));
             }
-            match self.request(url, resource) {
+            match self.agent.get(url).call() {
                 Ok(mut response) => {
                     match response
                         .body_mut()
@@ -1270,11 +1123,9 @@ impl IGSProductsClient {
                         }
                     }
                 }
-                Err(RequestError::NotFound) => return Ok(None),
-                Err(RequestError::Failed(e)) => return Err(e),
-                Err(RequestError::Http(e))
-                    if attempt < self.max_retries && is_retryable_error(&e) => {}
-                Err(RequestError::Http(e)) => {
+                Err(ureq::Error::StatusCode(404)) => return Ok(None),
+                Err(e) if attempt < self.max_retries && is_retryable_error(&e) => {}
+                Err(e) => {
                     return Err(BraheError::IoError(format!(
                         "{resource} request {url} failed: {e}"
                     )));
@@ -1283,291 +1134,6 @@ impl IGSProductsClient {
             attempt += 1;
         }
     }
-
-    /// Sends one GET for `url`.
-    ///
-    /// Up to [`MAX_REDIRECTS`] redirects are followed one at a time, checking
-    /// `BRAHE_NETWORK_MODE` before each request, with the agent's cookie jar
-    /// carrying cookies between them. A redirect from an `https` URL to an
-    /// `http` URL is refused. For CDDIS, HTTP Basic credentials are
-    /// added only to requests for the Earthdata login service, only a final
-    /// `200` from outside the login service is accepted, and a 404 during
-    /// the sign-in (from the login service until the redirect back to `url`)
-    /// is a sign-in failure rather than a missing file.
-    ///
-    /// # Arguments
-    /// * `url` - The URL to fetch
-    /// * `resource` - Description of what is fetched, used in messages
-    ///
-    /// # Returns
-    /// * `Ok(Response)`: The final `200` response, with its body unread
-    /// * `Err(RequestError)`: `NotFound` for a 404, `Http` for a transport or status failure that may be retried, `Failed` for a failure that must not be
-    fn request(&self, url: &str, resource: &str) -> Result<Response<ureq::Body>, RequestError> {
-        let failed = |detail: String| RequestError::Failed(BraheError::Error(detail));
-        let mut current = url.to_string();
-        let mut signing_in = false;
-        for _ in 0..=MAX_REDIRECTS {
-            ensure_online(&current, &format!("{resource} ({current})"))
-                .map_err(RequestError::Failed)?;
-            let uri: Uri = current
-                .parse()
-                .map_err(|e| failed(format!("{resource}: invalid URL {current}: {e}")))?;
-            let login = self.source == IGSProductSource::CDDIS && self.is_login_service(&uri);
-            if login {
-                signing_in = true;
-            } else if current == url {
-                signing_in = false;
-            }
-            let mut request = self.agent.get(&current);
-            if login {
-                let (username, password) = self.credentials.as_ref().ok_or_else(|| {
-                    failed(format!(
-                        "{resource} requires NASA Earthdata credentials: build the client with IGSProductsClient::with_cddis_credentials"
-                    ))
-                })?;
-                let token = BASE64.encode(format!("{username}:{password}"));
-                request = request.header("Authorization", format!("Basic {token}"));
-            }
-            let response = match request.call() {
-                Ok(response) => response,
-                Err(ureq::Error::StatusCode(status @ (401 | 403))) if login => {
-                    return Err(failed(format!(
-                        "{resource}: NASA Earthdata login at {} rejected the credentials (HTTP {status})",
-                        self.urs_url
-                    )));
-                }
-                Err(ureq::Error::StatusCode(404)) if signing_in => {
-                    return Err(failed(format!(
-                        "{resource}: NASA Earthdata sign-in step {current} answered 404{}",
-                        self.login_hint()
-                    )));
-                }
-                Err(e) => return Err(RequestError::from(e)),
-            };
-            let status = response.status();
-            if status.as_u16() == 200 {
-                if login {
-                    return Err(failed(format!(
-                        "{resource}: NASA Earthdata login at {current} answered with a page instead of redirecting back to CDDIS{}",
-                        self.login_hint()
-                    )));
-                }
-                return Ok(response);
-            }
-            if !status.is_redirection() {
-                return Err(failed(format!(
-                    "{resource} request {current} answered unexpected HTTP status {status}"
-                )));
-            }
-            let location = response
-                .headers()
-                .get("location")
-                .and_then(|value| value.to_str().ok())
-                .ok_or_else(|| {
-                    failed(format!(
-                        "{resource} request {current} answered {status} without a Location header"
-                    ))
-                })?;
-            let next = resolve_location(&uri, location).ok_or_else(|| {
-                failed(format!(
-                    "{resource} request {current} redirected to an invalid location {location}"
-                ))
-            })?;
-            if is_https_downgrade(&uri, &next) {
-                return Err(failed(format!(
-                    "{resource} request {current} redirected from HTTPS to plain HTTP {next}; the downgrade is not followed"
-                )));
-            }
-            current = next;
-        }
-        Err(failed(format!(
-            "{resource} request {url} redirected more than {MAX_REDIRECTS} times"
-        )))
-    }
-
-    /// Whether `uri` addresses the NASA Earthdata login service: the same
-    /// scheme, host, and port as the configured login URL, under its path.
-    ///
-    /// # Arguments
-    /// * `uri` - Request target
-    ///
-    /// # Returns
-    /// * `bool`: `true` when credentials may be sent to `uri`
-    fn is_login_service(&self, uri: &Uri) -> bool {
-        let Ok(login) = self.urs_url.parse::<Uri>() else {
-            return false;
-        };
-        let (Some(host), Some(login_host)) = (uri.host(), login.host()) else {
-            return false;
-        };
-        let (Some(scheme), Some(login_scheme)) = (uri.scheme_str(), login.scheme_str()) else {
-            return false;
-        };
-        scheme.eq_ignore_ascii_case(login_scheme)
-            && host.eq_ignore_ascii_case(login_host)
-            && effective_port(uri) == effective_port(&login)
-            && uri.path().starts_with(login.path())
-    }
-}
-
-/// Failure of one request attempt.
-enum RequestError {
-    /// The server answered 404.
-    NotFound,
-    /// A transport or HTTP status failure, retried when transient.
-    Http(ureq::Error),
-    /// A failure that retrying cannot fix.
-    Failed(BraheError),
-}
-
-impl From<ureq::Error> for RequestError {
-    fn from(e: ureq::Error) -> Self {
-        match e {
-            ureq::Error::StatusCode(404) => RequestError::NotFound,
-            e => RequestError::Http(e),
-        }
-    }
-}
-
-/// Port a URI connects to: its explicit port, or the scheme's default.
-///
-/// # Arguments
-/// * `uri` - The URI
-///
-/// # Returns
-/// * `Option<u16>`: The port, or `None` for a scheme other than `http` or `https` without an explicit port
-///
-/// # Examples
-///
-/// ```ignore
-/// assert_eq!(effective_port(&"https://cddis.nasa.gov/archive".parse().unwrap()), Some(443));
-/// assert_eq!(effective_port(&"http://localhost:8080/".parse().unwrap()), Some(8080));
-/// ```
-fn effective_port(uri: &Uri) -> Option<u16> {
-    let scheme = uri.scheme_str()?.to_ascii_lowercase();
-    uri.port_u16().or(match scheme.as_str() {
-        "https" => Some(443),
-        "http" => Some(80),
-        _ => None,
-    })
-}
-
-/// Resolves a redirect `Location` against the URL that answered it.
-///
-/// # Arguments
-/// * `base` - URL of the redirecting request
-/// * `location` - `Location` header value: absolute with a scheme in any case, scheme-relative (`//host/path`), absolute-path (`/path`), query-only (`?query`, applied to the base path), or relative to the base directory
-///
-/// # Returns
-/// * `Option<String>`: The absolute URL, or `None` if `base` has no scheme or host, or the location's scheme is not `http` or `https`
-///
-/// # Examples
-///
-/// ```ignore
-/// let base: Uri = "https://cddis.nasa.gov/archive/gnss/products/2340/".parse().unwrap();
-/// assert_eq!(
-///     resolve_location(&base, "/login?next=1").as_deref(),
-///     Some("https://cddis.nasa.gov/login?next=1")
-/// );
-/// assert_eq!(
-///     resolve_location(&base, "file.SP3.gz").as_deref(),
-///     Some("https://cddis.nasa.gov/archive/gnss/products/2340/file.SP3.gz")
-/// );
-/// assert_eq!(resolve_location(&base, "ftp://example.com/file"), None);
-/// ```
-fn resolve_location(base: &Uri, location: &str) -> Option<String> {
-    if let Some(scheme) = location_scheme(location) {
-        return ["http", "https"]
-            .iter()
-            .any(|supported| scheme.eq_ignore_ascii_case(supported))
-            .then(|| location.to_string());
-    }
-    let scheme = base.scheme_str()?;
-    if location.starts_with("//") {
-        return Some(format!("{scheme}:{location}"));
-    }
-    let authority = base.authority()?;
-    if location.starts_with('/') {
-        return Some(format!("{scheme}://{authority}{location}"));
-    }
-    let path = base.path();
-    if location.starts_with('?') {
-        return Some(format!("{scheme}://{authority}{path}{location}"));
-    }
-    let directory = &path[..path.rfind('/').map_or(0, |i| i + 1)];
-    let directory = if directory.is_empty() { "/" } else { directory };
-    Some(format!("{scheme}://{authority}{directory}{location}"))
-}
-
-/// Whether a redirect from `from` to the absolute URL `to` leaves HTTPS for
-/// plain HTTP.
-///
-/// # Arguments
-/// * `from` - URL of the redirecting request
-/// * `to` - Absolute redirect target
-///
-/// # Returns
-/// * `bool`: `true` when `from` uses `https` and `to` uses `http`, in any case
-///
-/// # Examples
-///
-/// ```ignore
-/// let from: Uri = "https://cddis.nasa.gov/archive".parse().unwrap();
-/// assert!(is_https_downgrade(&from, "http://cddis.nasa.gov/archive"));
-/// assert!(!is_https_downgrade(&from, "https://urs.earthdata.nasa.gov/oauth"));
-/// ```
-fn is_https_downgrade(from: &Uri, to: &str) -> bool {
-    from.scheme_str()
-        .is_some_and(|scheme| scheme.eq_ignore_ascii_case("https"))
-        && location_scheme(to).is_some_and(|scheme| scheme.eq_ignore_ascii_case("http"))
-}
-
-/// Scheme of an absolute URL reference: the text before the first `:` when
-/// it starts with a letter, holds only letters, digits, `+`, `-`, and `.`,
-/// and precedes any `/`, `?`, or `#`.
-///
-/// # Arguments
-/// * `reference` - URL reference
-///
-/// # Returns
-/// * `Option<&str>`: The scheme as written, or `None` for a relative reference
-///
-/// # Examples
-///
-/// ```ignore
-/// assert_eq!(location_scheme("HTTPS://example.com/"), Some("HTTPS"));
-/// assert_eq!(location_scheme("/archive/file"), None);
-/// assert_eq!(location_scheme("dir/name:1"), None);
-/// ```
-fn location_scheme(reference: &str) -> Option<&str> {
-    let end = reference.find([':', '/', '?', '#'])?;
-    let scheme = &reference[..end];
-    (reference[end..].starts_with(':')
-        && scheme.starts_with(|c: char| c.is_ascii_alphabetic())
-        && scheme
-            .chars()
-            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '+' | '-' | '.')))
-    .then_some(scheme)
-}
-
-/// Whether a body is an HTML page: its first non-whitespace byte is `<`.
-///
-/// # Arguments
-/// * `body` - Response body
-///
-/// # Returns
-/// * `bool`: `true` for a body that starts with a markup tag
-///
-/// # Examples
-///
-/// ```ignore
-/// assert!(is_html(b"  <!DOCTYPE html><html>"));
-/// assert!(!is_html(b"#dP2024 11 10"));
-/// ```
-fn is_html(body: &[u8]) -> bool {
-    body.iter()
-        .find(|b| !b.is_ascii_whitespace())
-        .is_some_and(|&b| b == b'<')
 }
 
 /// Name a product is saved under in a directory: the published name, without
@@ -1587,7 +1153,6 @@ fn is_html(body: &[u8]) -> bool {
 ///     file_name: IGSProductFileName::parse(name).unwrap(),
 ///     name: name.to_string(),
 ///     url: format!("https://igs.bkg.bund.de/root_ftp/IGS/products/2340/{name}"),
-///     size: None,
 ///     gps_week: 2340,
 /// };
 /// assert_eq!(saved_name(&product), "IGS0OPSFIN_20243150000_01D_15M_ORB.SP3");
@@ -1861,66 +1426,24 @@ fn is_listed_file(name: &str) -> bool {
 
 /// Reads the files of an Apache-style HTML directory listing.
 ///
-/// The listing's human-readable sizes are not exact, so no size is reported.
-///
 /// # Arguments
 /// * `html` - Listing page source
 ///
 /// # Returns
-/// * `Vec<(String, Option<u64>)>`: File names, each once, in listing order, with no size
+/// * `Vec<String>`: File names, each once, in listing order
 ///
 /// # Examples
 ///
 /// ```ignore
 /// let html = r#"<a href="../">Parent</a> <a href="igs23400.sp3.Z">igs23400.sp3.Z</a>"#;
-/// assert_eq!(html_listing_files(html), [("igs23400.sp3.Z".to_string(), None)]);
+/// assert_eq!(html_listing_files(html), ["igs23400.sp3.Z"]);
 /// ```
-fn html_listing_files(html: &str) -> Vec<(String, Option<u64>)> {
+fn html_listing_files(html: &str) -> Vec<String> {
     let mut seen = HashSet::new();
     html_hrefs(html)
         .into_iter()
         .filter(|href| is_listed_file(href) && seen.insert(*href))
-        .map(|href| (href.to_string(), None))
-        .collect()
-}
-
-/// Reads the files of a plain-text listing with one `name size` line per
-/// entry.
-///
-/// Blank lines, lines starting with `#`, and entries that are not plain file
-/// names, such as subdirectories, are skipped. A size that is not an integer
-/// is reported as unknown.
-///
-/// # Arguments
-/// * `text` - Listing body
-///
-/// # Returns
-/// * `Vec<(String, Option<u64>)>`: File names and sizes in bytes, in listing order
-///
-/// # Examples
-///
-/// ```ignore
-/// let text = "IGS0OPSFIN_20243150000_01D_15M_ORB.SP3.gz 123456\n";
-/// assert_eq!(
-///     plain_listing_files(text),
-///     [("IGS0OPSFIN_20243150000_01D_15M_ORB.SP3.gz".to_string(), Some(123456))]
-/// );
-/// ```
-fn plain_listing_files(text: &str) -> Vec<(String, Option<u64>)> {
-    text.lines()
-        .filter_map(|line| {
-            let line = line.trim();
-            if line.starts_with('#') {
-                return None;
-            }
-            let mut fields = line.split_whitespace();
-            let name = fields.next()?;
-            if !is_listed_file(name) {
-                return None;
-            }
-            let size = fields.next().and_then(|size| size.parse().ok());
-            Some((name.to_string(), size))
-        })
+        .map(str::to_string)
         .collect()
 }
 
@@ -1967,47 +1490,16 @@ mod tests {
     use crate::utils::testing::{CacheRedirect, NetworkModeGuard};
     use httpmock::prelude::*;
     use serial_test::{parallel, serial};
-    use std::env;
     use std::time::{Duration, SystemTime};
 
     #[test]
     #[serial]
     fn test_igs_products_client_new_uses_default_base_url() {
-        for source in [
-            IGSProductSource::CDDIS,
-            IGSProductSource::Garner,
-            IGSProductSource::BKG,
-        ] {
+        for source in [IGSProductSource::Garner, IGSProductSource::BKG] {
             let client = IGSProductsClient::new(source);
             assert_eq!(client.source(), source);
             assert_eq!(client.base_url(), source.default_base_url());
         }
-    }
-
-    #[test]
-    #[serial]
-    fn test_igs_products_client_with_cddis_credentials() {
-        let client = IGSProductsClient::with_cddis_credentials("user", "secret");
-        assert_eq!(client.source(), IGSProductSource::CDDIS);
-        assert_eq!(
-            client.base_url(),
-            IGSProductSource::CDDIS.default_base_url()
-        );
-        assert_eq!(
-            client.credentials,
-            Some(("user".to_string(), "secret".to_string()))
-        );
-    }
-
-    #[test]
-    #[serial]
-    fn test_igs_products_client_new_has_no_credentials() {
-        for source in [IGSProductSource::CDDIS, IGSProductSource::BKG] {
-            assert_eq!(IGSProductsClient::new(source).credentials, None);
-        }
-        let client =
-            IGSProductsClient::with_base_url(IGSProductSource::CDDIS, "http://localhost:1/");
-        assert_eq!(client.credentials, None);
     }
 
     #[test]
@@ -2033,15 +1525,6 @@ mod tests {
         let client = client.with_cache_age(600.0).max_retries(0);
         assert_eq!(client.listing_max_age, 600.0);
         assert_eq!(client.max_retries, 0);
-    }
-
-    #[test]
-    #[serial]
-    fn test_igs_products_client_debug_omits_credentials() {
-        let client = IGSProductsClient::with_cddis_credentials("u", "secret");
-        let debug = format!("{client:?}");
-        assert!(!debug.contains("secret"));
-        assert!(debug.contains("CDDIS"));
     }
 
     #[test]
@@ -2266,52 +1749,8 @@ mod tests {
                 product.url,
                 format!("{}2340/{}", client.base_url(), product.name)
             );
-            assert_eq!(product.size, None);
             assert_eq!(product.gps_week, 2340);
         }
-    }
-
-    #[test]
-    #[serial]
-    fn test_igs_products_client_cddis_listing_reports_sizes() {
-        let _cache = CacheRedirect::new();
-        let _mode = NetworkModeGuard::set(Some("online"));
-        let server = MockServer::start();
-        let week = server.mock(|when, then| {
-            when.method(GET)
-                .path("/archive/gnss/products/2340/*")
-                .query_param_exists("list");
-            then.status(200).body(asset("cddis_2340.txt"));
-        });
-        let client = IGSProductsClient::with_base_url(
-            IGSProductSource::CDDIS,
-            &server.url("/archive/gnss/products/"),
-        );
-
-        let files = client.list_files(week_2340()).unwrap();
-        assert_eq!(files.len(), asset("cddis_2340.txt").lines().count());
-        assert!(files.contains(&"readme.txt".to_string()));
-
-        let products = client
-            .list_products(
-                week_2340(),
-                &IGSProductFilter::new()
-                    .with_center(IGSAnalysisCenter::parse("cod"))
-                    .with_solution(IGSSolutionType::Final)
-                    .with_content(IGSContentType::Orbit),
-            )
-            .unwrap();
-        let orbit = products
-            .iter()
-            .find(|p| p.name == "COD0OPSFIN_20243150000_01D_05M_ORB.SP3.gz")
-            .unwrap();
-        assert_eq!(orbit.size, Some(617472));
-        assert_eq!(
-            orbit.url,
-            server.url("/archive/gnss/products/2340/COD0OPSFIN_20243150000_01D_05M_ORB.SP3.gz")
-        );
-        assert!(products.iter().all(|p| p.size.is_some()));
-        week.assert_calls(1);
     }
 
     #[test]
@@ -2616,24 +2055,7 @@ mod tests {
         );
         assert_eq!(
             html_listing_files(html),
-            vec![
-                ("igr23400.sp3.Z".to_string(), None),
-                ("readme.txt".to_string(), None),
-            ]
-        );
-    }
-
-    #[test]
-    #[parallel]
-    fn test_igs_plain_listing_files() {
-        let text = "# comment\n\nigr23400.sp3.Z 1024\nsubdir/ 0\nreadme.txt\n  odd.txt  big \n";
-        assert_eq!(
-            plain_listing_files(text),
-            vec![
-                ("igr23400.sp3.Z".to_string(), Some(1024)),
-                ("readme.txt".to_string(), None),
-                ("odd.txt".to_string(), None),
-            ]
+            vec!["igr23400.sp3.Z".to_string(), "readme.txt".to_string()]
         );
     }
 
@@ -2656,7 +2078,6 @@ mod tests {
             file_name: IGSProductFileName::parse(name).unwrap(),
             name: name.to_string(),
             url: String::new(),
-            size: None,
             gps_week: week,
         };
         let weekly = product("igs23407.erp.Z", 2340);
@@ -2677,10 +2098,7 @@ mod tests {
         assert!(!is_listed_file("javascript:void(0)"));
         assert!(is_listed_file("igr23400.sp3.Z"));
         let html = "<a href=\"mailto:igs@example.org\">mail</a><a href=\"readme.txt\">readme</a>";
-        assert_eq!(
-            html_listing_files(html),
-            vec![("readme.txt".to_string(), None)]
-        );
+        assert_eq!(html_listing_files(html), vec!["readme.txt".to_string()]);
     }
 
     fn offline_garner_client() -> IGSProductsClient {
@@ -2786,7 +2204,6 @@ mod tests {
             file_name: IGSProductFileName::parse(name).unwrap(),
             name: name.to_string(),
             url: format!("{}{week:04}/{name}", client.base_url()),
-            size: None,
             gps_week: week,
         }
     }
@@ -2796,69 +2213,6 @@ mod tests {
             when.method(GET).path(path.to_string());
             then.status(200).body(body);
         })
-    }
-
-    /// A CDDIS client for `server` with credentials `u:p` whose login
-    /// service is the server's `/oauth/` path.
-    fn cddis_client(server: &MockServer) -> IGSProductsClient {
-        IGSProductsClient::build(
-            IGSProductSource::CDDIS,
-            &server.url("/archive/"),
-            Some(("u".to_string(), "p".to_string())),
-        )
-        .with_urs_url(&server.url("/oauth/"))
-    }
-
-    /// Mocks the Earthdata sign-in for `path` on `server`: without the
-    /// session cookie `path` redirects to the login service, which requires
-    /// Basic `u:p` and redirects to `/proxyauth` setting the cookie, which
-    /// redirects back to `path`. With the cookie, `path` answers `body`.
-    /// Returns the file, login, and proxyauth mocks plus a mock counting
-    /// file requests that carry an `Authorization` header.
-    fn mock_cddis_flow<'a>(
-        server: &'a MockServer,
-        path: &str,
-        body: Vec<u8>,
-    ) -> [httpmock::Mock<'a>; 4] {
-        let leaked = server.mock(|when, then| {
-            when.method(GET)
-                .path(path.to_string())
-                .header_exists("authorization");
-            then.status(500);
-        });
-        let file = server.mock(|when, then| {
-            when.method(GET)
-                .path(path.to_string())
-                .header_missing("authorization")
-                .cookie("s", "1");
-            then.status(200).body(body);
-        });
-        server.mock(|when, then| {
-            when.method(GET)
-                .path(path.to_string())
-                .header_missing("authorization")
-                .cookie_missing("s");
-            then.status(302).header(
-                "Location",
-                "/oauth/authorize?client_id=c&response_type=code",
-            );
-        });
-        let login = server.mock(|when, then| {
-            when.method(GET)
-                .path("/oauth/authorize")
-                .query_param("client_id", "c")
-                .header("authorization", "Basic dTpw");
-            then.status(302)
-                .header("Location", "/proxyauth?code=abc")
-                .header("Set-Cookie", "s=1; Path=/");
-        });
-        let proxy = server.mock(|when, then| {
-            when.method(GET)
-                .path("/proxyauth")
-                .header_missing("authorization");
-            then.status(302).header("Location", server.url(path));
-        });
-        [file, login, proxy, leaked]
     }
 
     #[test]
@@ -3023,17 +2377,7 @@ mod tests {
         ]);
         assert_eq!(
             html_listing_files(&html),
-            vec![
-                ("..%2F..%2Fetc".to_string(), None),
-                (SP3_NAME.to_string(), None)
-            ]
-        );
-        let text = format!(
-            "../../{SP3_NAME} 10\n..\\{SP3_NAME} 10\nC:{SP3_NAME} 10\n.. 1\n{SP3_NAME} 12\n"
-        );
-        assert_eq!(
-            plain_listing_files(&text),
-            vec![(SP3_NAME.to_string(), Some(12))]
+            vec!["..%2F..%2Fetc".to_string(), SP3_NAME.to_string()]
         );
         let client = IGSProductsClient::new(IGSProductSource::Garner);
         let products = client.products_from_listing(2340, &html, &IGSProductFilter::new());
@@ -3129,209 +2473,6 @@ mod tests {
 
     #[test]
     #[serial]
-    fn test_igs_products_client_cddis_download_signs_in_through_earthdata() {
-        let _cache = CacheRedirect::new();
-        let _mode = NetworkModeGuard::set(Some("online"));
-        let server = MockServer::start();
-        let body = gzip(SP3_TEXT.as_bytes()).unwrap();
-        let [file, login, proxy, leaked] =
-            mock_cddis_flow(&server, &format!("/archive/2340/{SP3_NAME}"), body.clone());
-        let client = cddis_client(&server);
-
-        let path = client.download(&product(&client, SP3_NAME, 2340)).unwrap();
-        assert_eq!(
-            path,
-            client
-                .cache_dir()
-                .unwrap()
-                .join("cddis/2340")
-                .join(SP3_NAME)
-        );
-        assert_eq!(fs::read(&path).unwrap(), body);
-        file.assert_calls(1);
-        login.assert_calls(1);
-        proxy.assert_calls(1);
-        leaked.assert_calls(0);
-    }
-
-    #[test]
-    #[serial]
-    fn test_igs_products_client_cddis_listing_signs_in_through_earthdata() {
-        let _cache = CacheRedirect::new();
-        let _mode = NetworkModeGuard::set(Some("online"));
-        let server = MockServer::start();
-        let [file, login, _proxy, leaked] = mock_cddis_flow(
-            &server,
-            "/archive/2340/*",
-            asset("cddis_2340.txt").into_bytes(),
-        );
-        let client = cddis_client(&server);
-
-        let files = client.list_files(week_2340()).unwrap();
-        assert!(files.contains(&SP3_NAME.to_string()));
-        file.assert_calls(1);
-        login.assert_calls(1);
-        leaked.assert_calls(0);
-    }
-
-    #[test]
-    #[serial]
-    fn test_igs_products_client_cddis_html_listing_is_rejected() {
-        let _cache = CacheRedirect::new();
-        let _mode = NetworkModeGuard::set(Some("online"));
-        let server = MockServer::start();
-        server.mock(|when, then| {
-            when.method(GET).path("/archive/2340/*");
-            then.status(200)
-                .body("\n  <!DOCTYPE html><html><body>Earthdata Login</body></html>");
-        });
-        let client = cddis_client(&server);
-
-        let err = client.list_files(week_2340()).unwrap_err().to_string();
-        assert!(err.contains("HTML page"), "{err}");
-        assert!(err.contains("check the client's credentials"), "{err}");
-        assert!(
-            !client
-                .cache_dir()
-                .unwrap()
-                .join("listings/cddis/2340.txt")
-                .exists()
-        );
-    }
-
-    #[test]
-    #[serial]
-    fn test_igs_products_client_cddis_login_failures() {
-        let _cache = CacheRedirect::new();
-        let _mode = NetworkModeGuard::set(Some("online"));
-        let server = MockServer::start();
-        let path = format!("/archive/2340/{SP3_NAME}");
-        server.mock(|when, then| {
-            when.method(GET).path(path.clone());
-            then.status(302)
-                .header("Location", "/oauth/authorize?client_id=c");
-        });
-        let rejected = server.mock(|when, then| {
-            when.method(GET)
-                .path("/oauth/authorize")
-                .header_exists("authorization");
-            then.status(401);
-        });
-        let client = cddis_client(&server);
-        let err = client
-            .download(&product(&client, SP3_NAME, 2340))
-            .unwrap_err()
-            .to_string();
-        assert!(err.contains("rejected the credentials"), "{err}");
-        assert!(err.contains(SP3_NAME), "{err}");
-        rejected.assert_calls(1);
-
-        let anonymous =
-            IGSProductsClient::build(IGSProductSource::CDDIS, &server.url("/archive/"), None)
-                .with_urs_url(&server.url("/oauth/"));
-        let err = anonymous
-            .download(&product(&anonymous, SP3_NAME, 2340))
-            .unwrap_err()
-            .to_string();
-        assert!(err.contains("requires NASA Earthdata credentials"), "{err}");
-        rejected.assert_calls(1);
-    }
-
-    #[test]
-    #[serial]
-    fn test_igs_products_client_cddis_login_page_and_redirect_loop_are_errors() {
-        let _cache = CacheRedirect::new();
-        let _mode = NetworkModeGuard::set(Some("online"));
-        let server = MockServer::start();
-        server.mock(|when, then| {
-            when.method(GET).path(format!("/archive/2340/{SP3_NAME}"));
-            then.status(302).header("Location", "/oauth/authorize");
-        });
-        server.mock(|when, then| {
-            when.method(GET).path("/oauth/authorize");
-            then.status(200).body("<html>Earthdata Login</html>");
-        });
-        let loop_mock = server.mock(|when, then| {
-            when.method(GET).path("/archive/2340/igr23400.sp3.Z");
-            then.status(302).header("Location", "igr23400.sp3.Z");
-        });
-        let client = cddis_client(&server);
-        let err = client
-            .download(&product(&client, SP3_NAME, 2340))
-            .unwrap_err()
-            .to_string();
-        assert!(
-            err.contains("instead of redirecting back to CDDIS"),
-            "{err}"
-        );
-
-        let err = client
-            .download(&product(&client, "igr23400.sp3.Z", 2340))
-            .unwrap_err()
-            .to_string();
-        assert!(err.contains("redirected more than 10 times"), "{err}");
-        loop_mock.assert_calls(MAX_REDIRECTS + 1);
-    }
-
-    #[test]
-    #[serial]
-    fn test_igs_products_client_cddis_unexpected_responses_are_errors() {
-        let _cache = CacheRedirect::new();
-        let _mode = NetworkModeGuard::set(Some("online"));
-        let server = MockServer::start();
-        server.mock(|when, then| {
-            when.method(GET).path("/archive/2340/igr23400.sp3.Z");
-            then.status(204);
-        });
-        server.mock(|when, then| {
-            when.method(GET).path("/archive/2340/igr23401.sp3.Z");
-            then.status(302);
-        });
-        let client = cddis_client(&server);
-
-        let err = client
-            .download(&product(&client, "igr23400.sp3.Z", 2340))
-            .unwrap_err()
-            .to_string();
-        assert!(err.contains("unexpected HTTP status 204"), "{err}");
-
-        let err = client
-            .download(&product(&client, "igr23401.sp3.Z", 2340))
-            .unwrap_err()
-            .to_string();
-        assert!(err.contains("without a Location header"), "{err}");
-    }
-
-    #[test]
-    #[serial]
-    fn test_igs_products_client_cddis_html_product_is_rejected() {
-        let _cache = CacheRedirect::new();
-        let _mode = NetworkModeGuard::set(Some("online"));
-        let server = MockServer::start();
-        mock_file(
-            &server,
-            "/archive/2340/igr23400.sp3",
-            b"<html>Earthdata Login</html>".to_vec(),
-        );
-        let client = cddis_client(&server);
-
-        let err = client
-            .download(&product(&client, "igr23400.sp3", 2340))
-            .unwrap_err()
-            .to_string();
-        assert!(err.contains("is an HTML page"), "{err}");
-        assert!(err.contains("check the client's credentials"), "{err}");
-        assert!(
-            !client
-                .cache_dir()
-                .unwrap()
-                .join("cddis/2340/igr23400.sp3")
-                .exists()
-        );
-    }
-
-    #[test]
-    #[serial]
     fn test_igs_products_client_listing_rejects_non_utf8_body() {
         let _cache = CacheRedirect::new();
         let _mode = NetworkModeGuard::set(Some("online"));
@@ -3378,109 +2519,6 @@ mod tests {
             .unwrap(),
             SHORT_Z_BYTES
         );
-    }
-
-    #[test]
-    #[parallel]
-    fn test_igs_resolve_location() {
-        let base: Uri = "https://cddis.nasa.gov/archive/gnss/products/2340/file.gz?x=1"
-            .parse()
-            .unwrap();
-        for (location, expected) in [
-            (
-                "https://urs.earthdata.nasa.gov/oauth/authorize?a=b",
-                "https://urs.earthdata.nasa.gov/oauth/authorize?a=b",
-            ),
-            (
-                "//urs.earthdata.nasa.gov/oauth",
-                "https://urs.earthdata.nasa.gov/oauth",
-            ),
-            (
-                "/proxyauth?code=1",
-                "https://cddis.nasa.gov/proxyauth?code=1",
-            ),
-            (
-                "other.gz",
-                "https://cddis.nasa.gov/archive/gnss/products/2340/other.gz",
-            ),
-        ] {
-            assert_eq!(resolve_location(&base, location).as_deref(), Some(expected));
-        }
-        for (location, expected) in [
-            (
-                "HTTPS://URS.earthdata.nasa.gov/oauth",
-                Some("HTTPS://URS.earthdata.nasa.gov/oauth"),
-            ),
-            (
-                "Http://mirror.example/a.gz",
-                Some("Http://mirror.example/a.gz"),
-            ),
-            (
-                "?list",
-                Some("https://cddis.nasa.gov/archive/gnss/products/2340/file.gz?list"),
-            ),
-            ("ftp://mirror.example/a.gz", None),
-            ("mailto:user@example.com", None),
-            ("dir:name/x.gz", None),
-        ] {
-            assert_eq!(
-                resolve_location(&base, location).as_deref(),
-                expected,
-                "{location}"
-            );
-        }
-        let relative: Uri = "/no/host".parse().unwrap();
-        assert_eq!(resolve_location(&relative, "/x"), None);
-    }
-
-    #[test]
-    #[parallel]
-    fn test_igs_is_https_downgrade() {
-        let https: Uri = "https://igs.bkg.bund.de/root_ftp/IGS/products/2340/"
-            .parse()
-            .unwrap();
-        let http: Uri = "http://garner.ucsd.edu/pub/products/2340/".parse().unwrap();
-        assert!(is_https_downgrade(&https, "http://igs.bkg.bund.de/a.gz"));
-        assert!(is_https_downgrade(&https, "HTTP://mirror.example/a.gz"));
-        assert!(!is_https_downgrade(&https, "https://igs.bkg.bund.de/a.gz"));
-        assert!(!is_https_downgrade(&http, "http://garner.ucsd.edu/a.gz"));
-        assert!(!is_https_downgrade(&http, "https://garner.ucsd.edu/a.gz"));
-        let upper: Uri = "HTTPS://cddis.nasa.gov/archive/".parse().unwrap();
-        assert!(is_https_downgrade(
-            &upper,
-            "http://cddis.nasa.gov/archive/a.gz"
-        ));
-    }
-
-    #[test]
-    #[parallel]
-    fn test_igs_products_client_is_login_service() {
-        let client = IGSProductsClient::with_cddis_credentials("u", "p");
-        for (url, expected) in [
-            ("https://urs.earthdata.nasa.gov/oauth/authorize", true),
-            ("https://URS.earthdata.nasa.gov:443/oauth/authorize", true),
-            ("HTTPS://urs.earthdata.nasa.gov/oauth/authorize", true),
-            ("http://urs.earthdata.nasa.gov/oauth/authorize", false),
-            ("https://urs.earthdata.nasa.gov:8443/oauth/authorize", false),
-            ("https://urs.earthdata.nasa.gov.example.com/oauth", false),
-            ("https://cddis.nasa.gov/archive/gnss/products/", false),
-            ("https://cddis.nasa.gov/proxyauth", false),
-        ] {
-            let uri: Uri = url.parse().unwrap();
-            assert_eq!(client.is_login_service(&uri), expected, "{url}");
-        }
-        let scoped = client.with_urs_url("http://127.0.0.1:8080/oauth/");
-        assert!(scoped.is_login_service(&"http://127.0.0.1:8080/oauth/authorize".parse().unwrap()));
-        assert!(!scoped.is_login_service(&"http://127.0.0.1:8080/file".parse().unwrap()));
-    }
-
-    #[test]
-    #[parallel]
-    fn test_igs_is_html() {
-        assert!(is_html(b"<html>"));
-        assert!(is_html(b" \n\t<!DOCTYPE html>"));
-        assert!(!is_html(b"#dP2024"));
-        assert!(!is_html(b""));
     }
 
     const SP3_FIXTURE: &str = "test_assets/sp3/IGS0OPSFIN_20243150000_01D_15M_ORB_subset.SP3.gz";
@@ -4142,7 +3180,6 @@ mod tests {
             file_name: IGSProductFileName::parse(name).unwrap(),
             name: name.to_string(),
             url: String::new(),
-            size: None,
             gps_week: 2340,
         };
         let products: Vec<IGSProduct> = [
@@ -4256,24 +3293,6 @@ mod tests {
 
     #[test]
     #[serial]
-    #[cfg_attr(not(feature = "integration"), ignore)]
-    fn test_integration_cddis_listing_and_download() {
-        let username = env::var("CDDIS_EARTHDATA_USERNAME").unwrap_or_default();
-        let password = env::var("CDDIS_EARTHDATA_PASSWORD").unwrap_or_default();
-        if username.is_empty() || password.is_empty() {
-            eprintln!("skipping: CDDIS credentials not set");
-            return;
-        }
-        let _cache = CacheRedirect::new();
-        let _mode = NetworkModeGuard::set(None);
-        let client = IGSProductsClient::with_cddis_credentials(&username, &password);
-        let files = client.list_files(integration_week_2340()).unwrap();
-        assert!(files.iter().any(|f| f == INTEGRATION_FINAL_ORBIT));
-        assert_integration_final_orbit(&client);
-    }
-
-    #[test]
-    #[serial]
     fn test_igs_products_client_download_rejects_truncated_gzip_without_caching() {
         let _cache = CacheRedirect::new();
         let _mode = NetworkModeGuard::set(Some("online"));
@@ -4300,122 +3319,6 @@ mod tests {
         assert_eq!(client.download(&product).unwrap(), cached);
         assert_eq!(fs::read(&cached).unwrap(), body);
         complete.assert_calls(1);
-    }
-
-    #[test]
-    #[serial]
-    fn test_igs_products_client_redirects_are_checked_against_network_mode() {
-        let _cache = CacheRedirect::new();
-        let online = NetworkModeGuard::set(Some("online"));
-        let server = MockServer::start();
-        let body = gzip(SP3_TEXT.as_bytes()).unwrap();
-        let moved = server.mock(|when, then| {
-            when.method(GET)
-                .path(format!("/pub/products/2340/{SP3_NAME}"));
-            then.status(302)
-                .header("Location", format!("/mirror/{SP3_NAME}"));
-        });
-        let mirror = mock_file(&server, &format!("/mirror/{SP3_NAME}"), body.clone());
-        let client = garner_client(&server);
-        let path = client.download(&product(&client, SP3_NAME, 2340)).unwrap();
-        assert_eq!(fs::read(path).unwrap(), body);
-        moved.assert_calls(1);
-        mirror.assert_calls(1);
-        drop(online);
-
-        let name = "COD0OPSFIN_20243160000_01D_05M_ORB.SP3.gz";
-        let external = server.mock(|when, then| {
-            when.method(GET).path(format!("/pub/products/2340/{name}"));
-            then.status(302).header(
-                "Location",
-                format!("http://brahe-redirect-test.invalid/{name}"),
-            );
-        });
-        for mode in ["offline", "offline-strict"] {
-            let _mode = NetworkModeGuard::set(Some(mode));
-            let err = client
-                .download(&product(&client, name, 2340))
-                .unwrap_err()
-                .to_string();
-            assert!(
-                err.contains(&format!("BRAHE_NETWORK_MODE is {mode}")),
-                "{err}"
-            );
-            assert!(err.contains("brahe-redirect-test.invalid"), "{err}");
-        }
-        external.assert_calls(2);
-    }
-
-    #[test]
-    #[serial]
-    fn test_igs_products_client_cddis_sign_in_404_is_not_missing_product() {
-        let _cache = CacheRedirect::new();
-        let _mode = NetworkModeGuard::set(Some("online"));
-        for (missing, location) in [
-            ("/oauth/authorize", "/oauth/authorize?client_id=c"),
-            ("/proxyauth", "/proxyauth?code=abc"),
-        ] {
-            let server = MockServer::start();
-            server.mock(|when, then| {
-                when.method(GET).path(format!("/archive/2340/{SP3_NAME}"));
-                then.status(302)
-                    .header("Location", "/oauth/authorize?client_id=c");
-            });
-            if missing == "/proxyauth" {
-                server.mock(|when, then| {
-                    when.method(GET).path("/oauth/authorize");
-                    then.status(302).header("Location", location);
-                });
-            }
-            server.mock(|when, then| {
-                when.method(GET).path(missing);
-                then.status(404);
-            });
-            let client = cddis_client(&server);
-            let err = client
-                .download(&product(&client, SP3_NAME, 2340))
-                .unwrap_err()
-                .to_string();
-            assert!(err.contains("sign-in step"), "{missing}: {err}");
-            assert!(err.contains(missing), "{missing}: {err}");
-            assert!(!err.contains("not found"), "{missing}: {err}");
-        }
-    }
-
-    #[test]
-    #[serial]
-    fn test_igs_products_client_cddis_missing_file_after_sign_in_is_not_found() {
-        let _cache = CacheRedirect::new();
-        let _mode = NetworkModeGuard::set(Some("online"));
-        let server = MockServer::start();
-        let path = format!("/archive/2340/{SP3_NAME}");
-        server.mock(|when, then| {
-            when.method(GET).path(path.clone()).cookie_missing("s");
-            then.status(302)
-                .header("Location", "/oauth/authorize?client_id=c");
-        });
-        server.mock(|when, then| {
-            when.method(GET).path("/oauth/authorize");
-            then.status(302)
-                .header("Location", "/proxyauth?code=abc")
-                .header("Set-Cookie", "s=1; Path=/");
-        });
-        server.mock(|when, then| {
-            when.method(GET).path("/proxyauth");
-            then.status(302).header("Location", server.url(&path));
-        });
-        server.mock(|when, then| {
-            when.method(GET).path(path.clone()).cookie("s", "1");
-            then.status(404);
-        });
-        let client = cddis_client(&server);
-        let err = client
-            .download(&product(&client, SP3_NAME, 2340))
-            .unwrap_err()
-            .to_string();
-        assert!(err.contains("not found"), "{err}");
-        assert!(err.contains("CDDIS"), "{err}");
-        assert!(err.contains(SP3_NAME), "{err}");
     }
 
     #[test]

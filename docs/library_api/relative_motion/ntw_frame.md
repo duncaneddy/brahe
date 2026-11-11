@@ -1,4 +1,4 @@
-# NTW Transformations
+# NTW Frame
 
 ::: brahe.rotation_ntw_to_eci
 

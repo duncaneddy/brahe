@@ -36,10 +36,12 @@ use crate::frames::{
 };
 use crate::math::{SMatrix3, SVector6};
 use crate::relative_motion::{
-    omega_lvlh, omega_ntw_for_body, omega_rtn, omega_tnw_for_body, omega_vnc_for_body,
-    rotation_eci_to_eqw, rotation_eci_to_lvlh, rotation_eci_to_ntw, rotation_eci_to_rtn,
-    rotation_eci_to_tnw, rotation_eci_to_vnc, rotation_inertial_to_pqw_for_body,
+    omega_lvlh, omega_nsw, omega_ntw_for_body, omega_rtn, omega_tnw_for_body, omega_vnc_for_body,
+    rotation_eci_to_eqw, rotation_eci_to_lvlh, rotation_eci_to_nsw, rotation_eci_to_ntw,
+    rotation_eci_to_rtn, rotation_eci_to_tnw, rotation_eci_to_vnc,
+    rotation_inertial_to_pqw_for_body,
 };
+use crate::spice::{NAIFId, spk_state};
 use crate::time::Epoch;
 use crate::utils::BraheError;
 
@@ -452,7 +454,8 @@ fn provider_error(frame: &ReferenceFrame, err: BraheError) -> BraheError {
 ///   locate periapsis for its axes, not just for a rate — or (for `PQW` or
 ///   `EQW`) the frame carries the rotating variant, which the validating
 ///   constructors reject but the enum's public fields and deserialization
-///   admit
+///   admit, or (for `NSW`) the SPICE registry cannot supply the Sun's state
+///   relative to the declared center
 fn resolve_orbit_relative(
     kind: OrbitRelativeFrameKind,
     variant: OrbitRelativeFrameVariant,
@@ -468,10 +471,11 @@ fn resolve_orbit_relative(
             | OrbitRelativeFrameKind::VNC
             | OrbitRelativeFrameKind::PQW
             | OrbitRelativeFrameKind::EQW
+            | OrbitRelativeFrameKind::NSW
     ) {
         return Err(BraheError::Error(format!(
             "orbit-relative kind {kind} does not yet have an axes derivation (tracked in \
-             issue #452); supported kinds: RTN, LVLH, NTW, TNW, VNC, PQW, EQW"
+             issue #452); supported kinds: RTN, LVLH, NTW, TNW, VNC, PQW, EQW, NSW"
         )));
     }
 
@@ -523,10 +527,19 @@ fn resolve_orbit_relative(
             Vector3::zeros(),
         ),
         OrbitRelativeFrameKind::EQW => (rotation_eci_to_eqw(x_root), Vector3::zeros()),
+        OrbitRelativeFrameKind::NSW => {
+            let x_sun = spk_state(NAIFId::Sun, root.center().naif_id(), epc).map_err(|e| {
+                BraheError::Error(format!(
+                    "orbit-relative kind NSW needs the Sun's state relative to {object}'s \
+                     declared center for its axes: {e}"
+                ))
+            })?;
+            (rotation_eci_to_nsw(x_root, x_sun), omega_nsw(x_root, x_sun))
+        }
         _ => {
             return Err(BraheError::Error(format!(
                 "orbit-relative kind {kind} does not yet have an axes derivation (tracked in \
-                 issue #452); supported kinds: RTN, LVLH, NTW, TNW, VNC, PQW, EQW"
+                 issue #452); supported kinds: RTN, LVLH, NTW, TNW, VNC, PQW, EQW, NSW"
             )));
         }
     };
@@ -731,12 +744,12 @@ mod tests {
     use crate::orbit_dynamics::ephemerides::sun_position;
     use crate::propagators::CentralBody;
     use crate::relative_motion::{
-        omega_lvlh, omega_ntw, omega_ntw_for_body, omega_tnw, omega_vnc, rotation_eci_to_eqw,
-        rotation_eci_to_lvlh, rotation_eci_to_ntw, rotation_eci_to_pqw, rotation_eci_to_tnw,
-        rotation_inertial_to_pqw_for_body, state_eci_to_eqw, state_eci_to_lvlh, state_eci_to_pqw,
-        state_eci_to_rtn,
+        omega_lvlh, omega_nsw, omega_ntw, omega_ntw_for_body, omega_tnw, omega_vnc,
+        rotation_eci_to_eqw, rotation_eci_to_lvlh, rotation_eci_to_nsw, rotation_eci_to_ntw,
+        rotation_eci_to_pqw, rotation_eci_to_tnw, rotation_inertial_to_pqw_for_body,
+        state_eci_to_eqw, state_eci_to_lvlh, state_eci_to_pqw, state_eci_to_rtn,
     };
-    use crate::spice::NAIFId;
+    use crate::spice::{NAIFId, spk_state};
     use crate::time::TimeSystem;
     use crate::utils::testing::{setup_global_test_eop, setup_global_test_spice};
     use nalgebra::DMatrix;
@@ -1625,6 +1638,57 @@ mod tests {
         assert!(err.contains("rotating variant"));
         clear_object_registry();
     }
+
+    #[test]
+    #[serial]
+    fn test_nsw_rotation_and_rate_match_relative_motion() {
+        setup_global_test_spice();
+        clear_object_registry();
+        let epc = Epoch::from_date(2024, 3, 1, TimeSystem::UTC);
+        let oe = SVector6::new(R_EARTH + 500e3, 0.05, 97.8, 15.0, 30.0, 45.0);
+        let x = state_koe_to_eci(oe, AngleFormat::Degrees);
+        register_object("A", FnProvider(move |_| Ok(x)), CelestialFrame::GCRF).unwrap();
+
+        let x_sun = spk_state(NAIFId::Sun, NAIFId::Earth, epc).unwrap();
+        let r =
+            rotation_frame_to_frame(CelestialFrame::GCRF, ReferenceFrame::NSW("A"), epc).unwrap();
+        assert_abs_diff_eq!(r, rotation_eci_to_nsw(x, x_sun), epsilon = 1e-14);
+        let resolved = resolve_orientation(&ReferenceFrame::NSW("A"), epc, true).unwrap();
+        assert_abs_diff_eq!(
+            resolved.omega.unwrap(),
+            omega_nsw(x, x_sun),
+            epsilon = 1e-15
+        );
+
+        let inertial = ReferenceFrame::orbit_relative(
+            OrbitRelativeFrameKind::NSW,
+            OrbitRelativeFrameVariant::Inertial,
+            Some("A".into()),
+        )
+        .unwrap();
+        let resolved_inertial = resolve_orientation(&inertial, epc, true).unwrap();
+        assert_eq!(resolved_inertial.omega.unwrap(), Vector3::zeros());
+
+        clear_object_registry();
+    }
+
+    #[test]
+    #[serial]
+    fn test_nsw_uses_the_sun_relative_to_the_declared_center() {
+        setup_global_test_spice();
+        clear_object_registry();
+        let epc = Epoch::from_date(2024, 3, 1, TimeSystem::UTC);
+        let x = SVector6::new(1.9e6, 0.0, 0.0, 0.0, 1.2e3, 1.0e3);
+        let moon_icrf = CelestialFrame::centered(301, FrameAxes::ICRF);
+        register_object("L", FnProvider(move |_| Ok(x)), moon_icrf).unwrap();
+
+        let x_sun = spk_state(NAIFId::Sun, NAIFId::Moon, epc).unwrap();
+        let r = rotation_frame_to_frame(moon_icrf, ReferenceFrame::NSW("L"), epc).unwrap();
+        assert_abs_diff_eq!(r, rotation_eci_to_nsw(x, x_sun), epsilon = 1e-14);
+
+        clear_object_registry();
+    }
+
     #[test]
     #[serial]
     fn test_two_object_lvlh_matches_state_eci_to_lvlh() {
@@ -1670,12 +1734,12 @@ mod tests {
     fn test_unsupported_orbit_relative_kind_names_issue() {
         clear_object_registry();
         let epc = Epoch::from_date(2024, 3, 1, TimeSystem::UTC);
-        let err = rotation_frame_to_frame(CelestialFrame::GCRF, ReferenceFrame::NSW("A"), epc)
+        let err = rotation_frame_to_frame(CelestialFrame::GCRF, ReferenceFrame::SEZ("A"), epc)
             .unwrap_err()
             .to_string();
-        assert!(err.contains("NSW"));
+        assert!(err.contains("SEZ"));
         assert!(err.contains("issue #452"));
-        assert!(err.contains("RTN, LVLH, NTW, TNW, VNC, PQW, EQW"));
+        assert!(err.contains("RTN, LVLH, NTW, TNW, VNC, PQW, EQW, NSW"));
 
         let unbound = ReferenceFrame::orbit_relative(
             OrbitRelativeFrameKind::RTN,

@@ -270,6 +270,7 @@ nav:
           - learn/relative_motion/vnc_frame.md
           - learn/relative_motion/pqw_frame.md
           - learn/relative_motion/eqw_frame.md
+          - learn/relative_motion/nsw_frame.md
           - learn/relative_motion/roe_transformations.md
       - Access Computation:
           - learn/access_computation/index.md
@@ -474,6 +475,7 @@ nav:
           - VNC Frame: library_api/relative_motion/vnc_frame.md
           - PQW Frame: library_api/relative_motion/pqw_frame.md
           - EQW Frame: library_api/relative_motion/eqw_frame.md
+          - NSW Frame: library_api/relative_motion/nsw_frame.md
           - ROE Transformations: library_api/relative_motion/roe_transformations.md
           - ECI-ROE Transformations: library_api/relative_motion/eci_roe_transformations.md
       - Access Computation:

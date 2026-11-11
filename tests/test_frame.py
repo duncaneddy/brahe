@@ -698,15 +698,52 @@ def test_pqw_needs_gm_for_its_axes(clear_frame_registries):
         bh.state_frame_to_frame(no_gm_frame, bh.ReferenceFrame.PQW("X"), epc, x)
 
 
+def test_nsw_rotation_matches_relative_motion(naif_cache_setup, clear_frame_registries):
+    bh.load_spice_kernel("de440s")
+    epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+    oe = np.array([bh.R_EARTH + 500e3, 0.05, 97.8, 15.0, 30.0, 45.0])
+    x = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
+    bh.register_object("A", lambda epc: x, bh.CelestialFrame.GCRF)
+
+    x_sun = bh.spk_state(bh.NAIFId.SUN, bh.NAIFId.EARTH, epc)
+    r = bh.rotation_frame_to_frame(
+        bh.CelestialFrame.GCRF, bh.ReferenceFrame.NSW("A"), epc
+    )
+    np.testing.assert_allclose(r, bh.rotation_eci_to_nsw(x, x_sun), atol=1e-14)
+
+    x_b = bh.state_koe_to_eci(
+        np.array([bh.R_EARTH + 500e3, 0.05, 97.8, 15.0, 30.0, 45.2]),
+        bh.AngleFormat.DEGREES,
+    )
+    got = bh.state_frame_to_frame(
+        bh.CelestialFrame.GCRF, bh.ReferenceFrame.NSW("A"), epc, x_b
+    )
+    np.testing.assert_allclose(got, bh.state_eci_to_nsw(x, x_b, x_sun), atol=1e-9)
+
+
+def test_nsw_uses_the_sun_relative_to_the_declared_center(
+    naif_cache_setup, clear_frame_registries
+):
+    bh.load_spice_kernel("de440s")
+    epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+    x = np.array([1.9e6, 0.0, 0.0, 0.0, 1.2e3, 1.0e3])
+    moon_frame = bh.CelestialFrame.Centered(301, bh.FrameAxes.ICRF)
+    bh.register_object("L", lambda epc: x, moon_frame)
+
+    x_sun = bh.spk_state(bh.NAIFId.SUN, bh.NAIFId.MOON, epc)
+    r = bh.rotation_frame_to_frame(moon_frame, bh.ReferenceFrame.NSW("L"), epc)
+    np.testing.assert_allclose(r, bh.rotation_eci_to_nsw(x, x_sun), atol=1e-14)
+
+
 def test_unsupported_orbit_relative_kind_names_issue(clear_frame_registries):
     epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
-    with pytest.raises(RuntimeError, match="NSW"):
+    with pytest.raises(RuntimeError, match="SEZ"):
         bh.rotation_frame_to_frame(
-            bh.CelestialFrame.GCRF, bh.ReferenceFrame.NSW("A"), epc
+            bh.CelestialFrame.GCRF, bh.ReferenceFrame.SEZ("A"), epc
         )
-    with pytest.raises(RuntimeError, match="RTN, LVLH, NTW, TNW, VNC, PQW, EQW"):
+    with pytest.raises(RuntimeError, match="RTN, LVLH, NTW, TNW, VNC, PQW, EQW, NSW"):
         bh.rotation_frame_to_frame(
-            bh.CelestialFrame.GCRF, bh.ReferenceFrame.NSW("A"), epc
+            bh.CelestialFrame.GCRF, bh.ReferenceFrame.SEZ("A"), epc
         )
 
 

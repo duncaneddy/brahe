@@ -28,4 +28,4 @@ NSW places X toward nadir, Y toward the Sun as nearly as possible while normal t
 ## See Also
 
 - [Relative Motion](index.md) - Frame variants, rates, and covariance transformation
-- [NSW Transformations API Reference](../../library_api/relative_motion/nsw_transformations.md)
+- [NSW Frame API Reference](../../library_api/relative_motion/nsw_frame.md)

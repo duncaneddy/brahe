@@ -1,4 +1,4 @@
-# LVLH Transformations
+# LVLH Frame
 
 ::: brahe.rotation_lvlh_to_eci
 

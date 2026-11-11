@@ -6,9 +6,9 @@ use nalgebra::Vector3;
 
 use crate::constants::GM_EARTH;
 use crate::math::{SMatrix3, SVector6};
+use crate::orbits::ascending_node_direction;
 use crate::relative_motion::common::{
-    DEGENERATE_TOLERANCE, absolute_states_to_relative_state, ascending_node_direction,
-    relative_state_to_absolute_state,
+    DEGENERATE_TOLERANCE, absolute_states_to_relative_state, relative_state_to_absolute_state,
 };
 use crate::utils::BraheError;
 use crate::utils::batch::{batch_map, batch_zip};
@@ -63,7 +63,7 @@ pub fn rotation_pqw_to_inertial_for_body(x_inertial: SVector6, gm: f64) -> SMatr
     let p_hat = if e_vec.norm() > DEGENERATE_TOLERANCE {
         e_vec / e_vec.norm()
     } else {
-        ascending_node_direction(&w_hat)
+        ascending_node_direction(&x_inertial)
     };
     let q_hat = w_hat.cross(&p_hat);
 

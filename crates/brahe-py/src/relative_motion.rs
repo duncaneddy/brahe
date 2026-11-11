@@ -2791,7 +2791,8 @@ fn py_state_eqw_to_eci<'py>(
 /// `x_sun` is the Sun's state relative to the same center as `x_eci`. Because X lies along the
 /// position vector, the frame is identical whether the Sun direction is taken from the center or
 /// from the spacecraft. When the Sun lies along the nadir line (projected norm below 1e-9) the Y
-/// axis falls back to the along-track direction.
+/// axis falls back to the along-track direction. The SANA definition does not cover that case;
+/// the fallback is specific to this implementation.
 ///
 /// Args:
 ///     x_eci (numpy.ndarray or list): 6D state vector in the ECI frame [x, y, z, vx, vy, vz] (m, m/s), shape (6,), or a batch of
@@ -2895,7 +2896,8 @@ fn py_rotation_eci_to_nsw<'py>(
 /// Computes the angular velocity of the Nadir, Sun, Normal (NSW) frame with respect to the
 /// Earth-Centered Inertial (ECI) frame, expressed in NSW axes.
 ///
-/// The rate follows from the time derivatives of the NSW basis vectors and is purely
+/// The SANA definition gives the axes but no rotation rate. The rate here follows from the
+/// time derivatives of the NSW basis vectors and is purely
 /// kinematic; it needs no gravitational parameter. Passing a Sun state with zero velocity
 /// gives the fixed-Sun approximation, which omits a term of order 2e-7 rad/s for an Earth
 /// orbit.

@@ -70,7 +70,8 @@ fn nsw_axes(x_eci: SVector6, x_sun: SVector6) -> (SMatrix3, Vector3<f64>) {
 /// `x_sun` is the Sun's state relative to the same center as `x_eci`. Because X lies along the
 /// position vector, the frame is identical whether the Sun direction is taken from the center or
 /// from the spacecraft. When the Sun lies along the nadir line (projected norm below 1e-9) the Y
-/// axis is taken along the along-track direction `ĥ × r̂`.
+/// axis is taken along the along-track direction `ĥ × r̂`. The SANA definition does not cover
+/// that case; the fallback is specific to this implementation.
 ///
 /// # Arguments:
 /// - `x_eci`: 6D state vector in the ECI frame [x, y, z, vx, vy, vz] (m, m/s)
@@ -135,7 +136,8 @@ pub fn rotation_eci_to_nsw(x_eci: SVector6, x_sun: SVector6) -> SMatrix3 {
 /// Computes the angular velocity of the NSW frame with respect to the ECI frame, expressed in
 /// NSW axes.
 ///
-/// The rate follows from the time derivatives of the basis vectors,
+/// The SANA definition gives the axes but no rotation rate. The rate here follows from the
+/// time derivatives of the basis vectors,
 /// `ω = [ẏ·ẑ, ż·x̂, ẋ·ŷ]`, which holds because each basis vector satisfies `ė = ω × e`,
 /// with the nadir derivative from the spacecraft velocity and the
 /// Sun-direction derivative from the Sun's velocity relative to the spacecraft. It is purely

@@ -74,16 +74,47 @@ pub(crate) fn true_anomaly_rate(x_inertial: SVector6) -> f64 {
     (r.cross(&v)).norm() / (r.norm().powi(2))
 }
 
+/// Rate at which the velocity direction turns under two-body motion.
+///
+/// A unit vector along the velocity rotates with angular velocity
+/// `v × a / v²`, the curvature of the path times the speed. Substituting the
+/// two-body acceleration `a = −μ r / r³` gives `μ (r × v) / (r³ v²)`, a
+/// rotation about the orbit normal `ĥ` in the direction of motion with
+/// magnitude
+///
+/// `ω_v = μ |h| / (r³ v²)`
+///
+/// This reduces to `v / r` on a circular orbit. The orbit normal is fixed
+/// under two-body motion, so `ω_v` about `ĥ` is the full angular velocity of
+/// every local orbital frame whose axes are built from `v̂` and `ĥ` (NTW, TNW,
+/// VNC).
+///
+/// # Arguments
+/// - `x_inertial`: Cartesian state in an inertial frame centered on the attracting body (m, m/s)
+/// - `gm`: Gravitational parameter of the attracting body (m³/s²)
+///
+/// # Returns
+/// - Angular rate of the velocity direction about the orbit normal (rad/s)
+pub(crate) fn velocity_direction_rate(x_inertial: SVector6, gm: f64) -> f64 {
+    let r = x_inertial.fixed_rows::<3>(0);
+    let v = x_inertial.fixed_rows::<3>(3);
+    let h = r.cross(&v).norm();
+    gm * h / (r.norm().powi(3) * v.norm_squared())
+}
+
 #[cfg(test)]
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
     use crate::AngleFormat;
+    use crate::GM_EARTH;
     use crate::R_EARTH;
     use crate::coordinates::state_koe_to_eci;
+    use crate::orbits::mean_motion;
     use crate::relative_motion::{
         omega_rtn, rotation_eci_to_rtn, state_eci_to_rtn, state_rtn_to_eci,
     };
+    use approx::assert_abs_diff_eq;
     use serial_test::parallel;
 
     fn chief_and_deputy() -> (SVector6, SVector6) {
@@ -120,5 +151,27 @@ mod tests {
             AngleFormat::Degrees,
         );
         assert_eq!(true_anomaly_rate(x), omega_rtn(x)[2]);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_velocity_direction_rate_circular_equals_orbit_rate() {
+        let sma = R_EARTH + 700e3;
+        let x = state_koe_to_eci(
+            SVector6::new(sma, 0.0, 45.0, 10.0, 0.0, 20.0),
+            AngleFormat::Degrees,
+        );
+        let expected = mean_motion(sma, AngleFormat::Radians);
+        assert_abs_diff_eq!(
+            velocity_direction_rate(x, GM_EARTH),
+            expected,
+            epsilon = 1e-13
+        );
+        // Velocity-direction rate is smaller than the position-direction rate at periapsis
+        let x_peri = state_koe_to_eci(
+            SVector6::new(sma, 0.2, 45.0, 10.0, 0.0, 0.0),
+            AngleFormat::Degrees,
+        );
+        assert!(velocity_direction_rate(x_peri, GM_EARTH) < omega_rtn(x_peri)[2]);
     }
 }

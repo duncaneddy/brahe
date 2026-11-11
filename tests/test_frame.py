@@ -456,6 +456,62 @@ def test_two_object_lvlh_matches_state_eci_to_lvlh(clear_frame_registries):
     np.testing.assert_allclose(got, bh.state_eci_to_lvlh(x_a, x_b), atol=1e-9)
 
 
+def test_ntw_rotation_matches_relative_motion(clear_frame_registries):
+    epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+    oe = np.array([bh.R_EARTH + 500e3, 0.05, 97.8, 15.0, 30.0, 45.0])
+    x = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
+    bh.register_object("A", lambda epc: x, bh.CelestialFrame.GCRF)
+    r = bh.rotation_frame_to_frame(
+        bh.CelestialFrame.GCRF, bh.ReferenceFrame.NTW("A"), epc
+    )
+    np.testing.assert_allclose(r, bh.rotation_eci_to_ntw(x), atol=1e-14)
+    x_b = bh.state_koe_to_eci(
+        np.array([bh.R_EARTH + 500e3, 0.05, 97.8, 15.0, 30.0, 45.2]),
+        bh.AngleFormat.DEGREES,
+    )
+    got = bh.state_frame_to_frame(
+        bh.CelestialFrame.GCRF, bh.ReferenceFrame.NTW("A"), epc, x_b
+    )
+    np.testing.assert_allclose(got, bh.state_eci_to_ntw(x, x_b), atol=1e-9)
+
+
+def test_ntw_rate_uses_the_declared_center_gm(clear_frame_registries):
+    epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+    oe = np.array([bh.R_MARS + 400e3, 0.05, 92.6, 45.0, 270.0, 10.0])
+    x = bh.state_koe_to_inertial_for_body(
+        oe, bh.CentralBody.Mars, bh.AngleFormat.DEGREES
+    )
+    mars_frame = bh.CelestialFrame.Centered(499, bh.FrameAxes.ICRF)
+    bh.register_object("M", lambda epc: x, mars_frame)
+    oe_b = np.array([bh.R_MARS + 400e3, 0.05, 92.6, 45.0, 270.0, 10.2])
+    x_b = bh.state_koe_to_inertial_for_body(
+        oe_b, bh.CentralBody.Mars, bh.AngleFormat.DEGREES
+    )
+    got = bh.state_frame_to_frame(mars_frame, bh.ReferenceFrame.NTW("M"), epc, x_b)
+    expected = bh.state_inertial_to_ntw_for_body(x, x_b, bh.GM_MARS)
+    np.testing.assert_allclose(got, expected, atol=1e-9)
+
+
+def test_ntw_inertial_variant_needs_no_gm(clear_frame_registries):
+    epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+    # NAIF ID 2000001 has no packaged GM constant, so it only works for the
+    # inertial variant, which does not need one.
+    no_gm_frame = bh.CelestialFrame.Centered(2000001, bh.FrameAxes.ICRF)
+    x = bh.state_koe_to_eci(
+        np.array([bh.R_EARTH + 500e3, 0.05, 97.8, 15.0, 30.0, 45.0]),
+        bh.AngleFormat.DEGREES,
+    )
+    bh.register_object("X", lambda epc: x, no_gm_frame)
+
+    inertial = bh.ReferenceFrame.orbit_relative(
+        bh.OrbitRelativeFrameKind.NTW, bh.OrbitRelativeFrameVariant.INERTIAL, "X"
+    )
+    bh.rotation_frame_to_frame(no_gm_frame, inertial, epc)
+
+    with pytest.raises(RuntimeError, match="gravitational parameter"):
+        bh.state_frame_to_frame(no_gm_frame, bh.ReferenceFrame.NTW("X"), epc, x)
+
+
 def test_sun_vector_in_sensor_frame(eop, clear_frame_registries):
     epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
     x_sc = bh.state_koe_to_eci(

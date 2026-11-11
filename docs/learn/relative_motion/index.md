@@ -10,12 +10,13 @@ An orbit-relative frame has its origin at an object and its axes built from that
 
 Each frame provides the same functions. `rotation_eci_to_<frame>` and `rotation_<frame>_to_eci` return the rotation matrix between the inertial axes and the frame, `omega_<frame>` returns the frame's angular velocity, and `state_eci_to_<frame>` and `state_<frame>_to_eci` convert between the inertial states of a chief and a deputy and the deputy's state relative to the chief. The [frame graph](../frames/frame_graph.md) evaluates the same frames for registered objects through `ReferenceFrame`.
 
-The table gives the axes of each frame, using $\hat{r}$ for the unit position and $\hat{h}$ for the unit orbital angular momentum $\mathbf{r} \times \mathbf{v}$.
+The table gives the axes of each frame, using $\hat{r}$ for the unit position, $\hat{v}$ for the unit velocity, and $\hat{h}$ for the unit orbital angular momentum $\mathbf{r} \times \mathbf{v}$.
 
 | Frame | X | Y | Z | Rate about |
 |---|---|---|---|---|
 | [RTN](rtn_frame.md) (also RSW, QSW, RIC) | $\hat{r}$ | $\hat{h} \times \hat{r}$ | $\hat{h}$ | $+Z$ |
 | [LVLH](lvlh_frame.md) | $\hat{h} \times \hat{r}$ | $-\hat{h}$ | $-\hat{r}$ | $-Y$ |
+| [NTW](ntw_frame.md) | $\hat{v} \times \hat{h}$ | $\hat{v}$ | $\hat{h}$ | $+Z$ |
 
 !!! tip "CCSDS frame names"
     The frame definitions match the [SANA orbit-relative reference frame registry](https://sanaregistry.org/r/orbit_relative_reference_frames), which CCSDS orbit and attitude messages reference by name. RTN is the registry's RSW frame.
@@ -26,7 +27,7 @@ Each frame has a rotating variant, which carries the frame's angular velocity, a
 
 ### Rates
 
-Frame rates are exact under two-body motion and are the rates of the osculating frame otherwise. The RTN and LVLH rates depend only on the state.
+Frame rates are exact under two-body motion and are the rates of the osculating frame otherwise. The RTN and LVLH rates depend only on the state. The NTW rate also needs the central body's gravitational parameter, so the `omega_` and `state_` functions have an Earth form and a `_for_body` form taking `gm`. The frame graph uses the value of the object's declared center.
 
 ### Covariance
 
@@ -69,6 +70,7 @@ $J$ holds the frame origin fixed, so it applies to a covariance referenced to th
 
 - [RTN Frame](rtn_frame.md)
 - [LVLH Frame](lvlh_frame.md)
+- [NTW Frame](ntw_frame.md)
 - [ROE Transformations](roe_transformations.md)
 - [Frame Graph](../frames/frame_graph.md)
 - [Relative Motion API Reference](../../library_api/relative_motion/index.md)

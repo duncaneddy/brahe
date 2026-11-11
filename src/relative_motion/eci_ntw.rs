@@ -91,8 +91,8 @@ pub fn rotation_eci_to_ntw(x_eci: SVector6) -> SMatrix3 {
 /// expressed in NTW axes.
 ///
 /// The NTW axes are built from the velocity direction and the orbit normal, so the frame turns
-/// with the velocity vector: about the W axis at `ω_v = μ|h|/(r³v²)`, the two-body rate at
-/// which the unit velocity rotates. The rate is exact under two-body motion and is the rate of
+/// with the velocity vector: about the W axis at `ω_v = μ|h|/(r³v²)`, the rate `|v × a|/v²` at
+/// which the unit velocity rotates under the two-body acceleration `a = −μr/r³`. The rate is exact under two-body motion and is the rate of
 /// the osculating frame otherwise. On a circular orbit it equals the mean motion.
 ///
 /// # Arguments:
@@ -101,9 +101,6 @@ pub fn rotation_eci_to_ntw(x_eci: SVector6) -> SMatrix3 {
 ///
 /// # Returns:
 /// - `omega`: Angular velocity of the NTW frame relative to the inertial frame, expressed in NTW axes (rad/s)
-///
-/// # References:
-/// - H. Schaub and J. L. Junkins, *Analytical Mechanics of Space Systems*, 4th ed., AIAA, 2018, Section 3.3
 ///
 /// # Examples:
 /// ```
@@ -347,9 +344,6 @@ pub fn rotations_eci_to_ntw(x_eci: &[SVector6]) -> Vec<SMatrix3> {
 /// # Returns
 /// - Angular velocities of the NTW frame relative to the inertial frame, expressed in NTW
 ///   axes, one per state, in input order. Units: (*rad/s*)
-///
-/// # References
-/// - H. Schaub and J. L. Junkins, *Analytical Mechanics of Space Systems*, 4th ed., AIAA, 2018, Section 3.3
 ///
 /// # Examples
 /// ```

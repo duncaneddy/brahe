@@ -266,6 +266,7 @@ nav:
           - learn/relative_motion/rtn_frame.md
           - learn/relative_motion/lvlh_frame.md
           - learn/relative_motion/ntw_frame.md
+          - learn/relative_motion/tnw_frame.md
           - learn/relative_motion/roe_transformations.md
       - Access Computation:
           - learn/access_computation/index.md
@@ -466,6 +467,7 @@ nav:
           - RTN Frame: library_api/relative_motion/rtn_frame.md
           - LVLH Frame: library_api/relative_motion/lvlh_frame.md
           - NTW Frame: library_api/relative_motion/ntw_frame.md
+          - TNW Frame: library_api/relative_motion/tnw_frame.md
           - ROE Transformations: library_api/relative_motion/roe_transformations.md
           - ECI-ROE Transformations: library_api/relative_motion/eci_roe_transformations.md
       - Access Computation:

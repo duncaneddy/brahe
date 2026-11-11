@@ -76,17 +76,18 @@ pub(crate) fn true_anomaly_rate(x_inertial: SVector6) -> f64 {
 
 /// Rate at which the velocity direction turns under two-body motion.
 ///
-/// With `a = −μ r / r³`, the component of the acceleration perpendicular to
-/// the velocity has magnitude `μ |r × v̂| / r³ = μ |h| / (r³ |v|)`, and the
-/// unit velocity turns at that magnitude divided by `|v|`, about the orbit
-/// normal `ĥ`, in the direction of motion:
+/// A unit vector along the velocity rotates with angular velocity
+/// `v × a / v²`, the curvature of the path times the speed. Substituting the
+/// two-body acceleration `a = −μ r / r³` gives `μ (r × v) / (r³ v²)`, a
+/// rotation about the orbit normal `ĥ` in the direction of motion with
+/// magnitude
 ///
 /// `ω_v = μ |h| / (r³ v²)`
 ///
-/// This reduces to `v / r` on a circular orbit. It is the rotation rate of
+/// This reduces to `v / r` on a circular orbit. The orbit normal is fixed
+/// under two-body motion, so `ω_v` about `ĥ` is the full angular velocity of
 /// every local orbital frame whose axes are built from `v̂` and `ĥ` (NTW, TNW,
-/// VNC), derived from the basis-vector kinematic identity
-/// `ω = [ė_y·e_z, ė_z·e_x, ė_x·e_y]`.
+/// VNC).
 ///
 /// # Arguments
 /// - `x_inertial`: Cartesian state in an inertial frame centered on the attracting body (m, m/s)
@@ -94,9 +95,6 @@ pub(crate) fn true_anomaly_rate(x_inertial: SVector6) -> f64 {
 ///
 /// # Returns
 /// - Angular rate of the velocity direction about the orbit normal (rad/s)
-///
-/// # References
-/// - H. Schaub and J. L. Junkins, *Analytical Mechanics of Space Systems*, 4th ed., AIAA, 2018, Section 3.3
 pub(crate) fn velocity_direction_rate(x_inertial: SVector6, gm: f64) -> f64 {
     let r = x_inertial.fixed_rows::<3>(0);
     let v = x_inertial.fixed_rows::<3>(3);

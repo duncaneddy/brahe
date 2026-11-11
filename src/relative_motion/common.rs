@@ -1,6 +1,6 @@
 /*!
- * Shared relative-state transport, rates, and axis geometry for the local
- * orbital frames in this module.
+ * Shared relative-state transport and rates for the local orbital frames in
+ * this module.
  */
 
 use nalgebra::Vector3;
@@ -11,27 +11,6 @@ use crate::math::{SMatrix3, SVector6};
 /// Norm below which a direction vector is treated as undefined and a
 /// fallback direction is used in its place.
 pub(crate) const DEGENERATE_TOLERANCE: f64 = 1e-9;
-
-/// Unit vector along the ascending node of an orbit plane.
-///
-/// The node direction is `ẑ × ŵ`. On an equatorial orbit it is undefined,
-/// and the inertial x axis projected into the orbit plane is returned
-/// instead, matching a right ascension of the ascending node of zero.
-///
-/// # Arguments
-/// - `w_hat`: Unit orbit normal in inertial axes (dimensionless)
-///
-/// # Returns
-/// - Unit vector along the ascending node, in inertial axes (dimensionless)
-pub(crate) fn ascending_node_direction(w_hat: &Vector3<f64>) -> Vector3<f64> {
-    let node = Vector3::new(-w_hat[1], w_hat[0], 0.0);
-    if node.norm() > DEGENERATE_TOLERANCE {
-        node / node.norm()
-    } else {
-        let x_in_plane = Vector3::x() - w_hat[0] * w_hat;
-        x_in_plane / x_in_plane.norm()
-    }
-}
 
 /// Relative state of a deputy with respect to a chief in a rotating local
 /// frame, from the absolute states of both in the base frame that the local
@@ -152,35 +131,6 @@ mod tests {
             AngleFormat::Degrees,
         );
         (x_chief, x_deputy)
-    }
-
-    #[test]
-    #[parallel]
-    fn test_ascending_node_direction_inclined_orbit() {
-        let x = state_koe_to_eci(
-            SVector6::new(R_EARTH + 700e3, 0.01, 97.8, 15.0, 30.0, 45.0),
-            AngleFormat::Degrees,
-        );
-        let h = x.fixed_rows::<3>(0).cross(&x.fixed_rows::<3>(3));
-        let node = ascending_node_direction(&(h / h.norm()));
-        let raan = 15.0_f64.to_radians();
-        assert_abs_diff_eq!(
-            node,
-            Vector3::new(raan.cos(), raan.sin(), 0.0),
-            epsilon = 1e-12
-        );
-    }
-
-    #[test]
-    #[parallel]
-    fn test_ascending_node_direction_equatorial_orbit_falls_back_to_x() {
-        assert_eq!(ascending_node_direction(&Vector3::z()), Vector3::x());
-
-        // Just inside the tolerance the result stays unit length and in the orbit plane
-        let w_hat = Vector3::new(5e-10, 0.0, 1.0).normalize();
-        let node = ascending_node_direction(&w_hat);
-        assert_abs_diff_eq!(node.norm(), 1.0, epsilon = 1e-15);
-        assert_abs_diff_eq!(node.dot(&w_hat), 0.0, epsilon = 1e-15);
     }
 
     #[test]

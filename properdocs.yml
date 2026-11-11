@@ -469,15 +469,15 @@ nav:
           - Enumerations: library_api/events/enums.md
       - Relative Motion:
           - library_api/relative_motion/index.md
-          - RTN Transformations: library_api/relative_motion/rtn_transformations.md
-          - LVLH Transformations: library_api/relative_motion/lvlh_transformations.md
-          - NTW Transformations: library_api/relative_motion/ntw_transformations.md
-          - TNW Transformations: library_api/relative_motion/tnw_transformations.md
-          - VNC Transformations: library_api/relative_motion/vnc_transformations.md
-          - PQW Transformations: library_api/relative_motion/pqw_transformations.md
-          - EQW Transformations: library_api/relative_motion/eqw_transformations.md
-          - NSW Transformations: library_api/relative_motion/nsw_transformations.md
-          - SEZ Transformations: library_api/relative_motion/sez_transformations.md
+          - RTN Frame: library_api/relative_motion/rtn_frame.md
+          - LVLH Frame: library_api/relative_motion/lvlh_frame.md
+          - NTW Frame: library_api/relative_motion/ntw_frame.md
+          - TNW Frame: library_api/relative_motion/tnw_frame.md
+          - VNC Frame: library_api/relative_motion/vnc_frame.md
+          - PQW Frame: library_api/relative_motion/pqw_frame.md
+          - EQW Frame: library_api/relative_motion/eqw_frame.md
+          - NSW Frame: library_api/relative_motion/nsw_frame.md
+          - SEZ Frame: library_api/relative_motion/sez_frame.md
           - ROE Transformations: library_api/relative_motion/roe_transformations.md
           - ECI-ROE Transformations: library_api/relative_motion/eci_roe_transformations.md
       - Access Computation:

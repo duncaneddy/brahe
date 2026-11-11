@@ -1081,6 +1081,7 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_orbital_period, module)?)?;
     module.add_function(wrap_pyfunction!(py_orbital_period_general, module)?)?;
     module.add_function(wrap_pyfunction!(py_orbital_period_from_state, module)?)?;
+    module.add_function(wrap_pyfunction!(py_ascending_node_direction, module)?)?;
     module.add_function(wrap_pyfunction!(py_mean_motion, module)?)?;
     module.add_function(wrap_pyfunction!(py_mean_motion_general, module)?)?;
     module.add_function(wrap_pyfunction!(py_semimajor_axis, module)?)?;

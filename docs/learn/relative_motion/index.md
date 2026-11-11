@@ -46,7 +46,7 @@ $$
 
 `jacobian_inertial_to_rotating` builds $J$ from a frame's `rotation_eci_to_*` and `omega_*` outputs, `jacobian_rotating_to_inertial` builds its inverse, and `rotate_covariance` applies either one. For SEZ and ENZ, `rotation_ecef_to_*` and `omega_*` give the Jacobian between ECEF and the topocentric frame in the same way. RTN also provides `covariance_eci_to_rtn` and `covariance_rtn_to_eci`, which take the variant directly. For an object registered with the frame graph, `covariance_frame_to_frame` performs the same transformation from the object's registered state.
 
-The inertial snapshot uses $\omega = 0$, which reduces $J$ to $\mathrm{blockdiag}(R, R)$. The rotating variant adds the $-[\omega]_\times R$ coupling between position and velocity.
+The inertial snapshot uses $\omega = 0$, which reduces $J$ to $\mathrm{blockdiag}(R, R)$, the block-diagonal covariance transformation of Vallado's AAS 03-526 and the CCSDS CDM convention for RTN covariances. The rotating variant adds the $-[\omega]_\times R$ coupling between position and velocity.
 
 $J$ holds the frame origin fixed, so it applies to a covariance referenced to the origin, such as a satellite's own covariance expressed in its own local frame. A deputy's relative state also depends on the chief's state through the frame axes, so a relative-state covariance that includes chief uncertainty requires the Jacobian of `state_eci_to_*` with respect to both states.
 

@@ -3,7 +3,7 @@
  * satellite relative motion and orbital reference frames.
  *
  * This module provides transformations between inertial frames and orbital
- * reference frames such as RTN (Radial-Tangential-Normal), LVLH
+ * reference frames such as RTN (Radial-Transverse-Normal), LVLH
  * (Local-Vertical Local-Horizontal), NTW (Normal-Tangential-Cross-track),
  * TNW (Tangential-Normal-Cross-track), VNC (Velocity-Normal-Co-normal),
  * PQW (Perifocal), EQW (Equinoctial), NSW (Nadir-Sun-Normal), SEZ

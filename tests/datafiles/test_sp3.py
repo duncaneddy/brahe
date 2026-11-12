@@ -1041,7 +1041,7 @@ def test_SP3_from_file_igs_combination_subset():
     assert sp3.num_epochs == 8
     assert sp3.header.epoch_interval == 900.0
     assert [str(s) for s in sp3.satellite_ids] == ["G02", "G03", "G04", "G05"]
-    record = sp3.record("G02", 0)
+    record = sp3.record("G02", sp3.epochs[0])
     assert record.position[0] == pytest.approx(14_377_257.631, abs=1e-6)
 
 

@@ -14,10 +14,10 @@ use super::types::{
     GRID_TOLERANCE, SP3, SP3Correlation, SP3FileType, SP3Header, SP3OrbitType, SP3Record,
     SP3SatelliteId, SP3TimeSystem, SP3Version, epoch_grid_error, file_type_from_satellites,
 };
-use crate::datafiles::compression::decompress;
 use crate::time::conversions::days_in_month;
 use crate::time::{Epoch, TimeSystem};
 use crate::utils::BraheError;
+use crate::utils::compression::decompress;
 
 /// Kilometers to meters.
 pub(super) const KM_TO_M: f64 = 1.0e3;
@@ -1292,12 +1292,12 @@ impl Parser {
 #[allow(non_snake_case)]
 mod tests {
     use super::*;
-    use crate::datafiles::compression::UNIX_COMPRESS_UNSUPPORTED;
     use crate::datafiles::sp3::{
         GNSSSystem, SP3, SP3FileType, SP3OrbitType, SP3SatelliteId, SP3TimeSystem, SP3Version,
     };
     use crate::time::{Epoch, TimeSystem};
     use crate::utils::BraheError;
+    use crate::utils::compression::UNIX_COMPRESS_UNSUPPORTED;
     use approx::assert_abs_diff_eq;
     use rstest::rstest;
     use serial_test::parallel;
@@ -1677,7 +1677,7 @@ mod tests {
             .map(|id| id.to_string())
             .collect();
         assert_eq!(ids, ["G02", "G03", "G04", "G05"]);
-        let record = sp3.record(sat("G02"), 0).unwrap().unwrap();
+        let record = sp3.record(sat("G02"), sp3.epochs()[0]).unwrap().unwrap();
         assert_abs_diff_eq!(record.position[0], 14_377_257.631, epsilon = 1e-6);
     }
 

@@ -5828,6 +5828,94 @@ fn py_state_transform_jacobian<'py>(
     )
 }
 
+/// 6x6 Jacobian of the state map from inertial axes into rotating axes,
+/// `p' = R @ p` and `v' = R @ v - cross(omega_b, p')`.
+///
+/// The map is linear in the state, so its Jacobian is the constant
+/// `[[R, 0], [-skew(omega_b) @ R, R]]` and a state covariance transforms as
+/// `P' = J @ P @ J.T`. A zero `omega_b` gives the block diagonal
+/// `blockdiag(R, R)`, which is the Jacobian of an inertial-snapshot frame.
+///
+/// For a local orbital frame, `r` and `omega_b` come from that frame's
+/// rotation and angular-velocity functions evaluated at the frame origin's
+/// state, for example `rotation_eci_to_lvlh` and `omega_lvlh`. The Jacobian
+/// then holds the origin fixed: it maps a state or covariance referenced to
+/// the origin, and does not include the dependence of the axes on the
+/// origin's own state.
+///
+/// Args:
+///     r (numpy.ndarray): Rotation matrix from the inertial axes to the rotating axes, shape (3, 3)
+///     omega_b (numpy.ndarray): Angular velocity of the rotating axes, expressed in the rotating axes (rad/s), shape (3,)
+///
+/// Returns:
+///     numpy.ndarray: 6x6 Jacobian `J` such that `x_rotating = J @ x_inertial` and `P_rotating = J @ P_inertial @ J.T`, shape (6, 6)
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     sma = bh.R_EARTH + 700e3
+///     x_eci = np.array([sma, 0.0, 0.0, 0.0, bh.perigee_velocity(sma, 0.0), 0.0])
+///
+///     j = bh.jacobian_inertial_to_rotating(bh.rotation_eci_to_lvlh(x_eci), bh.omega_lvlh(x_eci))
+///     p_lvlh = bh.rotate_covariance(np.eye(6) * 100.0, j)
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(r, omega_b)")]
+#[pyo3(name = "jacobian_inertial_to_rotating")]
+fn py_jacobian_inertial_to_rotating<'py>(
+    py: Python<'py>,
+    r: &Bound<'py, PyAny>,
+    omega_b: &Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyArray<f64, Ix2>>> {
+    let r = pyany_to_smatrix::<3, 3>(r)?;
+    let omega_b = pyany_to_svector::<3>(omega_b)?;
+    let j = frames::jacobian_inertial_to_rotating(&r, &omega_b);
+    Ok(matrix_to_numpy!(py, j, 6, 6, f64).to_owned())
+}
+
+/// 6x6 Jacobian of the state map from rotating axes into inertial axes,
+/// `p = R.T @ p'` and `v = R.T @ (v' + cross(omega_b, p'))`.
+///
+/// Exact inverse of `jacobian_inertial_to_rotating`:
+/// `[[R.T, 0], [R.T @ skew(omega_b), R.T]]`. A zero `omega_b` gives the block
+/// diagonal `blockdiag(R.T, R.T)`.
+///
+/// Args:
+///     r (numpy.ndarray): Rotation matrix from the inertial axes to the rotating axes, shape (3, 3)
+///     omega_b (numpy.ndarray): Angular velocity of the rotating axes, expressed in the rotating axes (rad/s), shape (3,)
+///
+/// Returns:
+///     numpy.ndarray: 6x6 Jacobian `J` such that `x_inertial = J @ x_rotating` and `P_inertial = J @ P_rotating @ J.T`, shape (6, 6)
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     sma = bh.R_EARTH + 700e3
+///     x_eci = np.array([sma, 0.0, 0.0, 0.0, bh.perigee_velocity(sma, 0.0), 0.0])
+///     r = bh.rotation_eci_to_lvlh(x_eci)
+///     omega = bh.omega_lvlh(x_eci)
+///
+///     forward = bh.jacobian_inertial_to_rotating(r, omega)
+///     inverse = bh.jacobian_rotating_to_inertial(r, omega)
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(r, omega_b)")]
+#[pyo3(name = "jacobian_rotating_to_inertial")]
+fn py_jacobian_rotating_to_inertial<'py>(
+    py: Python<'py>,
+    r: &Bound<'py, PyAny>,
+    omega_b: &Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyArray<f64, Ix2>>> {
+    let r = pyany_to_smatrix::<3, 3>(r)?;
+    let omega_b = pyany_to_svector::<3>(omega_b)?;
+    let j = frames::jacobian_rotating_to_inertial(&r, &omega_b);
+    Ok(matrix_to_numpy!(py, j, 6, 6, f64).to_owned())
+}
+
 /// Rotates an `n x n` covariance (`n >= 6`) with a 6x6 state Jacobian,
 /// leaving elements beyond the orbital six unchanged, and symmetrizes the
 /// result.
@@ -5978,9 +6066,9 @@ fn py_covariance_frame_to_frame<'py>(
 /// `RTN` is the frame the SANA registries call `RSW`; brahe uses its
 /// existing RTN vocabulary (`state_eci_to_rtn`, `covariance_rtn`).
 ///
-/// Every kind is a valid frame identity, which is what parsing a data file
-/// needs, but only `RTN` has an axes derivation today. A transform through
-/// any other kind raises until issue #452 adds the remaining derivations.
+/// Every kind has an axes derivation; `SEZ` and `ENZ` are topocentric
+/// frames on the WGS84 ellipsoid and are evaluable only for Earth-centered
+/// objects.
 ///
 /// Example:
 ///     ```python
@@ -6050,6 +6138,13 @@ impl PyOrbitRelativeFrameKind {
     #[classattr]
     fn NSW() -> Self {
         PyOrbitRelativeFrameKind { kind: frames::OrbitRelativeFrameKind::NSW }
+    }
+
+    /// Topocentric east / north / zenith. Not a SANA kind; brahe's ENZ
+    /// vocabulary.
+    #[classattr]
+    fn ENZ() -> Self {
+        PyOrbitRelativeFrameKind { kind: frames::OrbitRelativeFrameKind::ENZ }
     }
 
     fn __str__(&self) -> String {
@@ -6434,15 +6529,21 @@ impl PyReferenceFrame {
     /// Bound Local-Vertical Local-Horizontal orbit-relative frame (rotating
     /// variant).
     ///
-    /// Among the orbit-relative kinds only `RTN` has an axes derivation
-    /// today, so this frame is constructible but every transform through
-    /// it raises until issue #452 adds the remaining derivations.
+    /// Axes follow the CCSDS/SANA definition: Z toward nadir, Y opposite
+    /// the orbit normal, X = Y × Z.
     ///
     /// Args:
     ///     object (str): The object the frame is defined relative to
     ///
     /// Returns:
     ///     ReferenceFrame: The bound `LVLH (rotating)` orbit-relative frame
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     frame = bh.ReferenceFrame.LVLH("SC")
+    ///     ```
     #[staticmethod]
     #[allow(non_snake_case)]
     fn LVLH(object: String) -> Self {
@@ -6452,15 +6553,22 @@ impl PyReferenceFrame {
     /// Bound Normal/Tangential/cross-track orbit-relative frame (rotating
     /// variant).
     ///
-    /// Among the orbit-relative kinds only `RTN` has an axes derivation
-    /// today, so this frame is constructible but every transform through
-    /// it raises until issue #452 adds the remaining derivations.
+    /// Axes: Y along velocity, Z along the orbit normal, X = Y × Z. The
+    /// rotating variant's rate uses the gravitational parameter of the
+    /// object's declared center.
     ///
     /// Args:
     ///     object (str): The object the frame is defined relative to
     ///
     /// Returns:
     ///     ReferenceFrame: The bound `NTW (rotating)` orbit-relative frame
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     frame = bh.ReferenceFrame.NTW("SC")
+    ///     ```
     #[staticmethod]
     #[allow(non_snake_case)]
     fn NTW(object: String) -> Self {
@@ -6470,15 +6578,22 @@ impl PyReferenceFrame {
     /// Bound Tangential/Normal/cross-track orbit-relative frame (rotating
     /// variant).
     ///
-    /// Among the orbit-relative kinds only `RTN` has an axes derivation
-    /// today, so this frame is constructible but every transform through
-    /// it raises until issue #452 adds the remaining derivations.
+    /// Axes: X along velocity, Z along the orbit normal, Y = Z × X pointing
+    /// inward. The rotating variant's rate uses the gravitational
+    /// parameter of the object's declared center.
     ///
     /// Args:
     ///     object (str): The object the frame is defined relative to
     ///
     /// Returns:
     ///     ReferenceFrame: The bound `TNW (rotating)` orbit-relative frame
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     frame = bh.ReferenceFrame.TNW("SC")
+    ///     ```
     #[staticmethod]
     #[allow(non_snake_case)]
     fn TNW(object: String) -> Self {
@@ -6488,33 +6603,70 @@ impl PyReferenceFrame {
     /// Bound topocentric South/East/Zenith orbit-relative frame (rotating
     /// variant).
     ///
-    /// Among the orbit-relative kinds only `RTN` has an axes derivation
-    /// today, so this frame is constructible but every transform through
-    /// it raises until issue #452 adds the remaining derivations.
+    /// Axes: S due south, E east, Z along the WGS84 geodetic vertical at
+    /// the object's position. Evaluable only for Earth-centered objects.
     ///
     /// Args:
     ///     object (str): The object the frame is defined relative to
     ///
     /// Returns:
     ///     ReferenceFrame: The bound `SEZ (rotating)` orbit-relative frame
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     frame = bh.ReferenceFrame.SEZ("STATION")
+    ///     ```
     #[staticmethod]
     #[allow(non_snake_case)]
     fn SEZ(object: String) -> Self {
         PyReferenceFrame { frame: frames::ReferenceFrame::SEZ(object) }
     }
 
+    /// Bound east/north/zenith topocentric frame (rotating variant). Not a
+    /// SANA frame.
+    ///
+    /// Axes: E east, N north, Z along the WGS84 geodetic vertical at the
+    /// object's position. Evaluable only for Earth-centered objects.
+    ///
+    /// Args:
+    ///     object (str): The object the frame is defined relative to
+    ///
+    /// Returns:
+    ///     ReferenceFrame: The bound `ENZ (rotating)` orbit-relative frame
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     frame = bh.ReferenceFrame.ENZ("STATION")
+    ///     ```
+    #[staticmethod]
+    #[allow(non_snake_case)]
+    fn ENZ(object: String) -> Self {
+        PyReferenceFrame { frame: frames::ReferenceFrame::ENZ(object) }
+    }
+
     /// Bound Velocity/Normal/Co-normal orbit-relative frame (rotating
     /// variant).
     ///
-    /// Among the orbit-relative kinds only `RTN` has an axes derivation
-    /// today, so this frame is constructible but every transform through
-    /// it raises until issue #452 adds the remaining derivations.
+    /// Axes: X along velocity, Y along the orbit normal, Z = X × Y pointing
+    /// outward. The rotating variant's rate uses the gravitational
+    /// parameter of the object's declared center.
     ///
     /// Args:
     ///     object (str): The object the frame is defined relative to
     ///
     /// Returns:
     ///     ReferenceFrame: The bound `VNC (rotating)` orbit-relative frame
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     frame = bh.ReferenceFrame.VNC("SC")
+    ///     ```
     #[staticmethod]
     #[allow(non_snake_case)]
     fn VNC(object: String) -> Self {
@@ -6523,15 +6675,21 @@ impl PyReferenceFrame {
 
     /// Bound Nadir/Sun/Normal orbit-relative frame (rotating variant).
     ///
-    /// Among the orbit-relative kinds only `RTN` has an axes derivation
-    /// today, so this frame is constructible but every transform through
-    /// it raises until issue #452 adds the remaining derivations.
+    /// Axes: X toward nadir, Y as close to the Sun as possible while normal
+    /// to X, Z = X × Y. The Sun state comes from the SPICE registry.
     ///
     /// Args:
     ///     object (str): The object the frame is defined relative to
     ///
     /// Returns:
     ///     ReferenceFrame: The bound `NSW (rotating)` orbit-relative frame
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     frame = bh.ReferenceFrame.NSW("SC")
+    ///     ```
     #[staticmethod]
     #[allow(non_snake_case)]
     fn NSW(object: String) -> Self {
@@ -6541,15 +6699,23 @@ impl PyReferenceFrame {
     /// Bound Perifocal orbit-relative frame (inertial-snapshot variant;
     /// `PQW` is SANA-registered only as inertial).
     ///
-    /// Among the orbit-relative kinds only `RTN` has an axes derivation
-    /// today, so this frame is constructible but every transform through
-    /// it raises until issue #452 adds the remaining derivations.
+    /// Axes: P toward periapsis along the eccentricity vector, W along the
+    /// orbit normal, Q = W × P. SANA registers PQW only as an inertial
+    /// snapshot, so its rate is zero; locating periapsis uses the
+    /// gravitational parameter of the object's declared center.
     ///
     /// Args:
     ///     object (str): The object the frame is defined relative to
     ///
     /// Returns:
     ///     ReferenceFrame: The bound `PQW (inertial)` orbit-relative frame
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     frame = bh.ReferenceFrame.PQW("SC")
+    ///     ```
     #[staticmethod]
     #[allow(non_snake_case)]
     fn PQW(object: String) -> Self {
@@ -6559,15 +6725,22 @@ impl PyReferenceFrame {
     /// Bound Equinoctial orbit-relative frame (inertial-snapshot variant;
     /// `EQW` is SANA-registered only as inertial).
     ///
-    /// Among the orbit-relative kinds only `RTN` has an axes derivation
-    /// today, so this frame is constructible but every transform through
-    /// it raises until issue #452 adds the remaining derivations.
+    /// Axes: E along the ascending node, W along the orbit normal, Q = W ×
+    /// E. SANA registers EQW only as an inertial snapshot, so its rate is
+    /// zero.
     ///
     /// Args:
     ///     object (str): The object the frame is defined relative to
     ///
     /// Returns:
     ///     ReferenceFrame: The bound `EQW (inertial)` orbit-relative frame
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     frame = bh.ReferenceFrame.EQW("SC")
+    ///     ```
     #[staticmethod]
     #[allow(non_snake_case)]
     fn EQW(object: String) -> Self {
@@ -6830,10 +7003,6 @@ impl PyReferenceFrame {
     /// ...), for callers that hold a runtime kind/variant pair and an
     /// optional, not-yet-bound object.
     ///
-    /// Among the orbit-relative kinds only `RTN` has an axes derivation
-    /// today; the others construct successfully but every transform through
-    /// them raises until issue #452 adds the remaining derivations.
-    ///
     /// Args:
     ///     kind (OrbitRelativeFrameKind): Frame construction (axes definition)
     ///     variant (OrbitRelativeFrameVariant): Rotating (true local orbital frame) or
@@ -6859,8 +7028,12 @@ impl PyReferenceFrame {
         Ok(PyReferenceFrame { frame })
     }
 
-    /// Whether the frame is evaluable: a celestial frame, or an
-    /// orbit-relative/body frame with a bound object.
+    /// Whether the frame carries the object identity resolution requires: a
+    /// celestial frame (always), or an orbit-relative/body frame with a
+    /// bound object. True is necessary but not sufficient for the frame to
+    /// actually resolve. An orbit-relative frame also needs its object
+    /// registered, and a body frame also needs its orientation chain
+    /// registered (`register_frame`).
     ///
     /// Returns:
     ///     bool: True if the frame is bound (celestial frames are always bound)
@@ -6972,9 +7145,11 @@ impl SStateProvider for PyCallableStateProvider {
 ///
 /// `frame` must be a bound `Body` frame (e.g. `ReferenceFrame.SC_BODY("SC")`,
 /// `ReferenceFrame.CSS("SC", "1")`); `parent` must resolve to a celestial root by
-/// walking the registry — either `parent` is itself a `CelestialFrame`, or
-/// it is a bound `Body` frame that is already registered and whose own
-/// parent chain terminates at one. `provider` is either a constant
+/// walking the registry: `parent` is itself a `CelestialFrame`, a bound
+/// orbit-relative frame such as `ReferenceFrame.LVLH("SC")`, or a bound `Body`
+/// frame that is already registered and whose own parent chain terminates at
+/// one of those. An orbit-relative parent's object is not checked here; an
+/// unregistered object surfaces at the first transform. `provider` is either a constant
 /// attitude (`Quaternion`, `RotationMatrix`, `EulerAngle`, or `EulerAxis`)
 /// or a callable `Epoch -> 3x3 ndarray` returning the parent -> frame
 /// rotation matrix. `omega` and `numerical_rates_step` are meaningful only
@@ -6996,7 +7171,8 @@ impl SStateProvider for PyCallableStateProvider {
 ///
 /// Raises:
 ///     BraheError: If `frame` is not a bound `Body` frame, if the parent chain does not
-///         terminate at a celestial frame, or if it cycles back through `frame`
+///         terminate at a celestial frame or a bound orbit-relative frame, or if
+///         it cycles back through `frame`
 ///     TypeError: If `provider` is not a constant attitude or a callable, or if `omega` is given
 ///         and is not callable
 ///     ValueError: If `omega` or `numerical_rates_step` is given for a constant-attitude

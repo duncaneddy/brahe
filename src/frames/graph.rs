@@ -8,7 +8,9 @@
  * - A `Celestial` frame is its own root, with an identity rotation.
  * - A `Body` frame is resolved by walking the frame registry's parent links
  *   from the frame up to the celestial frame that terminates its chain,
- *   composing each link's orientation provider along the way.
+ *   composing each link's orientation provider along the way. That chain may
+ *   terminate at a bound `OrbitRelative` frame instead, in which case the
+ *   parent's own resolution is composed in as the last link.
  * - An `OrbitRelative` frame is built from its bound object's registered
  *   state, expressed in the ICRF-aligned inertial frame sharing the center
  *   of the frame the object's states are declared in.
@@ -29,12 +31,19 @@ use nalgebra::Vector3;
 use crate::frames::kinematics::{state_inertial_to_rotating, state_rotating_to_inertial};
 use crate::frames::object_registry::{object_frame, object_state};
 use crate::frames::registry::{FrameKey, frame_entry, frame_key};
+use crate::frames::synodic::body_gm;
 use crate::frames::{
-    BodyFrame, CelestialFrame, FrameAxes, ObjectId, OrbitRelativeFrameKind,
-    OrbitRelativeFrameVariant, ReferenceFrame,
+    BodyFrame, CelestialFrame, FrameAxes, FrameCenter, ObjectId, OrbitRelativeFrameKind,
+    OrbitRelativeFrameVariant, ReferenceFrame, itrf_angular_velocity_at, rotation_gcrf_to_itrf,
 };
 use crate::math::{SMatrix3, SVector6};
-use crate::relative_motion::{omega_rtn, rotation_eci_to_rtn};
+use crate::relative_motion::{
+    omega_enz, omega_lvlh, omega_nsw, omega_ntw_for_body, omega_rtn, omega_sez, omega_tnw_for_body,
+    omega_vnc_for_body, rotation_ecef_to_enz, rotation_ecef_to_sez, rotation_eci_to_eqw,
+    rotation_eci_to_lvlh, rotation_eci_to_nsw, rotation_eci_to_ntw, rotation_eci_to_rtn,
+    rotation_eci_to_tnw, rotation_eci_to_vnc, rotation_inertial_to_pqw_for_body,
+};
+use crate::spice::{NAIFId, spk_state};
 use crate::time::Epoch;
 use crate::utils::BraheError;
 
@@ -289,7 +298,8 @@ fn unbound_frame_error(frame: &ReferenceFrame) -> BraheError {
 }
 
 /// Walks a bound `Body` frame's registered parent links up to a celestial
-/// root, composing each link's rotation and angular velocity.
+/// root or a bound orbit-relative parent, whose own resolution is composed
+/// in, closing the chain.
 ///
 /// Rotations compose by matrix product, and rates compose by the angular
 /// velocity addition theorem, `ω_{C/A} = ω_{C/B} + R_{B→C} ω_{B/A}` in the
@@ -379,6 +389,26 @@ fn resolve_body(
                 key = FrameKey::Body(parent_object.clone(), parent_body.clone());
                 link = parent;
             }
+            ReferenceFrame::OrbitRelative {
+                kind,
+                variant,
+                object: Some(ref parent_object),
+            } => {
+                let parent_resolved = resolve_orbit_relative(kind, variant, parent_object, epc)?;
+                if need_rate {
+                    let omega_parent = parent_resolved
+                        .omega
+                        .expect("orbit-relative frames always carry an angular velocity");
+                    omega = omega.map(|total| total + dcm * omega_parent);
+                }
+                dcm *= parent_resolved.dcm;
+                return Ok(Resolved {
+                    root: parent_resolved.root,
+                    dcm,
+                    omega,
+                    rateless_link,
+                });
+            }
             other => return Err(missing_link_error(frame, &other)),
         }
     }
@@ -440,30 +470,108 @@ fn provider_error(frame: &ReferenceFrame, err: BraheError) -> BraheError {
 /// - `Ok(Resolved)`: The inertial root, the `root` -> frame rotation, and
 ///   the frame's angular velocity relative to `root` (*rad/s*): the orbital
 ///   rate for the rotating variant, zero for the inertial snapshot
-/// - `Err(BraheError)`: If `kind` has no axes derivation, `object` is not
-///   registered, or its state cannot be evaluated at `epc`
+/// - `Err(BraheError)`: If `object` is not registered or its state cannot
+///   be evaluated at `epc`, or if a requirement of the kind is not met:
+///   - `NTW`, `TNW`, `VNC` (rotating variant) and `PQW`: the declared
+///     center has no packaged gravitational parameter
+///   - `PQW`, `EQW`: the frame carries the rotating variant, which the
+///     validating constructors reject but the enum's public fields and
+///     deserialization admit
+///   - `NSW`: the SPICE registry cannot supply the Sun's state relative
+///     to the declared center
+///   - `SEZ`, `ENZ`: the declared center is not Earth
 fn resolve_orbit_relative(
     kind: OrbitRelativeFrameKind,
     variant: OrbitRelativeFrameVariant,
     object: &ObjectId,
     epc: Epoch,
 ) -> Result<Resolved, BraheError> {
-    if kind != OrbitRelativeFrameKind::RTN {
-        return Err(BraheError::Error(format!(
-            "orbit-relative kind {kind} does not yet have an axes derivation (tracked in \
-             issue #452); RTN is supported"
-        )));
-    }
-
     let (declared, x) = object_state(object, epc)?;
     let root = icrf_aligned_inertial(declared);
     let x_root = state_frame_to_frame(declared, root, epc, x)?;
+    let gm = || {
+        body_gm(root.center().naif_id()).map_err(|e| {
+            BraheError::Error(format!(
+                "orbit-relative kind {kind} needs the gravitational parameter of {object}'s \
+                 declared center: {e}"
+            ))
+        })
+    };
+    // The inertial variant has zero rate, so only the rotating variant
+    // needs the gravitational parameter.
+    let velocity_frame_rate =
+        |omega_for_body: fn(SVector6, f64) -> Vector3<f64>| -> Result<Vector3<f64>, BraheError> {
+            match variant {
+                OrbitRelativeFrameVariant::Rotating => Ok(omega_for_body(x_root, gm()?)),
+                OrbitRelativeFrameVariant::Inertial => Ok(Vector3::zeros()),
+            }
+        };
+    let (dcm, omega) = match kind {
+        OrbitRelativeFrameKind::RTN => (rotation_eci_to_rtn(x_root), omega_rtn(x_root)),
+        OrbitRelativeFrameKind::LVLH => (rotation_eci_to_lvlh(x_root), omega_lvlh(x_root)),
+        OrbitRelativeFrameKind::NTW => (
+            rotation_eci_to_ntw(x_root),
+            velocity_frame_rate(omega_ntw_for_body)?,
+        ),
+        OrbitRelativeFrameKind::TNW => (
+            rotation_eci_to_tnw(x_root),
+            velocity_frame_rate(omega_tnw_for_body)?,
+        ),
+        OrbitRelativeFrameKind::VNC => (
+            rotation_eci_to_vnc(x_root),
+            velocity_frame_rate(omega_vnc_for_body)?,
+        ),
+        OrbitRelativeFrameKind::PQW | OrbitRelativeFrameKind::EQW
+            if variant == OrbitRelativeFrameVariant::Rotating =>
+        {
+            return Err(BraheError::Error(format!(
+                "orbit-relative kind {kind} exists only as an inertial SANA frame and cannot \
+                 be evaluated with the rotating variant for {object}"
+            )));
+        }
+        OrbitRelativeFrameKind::PQW => (
+            rotation_inertial_to_pqw_for_body(x_root, gm()?),
+            Vector3::zeros(),
+        ),
+        OrbitRelativeFrameKind::EQW => (rotation_eci_to_eqw(x_root), Vector3::zeros()),
+        OrbitRelativeFrameKind::NSW => {
+            let x_sun = spk_state(NAIFId::Sun, root.center().naif_id(), epc).map_err(|e| {
+                BraheError::Error(format!(
+                    "orbit-relative kind NSW needs the Sun's state relative to {object}'s \
+                     declared center for its axes: {e}"
+                ))
+            })?;
+            (rotation_eci_to_nsw(x_root, x_sun), omega_nsw(x_root, x_sun))
+        }
+        OrbitRelativeFrameKind::SEZ | OrbitRelativeFrameKind::ENZ => {
+            if root.center() != FrameCenter::Body(NAIFId::Earth) {
+                return Err(BraheError::Error(format!(
+                    "orbit-relative kind {kind} is a topocentric frame on the WGS84 ellipsoid \
+                     and requires an Earth-centered object; {object} is declared in {declared}"
+                )));
+            }
+            // A state already declared in ITRF is used as given.
+            let x_itrf = if declared == CelestialFrame::ITRF {
+                x
+            } else {
+                state_frame_to_frame(root, CelestialFrame::ITRF, epc, x_root)?
+            };
+            let (r_site, omega_site) = match kind {
+                OrbitRelativeFrameKind::ENZ => (rotation_ecef_to_enz(x_itrf), omega_enz(x_itrf)),
+                _ => (rotation_ecef_to_sez(x_itrf), omega_sez(x_itrf)),
+            };
+            (
+                r_site * rotation_gcrf_to_itrf(epc),
+                r_site * itrf_angular_velocity_at(epc) + omega_site,
+            )
+        }
+    };
 
     Ok(Resolved {
         root,
-        dcm: rotation_eci_to_rtn(x_root),
+        dcm,
         omega: Some(match variant {
-            OrbitRelativeFrameVariant::Rotating => omega_rtn(x_root),
+            OrbitRelativeFrameVariant::Rotating => omega,
             OrbitRelativeFrameVariant::Inertial => Vector3::zeros(),
         }),
         rateless_link: None,
@@ -493,7 +601,11 @@ pub(crate) fn icrf_aligned_inertial(frame: CelestialFrame) -> CelestialFrame {
 ///
 /// A celestial frame is its own root. A bound orbit-relative frame's root is
 /// its object's declared frame. A bound body frame's root is found by walking
-/// the frame registry's parent links until a celestial frame.
+/// the frame registry's parent links until a celestial frame or a bound
+/// orbit-relative frame, whose root is that frame's object's declared frame.
+/// The declared frame identifies the center; a resolution through an
+/// orbit-relative frame reports the ICRF-aligned inertial frame of that
+/// center as its root.
 ///
 /// # Arguments
 /// - `frame`: The frame to resolve
@@ -520,6 +632,12 @@ pub(crate) fn celestial_root(frame: &ReferenceFrame) -> Result<CelestialFrame, B
                     .ok_or_else(|| missing_link_error(frame, &current))?;
                 match parent {
                     ReferenceFrame::Celestial(celestial) => return Ok(celestial),
+                    ReferenceFrame::OrbitRelative {
+                        object: Some(object),
+                        ..
+                    } => {
+                        return object_frame(&object);
+                    }
                     parent => current = parent,
                 }
             }
@@ -645,21 +763,33 @@ mod tests {
 
     use super::*;
     use crate::attitude::{EulerAxis, FromAttitude, Quaternion, ToAttitude};
-    use crate::constants::{AngleFormat, R_EARTH};
-    use crate::coordinates::state_koe_to_eci;
+    use crate::constants::{AngleFormat, GM_MARS, R_EARTH, R_MARS};
+    use crate::coordinates::{
+        position_geodetic_to_ecef, state_koe_to_eci, state_koe_to_inertial_for_body,
+    };
+    use crate::frames::kinematics::rotate_state;
     use crate::frames::object_registry::FnProvider;
     use crate::frames::registry::{FRAME_REGISTRY, FrameEntry};
     use crate::frames::{
         CallbackOrientation, OrientationProvider, clear_frame_registry, clear_object_registry,
-        position_frame_to_frame, register_frame, register_object, rotation_frame_to_frame,
-        unregister_frame,
+        covariance_frame_to_frame, jacobian_inertial_to_rotating, position_frame_to_frame,
+        register_frame, register_object, rotate_covariance_6, rotation_frame_to_frame,
+        state_itrf_to_gcrf, unregister_frame,
     };
-    use crate::math::SVector6;
+    use crate::math::{SMatrix6, SVector6};
     use crate::orbit_dynamics::ephemerides::sun_position;
-    use crate::relative_motion::state_eci_to_rtn;
-    use crate::spice::NAIFId;
+    use crate::propagators::CentralBody;
+    use crate::relative_motion::{
+        omega_lvlh, omega_nsw, omega_ntw, omega_ntw_for_body, omega_tnw, omega_vnc,
+        rotation_eci_to_eqw, rotation_eci_to_lvlh, rotation_eci_to_nsw, rotation_eci_to_ntw,
+        rotation_eci_to_pqw, rotation_eci_to_tnw, rotation_inertial_to_pqw_for_body,
+        state_ecef_to_enz, state_ecef_to_sez, state_eci_to_eqw, state_eci_to_lvlh,
+        state_eci_to_pqw, state_eci_to_rtn,
+    };
+    use crate::spice::{NAIFId, spk_state};
     use crate::time::TimeSystem;
     use crate::utils::testing::{setup_global_test_eop, setup_global_test_spice};
+    use nalgebra::DMatrix;
 
     #[test]
     #[parallel]
@@ -1025,6 +1155,127 @@ mod tests {
         clear_frame_registry();
     }
 
+    #[test]
+    #[serial]
+    fn test_body_frame_registered_on_orbit_relative_parent_resolves() {
+        clear_frame_registry();
+        clear_object_registry();
+        let epc = Epoch::from_date(2024, 3, 1, TimeSystem::UTC);
+        let x = state_koe_to_eci(
+            SVector6::new(R_EARTH + 500e3, 0.001, 97.8, 15.0, 30.0, 45.0),
+            AngleFormat::Degrees,
+        );
+        register_object("SC", FnProvider(move |_| Ok(x)), CelestialFrame::GCRF).unwrap();
+        // Body frame yawed 0.3 rad about the LVLH Z (nadir) axis
+        let q =
+            Quaternion::from_euler_axis(EulerAxis::new(Vector3::z(), 0.3, AngleFormat::Radians));
+        register_frame(ReferenceFrame::SC_BODY("SC"), ReferenceFrame::LVLH("SC"), q).unwrap();
+
+        assert_eq!(
+            celestial_root(&ReferenceFrame::SC_BODY("SC")).unwrap(),
+            CelestialFrame::GCRF
+        );
+
+        let got = rotation_frame_to_frame(CelestialFrame::GCRF, ReferenceFrame::SC_BODY("SC"), epc)
+            .unwrap();
+        let expected = q.to_rotation_matrix().to_matrix() * rotation_eci_to_lvlh(x);
+        assert_abs_diff_eq!(got, expected, epsilon = 1e-14);
+
+        // Rate: a constant link adds nothing, so the body rate is the LVLH rate in body axes
+        let resolved = resolve_orientation(&ReferenceFrame::SC_BODY("SC"), epc, true).unwrap();
+        let expected_omega = q.to_rotation_matrix().to_matrix() * omega_lvlh(x);
+        assert_abs_diff_eq!(resolved.omega.unwrap(), expected_omega, epsilon = 1e-15);
+
+        // A second link on top of the body frame still resolves through the orbit-relative parent
+        register_frame(
+            ReferenceFrame::CSS("SC", "1"),
+            ReferenceFrame::SC_BODY("SC"),
+            Quaternion::new(1.0, 0.0, 0.0, 0.0),
+        )
+        .unwrap();
+        let css =
+            rotation_frame_to_frame(CelestialFrame::GCRF, ReferenceFrame::CSS("SC", "1"), epc)
+                .unwrap();
+        assert_abs_diff_eq!(css, expected, epsilon = 1e-14);
+
+        // State transform through the chain equals the LVLH relative state rotated into the body
+        let x_b = state_koe_to_eci(
+            SVector6::new(R_EARTH + 500e3, 0.001, 97.8, 15.0, 30.0, 45.2),
+            AngleFormat::Degrees,
+        );
+        let via_body = state_frame_to_frame(
+            CelestialFrame::GCRF,
+            ReferenceFrame::SC_BODY("SC"),
+            epc,
+            x_b,
+        )
+        .unwrap();
+        let rel_lvlh = state_eci_to_lvlh(x, x_b);
+        let r_link = q.to_rotation_matrix().to_matrix();
+        let expected_state = rotate_state(&r_link, &rel_lvlh);
+        assert_abs_diff_eq!(via_body, expected_state, epsilon = 1e-9);
+        clear_frame_registry();
+        clear_object_registry();
+    }
+
+    #[test]
+    #[serial]
+    fn test_body_frame_on_orbit_relative_parent_composes_link_rate() {
+        clear_frame_registry();
+        clear_object_registry();
+        let epc = Epoch::from_date(2024, 3, 1, TimeSystem::UTC);
+        let x = state_koe_to_eci(
+            SVector6::new(R_EARTH + 500e3, 0.001, 97.8, 15.0, 30.0, 45.0),
+            AngleFormat::Degrees,
+        );
+        register_object("SC", FnProvider(move |_| Ok(x)), CelestialFrame::GCRF).unwrap();
+        // Body frame yawed about the LVLH Z axis and spinning about its own
+        // Z axis at a constant rate supplied by the link
+        let q =
+            Quaternion::from_euler_axis(EulerAxis::new(Vector3::z(), 0.3, AngleFormat::Radians));
+        let r_link = q.to_rotation_matrix().to_matrix();
+        let w_link = Vector3::new(0.0, 0.0, 2.0e-3);
+        let spin = CallbackOrientation::new(
+            move |_epc: Epoch| Ok(r_link),
+            Some(Box::new(move |_epc: Epoch| Ok(w_link))),
+        );
+        register_frame(
+            ReferenceFrame::SC_BODY("SC"),
+            ReferenceFrame::LVLH("SC"),
+            spin,
+        )
+        .unwrap();
+
+        // omega_body = omega_link + R_link * omega_lvlh
+        let resolved = resolve_orientation(&ReferenceFrame::SC_BODY("SC"), epc, true).unwrap();
+        let expected = w_link + r_link * omega_lvlh(x);
+        assert_abs_diff_eq!(resolved.omega.unwrap(), expected, epsilon = 1e-15);
+
+        // The link rate couples into the relative velocity:
+        // v_body = R_link v_lvlh - w_link x r_body
+        let x_b = state_koe_to_eci(
+            SVector6::new(R_EARTH + 500e3, 0.001, 97.8, 15.0, 30.0, 45.2),
+            AngleFormat::Degrees,
+        );
+        let via_body = state_frame_to_frame(
+            CelestialFrame::GCRF,
+            ReferenceFrame::SC_BODY("SC"),
+            epc,
+            x_b,
+        )
+        .unwrap();
+        let rateless = rotate_state(&r_link, &state_eci_to_lvlh(x, x_b));
+        let r_body = rateless.fixed_rows::<3>(0).into_owned();
+        let v_body = rateless.fixed_rows::<3>(3).into_owned() - w_link.cross(&r_body);
+        let expected_state = SVector6::new(
+            r_body[0], r_body[1], r_body[2], v_body[0], v_body[1], v_body[2],
+        );
+        assert_abs_diff_eq!(via_body, expected_state, epsilon = 1e-9);
+        assert!((via_body.fixed_rows::<3>(3) - rateless.fixed_rows::<3>(3)).norm() > 1e-3);
+        clear_frame_registry();
+        clear_object_registry();
+    }
+
     /// Rotation-only provider whose rate query always fails, to verify
     /// rotation-only and position-only queries never evaluate it.
     struct RotationOnlyErroringRates;
@@ -1136,6 +1387,488 @@ mod tests {
 
     #[test]
     #[serial]
+    fn test_lvlh_rotation_matches_relative_motion() {
+        clear_object_registry();
+        let epc = Epoch::from_date(2024, 3, 1, TimeSystem::UTC);
+        let oe = SVector6::new(R_EARTH + 500e3, 0.001, 97.8, 15.0, 30.0, 45.0);
+        let x = state_koe_to_eci(oe, AngleFormat::Degrees);
+        register_object("A", FnProvider(move |_| Ok(x)), CelestialFrame::GCRF).unwrap();
+        let r =
+            rotation_frame_to_frame(CelestialFrame::GCRF, ReferenceFrame::LVLH("A"), epc).unwrap();
+        assert_abs_diff_eq!(r, rotation_eci_to_lvlh(x), epsilon = 1e-14);
+        clear_object_registry();
+    }
+
+    #[test]
+    #[serial]
+    fn test_lvlh_covariance_route_matches_relative_motion() {
+        clear_object_registry();
+        let epc = Epoch::from_date(2024, 3, 1, TimeSystem::UTC);
+        let oe = SVector6::new(R_EARTH + 500e3, 0.001, 97.8, 15.0, 30.0, 45.0);
+        let x = state_koe_to_eci(oe, AngleFormat::Degrees);
+        register_object("A", FnProvider(move |_| Ok(x)), CelestialFrame::GCRF).unwrap();
+
+        let mut p = DMatrix::<f64>::zeros(6, 6);
+        for i in 0..6 {
+            p[(i, i)] = (i as f64 + 1.0) * 10.0;
+        }
+
+        // `covariance_frame_to_frame` probes the router's state map, which is
+        // affine for a fixed origin, so it reproduces the analytic Jacobian to
+        // rounding.
+        let p_graph =
+            covariance_frame_to_frame(CelestialFrame::GCRF, ReferenceFrame::LVLH("A"), epc, &p)
+                .unwrap();
+        let p_graph_static = SMatrix6::from_iterator(p_graph.iter().copied());
+
+        let p6 = SMatrix6::from_iterator(p.iter().copied());
+        let j = jacobian_inertial_to_rotating(&rotation_eci_to_lvlh(x), &omega_lvlh(x));
+        let p_expected = rotate_covariance_6(&p6, &j);
+
+        assert_abs_diff_eq!(
+            (p_graph_static - p_expected).norm() / p_expected.norm(),
+            0.0,
+            epsilon = 1e-12
+        );
+        clear_object_registry();
+    }
+
+    #[test]
+    #[serial]
+    fn test_lvlh_variants_angular_velocity() {
+        clear_object_registry();
+        let epc = Epoch::from_date(2024, 3, 1, TimeSystem::UTC);
+        let oe = SVector6::new(R_EARTH + 500e3, 0.001, 97.8, 15.0, 30.0, 45.0);
+        let x = state_koe_to_eci(oe, AngleFormat::Degrees);
+        register_object("A", FnProvider(move |_| Ok(x)), CelestialFrame::GCRF).unwrap();
+
+        let rotating = resolve_orientation(&ReferenceFrame::LVLH("A"), epc, true).unwrap();
+        assert_abs_diff_eq!(rotating.omega.unwrap(), omega_lvlh(x), epsilon = 1e-15);
+
+        let inertial = ReferenceFrame::orbit_relative(
+            OrbitRelativeFrameKind::LVLH,
+            OrbitRelativeFrameVariant::Inertial,
+            Some("A".into()),
+        )
+        .unwrap();
+        let snapshot = resolve_orientation(&inertial, epc, true).unwrap();
+        assert_eq!(snapshot.omega.unwrap(), Vector3::zeros());
+        assert_eq!(snapshot.dcm, rotating.dcm);
+        clear_object_registry();
+    }
+
+    #[test]
+    #[serial]
+    fn test_ntw_rotation_and_rate_match_relative_motion() {
+        clear_object_registry();
+        let epc = Epoch::from_date(2024, 3, 1, TimeSystem::UTC);
+        let oe = SVector6::new(R_EARTH + 500e3, 0.05, 97.8, 15.0, 30.0, 45.0);
+        let x = state_koe_to_eci(oe, AngleFormat::Degrees);
+        register_object("A", FnProvider(move |_| Ok(x)), CelestialFrame::GCRF).unwrap();
+        let r =
+            rotation_frame_to_frame(CelestialFrame::GCRF, ReferenceFrame::NTW("A"), epc).unwrap();
+        assert_abs_diff_eq!(r, rotation_eci_to_ntw(x), epsilon = 1e-14);
+        let resolved = resolve_orientation(&ReferenceFrame::NTW("A"), epc, true).unwrap();
+        assert_abs_diff_eq!(resolved.omega.unwrap(), omega_ntw(x), epsilon = 1e-15);
+        clear_object_registry();
+    }
+
+    #[test]
+    #[serial]
+    fn test_ntw_rate_uses_the_declared_center_gm() {
+        clear_object_registry();
+        let epc = Epoch::from_date(2024, 3, 1, TimeSystem::UTC);
+        let x = state_koe_to_inertial_for_body(
+            SVector6::new(R_MARS + 400e3, 0.05, 92.6, 45.0, 270.0, 10.0),
+            &CentralBody::Mars,
+            AngleFormat::Degrees,
+        )
+        .unwrap();
+        let mars_icrf = CelestialFrame::centered(499, FrameAxes::ICRF);
+        register_object("M", FnProvider(move |_| Ok(x)), mars_icrf).unwrap();
+        let resolved = resolve_orientation(&ReferenceFrame::NTW("M"), epc, true).unwrap();
+        assert_abs_diff_eq!(
+            resolved.omega.unwrap(),
+            omega_ntw_for_body(x, GM_MARS),
+            epsilon = 1e-15
+        );
+        clear_object_registry();
+    }
+
+    #[test]
+    #[serial]
+    fn test_ntw_inertial_variant_needs_no_gm() {
+        clear_object_registry();
+        let epc = Epoch::from_date(2024, 3, 1, TimeSystem::UTC);
+        // NAIF ID 2000001 has no packaged GM constant, so it only works for
+        // the inertial variant, which does not need one.
+        let no_gm_center = CelestialFrame::centered(2000001, FrameAxes::ICRF);
+        let oe = SVector6::new(R_EARTH + 500e3, 0.05, 97.8, 15.0, 30.0, 45.0);
+        let x = state_koe_to_eci(oe, AngleFormat::Degrees);
+        register_object("A", FnProvider(move |_| Ok(x)), no_gm_center).unwrap();
+
+        let inertial = ReferenceFrame::orbit_relative(
+            OrbitRelativeFrameKind::NTW,
+            OrbitRelativeFrameVariant::Inertial,
+            Some("A".into()),
+        )
+        .unwrap();
+        let resolved = resolve_orientation(&inertial, epc, true).unwrap();
+        assert_eq!(resolved.omega.unwrap(), Vector3::zeros());
+
+        let err = rotation_frame_to_frame(CelestialFrame::GCRF, ReferenceFrame::NTW("A"), epc)
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("NTW"));
+        assert!(err.contains("gravitational parameter"));
+        clear_object_registry();
+    }
+
+    #[test]
+    #[serial]
+    fn test_tnw_rate_uses_the_declared_center_gm() {
+        clear_object_registry();
+        let epc = Epoch::from_date(2024, 3, 1, TimeSystem::UTC);
+        let x = state_koe_to_inertial_for_body(
+            SVector6::new(R_MARS + 400e3, 0.05, 92.6, 45.0, 270.0, 10.0),
+            &CentralBody::Mars,
+            AngleFormat::Degrees,
+        )
+        .unwrap();
+        let mars_icrf = CelestialFrame::centered(499, FrameAxes::ICRF);
+        register_object("M", FnProvider(move |_| Ok(x)), mars_icrf).unwrap();
+        let resolved = resolve_orientation(&ReferenceFrame::TNW("M"), epc, true).unwrap();
+        assert_abs_diff_eq!(
+            resolved.omega.unwrap(),
+            omega_tnw_for_body(x, GM_MARS),
+            epsilon = 1e-15
+        );
+        clear_object_registry();
+    }
+
+    #[test]
+    #[serial]
+    fn test_tnw_inertial_variant_needs_no_gm() {
+        clear_object_registry();
+        let epc = Epoch::from_date(2024, 3, 1, TimeSystem::UTC);
+        // NAIF ID 2000001 has no packaged GM constant, so it only works for
+        // the inertial variant, which does not need one.
+        let no_gm_center = CelestialFrame::centered(2000001, FrameAxes::ICRF);
+        let oe = SVector6::new(R_EARTH + 500e3, 0.05, 97.8, 15.0, 30.0, 45.0);
+        let x = state_koe_to_eci(oe, AngleFormat::Degrees);
+        register_object("A", FnProvider(move |_| Ok(x)), no_gm_center).unwrap();
+
+        let inertial = ReferenceFrame::orbit_relative(
+            OrbitRelativeFrameKind::TNW,
+            OrbitRelativeFrameVariant::Inertial,
+            Some("A".into()),
+        )
+        .unwrap();
+        let resolved = resolve_orientation(&inertial, epc, true).unwrap();
+        assert_eq!(resolved.omega.unwrap(), Vector3::zeros());
+
+        let err = rotation_frame_to_frame(CelestialFrame::GCRF, ReferenceFrame::TNW("A"), epc)
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("TNW"));
+        assert!(err.contains("gravitational parameter"));
+        clear_object_registry();
+    }
+
+    #[test]
+    #[serial]
+    fn test_tnw_rotation_and_rate_match_relative_motion() {
+        clear_object_registry();
+        let epc = Epoch::from_date(2024, 3, 1, TimeSystem::UTC);
+        let oe = SVector6::new(R_EARTH + 500e3, 0.05, 97.8, 15.0, 30.0, 45.0);
+        let x = state_koe_to_eci(oe, AngleFormat::Degrees);
+        register_object("A", FnProvider(move |_| Ok(x)), CelestialFrame::GCRF).unwrap();
+        let r =
+            rotation_frame_to_frame(CelestialFrame::GCRF, ReferenceFrame::TNW("A"), epc).unwrap();
+        assert_abs_diff_eq!(r, rotation_eci_to_tnw(x), epsilon = 1e-14);
+        let resolved = resolve_orientation(&ReferenceFrame::TNW("A"), epc, true).unwrap();
+        assert_abs_diff_eq!(resolved.omega.unwrap(), omega_tnw(x), epsilon = 1e-15);
+        clear_object_registry();
+    }
+
+    #[test]
+    #[serial]
+    fn test_vnc_rate_uses_the_declared_center_gm() {
+        clear_object_registry();
+        let epc = Epoch::from_date(2024, 3, 1, TimeSystem::UTC);
+        let x = state_koe_to_inertial_for_body(
+            SVector6::new(R_MARS + 400e3, 0.05, 92.6, 45.0, 270.0, 10.0),
+            &CentralBody::Mars,
+            AngleFormat::Degrees,
+        )
+        .unwrap();
+        let mars_icrf = CelestialFrame::centered(499, FrameAxes::ICRF);
+        register_object("M", FnProvider(move |_| Ok(x)), mars_icrf).unwrap();
+        let resolved = resolve_orientation(&ReferenceFrame::VNC("M"), epc, true).unwrap();
+        assert_abs_diff_eq!(
+            resolved.omega.unwrap(),
+            omega_vnc_for_body(x, GM_MARS),
+            epsilon = 1e-15
+        );
+        clear_object_registry();
+    }
+
+    #[test]
+    #[serial]
+    fn test_vnc_inertial_variant_needs_no_gm() {
+        clear_object_registry();
+        let epc = Epoch::from_date(2024, 3, 1, TimeSystem::UTC);
+        // NAIF ID 2000001 has no packaged GM constant, so it only works for
+        // the inertial variant, which does not need one.
+        let no_gm_center = CelestialFrame::centered(2000001, FrameAxes::ICRF);
+        let oe = SVector6::new(R_EARTH + 500e3, 0.05, 97.8, 15.0, 30.0, 45.0);
+        let x = state_koe_to_eci(oe, AngleFormat::Degrees);
+        register_object("A", FnProvider(move |_| Ok(x)), no_gm_center).unwrap();
+
+        let inertial = ReferenceFrame::orbit_relative(
+            OrbitRelativeFrameKind::VNC,
+            OrbitRelativeFrameVariant::Inertial,
+            Some("A".into()),
+        )
+        .unwrap();
+        let resolved = resolve_orientation(&inertial, epc, true).unwrap();
+        assert_eq!(resolved.omega.unwrap(), Vector3::zeros());
+
+        let err = rotation_frame_to_frame(CelestialFrame::GCRF, ReferenceFrame::VNC("A"), epc)
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("VNC"));
+        assert!(err.contains("gravitational parameter"));
+        clear_object_registry();
+    }
+
+    #[test]
+    #[serial]
+    fn test_vnc_rotation_and_rate_match_relative_motion() {
+        clear_object_registry();
+        let epc = Epoch::from_date(2024, 3, 1, TimeSystem::UTC);
+        let oe = SVector6::new(R_EARTH + 500e3, 0.05, 97.8, 15.0, 30.0, 45.0);
+        let x = state_koe_to_eci(oe, AngleFormat::Degrees);
+        register_object("A", FnProvider(move |_| Ok(x)), CelestialFrame::GCRF).unwrap();
+        let r =
+            rotation_frame_to_frame(CelestialFrame::GCRF, ReferenceFrame::VNC("A"), epc).unwrap();
+        assert_abs_diff_eq!(r, rotation_eci_to_vnc(x), epsilon = 1e-14);
+        let resolved = resolve_orientation(&ReferenceFrame::VNC("A"), epc, true).unwrap();
+        assert_abs_diff_eq!(resolved.omega.unwrap(), omega_vnc(x), epsilon = 1e-15);
+        clear_object_registry();
+    }
+
+    #[test]
+    #[serial]
+    fn test_pqw_rotation_matches_relative_motion_and_has_zero_rate() {
+        clear_object_registry();
+        let epc = Epoch::from_date(2024, 3, 1, TimeSystem::UTC);
+        let oe = SVector6::new(R_EARTH + 500e3, 0.05, 97.8, 15.0, 30.0, 45.0);
+        let x = state_koe_to_eci(oe, AngleFormat::Degrees);
+        let x_b = state_koe_to_eci(
+            SVector6::new(R_EARTH + 500e3, 0.05, 97.8, 15.0, 30.0, 45.2),
+            AngleFormat::Degrees,
+        );
+        register_object("A", FnProvider(move |_| Ok(x)), CelestialFrame::GCRF).unwrap();
+        let r =
+            rotation_frame_to_frame(CelestialFrame::GCRF, ReferenceFrame::PQW("A"), epc).unwrap();
+        assert_abs_diff_eq!(r, rotation_eci_to_pqw(x), epsilon = 1e-14);
+        let resolved = resolve_orientation(&ReferenceFrame::PQW("A"), epc, true).unwrap();
+        assert_eq!(resolved.omega, Some(Vector3::zeros()));
+        let got =
+            state_frame_to_frame(CelestialFrame::GCRF, ReferenceFrame::PQW("A"), epc, x_b).unwrap();
+        assert_eq!(got, state_eci_to_pqw(x, x_b));
+        clear_object_registry();
+    }
+
+    #[test]
+    #[serial]
+    fn test_eqw_rotation_matches_relative_motion_and_has_zero_rate() {
+        clear_object_registry();
+        let epc = Epoch::from_date(2024, 3, 1, TimeSystem::UTC);
+        let oe = SVector6::new(R_EARTH + 500e3, 0.05, 97.8, 15.0, 30.0, 45.0);
+        let x = state_koe_to_eci(oe, AngleFormat::Degrees);
+        let x_b = state_koe_to_eci(
+            SVector6::new(R_EARTH + 500e3, 0.05, 97.8, 15.0, 30.0, 45.2),
+            AngleFormat::Degrees,
+        );
+        register_object("A", FnProvider(move |_| Ok(x)), CelestialFrame::GCRF).unwrap();
+        let r =
+            rotation_frame_to_frame(CelestialFrame::GCRF, ReferenceFrame::EQW("A"), epc).unwrap();
+        assert_abs_diff_eq!(r, rotation_eci_to_eqw(x), epsilon = 1e-14);
+        let resolved = resolve_orientation(&ReferenceFrame::EQW("A"), epc, true).unwrap();
+        assert_eq!(resolved.omega, Some(Vector3::zeros()));
+        let got =
+            state_frame_to_frame(CelestialFrame::GCRF, ReferenceFrame::EQW("A"), epc, x_b).unwrap();
+        assert_eq!(got, state_eci_to_eqw(x, x_b));
+        clear_object_registry();
+    }
+
+    #[test]
+    #[serial]
+    fn test_eqw_rotating_variant_is_rejected_by_resolver() {
+        // The validating constructors reject a rotating EQW frame, but the
+        // enum's public fields and deserialization admit one; the resolver
+        // must refuse it rather than silently evaluate it with zero rate.
+        clear_object_registry();
+        let epc = Epoch::from_date(2024, 3, 1, TimeSystem::UTC);
+        let oe = SVector6::new(R_EARTH + 500e3, 0.05, 97.8, 15.0, 30.0, 45.0);
+        let x = state_koe_to_eci(oe, AngleFormat::Degrees);
+        register_object("A", FnProvider(move |_| Ok(x)), CelestialFrame::GCRF).unwrap();
+
+        let rotating = ReferenceFrame::OrbitRelative {
+            kind: OrbitRelativeFrameKind::EQW,
+            variant: OrbitRelativeFrameVariant::Rotating,
+            object: Some("A".into()),
+        };
+        let err = rotation_frame_to_frame(CelestialFrame::GCRF, rotating, epc)
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("EQW"));
+        assert!(err.contains("rotating variant"));
+        clear_object_registry();
+    }
+    #[test]
+    #[serial]
+    fn test_pqw_uses_the_declared_center_gm() {
+        clear_object_registry();
+        let epc = Epoch::from_date(2024, 3, 1, TimeSystem::UTC);
+        let x = state_koe_to_inertial_for_body(
+            SVector6::new(R_MARS + 400e3, 0.05, 92.6, 45.0, 270.0, 10.0),
+            &CentralBody::Mars,
+            AngleFormat::Degrees,
+        )
+        .unwrap();
+        let mars_icrf = CelestialFrame::centered(499, FrameAxes::ICRF);
+        register_object("M", FnProvider(move |_| Ok(x)), mars_icrf).unwrap();
+        let resolved = resolve_orientation(&ReferenceFrame::PQW("M"), epc, true).unwrap();
+        assert_abs_diff_eq!(
+            resolved.dcm,
+            rotation_inertial_to_pqw_for_body(x, GM_MARS),
+            epsilon = 1e-14
+        );
+        assert_ne!(resolved.dcm, rotation_eci_to_pqw(x));
+        clear_object_registry();
+    }
+
+    #[test]
+    #[serial]
+    fn test_pqw_needs_gm_for_its_axes() {
+        clear_object_registry();
+        let epc = Epoch::from_date(2024, 3, 1, TimeSystem::UTC);
+        // NAIF ID 2000001 has no packaged GM constant. Unlike the velocity
+        // frames' rotating variant, PQW needs its center's GM to locate
+        // periapsis in every variant.
+        let no_gm_center = CelestialFrame::centered(2000001, FrameAxes::ICRF);
+        let oe = SVector6::new(R_EARTH + 500e3, 0.05, 97.8, 15.0, 30.0, 45.0);
+        let x = state_koe_to_eci(oe, AngleFormat::Degrees);
+        register_object("A", FnProvider(move |_| Ok(x)), no_gm_center).unwrap();
+
+        let err = rotation_frame_to_frame(CelestialFrame::GCRF, ReferenceFrame::PQW("A"), epc)
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("PQW"));
+        assert!(err.contains("gravitational parameter"));
+        clear_object_registry();
+    }
+
+    #[test]
+    #[serial]
+    fn test_pqw_rotating_variant_is_rejected_by_resolver() {
+        // The validating constructors reject a rotating PQW frame, but the
+        // enum's public fields and deserialization admit one; the resolver
+        // must refuse it rather than silently evaluate it with zero rate.
+        clear_object_registry();
+        let epc = Epoch::from_date(2024, 3, 1, TimeSystem::UTC);
+        let oe = SVector6::new(R_EARTH + 500e3, 0.05, 97.8, 15.0, 30.0, 45.0);
+        let x = state_koe_to_eci(oe, AngleFormat::Degrees);
+        register_object("A", FnProvider(move |_| Ok(x)), CelestialFrame::GCRF).unwrap();
+
+        let rotating = ReferenceFrame::OrbitRelative {
+            kind: OrbitRelativeFrameKind::PQW,
+            variant: OrbitRelativeFrameVariant::Rotating,
+            object: Some("A".into()),
+        };
+        let err = rotation_frame_to_frame(CelestialFrame::GCRF, rotating, epc)
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("PQW"));
+        assert!(err.contains("rotating variant"));
+        clear_object_registry();
+    }
+
+    #[test]
+    #[serial]
+    fn test_nsw_rotation_and_rate_match_relative_motion() {
+        setup_global_test_spice();
+        clear_object_registry();
+        let epc = Epoch::from_date(2024, 3, 1, TimeSystem::UTC);
+        let oe = SVector6::new(R_EARTH + 500e3, 0.05, 97.8, 15.0, 30.0, 45.0);
+        let x = state_koe_to_eci(oe, AngleFormat::Degrees);
+        register_object("A", FnProvider(move |_| Ok(x)), CelestialFrame::GCRF).unwrap();
+
+        let x_sun = spk_state(NAIFId::Sun, NAIFId::Earth, epc).unwrap();
+        let r =
+            rotation_frame_to_frame(CelestialFrame::GCRF, ReferenceFrame::NSW("A"), epc).unwrap();
+        assert_abs_diff_eq!(r, rotation_eci_to_nsw(x, x_sun), epsilon = 1e-14);
+        let resolved = resolve_orientation(&ReferenceFrame::NSW("A"), epc, true).unwrap();
+        assert_abs_diff_eq!(
+            resolved.omega.unwrap(),
+            omega_nsw(x, x_sun),
+            epsilon = 1e-15
+        );
+
+        let inertial = ReferenceFrame::orbit_relative(
+            OrbitRelativeFrameKind::NSW,
+            OrbitRelativeFrameVariant::Inertial,
+            Some("A".into()),
+        )
+        .unwrap();
+        let resolved_inertial = resolve_orientation(&inertial, epc, true).unwrap();
+        assert_eq!(resolved_inertial.omega.unwrap(), Vector3::zeros());
+
+        clear_object_registry();
+    }
+
+    #[test]
+    #[serial]
+    fn test_nsw_uses_the_sun_relative_to_the_declared_center() {
+        setup_global_test_spice();
+        clear_object_registry();
+        let epc = Epoch::from_date(2024, 3, 1, TimeSystem::UTC);
+        let x = SVector6::new(1.9e6, 0.0, 0.0, 0.0, 1.2e3, 1.0e3);
+        let moon_icrf = CelestialFrame::centered(301, FrameAxes::ICRF);
+        register_object("L", FnProvider(move |_| Ok(x)), moon_icrf).unwrap();
+
+        let x_sun = spk_state(NAIFId::Sun, NAIFId::Moon, epc).unwrap();
+        let r = rotation_frame_to_frame(moon_icrf, ReferenceFrame::NSW("L"), epc).unwrap();
+        assert_abs_diff_eq!(r, rotation_eci_to_nsw(x, x_sun), epsilon = 1e-14);
+
+        clear_object_registry();
+    }
+
+    #[test]
+    #[serial]
+    fn test_two_object_lvlh_matches_state_eci_to_lvlh() {
+        clear_object_registry();
+        let epc = Epoch::from_date(2024, 3, 1, TimeSystem::UTC);
+        let x_a = state_koe_to_eci(
+            SVector6::new(R_EARTH + 500e3, 0.001, 97.8, 15.0, 30.0, 45.0),
+            AngleFormat::Degrees,
+        );
+        let x_b = state_koe_to_eci(
+            SVector6::new(R_EARTH + 500e3, 0.001, 97.8, 15.0, 30.0, 45.2),
+            AngleFormat::Degrees,
+        );
+        register_object("A", FnProvider(move |_| Ok(x_a)), CelestialFrame::GCRF).unwrap();
+        let got = state_frame_to_frame(CelestialFrame::GCRF, ReferenceFrame::LVLH("A"), epc, x_b)
+            .unwrap();
+        assert_eq!(got, state_eci_to_lvlh(x_a, x_b));
+        clear_object_registry();
+    }
+
+    #[test]
+    #[serial]
     fn test_rtn_non_icrf_declared_frame_converts_to_inertial_root() {
         setup_global_test_eop();
         clear_object_registry();
@@ -1156,16 +1889,9 @@ mod tests {
 
     #[test]
     #[serial]
-    fn test_unsupported_orbit_relative_kind_names_issue() {
+    fn test_unbound_orbit_relative_frame_errors() {
         clear_object_registry();
         let epc = Epoch::from_date(2024, 3, 1, TimeSystem::UTC);
-        let err = rotation_frame_to_frame(CelestialFrame::GCRF, ReferenceFrame::LVLH("A"), epc)
-            .unwrap_err()
-            .to_string();
-        assert!(err.contains("LVLH"));
-        assert!(err.contains("issue #452"));
-        assert!(err.contains("RTN is supported"));
-
         let unbound = ReferenceFrame::orbit_relative(
             OrbitRelativeFrameKind::RTN,
             OrbitRelativeFrameVariant::Rotating,
@@ -1177,6 +1903,227 @@ mod tests {
             .to_string();
         assert!(err.contains("not bound to an object"));
         assert!(err.contains("ReferenceFrame::RTN(object)"));
+    }
+
+    #[test]
+    #[serial]
+    fn test_sez_station_rotation_matches_relative_motion() {
+        setup_global_test_eop();
+        clear_object_registry();
+        let epc = Epoch::from_date(2024, 3, 1, TimeSystem::UTC);
+        let r = position_geodetic_to_ecef(Vector3::new(30.0, 45.0, 500.0), AngleFormat::Degrees)
+            .unwrap();
+        let x_gs = SVector6::new(r[0], r[1], r[2], 0.0, 0.0, 0.0);
+        register_object("GS", FnProvider(move |_| Ok(x_gs)), CelestialFrame::ITRF).unwrap();
+
+        let got =
+            rotation_frame_to_frame(CelestialFrame::ITRF, ReferenceFrame::SEZ("GS"), epc).unwrap();
+        assert_abs_diff_eq!(got, rotation_ecef_to_sez(x_gs), epsilon = 1e-12);
+
+        // Rotating variant: rate relative to GCRF is Earth's rotation in SEZ axes
+        let resolved = resolve_orientation(&ReferenceFrame::SEZ("GS"), epc, true).unwrap();
+        assert_eq!(resolved.root, CelestialFrame::GCRF);
+        let expected = rotation_ecef_to_sez(x_gs) * itrf_angular_velocity_at(epc);
+        assert_abs_diff_eq!(resolved.omega.unwrap(), expected, epsilon = 1e-15);
+        clear_object_registry();
+    }
+
+    #[test]
+    #[serial]
+    fn test_sez_static_target_has_no_velocity_in_station_frame() {
+        setup_global_test_eop();
+        clear_object_registry();
+        let epc = Epoch::from_date(2024, 3, 1, TimeSystem::UTC);
+        let r_gs = position_geodetic_to_ecef(Vector3::new(30.0, 45.0, 500.0), AngleFormat::Degrees)
+            .unwrap();
+        let x_gs = SVector6::new(r_gs[0], r_gs[1], r_gs[2], 0.0, 0.0, 0.0);
+        register_object("GS", FnProvider(move |_| Ok(x_gs)), CelestialFrame::ITRF).unwrap();
+        let r_t = r_gs + Vector3::new(200e3, 300e3, 400e3);
+        let x_t = SVector6::new(r_t[0], r_t[1], r_t[2], 0.0, 0.0, 0.0);
+        let rel = state_frame_to_frame(CelestialFrame::ITRF, ReferenceFrame::SEZ("GS"), epc, x_t)
+            .unwrap();
+        assert_abs_diff_eq!(rel, state_ecef_to_sez(x_gs, x_t), epsilon = 1e-6);
+        assert!(rel.fixed_rows::<3>(3).norm() < 1e-6);
+        clear_object_registry();
+    }
+
+    #[test]
+    #[serial]
+    fn test_sez_moving_site_rate_composes_site_and_earth_rotation() {
+        setup_global_test_eop();
+        clear_object_registry();
+        let epc = Epoch::from_date(2024, 3, 1, TimeSystem::UTC);
+        let r_gs = position_geodetic_to_ecef(Vector3::new(30.0, 45.0, 10e3), AngleFormat::Degrees)
+            .unwrap();
+        let x_gs = SVector6::new(r_gs[0], r_gs[1], r_gs[2], -120.0, 180.0, 90.0);
+        register_object("GS", FnProvider(move |_| Ok(x_gs)), CelestialFrame::ITRF).unwrap();
+
+        // Rate relative to GCRF: Earth's rotation in SEZ axes plus the site's
+        // own transport rate, which is nonzero for a moving site.
+        let resolved = resolve_orientation(&ReferenceFrame::SEZ("GS"), epc, true).unwrap();
+        let r_site = rotation_ecef_to_sez(x_gs);
+        let expected = r_site * itrf_angular_velocity_at(epc) + omega_sez(x_gs);
+        assert!(omega_sez(x_gs).norm() > 1e-6);
+        assert_abs_diff_eq!(resolved.omega.unwrap(), expected, epsilon = 1e-15);
+
+        // A target's relative state through the graph matches the ECEF-side
+        // transform, which carries the same site rate.
+        let r_t = r_gs + Vector3::new(200e3, 300e3, 400e3);
+        let x_t = SVector6::new(r_t[0], r_t[1], r_t[2], 0.0, 0.0, 0.0);
+        let rel = state_frame_to_frame(CelestialFrame::ITRF, ReferenceFrame::SEZ("GS"), epc, x_t)
+            .unwrap();
+        assert_abs_diff_eq!(rel, state_ecef_to_sez(x_gs, x_t), epsilon = 1e-6);
+        clear_object_registry();
+    }
+
+    #[test]
+    #[serial]
+    fn test_sez_pole_site_rotation_matches_relative_motion() {
+        setup_global_test_eop();
+        clear_object_registry();
+        let epc = Epoch::from_date(2024, 3, 1, TimeSystem::UTC);
+        let r_gs =
+            position_geodetic_to_ecef(Vector3::new(0.0, 90.0, 0.0), AngleFormat::Degrees).unwrap();
+        let x_gs = SVector6::new(r_gs[0], r_gs[1], r_gs[2], 0.0, 0.0, 0.0);
+        register_object("GS", FnProvider(move |_| Ok(x_gs)), CelestialFrame::ITRF).unwrap();
+
+        let got =
+            rotation_frame_to_frame(CelestialFrame::ITRF, ReferenceFrame::SEZ("GS"), epc).unwrap();
+        assert_abs_diff_eq!(got, rotation_ecef_to_sez(x_gs), epsilon = 1e-12);
+        assert_abs_diff_eq!(got * got.transpose(), SMatrix3::identity(), epsilon = 1e-12);
+        // Zenith at the pole is the polar axis
+        assert_abs_diff_eq!(got.row(2).transpose(), Vector3::z(), epsilon = 1e-9);
+        clear_object_registry();
+    }
+
+    #[test]
+    #[serial]
+    fn test_sez_requires_earth_centered_object() {
+        clear_object_registry();
+        let epc = Epoch::from_date(2024, 3, 1, TimeSystem::UTC);
+        let x = SVector6::new(R_MARS + 400e3, 0.0, 0.0, 0.0, 3.4e3, 0.0);
+        register_object(
+            "M",
+            FnProvider(move |_| Ok(x)),
+            CelestialFrame::centered(499, FrameAxes::ICRF),
+        )
+        .unwrap();
+        let err = rotation_frame_to_frame(CelestialFrame::GCRF, ReferenceFrame::SEZ("M"), epc)
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("SEZ"), "{err}");
+        assert!(err.contains("Earth"), "{err}");
+        clear_object_registry();
+    }
+
+    #[test]
+    #[serial]
+    fn test_enz_gcrf_declared_station_matches_itrf_site() {
+        setup_global_test_eop();
+        clear_object_registry();
+        let epc = Epoch::from_date(2024, 3, 1, TimeSystem::UTC);
+        let r = position_geodetic_to_ecef(Vector3::new(30.0, 45.0, 500.0), AngleFormat::Degrees)
+            .unwrap();
+        let x_gs = SVector6::new(r[0], r[1], r[2], 0.0, 0.0, 0.0);
+        let x_gcrf = state_itrf_to_gcrf(epc, x_gs);
+        register_object("GS", FnProvider(move |_| Ok(x_gcrf)), CelestialFrame::GCRF).unwrap();
+
+        let got =
+            rotation_frame_to_frame(CelestialFrame::ITRF, ReferenceFrame::ENZ("GS"), epc).unwrap();
+        assert_abs_diff_eq!(got, rotation_ecef_to_enz(x_gs), epsilon = 1e-9);
+        clear_object_registry();
+    }
+
+    #[test]
+    #[serial]
+    fn test_enz_station_rotation_matches_relative_motion() {
+        setup_global_test_eop();
+        clear_object_registry();
+        let epc = Epoch::from_date(2024, 3, 1, TimeSystem::UTC);
+        let r = position_geodetic_to_ecef(Vector3::new(30.0, 45.0, 500.0), AngleFormat::Degrees)
+            .unwrap();
+        let x_gs = SVector6::new(r[0], r[1], r[2], 0.0, 0.0, 0.0);
+        register_object("GS", FnProvider(move |_| Ok(x_gs)), CelestialFrame::ITRF).unwrap();
+
+        let got =
+            rotation_frame_to_frame(CelestialFrame::ITRF, ReferenceFrame::ENZ("GS"), epc).unwrap();
+        assert_abs_diff_eq!(got, rotation_ecef_to_enz(x_gs), epsilon = 1e-12);
+
+        // Rotating variant: rate relative to GCRF is Earth's rotation in ENZ axes
+        let resolved = resolve_orientation(&ReferenceFrame::ENZ("GS"), epc, true).unwrap();
+        assert_eq!(resolved.root, CelestialFrame::GCRF);
+        let expected = rotation_ecef_to_enz(x_gs) * itrf_angular_velocity_at(epc);
+        assert_abs_diff_eq!(resolved.omega.unwrap(), expected, epsilon = 1e-15);
+        clear_object_registry();
+    }
+
+    #[test]
+    #[serial]
+    fn test_enz_moving_site_rate_composes_site_and_earth_rotation() {
+        setup_global_test_eop();
+        clear_object_registry();
+        let epc = Epoch::from_date(2024, 3, 1, TimeSystem::UTC);
+        let r_gs = position_geodetic_to_ecef(Vector3::new(30.0, 45.0, 10e3), AngleFormat::Degrees)
+            .unwrap();
+        let x_gs = SVector6::new(r_gs[0], r_gs[1], r_gs[2], -120.0, 180.0, 90.0);
+        register_object("GS", FnProvider(move |_| Ok(x_gs)), CelestialFrame::ITRF).unwrap();
+
+        // Rate relative to GCRF: Earth's rotation in ENZ axes plus the site's
+        // own transport rate, which is nonzero for a moving site.
+        let resolved = resolve_orientation(&ReferenceFrame::ENZ("GS"), epc, true).unwrap();
+        let r_site = rotation_ecef_to_enz(x_gs);
+        let expected = r_site * itrf_angular_velocity_at(epc) + omega_enz(x_gs);
+        assert!(omega_enz(x_gs).norm() > 1e-6);
+        assert_abs_diff_eq!(resolved.omega.unwrap(), expected, epsilon = 1e-15);
+
+        // A target's relative state through the graph matches the ECEF-side
+        // transform, which carries the same site rate.
+        let r_t = r_gs + Vector3::new(200e3, 300e3, 400e3);
+        let x_t = SVector6::new(r_t[0], r_t[1], r_t[2], 0.0, 0.0, 0.0);
+        let rel = state_frame_to_frame(CelestialFrame::ITRF, ReferenceFrame::ENZ("GS"), epc, x_t)
+            .unwrap();
+        assert_abs_diff_eq!(rel, state_ecef_to_enz(x_gs, x_t), epsilon = 1e-6);
+        clear_object_registry();
+    }
+
+    #[test]
+    #[serial]
+    fn test_enz_pole_site_rotation_matches_relative_motion() {
+        setup_global_test_eop();
+        clear_object_registry();
+        let epc = Epoch::from_date(2024, 3, 1, TimeSystem::UTC);
+        let r_gs =
+            position_geodetic_to_ecef(Vector3::new(0.0, 90.0, 0.0), AngleFormat::Degrees).unwrap();
+        let x_gs = SVector6::new(r_gs[0], r_gs[1], r_gs[2], 0.0, 0.0, 0.0);
+        register_object("GS", FnProvider(move |_| Ok(x_gs)), CelestialFrame::ITRF).unwrap();
+
+        let got =
+            rotation_frame_to_frame(CelestialFrame::ITRF, ReferenceFrame::ENZ("GS"), epc).unwrap();
+        assert_abs_diff_eq!(got, rotation_ecef_to_enz(x_gs), epsilon = 1e-12);
+        assert_abs_diff_eq!(got * got.transpose(), SMatrix3::identity(), epsilon = 1e-12);
+        // Zenith at the pole is the polar axis
+        assert_abs_diff_eq!(got.row(2).transpose(), Vector3::z(), epsilon = 1e-9);
+        clear_object_registry();
+    }
+
+    #[test]
+    #[serial]
+    fn test_enz_requires_earth_centered_object() {
+        clear_object_registry();
+        let epc = Epoch::from_date(2024, 3, 1, TimeSystem::UTC);
+        let x = SVector6::new(R_MARS + 400e3, 0.0, 0.0, 0.0, 3.4e3, 0.0);
+        register_object(
+            "M",
+            FnProvider(move |_| Ok(x)),
+            CelestialFrame::centered(499, FrameAxes::ICRF),
+        )
+        .unwrap();
+        let err = rotation_frame_to_frame(CelestialFrame::GCRF, ReferenceFrame::ENZ("M"), epc)
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("ENZ"), "{err}");
+        assert!(err.contains("Earth"), "{err}");
+        clear_object_registry();
     }
 
     #[test]

@@ -21,7 +21,7 @@ import re
 import subprocess
 import sys
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 SECTIONS: tuple[str, ...] = ("Added", "Changed", "Deprecated", "Removed", "Fixed")
@@ -201,7 +201,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--date",
-        default=datetime.now(timezone.utc).date().isoformat(),
+        default=datetime.now(UTC).date().isoformat(),
         help="Release date in ISO format (default: today, UTC)",
     )
     parser.add_argument(

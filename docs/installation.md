@@ -90,7 +90,7 @@ If you want to build Brahe from source (e.g., for development or to use unreleas
    cargo --version
    ```
 
-2. **Python 3.10+** with development headers:
+2. **Python 3.11+** with development headers:
    ```bash
    # On Ubuntu/Debian
    sudo apt-get install python3-dev
@@ -123,7 +123,7 @@ source .venv/bin/activate  # On Unix/macOS
 
 This includes tools for:
 - Testing (pytest, pytest-cov)
-- Documentation (mkdocs, mkdocstrings)
+- Documentation (Zensical, mkdocstrings)
 - Code quality (ruff, pre-commit)
 - Type stubs generation (pyo3-stubgen)
 
@@ -194,7 +194,7 @@ cargo doc --open
 
 **Import errors after installation**
 - Verify installation: `pip show brahe`
-- Check Python version: `python --version` (must be 3.10+)
+- Check Python version: `python --version` (must be 3.11+)
 - Try reinstalling: `pip install --force-reinstall brahe`
 
 **Cartopy installation fails**

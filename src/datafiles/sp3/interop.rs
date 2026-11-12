@@ -111,15 +111,30 @@ impl SP3 {
                     }
                 }
                 let interval = first.epochs[1] - first.epochs[0];
-                if let Some(off) = first.epochs.iter().find(|e| {
-                    let offset = **e - first.epochs[0];
-                    ((offset / interval).round() * interval - offset).abs() > GRID_TOLERANCE
-                }) {
+                if interval <= GRID_TOLERANCE {
                     return Err(sp3_error(&format!(
-                        "stored epoch {} is off the {} s grid of the first two epochs; pass a \
-                         step to resample",
-                        off, interval
+                        "trajectory of {} stores more than one state at {}",
+                        first_id, first.epochs[0]
                     )));
+                }
+                let mut previous = f64::NEG_INFINITY;
+                for epoch in &first.epochs {
+                    let offset = *epoch - first.epochs[0];
+                    let point = (offset / interval).round();
+                    if (point * interval - offset).abs() > GRID_TOLERANCE {
+                        return Err(sp3_error(&format!(
+                            "stored epoch {} is off the {} s grid of the first two epochs; \
+                             pass a step to resample",
+                            epoch, interval
+                        )));
+                    }
+                    if point <= previous {
+                        return Err(sp3_error(&format!(
+                            "trajectory of {} stores more than one state at {}",
+                            first_id, epoch
+                        )));
+                    }
+                    previous = point;
                 }
                 (first.epochs.clone(), interval)
             }
@@ -129,10 +144,17 @@ impl SP3 {
         let ids: Vec<SP3SatelliteId> = trajectories.iter().map(|(id, _)| *id).collect();
         let mut sp3 = SP3::new(ids, interval, header)?;
         let mut records = Vec::with_capacity(trajectories.len());
-        for epoch in epochs {
+        for (k, epoch) in epochs.into_iter().enumerate() {
             records.clear();
             for (id, trajectory) in trajectories {
-                let state = trajectory.state_itrf(epoch).map_err(|e| {
+                // Stored epochs may differ between trajectories by up to the
+                // grid tolerance, so each is read at its own epoch.
+                let at = if step.is_none() {
+                    trajectory.epochs[k]
+                } else {
+                    epoch
+                };
+                let state = trajectory.state_itrf(at).map_err(|e| {
                     sp3_error(&format!("state of {} at {} unavailable: {}", id, epoch, e))
                 })?;
                 let mut record = SP3Record::new([state[0], state[1], state[2]]);
@@ -183,7 +205,9 @@ fn common_grid(
         )));
     }
     let n_steps = (span / step + 1e-9).floor() as usize;
-    Ok((0..=n_steps).map(|k| start + step * k as f64).collect())
+    Ok((0..=n_steps)
+        .map(|k| (start + step * k as f64).min(end))
+        .collect())
 }
 
 #[cfg(test)]
@@ -1028,6 +1052,9 @@ mod tests {
         assert_eq!(sp3.epochs(), &[t0, t0 + 30.0, t0 + 60.0, t0 + 90.0]);
         assert_eq!(sp3.header.epoch_interval, 30.0);
         assert_eq!(build(&uneven, 50.0).unwrap().num_epochs(), 3);
+        // A span that falls short of a grid point by rounding keeps that point.
+        let short = leo_trajectory(0.0, &[0.0, 15.0, 29.999_999_99]);
+        assert_eq!(build(&short, 30.0).unwrap().num_epochs(), 2);
         assert_eq!(
             build(&leo_trajectory(0.0, &[0.0]), 30.0)
                 .unwrap()
@@ -1095,6 +1122,25 @@ mod tests {
             let err = stored(&[(sid("L01"), &a), (sid("L02"), other)]);
             assert!(err.contains("L01 and L02 store different epochs"), "{err}");
         }
+
+        let twice = leo_trajectory(0.0, &[0.0, 30.0, 30.0, 60.0]);
+        let err = stored(&[(sid("L01"), &twice)]);
+        assert!(err.contains("more than one state"), "{err}");
+        let twice = leo_trajectory(0.0, &[0.0, 0.0, 30.0]);
+        assert!(stored(&[(sid("L01"), &twice)]).contains("more than one state"));
+
+        // Epochs that differ by less than the grid tolerance are the same.
+        let offset = leo_trajectory(40.0, &[0.0005, 30.0005, 60.0005]);
+        let sp3 =
+            SP3::from_trajectories(&[(sid("L01"), &a), (sid("L02"), &offset)], None, header())
+                .unwrap();
+        assert_eq!(sp3.epochs(), a.epochs.as_slice());
+        let stored_state = offset.states[0].clone();
+        let record = sp3.record(sid("L02"), a.epochs[0]).unwrap().unwrap();
+        assert_eq!(
+            record.position,
+            [stored_state[0], stored_state[1], stored_state[2]]
+        );
 
         // A skipped grid point is kept as a skipped epoch.
         let skipped = leo_trajectory(0.0, &[0.0, 30.0, 90.0]);

@@ -316,6 +316,10 @@ def test_SP3Satellite_interpolation_degree():
     np.testing.assert_allclose(
         sat.state_itrf(t0() + 450.0)[:3], quadratic_position(450.0), rtol=0.0, atol=1e-6
     )
+    # A degree above the number of samples fits all of them.
+    state = sat.state_itrf(t0() + 450.0)
+    sat.interpolation_degree = 2**63
+    assert np.array_equal(sat.state_itrf(t0() + 450.0), state)
 
 
 def test_SP3Satellite_derived_velocity_matches_propagator():
@@ -1385,6 +1389,9 @@ def test_SP3_from_trajectories_resampled_grid():
     assert sp3.epochs == [t0(), t0() + 30.0, t0() + 60.0, t0() + 90.0]
     assert sp3.header.epoch_interval == 30.0
     assert SP3.from_trajectories([("L01", uneven)], 50.0).num_epochs == 3
+    # A span that falls short of a grid point by rounding keeps that point.
+    short = leo_trajectory(0.0, [0.0, 15.0, 29.99999999])
+    assert SP3.from_trajectories([("L01", short)], step=30.0).num_epochs == 2
     single = leo_trajectory(0.0, [0.0])
     assert SP3.from_trajectories([("L01", single)], step=30.0).num_epochs == 1
     for step in [0.0, -30.0, math.nan]:
@@ -1426,6 +1433,18 @@ def test_SP3_from_trajectories_stored_epoch_errors():
     for other in (shifted, shorter):
         with pytest.raises(bh.BraheError, match="L01 and L02 store different epochs"):
             SP3.from_trajectories([("L01", a), ("L02", other)])
+
+    for offsets in ([0.0, 30.0, 30.0, 60.0], [0.0, 0.0, 30.0]):
+        with pytest.raises(bh.BraheError, match="more than one state"):
+            SP3.from_trajectories([("L01", leo_trajectory(0.0, offsets))])
+
+    # Epochs that differ by less than the grid tolerance are the same.
+    offset = leo_trajectory(40.0, [0.0005, 30.0005, 60.0005])
+    sp3 = SP3.from_trajectories([("L01", a), ("L02", offset)])
+    assert sp3.epochs == a.epochs()
+    assert np.array_equal(
+        sp3.record("L02", a.epochs()[0]).position, offset.states()[0][:3]
+    )
 
     # A skipped grid point is kept as a skipped epoch.
     skipped = leo_trajectory(0.0, [0.0, 30.0, 90.0])

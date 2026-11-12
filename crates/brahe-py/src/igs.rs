@@ -974,11 +974,25 @@ fn extract_igs_content_type(obj: &Bound<'_, PyAny>) -> PyResult<igs::IGSContentT
     ))
 }
 
+/// Extract an `igs::IGSFileFormat` from an `IGSFileFormat` or its code.
+fn extract_igs_file_format(obj: &Bound<'_, PyAny>) -> PyResult<igs::IGSFileFormat> {
+    if let Ok(format) = obj.extract::<PyIGSFileFormat>() {
+        return Ok(format.inner);
+    }
+    if let Ok(text) = obj.extract::<String>() {
+        return Ok(igs::IGSFileFormat::parse(&text));
+    }
+    Err(exceptions::PyTypeError::new_err(
+        "expected an IGSFileFormat or a file format code string",
+    ))
+}
+
 /// Build an `igs::IGSProductFilter` from the keyword arguments of a listing call.
 fn igs_product_filter(
     center: Option<&Bound<'_, PyAny>>,
     solution: Option<&Bound<'_, PyAny>>,
     content: Option<&Bound<'_, PyAny>>,
+    format: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<igs::IGSProductFilter> {
     let mut filter = igs::IGSProductFilter::new();
     if let Some(center) = center {
@@ -989,6 +1003,9 @@ fn igs_product_filter(
     }
     if let Some(content) = content {
         filter = filter.with_content(extract_igs_content_type(content)?);
+    }
+    if let Some(format) = format {
+        filter = filter.with_format(extract_igs_file_format(format)?);
     }
     Ok(filter)
 }
@@ -1345,7 +1362,7 @@ impl PyIGSProductsClient {
     ///
     /// Files whose names parse as IGS product names are returned; other files
     /// are skipped. Each filter left as None matches every product.
-    /// A center, solution, or content code that is not a known type
+    /// A center, solution, content, or format code that is not a known type
     /// is kept as an ``Other`` value and matches only products published
     /// with that code, so a misspelled code matches nothing.
     ///
@@ -1354,6 +1371,7 @@ impl PyIGSProductsClient {
     ///     center (IGSAnalysisCenter | str, optional): Analysis center or its code, such as ``"COD"``.
     ///     solution (IGSSolutionType | str, optional): Solution type or its code, such as ``"FIN"``.
     ///     content (IGSContentType | str, optional): Content type or its code, such as ``"ORB"``.
+    ///     format (IGSFileFormat | str, optional): File format or its code, such as ``"SP3"``.
     ///
     /// Returns:
     ///     list[IGSProduct]: Matching products in listing order.
@@ -1370,7 +1388,7 @@ impl PyIGSProductsClient {
     ///     for product in client.list_products(epoch, center="COD", solution="FIN", content="ORB"):
     ///         print(product.name, product.url)
     ///     ```
-    #[pyo3(signature = (epoch, *, center=None, solution=None, content=None))]
+    #[pyo3(signature = (epoch, *, center=None, solution=None, content=None, format=None))]
     fn list_products(
         &self,
         py: Python<'_>,
@@ -1378,9 +1396,10 @@ impl PyIGSProductsClient {
         center: Option<&Bound<'_, PyAny>>,
         solution: Option<&Bound<'_, PyAny>>,
         content: Option<&Bound<'_, PyAny>>,
+        format: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<Vec<PyIGSProduct>> {
         let epoch = epoch.obj;
-        let filter = igs_product_filter(center, solution, content)?;
+        let filter = igs_product_filter(center, solution, content, format)?;
         py.detach(|| self.inner.list_products(epoch, &filter))
             .map(|products| {
                 products
@@ -1403,7 +1422,7 @@ impl PyIGSProductsClient {
     /// served only from the cache and skipped when they are not cached; a
     /// week containing part of the range must still be cached.
     ///
-    /// A center, solution, or content code that is not a known type
+    /// A center, solution, content, or format code that is not a known type
     /// is kept as an ``Other`` value and matches only products published
     /// with that code, so a misspelled code matches nothing.
     ///
@@ -1413,6 +1432,7 @@ impl PyIGSProductsClient {
     ///     center (IGSAnalysisCenter | str, optional): Analysis center or its code, such as ``"COD"``.
     ///     solution (IGSSolutionType | str, optional): Solution type or its code, such as ``"FIN"``.
     ///     content (IGSContentType | str, optional): Content type or its code, such as ``"ORB"``.
+    ///     format (IGSFileFormat | str, optional): File format or its code, such as ``"SP3"``.
     ///
     /// Returns:
     ///     list[IGSProduct]: Matching products ordered by start epoch, then name.
@@ -1430,7 +1450,7 @@ impl PyIGSProductsClient {
     ///     products = client.list_products_between(start, end, center="IGS", solution="FIN", content="ORB")
     ///     ```
     #[allow(clippy::too_many_arguments)]
-    #[pyo3(signature = (start, end, *, center=None, solution=None, content=None))]
+    #[pyo3(signature = (start, end, *, center=None, solution=None, content=None, format=None))]
     fn list_products_between(
         &self,
         py: Python<'_>,
@@ -1439,9 +1459,10 @@ impl PyIGSProductsClient {
         center: Option<&Bound<'_, PyAny>>,
         solution: Option<&Bound<'_, PyAny>>,
         content: Option<&Bound<'_, PyAny>>,
+        format: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<Vec<PyIGSProduct>> {
         let (start, end) = (start.obj, end.obj);
-        let filter = igs_product_filter(center, solution, content)?;
+        let filter = igs_product_filter(center, solution, content, format)?;
         py.detach(|| self.inner.list_products_between(start, end, &filter))
             .map(|products| {
                 products
@@ -1476,7 +1497,7 @@ impl PyIGSProductsClient {
     ///
     ///     client = bh.IGSProductsClient("GARNER")
     ///     epoch = bh.Epoch(2024, 11, 10, 0, 0, 0.0, 0.0, time_system=bh.GPS)
-    ///     product = client.list_products(epoch, center="COD", solution="FIN", content="ORB")[0]
+    ///     product = client.list_products(epoch, center="COD", solution="FIN", content="ORB", format="SP3")[0]
     ///     path = client.download(product)
     ///     ```
     fn download(&self, py: Python<'_>, product: &PyIGSProduct) -> PyResult<String> {
@@ -1515,7 +1536,7 @@ impl PyIGSProductsClient {
     ///
     ///     client = bh.IGSProductsClient("GARNER")
     ///     epoch = bh.Epoch(2024, 11, 10, 0, 0, 0.0, 0.0, time_system=bh.GPS)
-    ///     product = client.list_products(epoch, center="COD", solution="FIN", content="ORB")[0]
+    ///     product = client.list_products(epoch, center="COD", solution="FIN", content="ORB", format="SP3")[0]
     ///     with tempfile.TemporaryDirectory() as directory:
     ///         path = client.save(product, directory)
     ///     ```
@@ -1558,7 +1579,7 @@ impl PyIGSProductsClient {
     ///
     ///     client = bh.IGSProductsClient("GARNER")
     ///     epoch = bh.Epoch(2024, 11, 10, 0, 0, 0.0, 0.0, time_system=bh.GPS)
-    ///     product = client.list_products(epoch, center="COD", solution="FIN", content="ORB")[0]
+    ///     product = client.list_products(epoch, center="COD", solution="FIN", content="ORB", format="SP3")[0]
     ///     sp3 = client.download_sp3(product)
     ///     print(sp3.num_satellites, sp3.num_epochs)
     ///     ```

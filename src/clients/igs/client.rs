@@ -17,8 +17,8 @@ use ureq::http::{Response, Uri};
 
 use crate::clients::igs::centers::IGSAnalysisCenter;
 use crate::clients::igs::file_name::{
-    IGS_LONG_NAME_FIRST_WEEK, IGSCompression, IGSContentType, IGSNameStyle, IGSProductFileName,
-    IGSSolutionType,
+    IGS_LONG_NAME_FIRST_WEEK, IGSCompression, IGSContentType, IGSFileFormat, IGSNameStyle,
+    IGSProductFileName, IGSSolutionType,
 };
 use crate::clients::igs::product::{IGSProduct, IGSProductFilter, IGSRangeOptions};
 use crate::clients::igs::source::IGSProductSource;
@@ -976,7 +976,8 @@ impl IGSProductsClient {
         let filter = IGSProductFilter::new()
             .with_center(center.clone())
             .with_solution(solution.clone())
-            .with_content(IGSContentType::Orbit);
+            .with_content(IGSContentType::Orbit)
+            .with_format(IGSFileFormat::SP3);
 
         let mut week_products = BTreeMap::new();
         let mut absent_weeks = HashSet::new();
@@ -1971,7 +1972,6 @@ fn daily_orbit(products: &[IGSProduct], day: u32, sampling: Option<f64>) -> Opti
         .filter(|product| {
             let name = &product.file_name;
             name.name_style() == style
-                && name.is_sp3()
                 && name.span() == Some(SECONDS_PER_DAY)
                 && (name.start_epoch() - day_start).abs() < 1.0
                 && (style == IGSNameStyle::Short
@@ -2202,7 +2202,7 @@ fn listed_weeks(html: &str) -> Vec<u32> {
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
-    use crate::clients::igs::file_name::{IGSContentType, IGSSolutionType};
+    use crate::clients::igs::file_name::{IGSContentType, IGSFileFormat, IGSSolutionType};
     use crate::time::TimeSystem;
     use crate::utils::compression::gzip;
     use crate::utils::testing::{CacheRedirect, NetworkModeGuard};
@@ -2492,7 +2492,7 @@ mod tests {
                 week_2340(),
                 &IGSProductFilter::new()
                     .with_center(IGSAnalysisCenter::ESA)
-                    .with_content(IGSContentType::Clock),
+                    .with_format(IGSFileFormat::CLK),
             )
             .unwrap();
         assert_eq!(
@@ -4470,27 +4470,6 @@ mod tests {
 
     #[test]
     #[parallel]
-    fn test_igs_daily_orbit_skips_other_formats() {
-        let listed = |name: &str| IGSProduct {
-            file_name: IGSProductFileName::parse(name).unwrap(),
-            name: name.to_string(),
-            url: String::new(),
-            gps_week: 2340,
-            size: None,
-        };
-        let products = vec![
-            listed("GFZ0OPSRAP_20243150000_01D_05M_ORB.OBX.gz"),
-            listed("GFZ0OPSRAP_20243150000_01D_15M_ORB.SP3.gz"),
-        ];
-        assert_eq!(
-            daily_orbit(&products, 2340 * 7, None).unwrap().name,
-            "GFZ0OPSRAP_20243150000_01D_15M_ORB.SP3.gz"
-        );
-        assert!(daily_orbit(&products[..1], 2340 * 7, None).is_none());
-    }
-
-    #[test]
-    #[parallel]
     fn test_igs_daily_orbit_preference() {
         let listed = |name: &str| IGSProduct {
             file_name: IGSProductFileName::parse(name).unwrap(),
@@ -4549,7 +4528,8 @@ mod tests {
                 &IGSProductFilter::new()
                     .with_center(IGSAnalysisCenter::IGS)
                     .with_solution(IGSSolutionType::Final)
-                    .with_content(IGSContentType::Orbit),
+                    .with_content(IGSContentType::Orbit)
+                    .with_format(IGSFileFormat::SP3),
             )
             .unwrap();
         let product = products

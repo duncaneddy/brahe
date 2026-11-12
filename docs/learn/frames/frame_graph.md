@@ -5,7 +5,8 @@
 A `ReferenceFrame` is one of three variants:
 
 - **Celestial**: any `CelestialFrame` (`GCRF`, `ITRF`, `LFPA`, ...). Evaluable analytically from an epoch alone, exactly as in the router.
-- **Orbit-relative**: a local orbital frame of one object (`RTN`, `LVLH`, `NTW`, `TNW`, `PQW`, `EQW`, `SEZ`, `VNC`, or `NSW`), either rotating with the orbit or frozen as an inertial snapshot at each evaluation epoch. Only `RTN` has an axes derivation today; the other kinds are valid frame identities, which is what parsing a data file needs, but a transform through one raises until [issue #452](https://github.com/duncaneddy/brahe/issues/452) adds the remaining derivations.
+- **Orbit-relative**: a local orbital frame of one object (`RTN`, `LVLH`, `NTW`, `TNW`, `PQW`, `EQW`, `SEZ`, `VNC`, `NSW`, or `ENZ`), either rotating with the orbit or frozen as an inertial snapshot at each evaluation epoch. Every kind has an axes derivation (see [Orbit-Relative Frames](../relative_motion/index.md#orbit-relative-frames)); `SEZ` and `ENZ` are topocentric frames on the WGS84 ellipsoid and are evaluable only for Earth-centered objects.
+
 - **Body**: an object-local frame with no global transformation, such as a spacecraft body frame, a sensor, an actuator, or an instrument.
 
 Orbit-relative and body frames carry an object identity, a plain string (e.g. `"LRO"`, `"2024-123A"`) kept separate from NAIF or NORAD IDs. Constructing one through a family method, `ReferenceFrame.RTN("SC")` or `ReferenceFrame.CSS("SC", "1")`, binds it to that object directly.
@@ -47,14 +48,16 @@ Parsing a CCSDS OEM is the common case, and `OEM.register_for(name)` is a one-li
 
 ## Registering Orientation Chains
 
-A body frame's orientation is not derived from any model; it is registered explicitly with `register_frame(frame, parent, provider)`. `parent` must itself resolve to a celestial root: either it is a `CelestialFrame` directly, or it is a body frame that is already registered and whose own parent chain terminates at one. Re-registering an existing frame replaces its entry, and the replacement's parent chain is revalidated, so a change that would cycle back through the frame itself is rejected.
+A body frame's orientation is not derived from any model; it is registered explicitly with `register_frame(frame, parent, provider)`. `parent` must itself resolve to a celestial root: it is a `CelestialFrame` directly, a bound orbit-relative frame, or a body frame that is already registered and whose own parent chain terminates at one of those. Re-registering an existing frame replaces its entry, and the replacement's parent chain is revalidated, so a change that would cycle back through the frame itself is rejected.
+
+A body frame parented on a bound orbit-relative frame, for example `register_frame(ReferenceFrame.SC_BODY("SC"), ReferenceFrame.LVLH("SC"), provider)` for a nadir-pointing attitude expressed in LVLH, resolves through that frame: the chain roots at the inertial frame of the object's central body and carries the orbit-relative rate. The orbit-relative parent's object is not checked at registration; an unregistered object surfaces at the first transform.
 
 `provider` supplies the rotation and, optionally, the angular velocity of `frame` relative to `parent`, expressed in `frame`. Two kinds of provider are available today:
 
 - A **constant attitude** (a `Quaternion`, `RotationMatrix`, `EulerAngle`, or `EulerAxis`) for a sensor mounted at a fixed orientation. Its angular velocity relative to its parent is zero by construction.
 - A **callable**, `Epoch -> rotation matrix`, optionally paired with a second callable returning the angular velocity. This covers time-varying orientations such as a slewing sensor or an articulated appendage.
 
-An orientation chain driven by an attitude ephemeris (AEM), analogous to `OEM.register_for`, ships in a later release; a time-varying orientation is registered as a callable in the meantime.
+Parsing a CCSDS AEM is the analogous case for orientation: `AEM.register_for(name)` converts the ephemeris to an attitude trajectory and registers it as the link between the segment's two `REF_FRAME` endpoints, binding the body endpoint to `name`. Either endpoint may instead be an orbit-relative frame such as `LVLH_ROTATING`, which is likewise bound to `name` and becomes the chain's parent.
 
 ## Worked Example: A Sun Vector in a Sensor Frame
 

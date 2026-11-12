@@ -2,7 +2,7 @@
 # dependencies = ["brahe", "numpy"]
 # ///
 """
-Covariance propagation in RTN (Radial-Tangential-Normal) frame.
+Covariance propagation in RTN (Radial-Transverse-Normal) frame.
 Demonstrates frame-specific covariance retrieval and physical interpretation.
 """
 
@@ -59,14 +59,14 @@ print(f"  Z: {np.sqrt(pos_cov_gcrf[2, 2]):.1f} m")
 print("\n--- RTN Frame Results ---")
 print("Position std (R, T, N):")
 print(f"  Radial (R):     {np.sqrt(pos_cov_rtn[0, 0]):.1f} m  <- Altitude uncertainty")
-print(f"  Tangential (T): {np.sqrt(pos_cov_rtn[1, 1]):.1f} m  <- Along-track timing")
+print(f"  Transverse (T): {np.sqrt(pos_cov_rtn[1, 1]):.1f} m  <- Along-track timing")
 print(f"  Normal (N):     {np.sqrt(pos_cov_rtn[2, 2]):.1f} m  <- Cross-track offset")
 
 # Physical interpretation
 print("\n--- Physical Interpretation ---")
 print("RTN frame aligns with the orbit:")
 print("  R (Radial): Points from Earth center to satellite")
-print("  T (Tangential): Points along velocity direction")
+print("  T (Transverse): In-plane, perpendicular to R (along-track)")
 print("  N (Normal): Completes right-hand system (cross-track)")
 print()
 print("Key insight: Along-track (T) uncertainty grows fastest because")

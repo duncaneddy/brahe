@@ -8,6 +8,7 @@ import pytest
 from rich.console import Console
 from typer import Exit
 
+import brahe as bh
 from brahe.cli._output import (
     GP_COLUMN_PRESETS,
     GP_COLUMNS,
@@ -16,6 +17,7 @@ from brahe.cli._output import (
     CLIOutputFormat,
     _build_markdown_table,
     _build_rich_table,
+    _current_epoch,
     compute_gp_row,
     format_gp_records,
     format_satcat_records,
@@ -140,6 +142,17 @@ class TestComputeGpRow:
         assert row["norad_id"] == "?"
         assert row["sma"] == 0.0
         assert row["period"] == 0.0
+
+
+class TestCurrentEpoch:
+    """Tests for _current_epoch()."""
+
+    def test_returns_current_utc_epoch(self):
+        before = bh.Epoch.now()
+        epoch = _current_epoch()
+        after = bh.Epoch.now()
+        assert epoch.time_system == bh.TimeSystem.UTC
+        assert before - 1.0 <= epoch <= after + 1.0
 
 
 class TestCLIOutputFormat:

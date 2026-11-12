@@ -16,7 +16,7 @@ Garner is served over plain HTTP. Its HTTPS certificate chain ends at a root aut
 
 ## CDDIS Credentials
 
-CDDIS requires a NASA Earthdata login. `IGSProductsClient("CDDIS", cddis_username=..., cddis_password=...)` in Python and `IGSProductsClient::with_cddis_credentials` in Rust build a CDDIS client with credentials. The client reads no environment variables, and a CDDIS client built without credentials fails at the login.
+CDDIS requires a NASA Earthdata login. Accounts are free and are created at [urs.earthdata.nasa.gov/users/new](https://urs.earthdata.nasa.gov/users/new); the [CDDIS archive access page](https://cddis.nasa.gov/Data_and_Derived_Products/CDDIS_Archive_Access.html) describes the login. `IGSProductsClient("CDDIS", cddis_username=..., cddis_password=...)` in Python and `IGSProductsClient::with_cddis_credentials` in Rust build a CDDIS client with credentials. The client reads no environment variables, and a CDDIS client built without credentials fails at the login.
 
 CDDIS redirects each request to the Earthdata login service. The client follows that redirect itself and sends the credentials, as HTTP Basic authentication, only to `urs.earthdata.nasa.gov`; the file host never receives them. The session cookie that CDDIS sets after login is kept for the redirects that follow.
 

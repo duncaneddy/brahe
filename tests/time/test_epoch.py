@@ -1,5 +1,5 @@
 import math
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
@@ -86,9 +86,9 @@ def test_epoch_now(eop):
     assert epoch_now.time_system == bh.UTC
 
     # Get current time from datetime for comparison
-    from datetime import datetime, timezone
+    from datetime import datetime
 
-    dt_now = datetime.now(timezone.utc)
+    dt_now = datetime.now(UTC)
 
     # Create an Epoch from the datetime
     dt_epoch = bh.Epoch(dt_now)
@@ -1214,7 +1214,7 @@ def test_epoch_new_from_string_iso_z(eop):
 
 def test_epoch_new_from_datetime(eop):
     """Test Epoch() constructor from Python datetime."""
-    dt = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+    dt = datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC)
     epc = bh.Epoch(dt)
 
     year, month, day, hour, minute, second, _nanosecond = epc.to_datetime()
@@ -1229,7 +1229,7 @@ def test_epoch_new_from_datetime(eop):
 
 def test_epoch_new_from_datetime_with_time_system(eop):
     """Test Epoch() constructor from Python datetime with custom time system."""
-    dt = datetime(2024, 6, 15, 14, 30, 45, tzinfo=timezone.utc)
+    dt = datetime(2024, 6, 15, 14, 30, 45, tzinfo=UTC)
     epc = bh.Epoch(dt, time_system=bh.TAI)
 
     assert epc.time_system == bh.TAI
@@ -1525,7 +1525,7 @@ def test_epoch_compatibility_float_vs_datetime_components():
 
 def test_epoch_to_pydatetime_basic(eop):
     """Test basic to_pydatetime() functionality with UTC epoch."""
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     # Create epoch in UTC
     epc = bh.Epoch.from_datetime(2024, 6, 15, 14, 30, 45.5, 0.0, bh.UTC)
@@ -1537,7 +1537,7 @@ def test_epoch_to_pydatetime_basic(eop):
     assert isinstance(dt, datetime)
 
     # Verify timezone is UTC
-    assert dt.tzinfo == timezone.utc
+    assert dt.tzinfo == UTC
 
     # Verify datetime components
     assert dt.year == 2024
@@ -1551,7 +1551,6 @@ def test_epoch_to_pydatetime_basic(eop):
 
 def test_epoch_to_pydatetime_converts_to_utc(eop):
     """Test that to_pydatetime() always converts to UTC."""
-    from datetime import timezone
 
     # Create epoch in GPS time (GPS is ahead of UTC by 19 seconds as of 2024)
     # 2024-06-15 14:30:45 GPS should convert to 2024-06-15 14:30:26 UTC
@@ -1561,7 +1560,7 @@ def test_epoch_to_pydatetime_converts_to_utc(eop):
     dt = epc_gps.to_pydatetime()
 
     # Verify timezone is UTC
-    assert dt.tzinfo == timezone.utc
+    assert dt.tzinfo == UTC
 
     # Get UTC datetime components to verify conversion
     year, month, day, hour, minute, second, _nanosecond = (
@@ -1579,7 +1578,6 @@ def test_epoch_to_pydatetime_converts_to_utc(eop):
 
 def test_epoch_to_pydatetime_multiple_time_systems(eop):
     """Test to_pydatetime() with multiple time systems."""
-    from datetime import timezone
 
     # Test with multiple time systems
     time_systems = [bh.UTC, bh.GPS, bh.TAI, bh.TT]
@@ -1592,7 +1590,7 @@ def test_epoch_to_pydatetime_multiple_time_systems(eop):
         dt = epc.to_pydatetime()
 
         # Should always be UTC timezone
-        assert dt.tzinfo == timezone.utc
+        assert dt.tzinfo == UTC
 
         # Get UTC datetime components and verify match
         year, month, day, hour, minute, second, nanosecond = (
@@ -1611,10 +1609,10 @@ def test_epoch_to_pydatetime_multiple_time_systems(eop):
 
 def test_epoch_to_pydatetime_round_trip(eop):
     """Test round-trip conversion: datetime -> Epoch -> datetime."""
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     # Create original datetime
-    dt_original = datetime(2024, 3, 15, 9, 30, 45, 123456, tzinfo=timezone.utc)
+    dt_original = datetime(2024, 3, 15, 9, 30, 45, 123456, tzinfo=UTC)
 
     # Convert to Epoch
     epc = bh.Epoch(dt_original)
@@ -1636,7 +1634,6 @@ def test_epoch_to_pydatetime_round_trip(eop):
 
 def test_epoch_to_pydatetime_nanosecond_precision(eop):
     """Test that nanoseconds are properly converted to microseconds."""
-    from datetime import timezone
 
     # Create epoch with specific nanosecond value
     epc = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 123456789.0, bh.UTC)
@@ -1649,12 +1646,11 @@ def test_epoch_to_pydatetime_nanosecond_precision(eop):
     assert dt.microsecond == 123457
 
     # Verify timezone
-    assert dt.tzinfo == timezone.utc
+    assert dt.tzinfo == UTC
 
 
 def test_epoch_to_pydatetime_edge_cases(eop):
     """Test to_pydatetime() with edge cases."""
-    from datetime import timezone
 
     # Test midnight
     epc = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.UTC)
@@ -1663,7 +1659,7 @@ def test_epoch_to_pydatetime_edge_cases(eop):
     assert dt.minute == 0
     assert dt.second == 0
     assert dt.microsecond == 0
-    assert dt.tzinfo == timezone.utc
+    assert dt.tzinfo == UTC
 
     # Test end of day (23:59:59.999999)
     epc = bh.Epoch.from_datetime(2024, 12, 31, 23, 59, 59.999999, 0.0, bh.UTC)
@@ -1675,7 +1671,7 @@ def test_epoch_to_pydatetime_edge_cases(eop):
     assert dt.minute == 59
     assert dt.second == 59
     assert dt.microsecond == 999999
-    assert dt.tzinfo == timezone.utc
+    assert dt.tzinfo == UTC
 
 
 def test_to_datetime_reports_the_nanoseconds_the_epoch_holds(eop):

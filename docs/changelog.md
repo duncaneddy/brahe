@@ -9,6 +9,86 @@ Each release groups entries under the Keep a Changelog section headings in the o
 
 <!-- release notes start -->
 
+## [1.9.0] - 2026-11-12
+
+### Added
+
+- `rotation_lvlh_to_eci`, `rotation_eci_to_lvlh`, `omega_lvlh`, `state_eci_to_lvlh`, `state_lvlh_to_eci`, and their batch plurals, in Rust and Python. [@duncaneddy](https://github.com/duncaneddy) ([#563](https://github.com/duncaneddy/brahe/pull/563))
+- `jacobian_inertial_to_rotating` and `jacobian_rotating_to_inertial`, the 6x6 state Jacobians of a rotating frame given its rotation matrix and angular velocity, in Rust and Python. [@duncaneddy](https://github.com/duncaneddy) ([#563](https://github.com/duncaneddy/brahe/pull/563))
+- `omegas_rtn`, with `axis` batch support on Python `omega_rtn`. [@duncaneddy](https://github.com/duncaneddy) ([#563](https://github.com/duncaneddy/brahe/pull/563))
+- Frame graph evaluation of `ReferenceFrame::LVLH` in both variants, including the covariance route. [@duncaneddy](https://github.com/duncaneddy) ([#563](https://github.com/duncaneddy/brahe/pull/563))
+- Learn page `Orbit-Relative Frames` with a covariance section and example, the LVLH API page, and the state Jacobian and covariance functions on the frame router API page. [@duncaneddy](https://github.com/duncaneddy) ([#563](https://github.com/duncaneddy/brahe/pull/563))
+- NTW frame functions `rotation_ntw_to_eci`, `rotation_eci_to_ntw`, `omega_ntw`, `state_eci_to_ntw`, `state_ntw_to_eci`, their `_for_body` variants taking `gm`, and batch plurals of all of them, in Rust and Python. [@duncaneddy](https://github.com/duncaneddy) ([#564](https://github.com/duncaneddy/brahe/pull/564))
+- Frame graph evaluation of `ReferenceFrame::NTW` in both variants. [@duncaneddy](https://github.com/duncaneddy) ([#564](https://github.com/duncaneddy/brahe/pull/564))
+- NTW section and example on the Orbit-Relative Frames learn page, and the NTW API page. [@duncaneddy](https://github.com/duncaneddy) ([#564](https://github.com/duncaneddy/brahe/pull/564))
+- TNW frame functions `rotation_tnw_to_eci`, `rotation_eci_to_tnw`, `omega_tnw`, `state_eci_to_tnw`, `state_tnw_to_eci`, their `_for_body` variants taking `gm`, and batch plurals of all of them, in Rust and Python. [@duncaneddy](https://github.com/duncaneddy) ([#566](https://github.com/duncaneddy/brahe/pull/566))
+- Frame graph evaluation of `ReferenceFrame::TNW` in both variants. [@duncaneddy](https://github.com/duncaneddy) ([#566](https://github.com/duncaneddy/brahe/pull/566))
+- TNW section and example on the Orbit-Relative Frames learn page, and the TNW API page. [@duncaneddy](https://github.com/duncaneddy) ([#566](https://github.com/duncaneddy/brahe/pull/566))
+- VNC frame functions `rotation_vnc_to_eci`, `rotation_eci_to_vnc`, `omega_vnc`, `state_eci_to_vnc`, `state_vnc_to_eci`, their `_for_body` variants taking `gm`, and batch plurals of all of them, in Rust and Python. [@duncaneddy](https://github.com/duncaneddy) ([#570](https://github.com/duncaneddy/brahe/pull/570))
+- Frame graph evaluation of `ReferenceFrame::VNC` in both variants. [@duncaneddy](https://github.com/duncaneddy) ([#570](https://github.com/duncaneddy/brahe/pull/570))
+- VNC section and example on the Orbit-Relative Frames learn page, and the VNC API page. [@duncaneddy](https://github.com/duncaneddy) ([#570](https://github.com/duncaneddy/brahe/pull/570))
+- PQW frame functions `rotation_pqw_to_eci`, `rotation_eci_to_pqw`, `state_eci_to_pqw`, `state_pqw_to_eci`, their `_for_body` variants taking `gm`, and batch plurals of all of them, in Rust and Python. [@duncaneddy](https://github.com/duncaneddy) ([#571](https://github.com/duncaneddy/brahe/pull/571))
+- Frame graph evaluation of `ReferenceFrame::PQW`. [@duncaneddy](https://github.com/duncaneddy) ([#571](https://github.com/duncaneddy/brahe/pull/571))
+- PQW section and example on the Orbit-Relative Frames learn page, a Conventions paragraph on inertial-only frames and degenerate fallbacks, and the PQW API page. [@duncaneddy](https://github.com/duncaneddy) ([#571](https://github.com/duncaneddy/brahe/pull/571))
+- EQW frame functions `rotation_eqw_to_eci`, `rotation_eci_to_eqw`, `state_eci_to_eqw`, `state_eqw_to_eci`, and batch plurals of all of them, in Rust and Python. [@duncaneddy](https://github.com/duncaneddy) ([#573](https://github.com/duncaneddy/brahe/pull/573))
+- Frame graph evaluation of `ReferenceFrame::EQW`. [@duncaneddy](https://github.com/duncaneddy) ([#573](https://github.com/duncaneddy/brahe/pull/573))
+- EQW section and example on the Orbit-Relative Frames learn page, and the EQW API page. [@duncaneddy](https://github.com/duncaneddy) ([#573](https://github.com/duncaneddy/brahe/pull/573))
+- NSW frame functions `rotation_nsw_to_eci`, `rotation_eci_to_nsw`, `omega_nsw`, `state_eci_to_nsw`, `state_nsw_to_eci`, and batch plurals of all of them, in Rust and Python. [@duncaneddy](https://github.com/duncaneddy) ([#574](https://github.com/duncaneddy/brahe/pull/574))
+- Frame graph evaluation of `ReferenceFrame::NSW` in both variants. [@duncaneddy](https://github.com/duncaneddy) ([#574](https://github.com/duncaneddy/brahe/pull/574))
+- NSW section and example on the Orbit-Relative Frames learn page and the NSW API page. [@duncaneddy](https://github.com/duncaneddy) ([#574](https://github.com/duncaneddy/brahe/pull/574))
+- SEZ frame functions `rotation_ecef_to_sez`, `rotation_sez_to_ecef`, `omega_sez`, `state_ecef_to_sez`, `state_sez_to_ecef`, and batch plurals of all of them, in Rust and Python. [@duncaneddy](https://github.com/duncaneddy) ([#575](https://github.com/duncaneddy/brahe/pull/575))
+- Frame graph evaluation of `ReferenceFrame::SEZ` in both variants for Earth-centered objects. [@duncaneddy](https://github.com/duncaneddy) ([#575](https://github.com/duncaneddy/brahe/pull/575))
+- SEZ section and example on the Orbit-Relative Frames learn page, and the SEZ API page. [@duncaneddy](https://github.com/duncaneddy) ([#575](https://github.com/duncaneddy/brahe/pull/575))
+- `OrbitRelativeFrameKind::ENZ`, `ReferenceFrame::ENZ`, and their Python mirrors. [@duncaneddy](https://github.com/duncaneddy) ([#576](https://github.com/duncaneddy/brahe/pull/576))
+- ENZ frame functions `rotation_ecef_to_enz`, `rotation_enz_to_ecef`, `omega_enz`, `state_ecef_to_enz`, `state_enz_to_ecef`, and batch plurals of all of them, in Rust and Python. [@duncaneddy](https://github.com/duncaneddy) ([#576](https://github.com/duncaneddy/brahe/pull/576))
+- CCSDS orbit-relative frame tokens `ENZ_ROTATING` and `ENZ_INERTIAL`, with `ENU_ROTATING` and `ENU_INERTIAL` accepted as parse aliases. [@duncaneddy](https://github.com/duncaneddy) ([#576](https://github.com/duncaneddy/brahe/pull/576))
+- Frame graph evaluation of `ReferenceFrame::ENZ` in both variants for Earth-centered objects. [@duncaneddy](https://github.com/duncaneddy) ([#576](https://github.com/duncaneddy/brahe/pull/576))
+- ENZ section and example on the Orbit-Relative Frames learn page, and the ENZ API page. [@duncaneddy](https://github.com/duncaneddy) ([#576](https://github.com/duncaneddy/brahe/pull/576))
+- `register_frame` accepts a bound orbit-relative frame as the parent of a body frame, and the frame graph resolves and rates such chains. [@duncaneddy](https://github.com/duncaneddy) ([#577](https://github.com/duncaneddy/brahe/pull/577))
+- `AEM::register_for` accepts an orbit-relative `REF_FRAME` endpoint as the registration parent, in Rust and Python. [@duncaneddy](https://github.com/duncaneddy) ([#577](https://github.com/duncaneddy/brahe/pull/577))
+- `AttitudeTrajectory.from_data`, index, nearest-sample, and state-before/after accessors, `timespan`, `first`, `last`, `clear`, `remove_epoch`, `remove`, eviction-policy setters and getter, and the plural `quaternions` and `angular_velocities` methods in Python. [@duncaneddy](https://github.com/duncaneddy) ([#580](https://github.com/duncaneddy/brahe/pull/580))
+- `AttitudeInterpolationMethod` Python class, accepted by `AttitudeTrajectory.set_interpolation_method` alongside the method name. [@duncaneddy](https://github.com/duncaneddy) ([#580](https://github.com/duncaneddy/brahe/pull/580))
+- `SP3` reads SP3-a, SP3-b, SP3-c, and SP3-d files (`from_str`, `from_file`) and writes SP3-d (`to_string`, `to_file`), with all values in SI units. [@duncaneddy](https://github.com/duncaneddy) ([#611](https://github.com/duncaneddy/brahe/pull/611))
+- `SP3::set_record`, `SP3::set_epoch`, and `SP3::record` build and read a file in memory by satellite and epoch. [@duncaneddy](https://github.com/duncaneddy) ([#611](https://github.com/duncaneddy/brahe/pull/611))
+- `SP3Header`, `SP3Record`, `SP3SatelliteId`, and the SP3 enums, mirrored in Python as `brahe.datafiles`. [@duncaneddy](https://github.com/duncaneddy) ([#611](https://github.com/duncaneddy/brahe/pull/611))
+- Learn page, API reference, and examples for SP3 files. [@duncaneddy](https://github.com/duncaneddy) ([#611](https://github.com/duncaneddy/brahe/pull/611))
+- `SP3Satellite`, an orbit state provider over the samples of one SP3 satellite that works with `location_accesses`; states use Lagrange interpolation with a configurable degree, 9 by default. [@duncaneddy](https://github.com/duncaneddy) ([#612](https://github.com/duncaneddy/brahe/pull/612))
+- `SP3Satellite::gaps` reports missing samples, and `SP3Satellite::to_trajectory` converts the samples to an ITRF trajectory. [@duncaneddy](https://github.com/duncaneddy) ([#612](https://github.com/duncaneddy/brahe/pull/612))
+- `SP3Satellite::from_files` chains satellites across consecutive SP3 files. [@duncaneddy](https://github.com/duncaneddy) ([#612](https://github.com/duncaneddy/brahe/pull/612))
+- `SP3::from_trajectories` builds an SP3 file from orbit trajectories, as stored or resampled at a given step. [@duncaneddy](https://github.com/duncaneddy) ([#612](https://github.com/duncaneddy/brahe/pull/612))
+- `SP3::set_clocks` and `SP3::set_clock_rates` set clock values on a file. [@duncaneddy](https://github.com/duncaneddy) ([#612](https://github.com/duncaneddy/brahe/pull/612))
+- `SP3::from_bytes` parses plain or gzip-compressed SP3 data, and `SP3::from_file` and `SP3::to_file` read and write `.gz` files. [@duncaneddy](https://github.com/duncaneddy) ([#613](https://github.com/duncaneddy/brahe/pull/613))
+- `IGSProductFileName` parses IGS long and short product file names, with the `IGSAnalysisCenter`, `IGSSolutionType`, `IGSContentType`, `IGSFileFormat`, `IGSCompression`, and `IGSNameStyle` enums, available in Python as `brahe.igs`. [@duncaneddy](https://github.com/duncaneddy) ([#614](https://github.com/duncaneddy/brahe/pull/614))
+- `IGSProductsClient` lists, downloads, and saves IGS precise products from the Garner and BKG archives, filtered by analysis center, solution, content, and format. [@duncaneddy](https://github.com/duncaneddy) ([#615](https://github.com/duncaneddy/brahe/pull/615))
+- `IGSProductsClient::download_sp3_range` returns the parsed daily SP3 files covering a time span, ready for `SP3Satellite::from_files`. [@duncaneddy](https://github.com/duncaneddy) ([#615](https://github.com/duncaneddy/brahe/pull/615))
+- Learn page, API reference, and examples for IGS products. [@duncaneddy](https://github.com/duncaneddy) ([#615](https://github.com/duncaneddy/brahe/pull/615))
+- CDDIS source for `IGSProductsClient`, with NASA Earthdata credentials given through `IGSProductsClient::with_cddis_credentials` (`cddis_username` and `cddis_password` in Python). [@duncaneddy](https://github.com/duncaneddy) ([#621](https://github.com/duncaneddy/brahe/pull/621))
+- SP3 files and IGS products compressed with Unix compress (`.Z`) are read the same way as gzip files. [@duncaneddy](https://github.com/duncaneddy) ([#623](https://github.com/duncaneddy/brahe/pull/623))
+- `decompress` option on `IGSProductsClient::save`, which writes the product as published by default. [@duncaneddy](https://github.com/duncaneddy) ([#623](https://github.com/duncaneddy/brahe/pull/623))
+- `IGSProductsClient` limits its request rate (60 per minute and 3600 per hour by default, set with `rate_limit`), waits for `Retry-After` on retries, times out stalled requests, and sends a `User-Agent`. [@duncaneddy](https://github.com/duncaneddy) ([#624](https://github.com/duncaneddy/brahe/pull/624))
+- `download_sp3_range` downloads and parses files on several threads, 4 by default, set with `concurrency`. [@duncaneddy](https://github.com/duncaneddy) ([#624](https://github.com/duncaneddy/brahe/pull/624))
+
+### Changed
+
+- The frame graph evaluates every SANA orbit-relative kind; the error for kinds without an axes derivation no longer exists. [@duncaneddy](https://github.com/duncaneddy) ([#575](https://github.com/duncaneddy/brahe/pull/575))
+- Python test coverage of the attitude trajectory surface mirrors the Rust tests one to one wherever a Python binding exists. [@duncaneddy](https://github.com/duncaneddy) ([#578](https://github.com/duncaneddy/brahe/pull/578))
+- LVLH and covariance-variant documentation on the Orbit-Relative Frames learn page and in the LVLH docstrings. [@duncaneddy](https://github.com/duncaneddy) ([#579](https://github.com/duncaneddy/brahe/pull/579))
+- RTN documentation names the T axis transverse instead of tangential. [@duncaneddy](https://github.com/duncaneddy) ([#579](https://github.com/duncaneddy/brahe/pull/579))
+- Rust unit-test coverage is collected on the nightly toolchain so test modules are excluded from the coverage report. [@duncaneddy](https://github.com/duncaneddy) ([#617](https://github.com/duncaneddy/brahe/pull/617))
+- Client documentation moved from `learn/ephemeris/` and `library_api/ephemeris/` to `learn/clients/` and `library_api/clients/`. [@duncaneddy](https://github.com/duncaneddy) ([#622](https://github.com/duncaneddy/brahe/pull/622))
+- Raise the minimum supported Python version to 3.11. [@duncaneddy](https://github.com/duncaneddy) ([#625](https://github.com/duncaneddy/brahe/pull/625))
+- Update locked Pillow to 13.0.0 and filelock to 4.2.5 for all supported Python versions, resolving open security advisories. [@duncaneddy](https://github.com/duncaneddy) ([#625](https://github.com/duncaneddy/brahe/pull/625))
+- Build the documentation with Zensical using the modern theme variant and the Zensical-compatible mike fork for versioned deploys. [@duncaneddy](https://github.com/duncaneddy) ([#626](https://github.com/duncaneddy/brahe/pull/626))
+- Restore the orange documentation header and compact sidebar navigation spacing. [@duncaneddy](https://github.com/duncaneddy) ([#627](https://github.com/duncaneddy/brahe/pull/627))
+
+### Removed
+
+- Remove page revision and creation dates from the documentation until Zensical supports `git-revision-date-localized`. [@duncaneddy](https://github.com/duncaneddy) ([#626](https://github.com/duncaneddy/brahe/pull/626))
+
+### Fixed
+
+- Enable the documentation back-to-top button, which was disabled by a misspelled `navigation.top` feature flag. [@duncaneddy](https://github.com/duncaneddy) ([#626](https://github.com/duncaneddy/brahe/pull/626))
+
 ## [1.8.1] - 2026-10-31
 
 ### Added

@@ -170,7 +170,7 @@ impl IGSProductsClient {
             .user_agent(USER_AGENT)
             .timeout_connect(Some(CONNECT_TIMEOUT))
             .timeout_recv_response(Some(READ_TIMEOUT))
-            .timeout_per_read(Some(READ_TIMEOUT))
+            .timeout_per_call(Some(READ_TIMEOUT))
             .build()
             .into();
         Self {

@@ -39,7 +39,7 @@ exclude = [# We need to keep the size down for crates.io these don't need to be 
     "/benchmarks",
     "/data/textures/world.topo.200410.3x5400x2700.png", # Python-only
     "justfile",
-    "properdocs.yml",
+    "mkdocs.yml",
     "uv.lock",
     "CLAUDE.md",
     "AGENTS.md"

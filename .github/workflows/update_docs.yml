@@ -148,14 +148,14 @@ jobs:
         run: cp CHANGELOG.md docs/changelog.md
 
       - name: Build documentation site
-        run: uv run properdocs build
+        run: uv run zensical build
 
       - name: Fetch gh-pages branch
         run: git fetch origin gh-pages:gh-pages || true
 
       - name: Deploy documentation (versioned release)
         if: inputs.version != ''
-        run: uv run --frozen mike deploy --config-file properdocs.yml --push --update-aliases ${{ inputs.version }} stable
+        run: uv run --frozen mike deploy --push --update-aliases ${{ inputs.version }} stable
 
       - name: Prune old doc versions (keep latest + 3 most recent minor versions)
         if: inputs.version != ''
@@ -205,12 +205,12 @@ jobs:
 
       - name: Set default version redirect (versioned release)
         if: inputs.version != ''
-        run: uv run --frozen mike set-default --config-file properdocs.yml --push latest
+        run: uv run --frozen mike set-default --push latest
 
       - name: Deploy documentation (latest from main)
         if: inputs.version == ''
-        run: uv run --frozen mike deploy --config-file properdocs.yml --push --update-aliases latest
+        run: uv run --frozen mike deploy --push --update-aliases latest
 
       - name: Set default version redirect (latest)
         if: inputs.version == ''
-        run: uv run --frozen mike set-default --config-file properdocs.yml --push latest
+        run: uv run --frozen mike set-default --push latest

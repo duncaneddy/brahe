@@ -1,5 +1,5 @@
 # Fast-path workflow for documentation-only changes
-# Triggers only when changes are exclusively in docs/, examples/, plots/, or properdocs.yml
+# Triggers only when changes are exclusively in docs/, examples/, plots/, or mkdocs.yml
 # The 'paths' filter ensures this only runs for docs changes
 # The 'paths-ignore' in commit.yml ensures full CI doesn't run for docs-only changes
 
@@ -13,7 +13,7 @@ on:
       - 'docs/**'
       - 'examples/**'
       - 'plots/**'
-      - 'properdocs.yml'
+      - 'mkdocs.yml'
   workflow_dispatch: # Allow manual triggering
 
 # Prevent concurrent gh-pages deployments
@@ -252,13 +252,13 @@ jobs:
           retention-days: 7
 
       - name: Build documentation site
-        run: uv run properdocs build
+        run: uv run zensical build
 
       - name: Fetch gh-pages branch
         run: git fetch origin gh-pages:gh-pages || true
 
       - name: Deploy documentation (latest from main)
-        run: uv run --frozen mike deploy --config-file properdocs.yml --push --update-aliases latest
+        run: uv run --frozen mike deploy --push --update-aliases latest
 
       - name: Set default version redirect
-        run: uv run --frozen mike set-default --config-file properdocs.yml --push latest
+        run: uv run --frozen mike set-default --push latest

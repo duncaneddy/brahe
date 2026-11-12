@@ -78,15 +78,9 @@ plugins:
             show_inheritance_diagram: false
             allow_inspection: true
             signature_crossrefs: true
-  - section-index
-  - git-revision-date-localized:
-      enable_creation_date: true
-      fallback_to_build_date: true
-      enable_git_follow: false
-      type: iso_date
-      strict: false
 theme:
   name: material
+  variant: modern # Set to classic for the Material for MkDocs appearance
   logo: assets/icon.png
   favicon: assets/favicon.png
   language: en
@@ -112,7 +106,7 @@ theme:
     - navigation.expand
     - navigation.indexes
     - navigation.tracking
-    - navigation.top3
+    - navigation.top
     - toc.follow
     - content.tabs.link
     - content.code.copy
@@ -148,8 +142,8 @@ markdown_extensions:
   - neoteroi.timeline
   - attr_list
   - pymdownx.emoji:
-      emoji_index: !!python/name:material.extensions.emoji.twemoji
-      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+      emoji_index: !!python/name:zensical.extensions.emoji.twemoji
+      emoji_generator: !!python/name:zensical.extensions.emoji.to_svg
   - pymdownx.tasklist:
       custom_checkbox: true
 

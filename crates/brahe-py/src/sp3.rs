@@ -2449,7 +2449,7 @@ fn sp3_parse_uuid(uuid_str: Option<String>) -> PyResult<Option<uuid::Uuid>> {
 /// ``states_*`` methods as ``OrbitTrajectory``, named after its identifier
 /// (such as ``"G01"``), so it can be passed to ``location_accesses``. A state
 /// is interpolated in ITRF with a Lagrange polynomial of degree
-/// ``interpolation_degree`` through the samples nearest the requested epoch,
+/// ``interpolation_degree`` through the samples around the requested epoch,
 /// as centered as the samples allow; a satellite with fewer samples uses all
 /// of them. The velocity is interpolated from the records when every sample
 /// of the fit has one, and is the derivative of the position polynomial

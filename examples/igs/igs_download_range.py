@@ -48,7 +48,6 @@ products = client.list_products_between(
     center=bh.IGSAnalysisCenter.COD,
     solution=bh.IGSSolutionType.FINAL,
     content=bh.IGSContentType.ORBIT,
-    format=bh.IGSFileFormat.SP3,
 )
 with tempfile.TemporaryDirectory() as directory:
     paths = [client.save(product, directory) for product in products]

@@ -18,6 +18,8 @@ use super::types::{
 };
 use crate::time::{Epoch, TimeSystem};
 use crate::utils::BraheError;
+use crate::utils::compression::gzip;
+use crate::utils::fs::atomic_write;
 
 /// Maximum number of characters of a comment after the `/* ` prefix.
 const MAX_COMMENT_LENGTH: usize = 77;
@@ -143,11 +145,14 @@ impl SP3 {
 
     /// Write the file to disk as SP3-d text.
     ///
-    /// The text is produced by [`SP3::to_string`].
+    /// The text is produced by [`SP3::to_string`]. It is gzip-compressed when the path
+    /// ends in `.gz`, compared case-insensitively. The data is written to a temporary
+    /// file and renamed into place, so a failed write leaves any existing file unchanged.
+    /// The parent directory must exist.
     ///
     /// # Arguments
     ///
-    /// * `path` - Destination file path
+    /// * `path` - Destination file path; a `.gz` extension selects gzip output
     ///
     /// # Returns
     ///
@@ -170,13 +175,40 @@ impl SP3 {
     /// sp3.to_file(&path).unwrap();
     /// assert_eq!(SP3::from_file(&path).unwrap().num_epochs(), 1);
     /// std::fs::remove_file(&path).unwrap();
+    ///
+    /// let gz_path = std::env::temp_dir().join("brahe_sp3_to_file_example.sp3.gz");
+    /// sp3.to_file(&gz_path).unwrap();
+    /// assert_eq!(&std::fs::read(&gz_path).unwrap()[..2], &[0x1f, 0x8b]);
+    /// assert_eq!(SP3::from_file(&gz_path).unwrap().num_epochs(), 1);
+    /// std::fs::remove_file(&gz_path).unwrap();
     /// ```
     pub fn to_file<P: AsRef<Path>>(&self, path: P) -> Result<(), BraheError> {
         let path = path.as_ref();
         let text = self.to_string()?;
-        std::fs::write(path, text).map_err(|e| {
-            BraheError::IoError(format!("SP3: failed to write {}: {}", path.display(), e))
-        })
+        let is_gzip = path
+            .extension()
+            .is_some_and(|extension| extension.eq_ignore_ascii_case("gz"));
+        let bytes = if is_gzip {
+            gzip(text.as_bytes())?
+        } else {
+            text.into_bytes()
+        };
+        let write_error = |detail: String| {
+            BraheError::IoError(format!(
+                "SP3: failed to write {}: {}",
+                path.display(),
+                detail
+            ))
+        };
+        if let Some(parent) = path.parent().filter(|p| !p.as_os_str().is_empty())
+            && !parent.is_dir()
+        {
+            return Err(write_error(format!(
+                "directory {} does not exist",
+                parent.display()
+            )));
+        }
+        atomic_write(path, bytes).map_err(|e| write_error(e.to_string()))
     }
 
     /// Check the parts of the file that the writer cannot express and
@@ -1237,6 +1269,78 @@ mod tests {
         match sp3.to_file(dir.path().join("missing").join("out.sp3")) {
             Err(BraheError::IoError(msg)) => assert!(msg.starts_with("SP3: "), "{msg}"),
             other => panic!("expected an I/O error, got {other:?}"),
+        }
+    }
+
+    #[rstest]
+    #[case("out.sp3.gz")]
+    #[case("OUT.SP3.GZ")]
+    #[parallel]
+    fn test_SP3_to_file_gzip(#[case] name: &str) {
+        let sp3 = two_satellite_file(SP3WriteOptions::default());
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join(name);
+        sp3.to_file(&path).unwrap();
+
+        let bytes = std::fs::read(&path).unwrap();
+        assert_eq!(&bytes[..2], &[0x1f, 0x8b]);
+        assert_eq!(
+            SP3::from_file(&path).unwrap(),
+            SP3::from_str(&sp3.to_string().unwrap()).unwrap()
+        );
+        assert_eq!(
+            SP3::from_bytes(&bytes).unwrap(),
+            SP3::from_file(&path).unwrap()
+        );
+    }
+
+    #[rstest]
+    #[case("out.sp3")]
+    #[case("out.sp3.gz")]
+    #[parallel]
+    fn test_SP3_to_file_failure_keeps_existing_file(#[case] name: &str) {
+        let sp3 = two_satellite_file(SP3WriteOptions::default());
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join(name);
+        std::fs::write(&path, b"previous contents").unwrap();
+
+        // Writing to a destination that is a directory fails after the data is staged.
+        let blocked = dir.path().join("blocked");
+        std::fs::create_dir(&blocked).unwrap();
+        std::fs::write(blocked.join("child"), b"x").unwrap();
+        assert!(matches!(sp3.to_file(&blocked), Err(BraheError::IoError(_))));
+        assert!(blocked.is_dir());
+
+        // A missing parent directory is an error and creates nothing.
+        let missing = dir.path().join("missing").join(name);
+        assert!(matches!(sp3.to_file(&missing), Err(BraheError::IoError(_))));
+        assert!(!dir.path().join("missing").exists());
+
+        // An invalid file leaves the existing destination untouched.
+        let empty = SP3::new(vec![sat("G01")], 900.0, SP3WriteOptions::default()).unwrap();
+        assert!(empty.to_file(&path).is_err());
+        assert_eq!(std::fs::read(&path).unwrap(), b"previous contents");
+
+        // A successful write replaces it and leaves no staging files behind.
+        sp3.to_file(&path).unwrap();
+        assert_eq!(SP3::from_file(&path).unwrap().num_epochs(), 2);
+        let leftovers = std::fs::read_dir(dir.path()).unwrap().count();
+        assert_eq!(leftovers, 2, "unexpected staging files in the directory");
+    }
+
+    #[test]
+    #[parallel]
+    fn test_SP3_to_file_plain_extension_not_compressed() {
+        let sp3 = two_satellite_file(SP3WriteOptions::default());
+        let dir = tempfile::tempdir().unwrap();
+        for name in ["out.sp3", "out.gz.sp3", "gz"] {
+            let path = dir.path().join(name);
+            sp3.to_file(&path).unwrap();
+            assert_eq!(
+                std::fs::read_to_string(&path).unwrap(),
+                sp3.to_string().unwrap(),
+                "{name}"
+            );
         }
     }
 

@@ -1,5 +1,6 @@
 """Tests for the SP3 format — parity with src/datafiles/sp3/{types,parse,write}.rs."""
 
+import gzip
 import math
 import pathlib
 
@@ -1037,6 +1038,81 @@ def test_SP3_from_file_missing_file():
     assert msg.startswith("SP3: failed to read ")
 
 
+def read_bytes(name):
+    with open(fixture(name), "rb") as f:
+        return f.read()
+
+
+def test_SP3_from_file_gzip_matches_plain():
+    plain = SP3.from_file(fixture("nsgf.orb.stella.v00.sp3"))
+    gzipped = SP3.from_file(fixture("nsgf.orb.stella.v00.sp3.gz"))
+    assert gzipped.num_epochs > 0
+    assert gzipped.to_string() == plain.to_string()
+    assert header_fields(gzipped.header) == header_fields(plain.header)
+
+
+def test_SP3_from_file_igs_combination_subset():
+    sp3 = SP3.from_file(fixture("IGS0OPSFIN_20243150000_01D_15M_ORB_subset.SP3.gz"))
+    assert sp3.header.version == SP3Version.C
+    assert sp3.header.agency == "IGS"
+    assert sp3.header.coordinate_system == "IGS20"
+    assert sp3.num_satellites == 4
+    assert sp3.num_epochs == 8
+    assert sp3.header.epoch_interval == 900.0
+    assert [str(s) for s in sp3.satellite_ids] == ["G02", "G03", "G04", "G05"]
+    record = sp3.record("G02", sp3.epochs[0])
+    assert record.position[0] == pytest.approx(14_377_257.631, abs=1e-6)
+
+
+def test_SP3_from_file_unix_compress_unsupported():
+    msg = file_error("gbm18432.sp3.Z")
+    assert msg.startswith("SP3: ")
+    assert "(.Z) data is not supported" in msg
+    assert (
+        "Unix compress (.Z) data is not supported; decompress it externally "
+        "(gzip -d) and read the plain file" in msg
+    )
+
+
+def test_SP3_from_bytes():
+    plain = SP3.from_bytes(read_bytes("example-d-2.sp3"))
+    assert plain.to_string() == SP3.from_file(fixture("example-d-2.sp3")).to_string()
+
+    gzipped = SP3.from_bytes(read_bytes("nsgf.orb.stella.v00.sp3.gz"))
+    reference = SP3.from_file(fixture("nsgf.orb.stella.v00.sp3"))
+    assert gzipped.to_string() == reference.to_string()
+
+
+def test_SP3_from_bytes_concatenated_gzip_members():
+    content = read_bytes("example-d-2.sp3")
+    split = len(content) // 2
+    packed = gzip.compress(content[:split]) + gzip.compress(content[split:])
+    reference = SP3.from_bytes(content)
+    assert SP3.from_bytes(packed).to_string() == reference.to_string()
+
+
+def test_SP3_from_bytes_truncated_gzip():
+    packed = gzip.compress(read_bytes("example-d-2.sp3"))
+    with pytest.raises(bh.BraheError) as excinfo:
+        SP3.from_bytes(packed[: len(packed) // 2])
+    assert str(excinfo.value).startswith("SP3: invalid gzip data")
+
+
+@pytest.mark.parametrize(
+    "data,expected",
+    [
+        (b"", "SP3: empty file"),
+        (b"\xff\xfe\x00", "SP3: data is not valid UTF-8"),
+        (b"\x1f\x8b\x00\x00", "SP3: invalid gzip data"),
+        (b"\x1f\x9d\x90", "SP3: Unix compress (.Z)"),
+    ],
+)
+def test_SP3_from_bytes_errors(data, expected):
+    with pytest.raises(bh.BraheError) as excinfo:
+        SP3.from_bytes(data)
+    assert str(excinfo.value).startswith(expected)
+
+
 def test_SP3_from_str_unknown_line():
     content = read_fixture("example-c-1.sp3").replace("PG03", "XG03", 1)
     assert parse_error(content).startswith("SP3: line 26: ")
@@ -2038,6 +2114,26 @@ def test_SP3_to_file(tmp_path):
     assert str(excinfo.value).startswith("SP3: ")
 
 
+@pytest.mark.parametrize("name", ["out.sp3.gz", "OUT.SP3.GZ"])
+def test_SP3_to_file_gzip(tmp_path, name):
+    sp3 = two_satellite_file()
+    path = tmp_path / name
+    sp3.to_file(path)
+
+    data = path.read_bytes()
+    assert data[:2] == b"\x1f\x8b"
+    assert SP3.from_file(path).to_string() == sp3.to_string()
+    assert SP3.from_bytes(data).to_string() == sp3.to_string()
+
+
+@pytest.mark.parametrize("name", ["out.sp3", "out.gz.sp3", "gz"])
+def test_SP3_to_file_plain_extension_not_compressed(tmp_path, name):
+    sp3 = two_satellite_file()
+    path = tmp_path / name
+    sp3.to_file(path)
+    assert path.read_text() == sp3.to_string()
+
+
 def test_SP3_to_string_comment_length():
     text = two_satellite_file(comments=["C" * 77]).to_string()
     back = SP3.from_str(text)
@@ -2443,3 +2539,29 @@ def test_SP3_to_string_header_labels_at_width():
     back = SP3.from_str(text).header
     assert str(back.orbit_type) == "KLM"
     assert back.agency == "NOPQ"
+
+
+@pytest.mark.parametrize("name", ["out.sp3", "out.sp3.gz"])
+def test_SP3_to_file_failure_keeps_existing_file(tmp_path, name):
+    sp3 = two_satellite_file()
+    path = tmp_path / name
+    path.write_bytes(b"previous contents")
+
+    blocked = tmp_path / "blocked"
+    blocked.mkdir()
+    (blocked / "child").write_bytes(b"x")
+    with pytest.raises(bh.BraheError):
+        sp3.to_file(blocked)
+    assert blocked.is_dir()
+
+    with pytest.raises(bh.BraheError):
+        sp3.to_file(tmp_path / "missing" / name)
+    assert not (tmp_path / "missing").exists()
+
+    with pytest.raises(bh.BraheError):
+        SP3(["G01"], 900.0).to_file(path)
+    assert path.read_bytes() == b"previous contents"
+
+    sp3.to_file(path)
+    assert SP3.from_file(path).num_epochs == 2
+    assert len(list(tmp_path.iterdir())) == 2

@@ -223,7 +223,8 @@ impl IGSProductFilter {
 /// the coarsest sampling interval the center publishes for it; with
 /// `sampling` set, only files at that interval are used. Short names, used
 /// before GPS week 2238, do not encode a sampling interval, so `sampling`
-/// applies only to long-name files.
+/// applies only to long-name files. `concurrency` is the number of threads
+/// that download and parse the files.
 ///
 /// # Examples
 ///
@@ -233,6 +234,7 @@ impl IGSProductFilter {
 /// let options = IGSRangeOptions::new();
 /// assert!(options.pad);
 /// assert_eq!(options.sampling, None);
+/// assert_eq!(options.concurrency, 4);
 ///
 /// let options = IGSRangeOptions::new().with_pad(false).with_sampling(300.0);
 /// assert!(!options.pad);
@@ -244,6 +246,8 @@ pub struct IGSRangeOptions {
     pub pad: bool,
     /// Sampling interval of the files to use, in seconds, or `None` for the coarsest published.
     pub sampling: Option<f64>,
+    /// Threads that download and parse the files, at least 1.
+    pub concurrency: usize,
 }
 
 impl Default for IGSRangeOptions {
@@ -251,15 +255,17 @@ impl Default for IGSRangeOptions {
         Self {
             pad: true,
             sampling: None,
+            concurrency: 4,
         }
     }
 }
 
 impl IGSRangeOptions {
-    /// Creates options with padding on and the coarsest published sampling.
+    /// Creates options with padding on, the coarsest published sampling, and
+    /// four download threads.
     ///
     /// # Returns
-    /// * `IGSRangeOptions`: Options with `pad` true and `sampling` `None`
+    /// * `IGSRangeOptions`: Options with `pad` true, `sampling` `None`, and `concurrency` 4
     ///
     /// # Examples
     ///
@@ -309,6 +315,29 @@ impl IGSRangeOptions {
     /// ```
     pub fn with_sampling(mut self, sampling: f64) -> Self {
         self.sampling = Some(sampling);
+        self
+    }
+
+    /// Sets how many threads download and parse the files.
+    ///
+    /// The threads share the client's rate limiter. A value of 1 downloads
+    /// the files one after another on the calling thread.
+    ///
+    /// # Arguments
+    /// * `concurrency` - Number of threads, at least 1
+    ///
+    /// # Returns
+    /// * `IGSRangeOptions`: The options, for chaining
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::igs::IGSRangeOptions;
+    ///
+    /// assert_eq!(IGSRangeOptions::new().with_concurrency(1).concurrency, 1);
+    /// ```
+    pub fn with_concurrency(mut self, concurrency: usize) -> Self {
+        self.concurrency = concurrency;
         self
     }
 }
@@ -395,13 +424,18 @@ mod tests {
         assert_eq!(options, IGSRangeOptions::default());
         assert!(options.pad);
         assert_eq!(options.sampling, None);
+        assert_eq!(options.concurrency, 4);
 
-        let options = IGSRangeOptions::new().with_pad(false).with_sampling(300.0);
+        let options = IGSRangeOptions::new()
+            .with_pad(false)
+            .with_sampling(300.0)
+            .with_concurrency(2);
         assert_eq!(
             options,
             IGSRangeOptions {
                 pad: false,
                 sampling: Some(300.0),
+                concurrency: 2,
             }
         );
     }

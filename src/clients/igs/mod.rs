@@ -21,7 +21,7 @@ pub mod product;
 pub mod source;
 
 pub use centers::IGSAnalysisCenter;
-pub use client::{DEFAULT_IGS_LISTING_MAX_AGE, IGSProductsClient};
+pub use client::{DEFAULT_IGS_LISTING_MAX_AGE, IGS_RATE_LIMIT, IGSProductsClient};
 pub use file_name::{
     IGSCompression, IGSContentType, IGSFileFormat, IGSNameStyle, IGSProductFileName,
     IGSSolutionType,

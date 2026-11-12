@@ -1177,7 +1177,8 @@ impl PyIGSProduct {
 /// ``cddis_username`` and ``cddis_password``. Credentials are sent only to
 /// the NASA Earthdata login service and are never shown by ``repr``.
 ///
-/// Requests are blocking, retried on transient failures, and honour
+/// Requests are blocking, limited to 60 per minute and 3600 per hour unless
+/// ``rate_limit`` sets other caps, retried on transient failures, and honour
 /// ``BRAHE_NETWORK_MODE``. Listings and downloaded files are cached under
 /// ``get_igs_cache_dir()``. Listings are cached per source, so a client with
 /// a different ``base_url`` shares the listing cache of the source it stands
@@ -1190,7 +1191,8 @@ impl PyIGSProduct {
 ///     cddis_username (str, optional): NASA Earthdata username. Requires ``cddis_password``, the CDDIS ``source``, and no ``base_url``.
 ///     cddis_password (str, optional): NASA Earthdata password. Requires ``cddis_username``.
 ///     cache_max_age (float, optional): Seconds a cached directory listing is served before it is refreshed. Default: 3600.0.
-///     max_retries (int, optional): Extra attempts after the first on transient failures. Default: 3.
+///     max_retries (int, optional): Extra attempts after the first on transient failures. A retry waits for an exponential backoff with jitter, or for the server's ``Retry-After`` when that is longer, up to 30 seconds. Default: 3.
+///     rate_limit (RateLimitConfig, optional): Per-minute and per-hour request caps. Each attempt to fetch a listing or a file counts as one request. Default: 60 per minute and 3600 per hour.
 ///
 /// Raises:
 ///     ValueError: If only one credential is given, credentials are given with a non-CDDIS source or with ``base_url``, or ``source`` is not a known source name.
@@ -1215,7 +1217,7 @@ impl PyIGSProductsClient {
     #[new]
     #[pyo3(signature = (
         source, *, base_url=None, cddis_username=None, cddis_password=None,
-        cache_max_age=None, max_retries=None
+        cache_max_age=None, max_retries=None, rate_limit=None
     ))]
     fn new(
         source: &Bound<'_, PyAny>,
@@ -1224,6 +1226,7 @@ impl PyIGSProductsClient {
         cddis_password: Option<&str>,
         cache_max_age: Option<f64>,
         max_retries: Option<u32>,
+        rate_limit: Option<PyRateLimitConfig>,
     ) -> PyResult<Self> {
         let source = extract_igs_product_source(source)?;
         let credentials = match (cddis_username, cddis_password) {
@@ -1257,6 +1260,9 @@ impl PyIGSProductsClient {
         }
         if let Some(n) = max_retries {
             client = client.max_retries(n);
+        }
+        if let Some(config) = rate_limit {
+            client = client.rate_limit(config.inner);
         }
         Ok(Self { inner: client })
     }
@@ -1609,6 +1615,12 @@ impl PyIGSProductsClient {
     /// result; any other failure to download or parse a padding file, and any
     /// failure for a file inside the span, including a 404, is an error.
     ///
+    /// The files are downloaded and parsed on up to ``concurrency`` threads,
+    /// which share the client's rate limiter. Once a file fails, no further
+    /// file is started, and the error raised is that of the earliest file
+    /// that failed. CDDIS requests run one at a time until one has
+    /// succeeded, so that the threads share one Earthdata session.
+    ///
     /// Args:
     ///     start (Epoch): Start of the time range.
     ///     end (Epoch): End of the time range, inclusive.
@@ -1616,12 +1628,13 @@ impl PyIGSProductsClient {
     ///     solution (IGSSolutionType | str): Solution type or its code, for example ``"FIN"``.
     ///     pad (bool, optional): Add the days before and after the span when available. Default: True.
     ///     sampling (float, optional): Sampling interval of the long-name files to use, seconds. Default: the coarsest published.
+    ///     concurrency (int, optional): Threads that download and parse the files, at least 1. Default: 4.
     ///
     /// Returns:
     ///     list[SP3]: Parsed daily files in time order.
     ///
     /// Raises:
-    ///     BraheError: If ``solution`` is ultra-rapid, ``end`` is before ``start``, a week listing containing part of the span cannot be obtained, a day inside the span has no file on the source (including when its week directory answers 404), or a download or parse fails other than a 404 for a padding file; a parse error names the product.
+    ///     BraheError: If ``solution`` is ultra-rapid, ``end`` is before ``start``, ``concurrency`` is 0, a week listing containing part of the span cannot be obtained, a day inside the span has no file on the source (including when its week directory answers 404), or a download or parse fails other than a 404 for a padding file; a parse error names the product.
     ///
     /// Example:
     ///     ```python
@@ -1634,7 +1647,7 @@ impl PyIGSProductsClient {
     ///     satellites = bh.SP3Satellite.from_files(files)
     ///     ```
     #[allow(clippy::too_many_arguments)]
-    #[pyo3(signature = (start, end, center, solution, *, pad=true, sampling=None))]
+    #[pyo3(signature = (start, end, center, solution, *, pad=true, sampling=None, concurrency=4))]
     fn download_sp3_range(
         &self,
         py: Python<'_>,
@@ -1644,11 +1657,14 @@ impl PyIGSProductsClient {
         solution: &Bound<'_, PyAny>,
         pad: bool,
         sampling: Option<f64>,
+        concurrency: usize,
     ) -> PyResult<Vec<PySP3>> {
         let (start, end) = (start.obj, end.obj);
         let center = extract_igs_analysis_center(center)?;
         let solution = extract_igs_solution_type(solution)?;
-        let mut options = igs::IGSRangeOptions::new().with_pad(pad);
+        let mut options = igs::IGSRangeOptions::new()
+            .with_pad(pad)
+            .with_concurrency(concurrency);
         if let Some(sampling) = sampling {
             options = options.with_sampling(sampling);
         }

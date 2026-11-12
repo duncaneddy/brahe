@@ -10,7 +10,8 @@ use std::path::Path;
 use std::thread::sleep;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use crate::utils::network::ensure_online;
+use crate::time::Epoch;
+use crate::utils::network::{ensure_online, parse_http_date};
 use crate::utils::{BraheError, atomic_write};
 
 /// Maximum number of download attempts (including the first) before giving up.
@@ -35,6 +36,37 @@ pub(crate) fn is_retryable_error(e: &ureq::Error) -> bool {
             | ureq::Error::HostNotFound
             | ureq::Error::ConnectionFailed
     )
+}
+
+/// Parses a `Retry-After` header value into the wait the server asked for,
+/// capped at [`BACKOFF_MAX_DELAY`].
+///
+/// # Arguments
+/// * `value` - Header value: a whole number of seconds, or an RFC 7231 HTTP date
+///
+/// # Returns
+/// * `Some(Duration)`: The wait, zero for a date in the past, at most 30 seconds
+/// * `None`: If the value is neither form
+///
+/// # Examples
+///
+/// ```ignore
+/// assert_eq!(parse_retry_after("5"), Some(Duration::from_secs(5)));
+/// assert_eq!(parse_retry_after("86400"), Some(Duration::from_secs(30)));
+/// assert_eq!(parse_retry_after("soon"), None);
+/// ```
+pub(crate) fn parse_retry_after(value: &str) -> Option<Duration> {
+    let value = value.trim();
+    if !value.is_empty() && value.bytes().all(|b| b.is_ascii_digit()) {
+        // A count too large for `u64` is longer than the cap.
+        return Some(value.parse().map_or(BACKOFF_MAX_DELAY, |seconds| {
+            Duration::from_secs(seconds).min(BACKOFF_MAX_DELAY)
+        }));
+    }
+    let seconds = parse_http_date(value)? - Epoch::now();
+    Some(Duration::from_secs_f64(
+        seconds.max(0.0).min(BACKOFF_MAX_DELAY.as_secs_f64()),
+    ))
 }
 
 /// Compute the backoff delay before the next retry using exponential backoff with
@@ -364,6 +396,21 @@ mod tests {
 
     use super::*;
     use crate::utils::testing::NetworkModeGuard;
+
+    #[rstest::rstest]
+    #[case("5", Some(Duration::from_secs(5)))]
+    #[case(" 0 ", Some(Duration::ZERO))]
+    #[case("86400", Some(Duration::from_secs(30)))]
+    #[case("18446744073709551616", Some(Duration::from_secs(30)))]
+    #[case("", None)]
+    #[case("Fri, 11 Sep 2026 05:15:30 GMT", Some(Duration::ZERO))]
+    #[case("Fri, 11 Sep 2126 05:15:30 GMT", Some(Duration::from_secs(30)))]
+    #[case("soon", None)]
+    #[case("-1", None)]
+    #[parallel]
+    fn test_parse_retry_after(#[case] value: &str, #[case] expected: Option<Duration>) {
+        assert_eq!(parse_retry_after(value), expected);
+    }
 
     #[test]
     #[parallel]

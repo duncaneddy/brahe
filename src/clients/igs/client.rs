@@ -7,7 +7,9 @@ use std::collections::{BTreeMap, HashSet};
 use std::fmt;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
 use std::thread::sleep;
+use std::time::Duration;
 
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD as BASE64;
@@ -20,12 +22,13 @@ use crate::clients::igs::file_name::{
 };
 use crate::clients::igs::product::{IGSProduct, IGSProductFilter, IGSRangeOptions};
 use crate::clients::igs::source::IGSProductSource;
+use crate::clients::{RateLimitConfig, RateLimiter};
 use crate::constants::SECONDS_PER_DAY;
 use crate::datafiles::sp3::SP3;
 use crate::time::Epoch;
 use crate::utils::cache::is_older_than;
 use crate::utils::compression::{Compression, compression_of, decompress};
-use crate::utils::download::{backoff_delay, is_retryable_error};
+use crate::utils::download::{backoff_delay, is_retryable_error, parse_retry_after};
 use crate::utils::fs::{
     copy_file, is_within, move_file, resolve_destination, validate_path_component,
 };
@@ -36,6 +39,21 @@ use crate::utils::{BraheError, atomic_write, get_igs_cache_dir};
 pub const DEFAULT_IGS_LISTING_MAX_AGE: f64 = 3600.0;
 
 const DEFAULT_MAX_RETRIES: u32 = 3;
+
+/// Default request limits for the IGS archives: 60 per minute and 3600 per hour.
+pub const IGS_RATE_LIMIT: RateLimitConfig = RateLimitConfig {
+    max_per_minute: 60,
+    max_per_hour: 3600,
+};
+
+/// `User-Agent` sent with every request.
+const USER_AGENT: &str = concat!("brahe/", env!("CARGO_PKG_VERSION"));
+
+/// Longest wait for a connection to open.
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(30);
+
+/// Longest wait for a response to start, and for each read of its body.
+const READ_TIMEOUT: Duration = Duration::from_secs(60);
 
 /// How long before a range start a product can begin and still cover the
 /// range from an earlier archive week: the longest span of the products
@@ -65,8 +83,10 @@ const MAX_RESPONSE_BYTES: u64 = 1 << 30;
 /// falls back to another. CDDIS requires NASA Earthdata credentials, given to
 /// [`IGSProductsClient::with_cddis_credentials`].
 ///
-/// Requests are blocking, retried on transient failures, and honour
-/// `BRAHE_NETWORK_MODE`. Listings and downloaded files are cached under
+/// Requests are blocking, limited to [`IGS_RATE_LIMIT`] unless
+/// [`IGSProductsClient::rate_limit`] sets other caps, retried on transient
+/// failures, and honour `BRAHE_NETWORK_MODE`. A clone shares the rate
+/// limiter of the client it was cloned from. Listings and downloaded files are cached under
 /// [`get_igs_cache_dir`](crate::utils::get_igs_cache_dir). The cache
 /// directory is not coordinated across processes or across clients sharing
 /// it.
@@ -90,6 +110,10 @@ pub struct IGSProductsClient {
     listing_max_age: f64,
     max_retries: u32,
     agent: ureq::Agent,
+    rate_limiter: Arc<Mutex<RateLimiter>>,
+    /// Whether a CDDIS request has succeeded, so that the agent holds an
+    /// Earthdata session cookie.
+    signed_in: Arc<Mutex<bool>>,
     urs_url: String,
 }
 
@@ -138,9 +162,15 @@ impl IGSProductsClient {
         }
         // Redirects are followed by the client itself, so that the network
         // mode is checked for every host contacted and CDDIS credentials
-        // reach only the Earthdata login service.
+        // reach only the Earthdata login service. Error statuses are
+        // returned as responses so that their `Retry-After` header is read.
         let agent = ureq::Agent::config_builder()
             .max_redirects(0)
+            .http_status_as_error(false)
+            .user_agent(USER_AGENT)
+            .timeout_connect(Some(CONNECT_TIMEOUT))
+            .timeout_recv_response(Some(READ_TIMEOUT))
+            .timeout_per_read(Some(READ_TIMEOUT))
             .build()
             .into();
         Self {
@@ -150,6 +180,8 @@ impl IGSProductsClient {
             listing_max_age: DEFAULT_IGS_LISTING_MAX_AGE,
             max_retries: DEFAULT_MAX_RETRIES,
             agent,
+            rate_limiter: Arc::new(Mutex::new(RateLimiter::new(IGS_RATE_LIMIT))),
+            signed_in: Arc::new(Mutex::new(false)),
             urs_url: URS_URL.to_string(),
         }
     }
@@ -267,7 +299,35 @@ impl IGSProductsClient {
         self
     }
 
+    /// Sets the rate limiter's request caps.
+    ///
+    /// Each attempt to fetch a listing or a file counts as one request. A
+    /// request over a cap waits until the cap allows it.
+    ///
+    /// # Arguments
+    /// * `config` - Per-minute and per-hour request caps (default [`IGS_RATE_LIMIT`])
+    ///
+    /// # Returns
+    /// * `IGSProductsClient`: The client, for chaining
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::clients::RateLimitConfig;
+    /// use brahe::igs::{IGSProductSource, IGSProductsClient};
+    ///
+    /// let client = IGSProductsClient::new(IGSProductSource::Garner)
+    ///     .rate_limit(RateLimitConfig { max_per_minute: 20, max_per_hour: 600 });
+    /// ```
+    pub fn rate_limit(mut self, config: RateLimitConfig) -> Self {
+        self.rate_limiter = Arc::new(Mutex::new(RateLimiter::new(config)));
+        self
+    }
+
     /// Sets the number of retries for transient failures.
+    ///
+    /// A retry waits for an exponential backoff with jitter, or for the
+    /// server's `Retry-After` when that is longer, up to 30 seconds.
     ///
     /// # Arguments
     /// * `max_retries` - Extra attempts after the first (default 3)
@@ -723,16 +783,22 @@ impl IGSProductsClient {
     /// A range crossing week 2238 returns short-name and long-name files
     /// together.
     ///
+    /// The files are downloaded and parsed on up to `options.concurrency`
+    /// threads, which share the client's rate limiter. Once a file fails, no
+    /// further file is started, and the error returned is that of the
+    /// earliest file that failed. CDDIS requests run one at a time until one
+    /// has succeeded, so that the threads share one Earthdata session.
+    ///
     /// # Arguments
     /// * `start` - Start of the time range
     /// * `end` - End of the time range, inclusive
     /// * `center` - Analysis center, for example [`IGSAnalysisCenter::COD`]
     /// * `solution` - Solution type, for example [`IGSSolutionType::Final`]
-    /// * `options` - Padding and sampling selection
+    /// * `options` - Padding, sampling selection, and thread count
     ///
     /// # Returns
     /// * `Ok(Vec<SP3>)`: Parsed daily files in time order
-    /// * `Err(BraheError)`: If `solution` is ultra-rapid, `end` is before `start`, a week listing containing part of the span cannot be obtained, a day inside the span has no file on the source (including when its week directory answers 404), or a download or parse fails other than a 404 for a padding file; a parse error names the product
+    /// * `Err(BraheError)`: If `solution` is ultra-rapid, `end` is before `start`, `options.concurrency` is 0, a week listing containing part of the span cannot be obtained, a day inside the span has no file on the source (including when its week directory answers 404), or a download or parse fails other than a 404 for a padding file; a parse error names the product
     ///
     /// # Examples
     ///
@@ -765,19 +831,81 @@ impl IGSProductsClient {
         solution: IGSSolutionType,
         options: &IGSRangeOptions,
     ) -> Result<Vec<SP3>, BraheError> {
-        let files = self.sp3_range_files(start, end, &center, &solution, options)?;
-        let mut downloaded = Vec::with_capacity(files.len());
-        for file in &files {
-            match self.fetch_product(&file.product)? {
-                Some(path) => downloaded.push((&file.product, path)),
-                None if file.padding => {}
-                None => return Err(self.product_not_found(&file.product)),
-            }
+        if options.concurrency == 0 {
+            return Err(BraheError::Error(
+                "download_sp3_range requires concurrency >= 1".to_string(),
+            ));
         }
-        downloaded
-            .iter()
-            .map(|(product, path)| self.parse_sp3(product, path))
+        let files = self.sp3_range_files(start, end, &center, &solution, options)?;
+        let next = Mutex::new(0);
+        let results = Mutex::new(Vec::with_capacity(files.len()));
+        // Takes the next file, returning `false` when none is left. A
+        // failure leaves none.
+        let step = || {
+            let index = {
+                let mut next = next.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+                let Some(index) = (*next < files.len()).then_some(*next) else {
+                    return false;
+                };
+                *next += 1;
+                index
+            };
+            let result = self.range_file_sp3(&files[index]);
+            if result.is_err() {
+                *next.lock().unwrap_or_else(|poisoned| poisoned.into_inner()) = files.len();
+            }
+            results
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner())
+                .push((index, result));
+            true
+        };
+        let threads = options.concurrency.min(files.len());
+        if threads <= 1 {
+            while step() {}
+        } else {
+            std::thread::scope(|scope| {
+                for _ in 0..threads {
+                    scope.spawn(|| while step() {});
+                }
+            });
+        }
+        let mut results = results
+            .into_inner()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        results.sort_by_key(|(index, _)| *index);
+        results
+            .into_iter()
+            .filter_map(|(_, result)| result.transpose())
             .collect()
+    }
+
+    /// Downloads, if it is not cached, and parses one file of a range.
+    ///
+    /// # Arguments
+    /// * `file` - File chosen for the range
+    ///
+    /// # Returns
+    /// * `Ok(Some(SP3))`: The parsed file
+    /// * `Ok(None)`: If the file is padding and the source answered 404
+    /// * `Err(BraheError)`: If the download or parse fails, or a file inside the span answered 404
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// let client = IGSProductsClient::new(IGSProductSource::Garner);
+    /// let start = Epoch::from_datetime(2024, 11, 11, 0, 0, 0.0, 0.0, TimeSystem::GPS);
+    /// let files = client
+    ///     .sp3_range_files(start, start, &IGSAnalysisCenter::IGS, &IGSSolutionType::Final, &IGSRangeOptions::new())
+    ///     .unwrap();
+    /// let sp3 = client.range_file_sp3(&files[0]).unwrap();
+    /// ```
+    fn range_file_sp3(&self, file: &SP3RangeFile) -> Result<Option<SP3>, BraheError> {
+        match self.fetch_product(&file.product)? {
+            Some(path) => self.parse_sp3(&file.product, &path).map(Some),
+            None if file.padding => Ok(None),
+            None => Err(self.product_not_found(&file.product)),
+        }
     }
 
     /// Parses a downloaded SP3 product, naming the product in any error.
@@ -1241,8 +1369,10 @@ impl IGSProductsClient {
             .transpose()
     }
 
-    /// GETs `url`, retrying transient failures with backoff up to
-    /// `max_retries` times.
+    /// GETs `url`, retrying transient failures up to `max_retries` times.
+    ///
+    /// Every attempt waits for the rate limiter. A retry first waits for the
+    /// backoff delay, or for the server's `Retry-After` when that is longer.
     ///
     /// # Arguments
     /// * `url` - The URL to fetch
@@ -1254,12 +1384,11 @@ impl IGSProductsClient {
     /// * `Err(BraheError)`: If the network mode forbids a request, the Earthdata login fails, or every attempt fails
     fn fetch_bytes(&self, url: &str, resource: &str) -> Result<Option<Vec<u8>>, BraheError> {
         let mut attempt = 0;
+        let mut delay = Duration::ZERO;
         loop {
             ensure_online(url, &format!("{resource} ({url})"))?;
-            if attempt > 0 {
-                sleep(backoff_delay(attempt));
-            }
-            match self.request(url, resource) {
+            sleep(delay);
+            let retry_after = match self.request_in_session(url, resource) {
                 Ok(mut response) => {
                     match response
                         .body_mut()
@@ -1268,7 +1397,7 @@ impl IGSProductsClient {
                         .read_to_vec()
                     {
                         Ok(body) => return Ok(Some(body)),
-                        Err(_) if attempt < self.max_retries => {}
+                        Err(_) if attempt < self.max_retries => None,
                         Err(e) => {
                             return Err(BraheError::IoError(format!(
                                 "Failed to read {resource} from {url}: {e}"
@@ -1278,16 +1407,84 @@ impl IGSProductsClient {
                 }
                 Err(RequestError::NotFound) => return Ok(None),
                 Err(RequestError::Failed(e)) => return Err(e),
-                Err(RequestError::Http(e))
-                    if attempt < self.max_retries && is_retryable_error(&e) => {}
-                Err(RequestError::Http(e)) => {
+                Err(RequestError::Http(e, retry_after))
+                    if attempt < self.max_retries && is_retryable_error(&e) =>
+                {
+                    retry_after
+                }
+                Err(RequestError::Http(e, _)) => {
                     return Err(BraheError::IoError(format!(
                         "{resource} request {url} failed: {e}"
                     )));
                 }
-            }
+            };
             attempt += 1;
+            delay = backoff_delay(attempt).max(retry_after.unwrap_or_default());
         }
+    }
+
+    /// Blocks until the rate limiter allows one more request, and counts
+    /// that request against the limits.
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// let client = IGSProductsClient::new(IGSProductSource::Garner);
+    /// client.wait_for_rate_limit();
+    /// ```
+    fn wait_for_rate_limit(&self) {
+        let wait = self
+            .rate_limiter
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .acquire();
+        sleep(wait);
+    }
+
+    /// Waits for the rate limiter and sends one GET for `url` as
+    /// [`IGSProductsClient::request`] does, one at a time for CDDIS until a
+    /// request has succeeded.
+    ///
+    /// The first successful CDDIS request leaves an Earthdata session cookie
+    /// with the agent. Holding the other threads back until then lets them
+    /// reuse that session instead of each signing in. The rate limiter is
+    /// consulted after that wait, so a request is sent at the time the
+    /// limiter granted it.
+    ///
+    /// # Arguments
+    /// * `url` - The URL to fetch
+    /// * `resource` - Description of what is fetched, used in messages
+    ///
+    /// # Returns
+    /// * `Ok(Response)`: The final `200` response, with its body unread
+    /// * `Err(RequestError)`: As for [`IGSProductsClient::request`]
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// let client = IGSProductsClient::with_cddis_credentials("user", "password");
+    /// let url = format!("{}2340/*?list", client.base_url());
+    /// let response = client.request_in_session(&url, "CDDIS listing for GPS week 2340").unwrap();
+    /// assert_eq!(response.status(), 200);
+    /// ```
+    fn request_in_session(
+        &self,
+        url: &str,
+        resource: &str,
+    ) -> Result<Response<ureq::Body>, RequestError> {
+        let mut signing_in = (self.source == IGSProductSource::CDDIS)
+            .then(|| {
+                self.signed_in
+                    .lock()
+                    .unwrap_or_else(|poisoned| poisoned.into_inner())
+            })
+            .filter(|signed_in| !**signed_in);
+        self.wait_for_rate_limit();
+        let result = self.request(url, resource);
+        if let Some(signed_in) = signing_in.as_mut() {
+            **signed_in = result.is_ok();
+        }
+        result
     }
 
     /// Sends one GET for `url`.
@@ -1343,23 +1540,35 @@ impl IGSProductsClient {
                 let token = BASE64.encode(format!("{username}:{password}"));
                 request = request.header("Authorization", format!("Basic {token}"));
             }
-            let response = match request.call() {
-                Ok(response) => response,
-                Err(ureq::Error::StatusCode(status @ (401 | 403))) if login => {
+            let response = request.call().map_err(|e| RequestError::Http(e, None))?;
+            let status = response.status();
+            match status.as_u16() {
+                code @ (401 | 403) if login => {
                     return Err(failed(format!(
-                        "{resource}: NASA Earthdata login at {} rejected the credentials (HTTP {status})",
+                        "{resource}: NASA Earthdata login at {} rejected the credentials (HTTP {code})",
                         self.urs_url
                     )));
                 }
-                Err(ureq::Error::StatusCode(404)) if signing_in => {
+                404 if signing_in => {
                     return Err(failed(format!(
                         "{resource}: NASA Earthdata sign-in step {current} answered 404{}",
                         self.login_hint()
                     )));
                 }
-                Err(e) => return Err(RequestError::from(e)),
-            };
-            let status = response.status();
+                404 => return Err(RequestError::NotFound),
+                code if code >= 400 => {
+                    let retry_after = response
+                        .headers()
+                        .get("retry-after")
+                        .and_then(|value| value.to_str().ok())
+                        .and_then(parse_retry_after);
+                    return Err(RequestError::Http(
+                        ureq::Error::StatusCode(code),
+                        retry_after,
+                    ));
+                }
+                _ => {}
+            }
             if status.as_u16() == 200 {
                 if login {
                     return Err(failed(format!(
@@ -1426,19 +1635,11 @@ impl IGSProductsClient {
 enum RequestError {
     /// The server answered 404.
     NotFound,
-    /// A transport or HTTP status failure, retried when transient.
-    Http(ureq::Error),
+    /// A transport or HTTP status failure, retried when transient, with the
+    /// wait the server's `Retry-After` header asked for.
+    Http(ureq::Error, Option<Duration>),
     /// A failure that retrying cannot fix.
     Failed(BraheError),
-}
-
-impl From<ureq::Error> for RequestError {
-    fn from(e: ureq::Error) -> Self {
-        match e {
-            ureq::Error::StatusCode(404) => RequestError::NotFound,
-            e => RequestError::Http(e),
-        }
-    }
 }
 
 /// Port a URI connects to: its explicit port, or the scheme's default.
@@ -4626,5 +4827,198 @@ mod tests {
                 .contains(&format!("IGS Garner product {name}")),
             "{err}"
         );
+    }
+
+    #[test]
+    #[serial]
+    fn test_igs_products_client_retry_waits_for_retry_after() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("online"));
+        let server = MockServer::start();
+        let failing = server.mock(|when, then| {
+            when.method(GET).path("/pub/products/2340/");
+            then.status(503).header("Retry-After", "1");
+        });
+        let client = garner_client(&server).max_retries(1);
+
+        let started = std::time::Instant::now();
+        let err = client.list_files(week_2340()).unwrap_err().to_string();
+        // The backoff before a first retry is at most 0.5 s.
+        assert!(started.elapsed() >= Duration::from_secs(1));
+        assert!(err.contains("503"), "{err}");
+        failing.assert_calls(2);
+    }
+
+    #[test]
+    #[serial]
+    fn test_igs_products_client_rate_limit_counts_requests() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("online"));
+        let server = MockServer::start();
+        mock_listing(&server, "/pub/products/2340/", apache_listing(&[SP3_NAME]));
+        let next_wait = |client: &IGSProductsClient| client.rate_limiter.lock().unwrap().acquire();
+
+        let client = garner_client(&server).rate_limit(RateLimitConfig {
+            max_per_minute: 1,
+            max_per_hour: 100,
+        });
+        client.list_files(week_2340()).unwrap();
+        assert!(next_wait(&client.clone()) > Duration::from_secs(55));
+
+        let client = garner_client(&server).with_cache_age(0.0);
+        client.list_files(week_2340()).unwrap();
+        assert_eq!(next_wait(&client), Duration::ZERO);
+    }
+
+    #[test]
+    #[serial]
+    fn test_igs_products_client_sends_user_agent() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("online"));
+        let server = MockServer::start();
+        let listing = server.mock(|when, then| {
+            when.method(GET)
+                .path("/pub/products/2340/")
+                .header("user-agent", concat!("brahe/", env!("CARGO_PKG_VERSION")));
+            then.status(200).body(apache_listing(&[SP3_NAME]));
+        });
+
+        garner_client(&server).list_files(week_2340()).unwrap();
+        listing.assert_calls(1);
+    }
+
+    #[rstest::rstest]
+    #[case(1)]
+    #[case(3)]
+    #[serial]
+    fn test_igs_products_client_download_sp3_range_concurrency_keeps_time_order(
+        #[case] concurrency: usize,
+    ) {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("online"));
+        let server = MockServer::start();
+        mock_listing(
+            &server,
+            "/pub/products/2100/",
+            apache_listing(&["cod21000.sp3.Z", "cod21001.sp3.gz", "cod21002.sp3.Z"]),
+        );
+        let unix = server.mock(|when, then| {
+            when.method(GET).path_suffix(".sp3.Z");
+            then.status(200).body(fs::read(UNIX_SP3_FIXTURE).unwrap());
+        });
+        let gzipped = mock_file(&server, "/pub/products/2100/cod21001.sp3.gz", sp3_fixture());
+
+        let files = garner_client(&server)
+            .download_sp3_range(
+                gps(2020, 4, 6, 6),
+                gps(2020, 4, 6, 12),
+                IGSAnalysisCenter::COD,
+                IGSSolutionType::Final,
+                &IGSRangeOptions::new().with_concurrency(concurrency),
+            )
+            .unwrap();
+        let (unix_sp3, gzip_sp3) = (
+            SP3::from_file(UNIX_SP3_FIXTURE).unwrap(),
+            SP3::from_file(SP3_FIXTURE).unwrap(),
+        );
+        assert_eq!(files, vec![unix_sp3.clone(), gzip_sp3, unix_sp3]);
+        unix.assert_calls(2);
+        gzipped.assert_calls(1);
+    }
+
+    #[test]
+    #[serial]
+    fn test_igs_products_client_download_sp3_range_rejects_zero_concurrency() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("online"));
+        let server = MockServer::start();
+        let any = server.mock(|when, then| {
+            when.any_request();
+            then.status(200);
+        });
+
+        let err = garner_client(&server)
+            .download_sp3_range(
+                gps(2020, 4, 6, 6),
+                gps(2020, 4, 6, 12),
+                IGSAnalysisCenter::COD,
+                IGSSolutionType::Final,
+                &IGSRangeOptions::new().with_concurrency(0),
+            )
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("concurrency >= 1"), "{err}");
+        any.assert_calls(0);
+    }
+
+    #[test]
+    #[serial]
+    fn test_igs_products_client_cddis_threads_share_one_sign_in() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("online"));
+        let server = MockServer::start();
+        let body = gzip(SP3_TEXT.as_bytes()).unwrap();
+        let names = [
+            cod_daily(315, "05M"),
+            cod_daily(316, "05M"),
+            cod_daily(317, "05M"),
+        ];
+        let logins: Vec<httpmock::Mock<'_>> = names
+            .iter()
+            .map(|name| {
+                let [_file, login, _proxy, _leaked] =
+                    mock_cddis_flow(&server, &format!("/archive/2340/{name}"), body.clone());
+                login
+            })
+            .collect();
+        let client = cddis_client(&server);
+
+        std::thread::scope(|scope| {
+            for name in &names {
+                let client = &client;
+                scope.spawn(move || client.download(&product(client, name, 2340)).unwrap());
+            }
+        });
+        assert_eq!(logins.iter().map(|login| login.calls()).sum::<usize>(), 1);
+    }
+
+    #[test]
+    #[serial]
+    fn test_igs_products_client_download_sp3_range_cddis() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("online"));
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET)
+                .path("/archive/2340/*")
+                .query_param_exists("list");
+            then.status(200).body(asset("cddis_2340.txt"));
+        });
+        let files: Vec<httpmock::Mock<'_>> = [315, 316]
+            .iter()
+            .map(|&doy| {
+                mock_file(
+                    &server,
+                    &format!("/archive/2340/{}", cod_daily(doy, "05M")),
+                    sp3_fixture(),
+                )
+            })
+            .collect();
+        let client =
+            IGSProductsClient::with_base_url(IGSProductSource::CDDIS, &server.url("/archive/"));
+
+        let sp3s = client
+            .download_sp3_range(
+                gps(2024, 11, 10, 0),
+                gps(2024, 11, 11, 0),
+                IGSAnalysisCenter::COD,
+                IGSSolutionType::Final,
+                &IGSRangeOptions::new().with_pad(false),
+            )
+            .unwrap();
+        assert_eq!(sp3s.len(), 2);
+        for file in &files {
+            file.assert_calls(1);
+        }
     }
 }

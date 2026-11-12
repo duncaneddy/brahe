@@ -8,7 +8,7 @@
  * - [`spacetrack`] - Space-Track.org authenticated queries, CDMs and file shares
  * - [`gcat`] - Jonathan McDowell's GCAT SATCAT and PSATCAT catalogs
  * - [`starlink`] - Starlink public ephemeris mirror
- * - [`igs`] - IGS precise product listings and downloads from BKG and Garner, and SP3 range assembly
+ * - [`igs`] - IGS precise product listings and downloads from CDDIS, BKG and Garner, and SP3 range assembly
  *
  * [`rate_limiter`] provides the sliding-window request limiter shared by the
  * clients that expose a configurable request rate.

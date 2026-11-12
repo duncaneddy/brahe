@@ -917,12 +917,16 @@ fn extract_igs_product_source(obj: &Bound<'_, PyAny>) -> PyResult<igs::IGSProduc
         return Ok(source.inner);
     }
     if let Ok(text) = obj.extract::<String>() {
-        return [igs::IGSProductSource::Garner, igs::IGSProductSource::BKG]
+        return [
+            igs::IGSProductSource::CDDIS,
+            igs::IGSProductSource::Garner,
+            igs::IGSProductSource::BKG,
+        ]
         .into_iter()
         .find(|source| source.to_string().eq_ignore_ascii_case(text.trim()))
         .ok_or_else(|| {
             exceptions::PyValueError::new_err(format!(
-                "unknown IGS product source '{text}', expected GARNER or BKG"
+                "unknown IGS product source '{text}', expected CDDIS, GARNER or BKG"
             ))
         });
     }
@@ -1008,6 +1012,7 @@ fn igs_product_filter(
 
 /// Public archive that serves IGS products.
 ///
+/// ``CDDIS`` holds the full archive and requires NASA Earthdata credentials.
 /// ``GARNER`` (the Scripps Institution of Oceanography mirror) holds the full
 /// archive from GPS week 576 and is served over unencrypted HTTP. ``BKG``
 /// holds GPS weeks 2238 and later, and only the IGS combination and CAS
@@ -1030,6 +1035,13 @@ pub struct PyIGSProductSource {
 
 #[pymethods]
 impl PyIGSProductSource {
+    /// NASA Crustal Dynamics Data Information System; requires Earthdata credentials.
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn CDDIS() -> Self {
+        Self { inner: igs::IGSProductSource::CDDIS }
+    }
+
     /// Scripps Institution of Oceanography Garner archive, served over plain HTTP.
     #[classattr]
     #[allow(non_snake_case)]
@@ -1059,6 +1071,7 @@ impl PyIGSProductSource {
 
     fn __repr__(&self) -> String {
         match self.inner {
+            igs::IGSProductSource::CDDIS => "IGSProductSource.CDDIS".to_string(),
             igs::IGSProductSource::Garner => "IGSProductSource.GARNER".to_string(),
             igs::IGSProductSource::BKG => "IGSProductSource.BKG".to_string(),
         }
@@ -1123,6 +1136,15 @@ impl PyIGSProduct {
         self.inner.url.clone()
     }
 
+    /// File size in bytes, when the listing gives it.
+    ///
+    /// Returns:
+    ///     int | None: Size in bytes, or None when the listing has no sizes.
+    #[getter]
+    fn size(&self) -> Option<u64> {
+        self.inner.size
+    }
+
     /// GPS week of the archive directory the file is listed in.
     ///
     /// Returns:
@@ -1151,7 +1173,9 @@ impl PyIGSProduct {
 /// Client for IGS precise-product archives.
 ///
 /// The client reads from one ``IGSProductSource`` and never falls back to
-/// another.
+/// another. CDDIS requires NASA Earthdata credentials, passed as
+/// ``cddis_username`` and ``cddis_password``. Credentials are sent only to
+/// the NASA Earthdata login service and are never shown by ``repr``.
 ///
 /// Requests are blocking, retried on transient failures, and honour
 /// ``BRAHE_NETWORK_MODE``. Listings and downloaded files are cached under
@@ -1161,13 +1185,15 @@ impl PyIGSProduct {
 /// clients sharing it.
 ///
 /// Args:
-///     source (IGSProductSource | str): Archive to read from, or its name (``"GARNER"`` or ``"BKG"``, case-insensitive).
+///     source (IGSProductSource | str): Archive to read from, or its name (``"CDDIS"``, ``"GARNER"``, ``"BKG"``, case-insensitive).
 ///     base_url (str, optional): Directory URL that contains one subdirectory per GPS week, for mirrors and tests. A trailing ``/`` is added when missing.
+///     cddis_username (str, optional): NASA Earthdata username. Requires ``cddis_password``, the CDDIS ``source``, and no ``base_url``.
+///     cddis_password (str, optional): NASA Earthdata password. Requires ``cddis_username``.
 ///     cache_max_age (float, optional): Seconds a cached directory listing is served before it is refreshed. Default: 3600.0.
 ///     max_retries (int, optional): Extra attempts after the first on transient failures. Default: 3.
 ///
 /// Raises:
-///     ValueError: If ``source`` is not a known source name.
+///     ValueError: If only one credential is given, credentials are given with a non-CDDIS source or with ``base_url``, or ``source`` is not a known source name.
 ///
 /// Example:
 ///     ```python
@@ -1187,17 +1213,44 @@ pub struct PyIGSProductsClient {
 #[pymethods]
 impl PyIGSProductsClient {
     #[new]
-    #[pyo3(signature = (source, *, base_url=None, cache_max_age=None, max_retries=None))]
+    #[pyo3(signature = (
+        source, *, base_url=None, cddis_username=None, cddis_password=None,
+        cache_max_age=None, max_retries=None
+    ))]
     fn new(
         source: &Bound<'_, PyAny>,
         base_url: Option<&str>,
+        cddis_username: Option<&str>,
+        cddis_password: Option<&str>,
         cache_max_age: Option<f64>,
         max_retries: Option<u32>,
     ) -> PyResult<Self> {
         let source = extract_igs_product_source(source)?;
-        let mut client = match base_url {
-            Some(url) => igs::IGSProductsClient::with_base_url(source, url),
-            None => igs::IGSProductsClient::new(source),
+        let credentials = match (cddis_username, cddis_password) {
+            (Some(username), Some(password)) => Some((username, password)),
+            (None, None) => None,
+            _ => {
+                return Err(exceptions::PyValueError::new_err(
+                    "cddis_username and cddis_password must be given together",
+                ));
+            }
+        };
+        let mut client = match (base_url, credentials) {
+            (Some(_), Some(_)) => {
+                return Err(exceptions::PyValueError::new_err(
+                    "cddis_username and cddis_password cannot be combined with base_url",
+                ));
+            }
+            (_, Some(_)) if source != igs::IGSProductSource::CDDIS => {
+                return Err(exceptions::PyValueError::new_err(format!(
+                    "cddis_username and cddis_password apply only to the CDDIS source, not {source}"
+                )));
+            }
+            (None, Some((username, password))) => {
+                igs::IGSProductsClient::with_cddis_credentials(username, password)
+            }
+            (Some(url), None) => igs::IGSProductsClient::with_base_url(source, url),
+            (None, None) => igs::IGSProductsClient::new(source),
         };
         if let Some(age) = cache_max_age {
             client = client.with_cache_age(age);
@@ -1420,7 +1473,8 @@ impl PyIGSProductsClient {
     /// source in lowercase, the product's four-digit archive week, and the
     /// name as published. A cached file is returned without a request and
     /// without an age check. When the file is not cached,
-    /// ``BRAHE_NETWORK_MODE`` must allow the request.
+    /// ``BRAHE_NETWORK_MODE`` must allow the request. A CDDIS download signs
+    /// in to NASA Earthdata with the client's credentials.
     ///
     /// Args:
     ///     product (IGSProduct): Product to download, as returned by a listing.
@@ -1429,7 +1483,7 @@ impl PyIGSProductsClient {
     ///     str: Path of the cached file, compressed as published.
     ///
     /// Raises:
-    ///     BraheError: If the file does not exist on the source, the network mode forbids the request, the body does not match the name's compression, or the cache cannot be written.
+    ///     BraheError: If the file does not exist on the source, the network mode forbids the request, the Earthdata login fails, the body does not match the name's compression, or the cache cannot be written.
     ///
     /// Example:
     ///     ```python

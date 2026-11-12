@@ -8,7 +8,7 @@ long names (``IGS0OPSFIN_20243150000_01D_15M_ORB.SP3.gz``) from GPS week 2238
 and short names (``igs21000.sp3.Z``) before it.
 
 This module provides:
-- IGSProductsClient: Listing, download, and SP3 parsing of products from Garner or BKG, cached under ``$BRAHE_CACHE/igs``
+- IGSProductsClient: Listing, download, and SP3 parsing of products from CDDIS, Garner, or BKG, cached under ``$BRAHE_CACHE/igs``
 - IGSProductSource: The archives the client reads from
 - IGSProduct: A product file listed in an archive's GPS week directory
 - get_igs_cache_dir: The IGS cache directory

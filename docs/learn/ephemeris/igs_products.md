@@ -4,18 +4,25 @@ The International GNSS Service (IGS) and its analysis centers publish precise or
 
 ## Sources
 
-A client reads from one archive, given to the constructor as an `IGSProductSource` or, in Python, its name (`"GARNER"` or `"BKG"`).
+A client reads from one archive, given to the constructor as an `IGSProductSource` or, in Python, its name (`"CDDIS"`, `"GARNER"`, or `"BKG"`).
 
 | Source | Default base URL | Holdings |
 |---|---|---|
+| CDDIS | `https://cddis.nasa.gov/archive/gnss/products/` | The full archive from all analysis centers. Requires a NASA Earthdata login. |
 | Garner | `http://garner.ucsd.edu/pub/products/` | The Scripps Institution of Oceanography mirror. The full archive from GPS week 576, from all analysis centers. No login. |
 | BKG | `https://igs.bkg.bund.de/root_ftp/IGS/products/` | The Federal Agency for Cartography and Geodesy. GPS week 2238 and later only, and only the IGS combination and CAS products. No login. |
 
-Garner is served over plain HTTP. Its HTTPS certificate chain ends at a root authority (emSign Root TLS CA - G1) that is not in the Mozilla and `certifi` trust bundles, so verification fails, and the client therefore does not use HTTPS for it. Files downloaded from Garner are not protected in transit. BKG uses HTTPS. A product that is missing on the chosen source is an error; the client never falls back to another source.
+Garner is served over plain HTTP. Its HTTPS certificate chain ends at a root authority (emSign Root TLS CA - G1) that is not in the Mozilla and `certifi` trust bundles, so verification fails, and the client therefore does not use HTTPS for it. Files downloaded from Garner are not protected in transit. BKG and CDDIS use HTTPS. A product that is missing on the chosen source is an error; the client never falls back to another source.
+
+## CDDIS Credentials
+
+CDDIS requires a NASA Earthdata login. Accounts are free and are created at [urs.earthdata.nasa.gov/users/new](https://urs.earthdata.nasa.gov/users/new); the [CDDIS archive access page](https://cddis.nasa.gov/Data_and_Derived_Products/CDDIS_Archive_Access.html) describes the login. `IGSProductsClient("CDDIS", cddis_username=..., cddis_password=...)` in Python and `IGSProductsClient::with_cddis_credentials` in Rust build a CDDIS client with credentials. The client reads no environment variables, and a CDDIS client built without credentials fails at the login.
+
+CDDIS redirects each request to the Earthdata login service. The client follows that redirect itself and sends the credentials, as HTTP Basic authentication, only to `urs.earthdata.nasa.gov`; the file host never receives them. The session cookie that CDDIS sets after login is kept for the redirects that follow.
 
 ## Listing Products
 
-`list_products(epoch, ...)` lists the GPS week directory that contains `epoch`, and `list_products_between(start, end, ...)` lists every product whose coverage overlaps `[start, end]`. Each result is an `IGSProduct` holding the parsed `IGSProductFileName`, the published name, the URL, and the GPS week of the directory it was listed in. `list_files(epoch)` returns the raw names of the directory, including files that are not products, and `list_weeks()` returns the week directories of the archive.
+`list_products(epoch, ...)` lists the GPS week directory that contains `epoch`, and `list_products_between(start, end, ...)` lists every product whose coverage overlaps `[start, end]`. Each result is an `IGSProduct` holding the parsed `IGSProductFileName`, the published name, the URL, the size in bytes when the listing provides it (the Apache listings of Garner and BKG do not), and the GPS week of the directory it was listed in. `list_files(epoch)` returns the raw names of the directory, including files that are not products, and `list_weeks()` returns the week directories of the archive.
 
 Both typed listings accept the filters `center`, `solution`, `content`, and `format`. They take an `IGSAnalysisCenter`, `IGSSolutionType`, `IGSContentType`, and `IGSFileFormat`, or in Python their string codes (`"COD"`, `"FIN"`, `"ORB"`, `"SP3"`). A code outside the listed variants is kept as an `Other` value and matches only products published with that code. Names that match neither file name convention are left out of typed listings.
 

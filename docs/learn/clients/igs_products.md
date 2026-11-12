@@ -16,7 +16,7 @@ Garner is served over plain HTTP. Its HTTPS certificate chain ends at a root aut
 
 ## CDDIS Credentials
 
-CDDIS requires a NASA Earthdata login. `IGSProductsClient("CDDIS", cddis_username=..., cddis_password=...)` in Python and `IGSProductsClient::with_cddis_credentials` in Rust build a CDDIS client with credentials. The client reads no environment variables, and a CDDIS client built without credentials fails at the login.
+CDDIS requires a NASA Earthdata login. Accounts are free and are created at [urs.earthdata.nasa.gov/users/new](https://urs.earthdata.nasa.gov/users/new); the [CDDIS archive access page](https://cddis.nasa.gov/Data_and_Derived_Products/CDDIS_Archive_Access.html) describes the login. `IGSProductsClient("CDDIS", cddis_username=..., cddis_password=...)` in Python and `IGSProductsClient::with_cddis_credentials` in Rust build a CDDIS client with credentials. The client reads no environment variables, and a CDDIS client built without credentials fails at the login.
 
 CDDIS redirects each request to the Earthdata login service. The client follows that redirect itself and sends the credentials, as HTTP Basic authentication, only to `urs.earthdata.nasa.gov`; the file host never receives them. The session cookie that CDDIS sets after login is kept for the redirects that follow.
 
@@ -64,9 +64,8 @@ Listings are cached under `$BRAHE_CACHE/igs/listings/` for one hour by default, 
     --8<-- "./examples/igs/igs_download_range.rs:8"
     ```
 
-### Why Ultra-Rapid Ranges Are Rejected
-
-IGS issues an ultra-rapid orbit file every six hours, and each covers 48 hours. Consecutive issues therefore describe the same times with different values: the 00:00 issue predicts noon, and the 06:00 issue fits noon from observations. Chaining them would overlap, and choosing which issue supplies each time is a policy decision that depends on the application. `download_sp3_range` raises an error for the ultra-rapid solution before it makes any request. To use ultra-rapid orbits, list the products, choose the issues, and download them with `download_sp3`.
+!!! note "Ultra-rapid ranges are rejected"
+    IGS issues an ultra-rapid orbit file every six hours, and each covers 48 hours. Consecutive issues therefore describe the same times with different values: the 00:00 issue predicts noon, and the 06:00 issue fits noon from observations. Chaining them would overlap, and choosing which issue supplies each time is a policy decision that depends on the application. `download_sp3_range` raises an error for the ultra-rapid solution before it makes any request. To use ultra-rapid orbits, list the products, choose the issues, and download them with `download_sp3`.
 
 ### Unix-Compressed Files
 

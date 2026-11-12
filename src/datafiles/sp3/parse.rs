@@ -14,10 +14,10 @@ use super::types::{
     GRID_TOLERANCE, SP3, SP3Correlation, SP3FileType, SP3Header, SP3OrbitType, SP3Record,
     SP3SatelliteId, SP3TimeSystem, SP3Version, epoch_grid_error, file_type_from_satellites,
 };
-use crate::datafiles::compression::decompress;
 use crate::time::conversions::days_in_month;
 use crate::time::{Epoch, TimeSystem};
 use crate::utils::BraheError;
+use crate::utils::compression::decompress;
 
 /// Kilometers to meters.
 pub(super) const KM_TO_M: f64 = 1.0e3;
@@ -137,7 +137,7 @@ impl SP3 {
     /// ";
     /// let sp3 = SP3::from_str(content).unwrap();
     /// assert_eq!(sp3.header.version, SP3Version::C);
-    /// let record = sp3.record(SP3SatelliteId::parse("G01").unwrap(), 0).unwrap().unwrap();
+    /// let record = sp3.record(SP3SatelliteId::parse("G01").unwrap(), sp3.epochs()[0]).unwrap().unwrap();
     /// assert!((record.position[0] + 11_044_805.8).abs() < 1e-6);
     /// assert!((record.clock.unwrap() - 189.1633e-6).abs() < 1e-15);
     /// ```
@@ -1385,8 +1385,8 @@ mod tests {
         assert_eq!(sp3.satellite_ids()[0], g01);
         assert_eq!(sp3.satellite_ids()[24], sat("G31"));
         assert!(!sp3.contains(sat("G03")));
-        assert!(sp3.record(sat("G04"), 2).unwrap().is_some());
-        let r = sp3.record(g01, 0).unwrap().unwrap();
+        assert!(sp3.record(sat("G04"), sp3.epochs()[2]).unwrap().is_some());
+        let r = sp3.record(g01, sp3.epochs()[0]).unwrap().unwrap();
         assert_abs_diff_eq!(r.position[0], 16258524.75, epsilon = 1e-6);
         assert_abs_diff_eq!(r.position[1], -3529015.75, epsilon = 1e-6);
         assert_abs_diff_eq!(r.position[2], -20611427.05, epsilon = 1e-6);
@@ -1403,7 +1403,7 @@ mod tests {
     fn test_SP3_from_file_example_a_2_velocity() {
         let sp3 = SP3::from_file(fixture("example-a-2.sp3")).unwrap();
         assert!(sp3.header.has_velocity);
-        let r = sp3.record(sat("G01"), 0).unwrap().unwrap();
+        let r = sp3.record(sat("G01"), sp3.epochs()[0]).unwrap().unwrap();
         let v = r.velocity.unwrap();
         assert_abs_diff_eq!(v[0], -656.0373522, epsilon = 1e-9);
         assert_abs_diff_eq!(v[1], 2560.5954994, epsilon = 1e-9);
@@ -1421,35 +1421,35 @@ mod tests {
         assert_eq!(h.position_base, Some(1.25));
         assert_eq!(h.clock_base, Some(1.025));
 
-        let r = sp3.record(sat("G01"), 0).unwrap().unwrap();
+        let r = sp3.record(sat("G01"), sp3.epochs()[0]).unwrap().unwrap();
         assert_abs_diff_eq!(r.position[0], -11044805.8, epsilon = 1e-6);
         assert_abs_diff_eq!(r.position[1], -10475672.35, epsilon = 1e-6);
         assert_abs_diff_eq!(r.position[2], 21929418.2, epsilon = 1e-6);
         assert_abs_diff_eq!(r.clock.unwrap(), 189.1633e-6, epsilon = 1e-15);
 
-        let g02 = sp3.record(sat("G02"), 0).unwrap().unwrap();
+        let g02 = sp3.record(sat("G02"), sp3.epochs()[0]).unwrap().unwrap();
         assert!(g02.maneuver);
         assert!(!g02.clock_event && !g02.clock_predicted && !g02.orbit_predicted);
 
-        let g04 = sp3.record(sat("G04"), 1).unwrap().unwrap();
+        let g04 = sp3.record(sat("G04"), sp3.epochs()[1]).unwrap().unwrap();
         assert!(g04.clock_event);
         assert!(g04.clock_predicted);
         assert!(!g04.maneuver);
         assert!(g04.orbit_predicted);
 
-        let g01 = sp3.record(sat("G01"), 1).unwrap().unwrap();
+        let g01 = sp3.record(sat("G01"), sp3.epochs()[1]).unwrap().unwrap();
         assert!(!g01.clock_event);
         assert!(g01.clock_predicted && g01.orbit_predicted);
 
-        assert!(sp3.record(sat("G07"), 0).unwrap().is_none());
-        assert!(sp3.record(sat("G05"), 1).unwrap().is_none());
+        assert!(sp3.record(sat("G07"), sp3.epochs()[0]).unwrap().is_none());
+        assert!(sp3.record(sat("G05"), sp3.epochs()[1]).unwrap().is_none());
     }
 
     #[test]
     #[parallel]
     fn test_SP3_from_file_example_c_2_correlations() {
         let sp3 = SP3::from_file(fixture("example-c-2.sp3")).unwrap();
-        let r = sp3.record(sat("G01"), 0).unwrap().unwrap();
+        let r = sp3.record(sat("G01"), sp3.epochs()[0]).unwrap().unwrap();
         let v = r.velocity.unwrap();
         assert_abs_diff_eq!(v[0], 2029.8880364, epsilon = 1e-9);
         assert_abs_diff_eq!(v[1], -1846.2044804, epsilon = 1e-9);
@@ -1477,7 +1477,7 @@ mod tests {
             assert_abs_diff_eq!(c.unwrap(), 0.1234567, epsilon = 1e-15);
         }
 
-        let g02 = sp3.record(sat("G02"), 0).unwrap().unwrap();
+        let g02 = sp3.record(sat("G02"), sp3.epochs()[0]).unwrap().unwrap();
         assert!(g02.maneuver);
         assert!(g02.position_correlation.is_some());
     }
@@ -1515,13 +1515,13 @@ mod tests {
         );
 
         let s37 = sat("S37");
-        let r = sp3.record(s37, 0).unwrap().unwrap();
+        let r = sp3.record(s37, sp3.epochs()[0]).unwrap().unwrap();
         assert_abs_diff_eq!(r.position[0], -34534904.566, epsilon = 1e-6);
         assert_abs_diff_eq!(r.position[1], 24164610.955, epsilon = 1e-6);
         assert_abs_diff_eq!(r.position[2], 29812.840, epsilon = 1e-6);
         assert_abs_diff_eq!(r.clock.unwrap(), 0.29942e-6, epsilon = 1e-15);
-        assert!(sp3.record(s37, 1).unwrap().is_none());
-        assert!(sp3.record(s37, 2).unwrap().is_some());
+        assert!(sp3.record(s37, sp3.epochs()[1]).unwrap().is_none());
+        assert!(sp3.record(s37, sp3.epochs()[2]).unwrap().is_some());
         assert_epoch(
             sp3.end_epoch().unwrap(),
             Epoch::from_datetime(2013, 4, 3, 23, 45, 0.0, 0.0, TimeSystem::GPS),
@@ -1539,7 +1539,7 @@ mod tests {
         assert!(h.has_velocity);
 
         let g01 = sat("G01");
-        let r = sp3.record(g01, 0).unwrap().unwrap();
+        let r = sp3.record(g01, sp3.epochs()[0]).unwrap().unwrap();
         assert_abs_diff_eq!(r.position[0], -11044.805800e3, epsilon = 1e-6);
         assert_abs_diff_eq!(r.position[1], -10475.672350e3, epsilon = 1e-6);
         assert_abs_diff_eq!(r.position[2], 21929.418200e3, epsilon = 1e-6);
@@ -1554,7 +1554,7 @@ mod tests {
         assert_rel(r.clock_rate_std.unwrap(), 1.025f64.powi(191) * 1e-16, 1e-15);
         assert!(!r.clock_event && !r.clock_predicted && !r.maneuver && !r.orbit_predicted);
 
-        let later = sp3.record(g01, 1).unwrap().unwrap();
+        let later = sp3.record(g01, sp3.epochs()[1]).unwrap().unwrap();
         assert!(!later.clock_event);
         assert!(later.clock_predicted);
         assert!(!later.maneuver);
@@ -1564,8 +1564,8 @@ mod tests {
             Epoch::from_datetime(2001, 8, 9, 23, 45, 0.0, 0.0, TimeSystem::GPS),
         );
 
-        assert!(sp3.record(sat("G06"), 0).unwrap().is_none());
-        assert!(sp3.record(sat("G03"), 1).unwrap().is_none());
+        assert!(sp3.record(sat("G06"), sp3.epochs()[0]).unwrap().is_none());
+        assert!(sp3.record(sat("G03"), sp3.epochs()[1]).unwrap().is_none());
     }
 
     #[test]
@@ -1582,12 +1582,12 @@ mod tests {
                 "VG01  20298.880364 -18462.044804   1381.387685 999999.999999 14 14 14 191\n",
             );
         let sp3 = SP3::from_str(&content).unwrap();
-        let r = sp3.record(sat("G01"), 0).unwrap().unwrap();
+        let r = sp3.record(sat("G01"), sp3.epochs()[0]).unwrap().unwrap();
         assert_eq!(r.clock, None);
         assert_eq!(r.clock_rate, None);
         assert_abs_diff_eq!(r.position[0], -11044805.8, epsilon = 1e-6);
         assert!(r.velocity.is_some());
-        let g02 = sp3.record(sat("G02"), 0).unwrap().unwrap();
+        let g02 = sp3.record(sat("G02"), sp3.epochs()[0]).unwrap().unwrap();
         assert!(g02.clock.is_some());
     }
 
@@ -1671,7 +1671,7 @@ mod tests {
             .map(|id| id.to_string())
             .collect();
         assert_eq!(ids, ["G02", "G03", "G04", "G05"]);
-        let record = sp3.record(sat("G02"), 0).unwrap().unwrap();
+        let record = sp3.record(sat("G02"), sp3.epochs()[0]).unwrap().unwrap();
         assert_abs_diff_eq!(record.position[0], 14_377_257.631, epsilon = 1e-6);
     }
 
@@ -1696,7 +1696,7 @@ mod tests {
                 TimeSystem::GPS
             ))
         );
-        let record = sp3.record(sat("C01"), 0).unwrap().unwrap();
+        let record = sp3.record(sat("C01"), sp3.epochs()[0]).unwrap().unwrap();
         assert_abs_diff_eq!(record.position[0], -32_323_399.959, epsilon = 1e-6);
         assert_abs_diff_eq!(record.clock.unwrap(), -0.000434415658, epsilon = 1e-15);
     }
@@ -1792,7 +1792,7 @@ mod tests {
                 1,
             );
         let sp3 = SP3::from_str(&content).unwrap();
-        let r = sp3.record(sat("G01"), 0).unwrap().unwrap();
+        let r = sp3.record(sat("G01"), sp3.epochs()[0]).unwrap().unwrap();
         assert_eq!(r.position_std[0], Some(f64::INFINITY));
         assert_rel(r.position_std[1].unwrap(), 1.25f64.powi(18) * 1e-3, 1e-15);
         assert_eq!(r.position_std[2], None);
@@ -1826,7 +1826,7 @@ mod tests {
             1,
         );
         let sp3 = SP3::from_str(&content).unwrap();
-        let r = sp3.record(sat("G01"), 0).unwrap().unwrap();
+        let r = sp3.record(sat("G01"), sp3.epochs()[0]).unwrap().unwrap();
         assert_eq!(r.velocity, None);
         assert_abs_diff_eq!(r.clock_rate.unwrap(), -4.534317e-10, epsilon = 1e-22);
     }
@@ -1953,7 +1953,7 @@ mod tests {
         assert_epoch(sp3.epochs()[30], at(17, 0));
         assert_epoch(sp3.epochs()[31], at(17, 2));
         assert_epoch(sp3.epochs()[60], at(18, 0));
-        let r = sp3.record(sat("L51"), 30).unwrap().unwrap();
+        let r = sp3.record(sat("L51"), sp3.epochs()[30]).unwrap().unwrap();
         assert_abs_diff_eq!(r.position[0], 11948228.978, epsilon = 1e-6);
         assert_abs_diff_eq!(r.velocity.unwrap()[2], -5331.6820671, epsilon = 1e-9);
     }
@@ -1974,7 +1974,7 @@ mod tests {
             sp3.epochs()[31],
             Epoch::from_datetime(2016, 7, 7, 0, 2, 0.0, 0.0, TimeSystem::UTC),
         );
-        let r = sp3.record(sat("L51"), 30).unwrap().unwrap();
+        let r = sp3.record(sat("L51"), sp3.epochs()[30]).unwrap().unwrap();
         assert_abs_diff_eq!(r.position[0], 2989229.334, epsilon = 1e-6);
     }
 
@@ -1991,7 +1991,7 @@ mod tests {
         assert_epoch(sp3.epochs()[59], at(31, 0, 58));
         assert_epoch(sp3.epochs()[60], at(31, 1, 0));
         assert_epoch(sp3.epochs()[61], at(31, 1, 2));
-        let r = sp3.record(sat("L51"), 61).unwrap().unwrap();
+        let r = sp3.record(sat("L51"), sp3.epochs()[61]).unwrap().unwrap();
         assert_abs_diff_eq!(r.position[0], -5691093.473, epsilon = 1e-6);
         assert_abs_diff_eq!(r.velocity.unwrap()[0], -3918.8598237, epsilon = 1e-9);
     }
@@ -2031,7 +2031,7 @@ mod tests {
     fn test_SP3_from_file_truncated_clock_columns() {
         let sp3 = SP3::from_file(fixture("truncated-nsgf.orb.lageos2.160305.v35.sp3")).unwrap();
         assert_eq!(sp3.header.file_type, SP3FileType::LEO);
-        let r = sp3.record(sat("L52"), 0).unwrap().unwrap();
+        let r = sp3.record(sat("L52"), sp3.epochs()[0]).unwrap().unwrap();
         assert_abs_diff_eq!(r.position[0], 2228470.946, epsilon = 1e-6);
         assert_abs_diff_eq!(r.velocity.unwrap()[2], -711.62228, epsilon = 1e-9);
         assert_eq!(r.clock, None);
@@ -2049,7 +2049,7 @@ mod tests {
             sp3.header.orbit_type,
             SP3OrbitType::Other(label.to_string())
         );
-        assert!(sp3.record(sat("G18"), 0).unwrap().is_some());
+        assert!(sp3.record(sat("G18"), sp3.epochs()[0]).unwrap().is_some());
     }
 
     #[test]
@@ -2058,13 +2058,13 @@ mod tests {
         let sp3 = SP3::from_file(fixture("missing-standard-deviation.sp3")).unwrap();
         let g06 = sat("G06");
         for i in [7, 8] {
-            let r = sp3.record(g06, i).unwrap().unwrap();
+            let r = sp3.record(g06, sp3.epochs()[i]).unwrap().unwrap();
             assert!(r.position_std[0].is_some());
             assert_eq!(r.position_std[1], None);
             assert!(r.position_std[2].is_some());
             assert!(r.clock_std.is_some());
         }
-        let r = sp3.record(g06, 6).unwrap().unwrap();
+        let r = sp3.record(g06, sp3.epochs()[6]).unwrap().unwrap();
         assert!(r.position_std.iter().all(Option::is_some));
     }
 
@@ -2088,7 +2088,7 @@ mod tests {
             "ilrsa.orb.lageos1.220101.v70.sp3 Reference TRF: SLRF2008"
         );
         assert_eq!(h.comments.len(), 4);
-        let r = sp3.record(sat("L51"), 0).unwrap().unwrap();
+        let r = sp3.record(sat("L51"), sp3.epochs()[0]).unwrap().unwrap();
         assert_abs_diff_eq!(r.position[2], -11075527.276, epsilon = 1e-6);
         assert_abs_diff_eq!(r.velocity.unwrap()[0], -1772.0521773, epsilon = 1e-9);
         assert_eq!(r.clock, None);
@@ -2129,11 +2129,11 @@ mod tests {
                 1,
             );
         let sp3 = SP3::from_str(&content).unwrap();
-        let r = sp3.record(sat("G01"), 0).unwrap().unwrap();
+        let r = sp3.record(sat("G01"), sp3.epochs()[0]).unwrap().unwrap();
         assert_abs_diff_eq!(r.clock.unwrap(), 189.1633e-6, epsilon = 1e-15);
         assert_eq!(r.position_std, [None; 3]);
         assert_eq!(r.clock_std, None);
-        let r = sp3.record(sat("G02"), 0).unwrap().unwrap();
+        let r = sp3.record(sat("G02"), sp3.epochs()[0]).unwrap().unwrap();
         assert_abs_diff_eq!(r.position[2], -20354534.4, epsilon = 1e-6);
         assert_eq!(r.clock, None);
     }
@@ -2499,7 +2499,7 @@ mod tests {
         );
         let sp3 = SP3::from_str(&content).unwrap();
         let ep = sp3
-            .record(sat("G01"), 0)
+            .record(sat("G01"), sp3.epochs()[0])
             .unwrap()
             .unwrap()
             .position_correlation
@@ -2509,7 +2509,7 @@ mod tests {
         assert_eq!(ep.clock_std, None);
         assert_eq!([ep.xy, ep.xz, ep.xc, ep.yz, ep.yc, ep.zc], [None; 6]);
 
-        let g02 = sp3.record(sat("G02"), 0).unwrap().unwrap();
+        let g02 = sp3.record(sat("G02"), sp3.epochs()[0]).unwrap().unwrap();
         let full = g02.position_correlation.as_ref().unwrap();
         assert_abs_diff_eq!(full.xy.unwrap(), 0.1234567, epsilon = 1e-15);
         assert_abs_diff_eq!(full.yz.unwrap(), -0.0000030, epsilon = 1e-15);

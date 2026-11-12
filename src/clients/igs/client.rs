@@ -4476,6 +4476,7 @@ mod tests {
             name: name.to_string(),
             url: String::new(),
             gps_week: 2340,
+            size: None,
         };
         let products = vec![
             listed("GFZ0OPSRAP_20243150000_01D_05M_ORB.OBX.gz"),

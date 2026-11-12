@@ -1654,25 +1654,39 @@ impl SP3 {
                 interval
             )));
         }
-        let point = |e: Epoch| ((e - first) / interval).round();
+        let point = |e: Epoch| ((e - first) / interval).round() as i64;
         let target = point(epoch);
-        if (target * interval - (epoch - first)).abs() > GRID_TOLERANCE {
+        if (target as f64 * interval - (epoch - first)).abs() > GRID_TOLERANCE {
             return Err(sp3_error(&format!(
                 "epoch {} is not on the {} s grid starting at {}",
                 epoch, interval, first
             )));
         }
-        Ok(self
-            .epochs
-            .binary_search_by(|e| point(*e).total_cmp(&target)))
+        Ok(self.epochs.binary_search_by_key(&target, |e| point(*e)))
     }
 
     /// Index of the row of an epoch, adding the epoch with every satellite
     /// absent when the file does not hold it.
+    ///
+    /// An epoch added before the first epoch becomes the anchor of the grid,
+    /// so it is refused when an epoch of the file would then be more than
+    /// 1 ms off the grid.
     fn epoch_row(&mut self, epoch: Epoch) -> Result<usize, BraheError> {
         match self.locate(epoch)? {
             Ok(row) => Ok(row),
             Err(row) => {
+                let interval = self.header.epoch_interval;
+                if row == 0
+                    && let Some(off) = self.epochs.iter().find(|e| {
+                        let offset = **e - epoch;
+                        ((offset / interval).round() * interval - offset).abs() > GRID_TOLERANCE
+                    })
+                {
+                    return Err(sp3_error(&format!(
+                        "epoch {} would start a {} s grid that epoch {} is not on",
+                        epoch, interval, off
+                    )));
+                }
                 self.epochs.insert(row, epoch);
                 self.records.insert(row, vec![None; self.satellites.len()]);
                 Ok(row)
@@ -2247,6 +2261,29 @@ mod tests {
         assert_eq!(sp3.num_epochs(), 3);
         assert!(sp3.set_epoch(t0 + 2700.002, &[]).is_err());
         assert_eq!(sp3.num_epochs(), 3);
+
+        // Just before the first epoch is still the first epoch.
+        sp3.set_record(id, t0 - 0.0005, SP3Record::new([4.0, 5.0, 6.0]))
+            .unwrap();
+        assert_eq!(sp3.num_epochs(), 3);
+        assert_eq!(sp3.record(id, t0).unwrap().unwrap().position[0], 4.0);
+        assert!(sp3.record(id, t0 - 0.0005).unwrap().is_some());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_SP3_set_epoch_before_first_keeps_epochs_on_grid() {
+        let t0 = gps_t0();
+        let mut sp3 = SP3::new(vec![sid("G01")], 900.0, SP3Header::default()).unwrap();
+        sp3.set_epoch(t0, &[]).unwrap();
+        sp3.set_epoch(t0 + 900.0008, &[]).unwrap();
+        let before = sp3.clone();
+        let err = sp3.set_epoch(t0 - 900.0008, &[]).unwrap_err().to_string();
+        assert!(err.contains("would start a 900 s grid"), "{err}");
+        assert_eq!(sp3, before);
+        sp3.set_epoch(t0 - 900.0, &[]).unwrap();
+        assert_eq!(sp3.num_epochs(), 3);
+        assert!(sp3.record(sid("G01"), t0 + 900.0008).is_ok());
     }
 
     #[test]

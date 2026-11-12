@@ -1,0 +1,12 @@
+TLE Epoch: 2025-10-29 11:44:55.862 UTC
+Time System: UTC
+Julian Date: 2460977.9895354402
+Modified Julian Date: 60977.4895354400
+
+Datetime Components:
+  Year: 2025
+  Month: 10
+  Day: 29
+  Hour: 11
+  Minute: 44
+  Second: 55.000000

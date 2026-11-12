@@ -1,0 +1,16 @@
+Long format (default):
+  30 seconds: 30.00 seconds
+  90 seconds: 1 minutes and 30.00 seconds
+  362 seconds: 6 minutes and 2.00 seconds
+  3665 seconds: 1 hours, 1 minutes, and 5.00 seconds
+  90000 seconds: 1 days, 1 hours, 0 minutes, and 0.00 seconds
+
+Short format:
+  30 seconds: 30s
+  90 seconds: 1m 30s
+  362 seconds: 6m 2s
+  3665 seconds: 1h 1m 5s
+  90000 seconds: 1d 1h
+
+LEO orbital period: 1 hours, 34 minutes, and 36.98 seconds
+LEO orbital period (short): 1h 34m 36s

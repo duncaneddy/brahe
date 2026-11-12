@@ -1,0 +1,20 @@
+RTN-to-ECI rotation matrix:
+  [ 0.28262, -0.92432,  0.25642]
+  [-0.06004, -0.28384, -0.95699]
+  [ 0.95735,  0.25507, -0.13572]
+
+Orthogonality check (R^T × R):
+  [ 1.00000, -0.00000, -0.00000]
+  [-0.00000,  1.00000,  0.00000]
+  [-0.00000,  0.00000,  1.00000]
+Difference from identity: 0.000000000000000
+
+Determinant (should be +1): 1.000000000000000
+
+Transpose relationship check:
+||R_eci_to_rtn - R_rtn_to_eci^T||: 0.000000000000000
+
+Example transformation:
+Vector in RTN frame: [1.000, 0.000, 0.000]
+Vector in ECI frame: [0.28262, -0.06004, 0.95735]
+ECI vector magnitude: 1.000000000000000

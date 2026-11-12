@@ -1,0 +1,11 @@
+Default (JSON):
+  /basicspacedata/query/class/gp/NORAD_CAT_ID/25544/format/json
+
+TLE format:
+  /basicspacedata/query/class/gp/NORAD_CAT_ID/25544/format/tle
+
+CSV format:
+  /basicspacedata/query/class/satcat/COUNTRY/US/limit/10/format/csv
+
+KVN format:
+  /basicspacedata/query/class/gp/NORAD_CAT_ID/25544/format/kvn

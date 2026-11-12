@@ -1,0 +1,6 @@
+VNC is TNW and NTW reordered: Y_VNC equals Z_TNW, Z_VNC equals X_NTW: true
+Circular: VNC X equals RTN T, Y equals RTN N, Z equals RTN R: true
+omega_vnc y: 1.060207e-3 rad/s
+omega_vnc_for_body about Mars: 9.316295e-4 rad/s
+Round trip error: 4.71e-10
+Frame graph matches rotation_eci_to_vnc: true

@@ -1,0 +1,14 @@
+Hohmann Transfer: 400 km -> 800 km
+  First burn (perigee):  109.118 m/s
+  Second burn (apogee):  107.565 m/s
+  Total delta-v:         216.682 m/s
+  Transfer time:         48.3 min
+  First burn applied at t+0s: dv = 109.118 m/s
+  Second burn applied at t+2900.6s: dv = 107.565 m/s
+
+Final orbit:
+  Semi-major axis: 7178.137 km
+  Altitude:        800.001 km (target: 800 km)
+  Eccentricity:    0.000105
+
+Example validated successfully!

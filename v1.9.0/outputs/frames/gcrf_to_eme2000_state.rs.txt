@@ -1,0 +1,25 @@
+Orbital elements (degrees):
+  a    = 6878136.300 m = 500.0 km altitude
+  e    = 0.0100
+  i    = 97.8000°
+  Ω    = 15.0000°
+  ω    = 30.0000°
+  M    = 45.0000°
+
+GCRF state vector:
+  Position: [1848963.547, -434937.816, 6560410.665] m
+  Velocity: [-7098.380042, -2173.344428, 1913.332741] m/s
+
+EME2000 state vector:
+  Position: [1848964.106, -434937.468, 6560410.530] m
+  Velocity: [-7098.379734, -2173.344867, 1913.333385] m/s
+
+GCRF state vector (transformed from EME2000):
+  Position: [1848963.547, -434937.816, 6560410.665] m
+  Velocity: [-7098.380042, -2173.344428, 1913.332741] m/s
+
+Round-trip error:
+  Position: 3.863884e-8 m
+  Velocity: 3.876304e-11 m/s
+
+Note: Transformation is constant (time-independent, no epoch needed)

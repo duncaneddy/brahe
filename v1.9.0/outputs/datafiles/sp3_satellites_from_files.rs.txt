@@ -1,0 +1,14 @@
+2017-05-21 00:00:00.000 GPS to 2017-05-21 00:05:00.000 GPS: 2 epochs
+2017-05-21 00:05:00.000 GPS to 2017-05-21 00:10:00.000 GPS: 2 epochs
+2017-05-21 00:10:00.000 GPS to 2017-05-21 00:15:00.000 GPS: 2 epochs
+
+Chained satellites: 87
+G01: 4 samples from 2017-05-21 00:00:00.000 GPS to 2017-05-21 00:15:00.000 GPS
+G02: 4 samples from 2017-05-21 00:00:00.000 GPS to 2017-05-21 00:15:00.000 GPS
+G03: 4 samples from 2017-05-21 00:00:00.000 GPS to 2017-05-21 00:15:00.000 GPS
+
+G01 gaps: 0
+Trajectory: 4 states in ITRF
+
+G01 across a gap: 4 samples
+  gap from 2017-05-21 00:05:00.000 GPS to 2017-05-21 00:20:00.000 GPS

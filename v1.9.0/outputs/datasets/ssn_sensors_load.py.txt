@@ -1,0 +1,13 @@
+Total SSN sites: 21
+Radar/phased-array/mechanical sites: 15
+Optical (angles-only) sites: 6
+
+Eglin
+Location: (30.57, -86.21)
+System: Phased Array
+Category: dedicated
+Elevation limits: 1.0 - 90.0 deg
+Range max: 13210 km
+Azimuth noise: 0.0154 deg
+
+Example validated successfully!

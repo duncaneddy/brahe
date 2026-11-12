@@ -1,0 +1,25 @@
+Converting ENZ coordinates to Azimuth-Elevation-Range:
+
+Directly overhead:
+  ENZ:   E=0.0km, N=0.0km, Z=100.0km
+  Az/El: Az=0.0°, El=90.0°, Range=100.0km
+
+North horizon:
+  ENZ:   E=0.0km, N=100.0km, Z=0.0km
+  Az/El: Az=0.0°, El=0.0°, Range=100.0km
+
+East horizon:
+  ENZ:   E=100.0km, N=0.0km, Z=0.0km
+  Az/El: Az=90.0°, El=0.0°, Range=100.0km
+
+South horizon:
+  ENZ:   E=0.0km, N=-100.0km, Z=0.0km
+  Az/El: Az=180.0°, El=0.0°, Range=100.0km
+
+West horizon:
+  ENZ:   E=-100.0km, N=0.0km, Z=0.0km
+  Az/El: Az=270.0°, El=0.0°, Range=100.0km
+
+Northeast at 45° elevation:
+  ENZ:   E=50.0km, N=50.0km, Z=70.7km
+  Az/El: Az=45.0°, El=45.0°, Range=100.0km

@@ -1,0 +1,15 @@
+Original:
+  Frame: Celestial(GCRF)
+  Representation: OrbitRepresentation(Cartesian)
+
+After to_ecef():
+  Frame: Celestial(ITRF)
+  Representation: OrbitRepresentation(Cartesian)
+
+After to_eci():
+  Frame: Celestial(GCRF)
+  Representation: OrbitRepresentation(Cartesian)
+
+After to_keplerian():
+  Frame: Celestial(GCRF)
+  Representation: OrbitRepresentation(Keplerian)

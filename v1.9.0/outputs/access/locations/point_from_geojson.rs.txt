@@ -1,0 +1,4 @@
+Loaded: Svalbard Station
+Longitude: 15.4038 deg
+Latitude: 78.2232 deg
+Altitude: 458.0 m

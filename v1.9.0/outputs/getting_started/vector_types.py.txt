@@ -1,0 +1,5 @@
+ECEF from list: [-2705661.06457674 -4261795.32689662  3885305.39466925]
+ECEF from array: [-2705661.06457674 -4261795.32689662  3885305.39466925]
+ECEF from tuple: [-2705661.06457674 -4261795.32689662  3885305.39466925]
+Type of ECEF output: <class 'numpy.ndarray'>
+Type of ECEF output: <class 'numpy.ndarray'>

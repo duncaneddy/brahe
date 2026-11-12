@@ -1,0 +1,30 @@
+Format version: 3.0
+Originator:     NOAA/USA
+Creation date:  2007-03-06 16:00:00.000 UTC
+
+Object name:          GOES 9
+Object ID:            1995-025A
+Center name:          EARTH
+Ref frame:            TEME
+Time system:          UTC
+Mean element theory:  SGP/SGP4
+
+Epoch:               2007-03-05 10:34:41.426 UTC
+Mean motion:         1.00273272 rev/day
+Eccentricity:        0.0005013
+Inclination:         3.0539 deg
+RAAN:                81.7939 deg
+Arg of pericenter:   249.2363 deg
+Mean anomaly:        150.1602 deg
+GM:                  3.9860e+14 m³/s²
+
+NORAD catalog ID:    23581
+Classification:      U
+Ephemeris type:      0
+Element set no:      925
+Rev at epoch:        4316
+BSTAR:               0.0001
+Mean motion dot:     -1.13e-06 rev/day²
+Mean motion ddot:    0.0 rev/day³
+
+Dict keys: ['header', 'metadata', 'mean_elements', 'tle_parameters']

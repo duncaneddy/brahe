@@ -1,0 +1,20 @@
+Chief ECI state:
+Position:  [1999.015, -424.663, 6771.472] km
+Velocity:  [-6.939780, -2.131872, 1.920555] km/s
+
+Relative state in RTN frame:
+Radial (R):      1000.000 m
+Along-track (T): 500.000 m
+Cross-track (N): -300.000 m
+Velocity R:      0.100 m/s
+Velocity T:      -0.050 m/s
+Velocity N:      0.020 m/s
+
+Deputy ECI state:
+Position:  [1998.759, -424.578, 6772.598] km
+Velocity:  [-6.940832, -2.132153, 1.920398] km/s
+
+Round-trip verification (RTN -> ECI -> RTN):
+Original RTN:  [1000.000, 500.000, -300.000] m
+Recovered RTN: [1000.000, 500.000, -300.000] m
+Difference:    0.000000000 m

@@ -1,0 +1,20 @@
+Ground Station (Stanford):
+Longitude: -122.17329° = -2.132326 rad
+Latitude:  37.42692° = 0.653223 rad
+Altitude:  32.0 m
+
+Ground Station ECEF:
+x = -2700408.551 m
+y = -4292612.600 m
+z = 3855145.604 m
+
+Relative position in SEZ frame:
+South:  30.0 km
+East:   50.0 km
+Zenith: 100.0 km
+
+Target position in ECEF:
+x = -2710080.862 m
+y = -4401887.794 m
+z = 3892096.631 m
+Distance from Earth center: 6470.670 km

@@ -1,0 +1,23 @@
+  Range                prefit residual norm: 365.806
+  InertialPosition     prefit residual norm: 354.296
+  Range                prefit residual norm: 47.384
+  InertialPosition     prefit residual norm: 80.298
+  Range                prefit residual norm: 0.007
+  InertialPosition     prefit residual norm: 0.202
+  Range                prefit residual norm: 0.004
+  InertialPosition     prefit residual norm: 0.085
+  Range                prefit residual norm: 0.007
+  InertialPosition     prefit residual norm: 0.051
+  Range                prefit residual norm: 0.007
+  InertialPosition     prefit residual norm: 0.035
+  Range                prefit residual norm: 0.008
+  InertialPosition     prefit residual norm: 0.027
+  Range                prefit residual norm: 0.008
+  InertialPosition     prefit residual norm: 0.021
+  Range                prefit residual norm: 0.008
+  InertialPosition     prefit residual norm: 0.018
+  Range                prefit residual norm: 0.008
+  InertialPosition     prefit residual norm: 0.015
+
+Final position error: 0.01 m
+Records: 20 (InertialPosition: 10, Range: 10)

@@ -1,0 +1,4 @@
+Rotating LVLH velocity sigmas (m/s): [0.1468, 0.1000, 0.1468]
+Snapshot LVLH velocity sigmas (m/s): [0.1000, 0.1000, 0.1000]
+Round trip recovers the ECI covariance: true
+Frame graph matches the Jacobian route: true

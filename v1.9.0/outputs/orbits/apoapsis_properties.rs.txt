@@ -1,0 +1,5 @@
+Apoapsis velocity: 7536.859 m/s
+Apogee velocity:   7536.859 m/s
+Apoapsis distance: 6946.918 km
+Apoapsis altitude: 568.781 km
+Apogee altitude:   568.781 km

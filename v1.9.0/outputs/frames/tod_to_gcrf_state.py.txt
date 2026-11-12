@@ -1,0 +1,13 @@
+Epoch: 2024-01-01 12:00:00.000 UTC
+
+TOD state vector:
+  Position: [6878137.000, 0.000, 0.000] m
+  Velocity: [0.000000, 7612.000000, 0.000000] m/s
+
+GCRF state vector:
+  Position: [6878020.288, -36750.052, -15966.981] m
+  Velocity: [40.670408, 7611.891342, -0.345232] m/s
+
+Round-trip error (TOD -> GCRF -> TOD):
+  Position: 3.725291e-09 m
+  Velocity: 6.190732e-13 m/s

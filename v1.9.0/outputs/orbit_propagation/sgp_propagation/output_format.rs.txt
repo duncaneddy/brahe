@@ -1,0 +1,2 @@
+ECEF position (km): [5548.632, 2869.310, -2526.643]
+Keplerian elements: [6734.7 km, 0.0009, 51.6075, 247.0990 deg, 96.4114 deg, 235.1391 deg]

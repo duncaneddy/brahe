@@ -1,0 +1,27 @@
+Testing perturbation strategies on mixed-scale state:
+State: position=7000 km, velocity=7.5 km/s
+
+1. Fixed Perturbation (h = 1e-6)
+   Error: 1.40e-10
+
+2. Percentage Perturbation (0.001%)
+   Error: 2.33e-12
+
+3. Adaptive Perturbation (scale=1.0, min=1.0)
+   Error: 1.76e-15
+
+Strategy Comparison:
+  Fixed:      1.40e-10
+  Percentage: 2.33e-12
+  Adaptive:   1.76e-15
+
+Best strategy: Adaptive (handles mixed scales robustly)
+
+============================================================
+Testing with component near zero:
+State: position=7000 km, velocity=0.000000001 km/s
+
+Percentage: Error = 8.58e-12
+Adaptive:   Error = 1.76e-15
+
+Conclusion: Adaptive perturbation is most robust

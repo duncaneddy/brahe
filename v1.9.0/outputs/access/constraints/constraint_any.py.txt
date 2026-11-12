@@ -1,0 +1,1 @@
+Created: ElevationConstraint(>= 60.00°) || LookDirectionConstraint(Right)

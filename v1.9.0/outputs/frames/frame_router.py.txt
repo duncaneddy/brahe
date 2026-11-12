@@ -1,0 +1,11 @@
+Epoch: 2024-03-01 00:00:00.000 UTC
+
+GCRF state (Earth-centered inertial):
+  Position (km): [404.522, 4955.794, 4682.232]
+
+Same state expressed in LCI (Moon-centered inertial):
+  Position (km): [305137.940, 234784.024, 120741.751]
+
+GCRF->LCI position offset (km): 398940.2
+
+Example validated successfully!

@@ -1,0 +1,15 @@
+REF_FRAME = EME2000, CENTER_NAME = MARS
+
+Trajectory frame: Centered(MARS, EME2000)
+  Axes:   EME2000
+  Center: MARS
+
+State at 2002-12-18 12:00:00.331 UTC in MCI (Mars-centered):
+  Position (km): [2789.619, -280.045, -1746.755]
+  Velocity (m/s): [4733.720, -2495.860, -1041.950]
+
+State at 2002-12-18 12:00:00.331 UTC in GCRF (Earth-centered):
+  Position (km): [-2.443e+08, -1.955e+08, -7.994e+07]
+  Velocity (m/s): [42236.069, -23421.813, -10795.077]
+
+Example validated successfully!

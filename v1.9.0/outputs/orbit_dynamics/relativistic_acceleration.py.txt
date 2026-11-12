@@ -1,0 +1,24 @@
+GPS Satellite state (ECI):
+  Position: [-21864.6, -435.7, 15074.0] km
+  Velocity: [-1.555, -2.730, -2.266] km/s
+  Altitude: 20182.7 km
+  Speed: 3.874 km/s
+
+Relativistic acceleration (m/s²):
+  ax = -0.000000000234510
+  ay = -0.000000000007302
+  az = 0.000000000158426
+  Magnitude: 2.831022208577213e-10 m/s²
+
+Newtonian gravity magnitude: 0.565009481 m/s²
+Relativistic/Newtonian ratio: 5.010575e-10
+
+Approximate position error if relativity ignored:
+  After 1 day: 1.057 m
+  After 1 week: 7.4 m
+
+Relative magnitude of perturbations at GPS altitude:
+  J2: ~5.290937e-05 m/s²
+  Sun: ~5.000000e-08 m/s²
+  Relativity: 2.831022e-10 m/s²
+  Relativity/J2 ratio: 5.350701e-06

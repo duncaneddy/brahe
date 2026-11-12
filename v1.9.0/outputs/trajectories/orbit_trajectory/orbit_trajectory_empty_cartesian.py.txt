@@ -1,0 +1,6 @@
+Frame (str): GCRF
+Frame (repr): ReferenceFrame("GCRF")
+Representation (str): Cartesian
+Representation (repr): OrbitRepresentation(Cartesian)
+Frame (str): ITRF
+Frame (repr): ReferenceFrame("ITRF")

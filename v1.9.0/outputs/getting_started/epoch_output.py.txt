@@ -1,0 +1,6 @@
+Epoch as ISO 8601 string: 2024-01-01 00:00:00.000 UTC
+Epoch as Modified Julian Date: 60310.0
+Epoch as calendar date tuple: (2024, 1, 1, 0, 0, 0.0, 0.0)
+Epoch as UNIX timestamp: 1704067200.0
+Epoch as GPS time: (2295, 86417.99999980722)
+Epoch as Python datetime: 2024-01-01 00:00:00+00:00

@@ -1,0 +1,3 @@
+ECI trajectory: 11 states
+ECEF trajectory: 11 states
+Keplerian trajectory: 11 states

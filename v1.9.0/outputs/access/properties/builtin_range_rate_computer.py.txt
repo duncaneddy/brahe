@@ -1,0 +1,5 @@
+Range rate computer: RangeRateComputer()
+
+Range rate varies from -6382.0 to 6372.9 m/s
+Negative = approaching (decreasing distance)
+Positive = receding (increasing distance)

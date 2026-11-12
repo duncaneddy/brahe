@@ -1,0 +1,1 @@
+ECEF position magnitude: 6873.3 km

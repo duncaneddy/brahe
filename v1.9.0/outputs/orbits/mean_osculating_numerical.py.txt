@@ -1,0 +1,6 @@
+Input osculating samples:                      121
+Output mean samples after windowed averaging:  1
+
+Recovered mean state: a=6878136.300 m, e=0.009999, i=45.000 deg, raan=30.176 deg, argp=59.801 deg, M=180.012 deg
+Residual vs. synthesized mean state (a in m, angles in deg): [-9.31322575e-10 -1.11093359e-06  2.60570174e-04  1.76286897e-01
+ -1.98721701e-01  1.20153524e-02]

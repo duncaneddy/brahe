@@ -1,0 +1,6 @@
+Frame (Display): GCRF
+Frame (Debug): Celestial(GCRF)
+Representation (Display): Cartesian
+Representation (Debug): OrbitRepresentation(Cartesian)
+Frame (Display): ITRF
+Frame (Debug): Celestial(ITRF)

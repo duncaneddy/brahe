@@ -1,0 +1,18 @@
+Format version: 2
+Originator:     GSFC
+Creation date:  2003-09-30 19:23:57.000 UTC
+Message ID:     A7015Z1
+
+Object name:  TRMM
+Object ID:    1997-074A
+Center name:  EARTH
+Time system:  UTC
+
+Epoch: 2003-09-30 14:28:15.117 UTC
+
+Quaternion blocks: 1
+
+  Block 0:
+    Ref frame A: SC_BODY_1
+    Ref frame B: ITRF1997
+    Quaternion [Q1, Q2, Q3, QC]: [0.00005, 0.87543, 0.40949, 0.25678]

@@ -1,0 +1,4 @@
+E equals [cos Omega, sin Omega, 0]: true
+Own position in EQW equals r [cos u, sin u, 0]: true
+Equatorial fallback: E equals [1, 0, 0]: true
+Frame graph matches rotation_eci_to_eqw: true

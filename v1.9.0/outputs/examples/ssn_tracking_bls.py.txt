@@ -1,0 +1,7 @@
+Loaded 21 SSN sites, 16 calibrated sensors
+Simulated 792 measurements
+BLS solved 792 observations in 20.4 s
+BLS position error: 6.2 m  (3-sigma formal = 26.1 m)
+BLS converged: True, iterations: 4, final cost: 2.359809e+03
+
+Example validated successfully!

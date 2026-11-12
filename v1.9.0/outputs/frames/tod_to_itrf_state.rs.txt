@@ -1,0 +1,17 @@
+Epoch: 2024-01-01 12:00:00.000 UTC
+
+TOD state vector:
+  Position: [6878137.000, 0.000, 0.000] m
+  Velocity: [0.000000, 7612.000000, 0.000000] m/s
+
+ITRF state vector (direct TOD -> ITRF):
+  Position: [1270446.653, 6759788.006, 5.795] m
+  Velocity: [-6988.092233, 1313.354558, 0.005893] m/s
+
+ITRF state vector (via GCRF: TOD -> GCRF -> ITRF):
+  Position: [1270446.653, 6759788.006, 5.795] m
+  Velocity: [-6988.092233, 1313.354558, 0.005893] m/s
+
+Difference between the direct and GCRF-mediated paths:
+  Position: 3.579101e-6 m
+  Velocity: 3.593157e-9 m/s

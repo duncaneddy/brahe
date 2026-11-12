@@ -1,0 +1,14 @@
+Source file:      MEME_100001_STARLINK-38128_2540142_Operational_1473385380_UNCLASSIFIED.txt
+Created:          2026-09-11 01:55:52.000 UTC
+Ephemeris start:  2026-09-11 01:42:42.000 UTC
+Ephemeris stop:   2026-09-14 01:42:42.000 UTC
+Step size:        60.0 s
+State frame:      EME2000
+Covariance frame: UVW
+Records:          4321
+Has covariance:   True
+First epoch:      2026-09-11 01:42:42.000 UTC
+Position [m]:     [4244346.537 1264325.489 5043982.644]
+Velocity [m/s]:   [ 3595.154763  5258.795658 -4335.035291]
+1-sigma RTN position [m]:   [0.681 0.882 1.098]
+1-sigma RTN velocity [m/s]: [0.001415 0.000721 0.00233 ]

@@ -1,0 +1,7 @@
+Default config: 25/min, 250/hour
+Custom config:  10/min, 100/hour
+Disabled config: 4294967295/min, 4294967295/hour
+
+Client with default rate limiting created
+Client with custom rate limiting created
+Client with disabled rate limiting created

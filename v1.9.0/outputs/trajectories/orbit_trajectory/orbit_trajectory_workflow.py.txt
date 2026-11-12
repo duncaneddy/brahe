@@ -1,0 +1,19 @@
+Propagated 96 states over 94.6 minutes
+
+Ground track in ECEF frame:
+  2024-01-01 00:00:00.000 UTC: Lat=-89.31°, Lon=  29.98°, Alt=498.43 km
+  2024-01-01 00:10:00.000 UTC: Lat=-106.05°, Lon=  67.10°, Alt=512.71 km
+  2024-01-01 00:20:00.000 UTC: Lat=114.91°, Lon=  72.06°, Alt=517.69 km
+  2024-01-01 00:30:00.000 UTC: Lat= 93.18°, Lon=  35.41°, Alt=509.96 km
+  2024-01-01 00:40:00.000 UTC: Lat= 84.82°, Lon=  -2.37°, Alt=506.12 km
+  2024-01-01 00:50:00.000 UTC: Lat= 76.09°, Lon= -40.08°, Alt=515.59 km
+  2024-01-01 01:00:00.000 UTC: Lat= 46.92°, Lon= -76.10°, Alt=524.72 km
+  2024-01-01 01:10:00.000 UTC: Lat=-87.12°, Lon= -62.75°, Alt=517.32 km
+  2024-01-01 01:20:00.000 UTC: Lat=-101.18°, Lon= -25.46°, Alt=500.05 km
+  2024-01-01 01:30:00.000 UTC: Lat=-109.11°, Lon=  12.49°, Alt=494.44 km
+
+Orbital element evolution:
+  Semi-major axis: 6878.14 km → 6878.14 km
+  Eccentricity: 0.001000 → 0.001000
+  Inclination: 97.80° → 97.80°
+  True anomaly: 0.00° → 360.00°

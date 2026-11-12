@@ -1,0 +1,5 @@
+Decaying within 30 days:
+  /basicspacedata/query/class/decay/DECAY_EPOCH/now--now+30/orderby/DECAY_EPOCH%20asc/format/json
+
+Recent decays (last 7 days):
+  /basicspacedata/query/class/decay/DECAY_EPOCH/now-7--now/MSG_TYPE/Decay/orderby/DECAY_EPOCH%20desc/format/json

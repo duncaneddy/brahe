@@ -1,0 +1,9 @@
+Numerical sensitivity (∂f/∂p):
+  Position rates: [0.0, 0.0, 0.0]
+  Velocity rates: [0.0, -8.425648220011794e-06, -1.0630522385923769e-05]
+
+Analytical sensitivity (∂f/∂p):
+  Position rates: [0.0, 0.0, 0.0]
+  Velocity rates: [0.0, -8.425648218908737e-06, -1.063052238539645e-05]
+
+Max difference: 1.103e-15

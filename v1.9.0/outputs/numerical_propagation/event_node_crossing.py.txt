@@ -1,0 +1,10 @@
+Detected 6 node crossing events:
+  'Descending Node' at t+1645.8s (latitude: -0.13 deg)
+  'Ascending Node' at t+4501.6s (latitude: 0.13 deg)
+  'Descending Node' at t+7320.1s (latitude: -0.13 deg)
+  'Ascending Node' at t+10176.2s (latitude: 0.13 deg)
+  'Descending Node' at t+12994.4s (latitude: -0.13 deg)
+  'Ascending Node' at t+15850.6s (latitude: 0.13 deg)
+
+Ascending node crossings: 3
+Descending node crossings: 3

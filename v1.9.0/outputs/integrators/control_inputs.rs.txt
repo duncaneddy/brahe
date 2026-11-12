@@ -1,0 +1,4 @@
+Initial semi-major axis: 6878.136 km
+Integrating with continuous thrust for 1.58 hours...
+Final radius: 6889.325 km
+Orbit raised by: 11.189 km

@@ -1,0 +1,13 @@
+Window 
+  Start: 2025-11-02 05:39:28.342 UTC
+  End:   2025-11-02 05:44:19.001 UTC
+  Duration: 290.7 seconds
+  Midtime: 2025-11-02 05:41:53.671 UTC
+
+Properties:
+  Azimuth - Min: 177.0°, Max: 83.3°
+  Elevation - Min: 10.0°, Max: 18.8°
+  Off-nadir - Min: 62.6°, Max: 67.6°
+  Local time: 05:37.40
+  Look direction: Left
+  Ascending/Descending: Ascending

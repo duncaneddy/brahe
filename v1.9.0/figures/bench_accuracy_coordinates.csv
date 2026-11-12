@@ -1,0 +1,20 @@
+Task,Comparison,Samples,p50 Max Abs,p95 Max Abs,p99 Max Abs,Max Abs
+ECEF To AzEl,Orekit vs Nyx,50,79.70 nm,182.29 nm,634.19 nm,666.12 nm
+ECEF To AzEl,Orekit vs Brahe (Python),50,0.12 nm,0.47 nm,0.58 nm,0.70 nm
+ECEF To AzEl,Orekit vs Brahe (Rust),50,0.20 nm,0.47 nm,0.58 nm,0.70 nm
+ECEF To Geocentric,Orekit vs GMAT,200,0.79 nm,3.24 nm,8.24 nm,2.44 µm
+ECEF To Geocentric,Orekit vs Brahe (Python),200,0.10 nm,4.75 nm,19.32 nm,2.48 µm
+ECEF To Geocentric,Orekit vs Brahe (Rust),200,0.40 nm,4.75 nm,19.32 nm,2.48 µm
+ECEF To Geodetic,Orekit vs Basilisk,200,0.79 nm,1.81 nm,2.37 nm,2.79 nm
+ECEF To Geodetic,Orekit vs GMAT,200,597.50 mm,694.08 mm,699.94 mm,701.90 mm
+ECEF To Geodetic,Orekit vs Nyx,200,407.80 mm,414.13 mm,414.25 mm,414.25 mm
+ECEF To Geodetic,Orekit vs Brahe (Python),200,0.79 nm,1.75 nm,2.33 nm,2.56 nm
+ECEF To Geodetic,Orekit vs Brahe (Rust),200,0.79 nm,1.86 nm,2.33 nm,2.56 nm
+Geocentric To ECEF,Orekit vs GMAT,200,0.47 nm,0.93 nm,0.93 nm,1.86 nm
+Geocentric To ECEF,Orekit vs Brahe (Python),200,0.12 nm,0.93 nm,0.93 nm,0.93 nm
+Geocentric To ECEF,Orekit vs Brahe (Rust),200,0.23 nm,1.05 nm,1.87 nm,2.79 nm
+Geodetic To ECEF,Orekit vs Basilisk,200,0.93 nm,1.86 nm,2.79 nm,2.79 nm
+Geodetic To ECEF,Orekit vs GMAT,200,624.70 mm,709.59 mm,718.09 mm,718.59 mm
+Geodetic To ECEF,Orekit vs Nyx,200,355.32 mm,412.70 mm,414.24 mm,414.25 mm
+Geodetic To ECEF,Orekit vs Brahe (Python),200,0 nm,0.93 nm,0.93 nm,0.93 nm
+Geodetic To ECEF,Orekit vs Brahe (Rust),200,0 nm,1.16 nm,1.87 nm,2.79 nm

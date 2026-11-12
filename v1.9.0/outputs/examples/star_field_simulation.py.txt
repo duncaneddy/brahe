@@ -1,0 +1,7 @@
+Loaded 2058 stars brighter than Vmag 5.2
+Frames: 285
+Visible stars per frame: min=14, median=26, max=95
+Star field simulation (light) saved to: docs/figures/star_field_simulation_light.html
+Star field simulation (dark) saved to: docs/figures/star_field_simulation_dark.html
+Star field sensor view (light) saved to: docs/figures/star_field_sensor_view_light.html
+Star field sensor view (dark) saved to: docs/figures/star_field_sensor_view_dark.html

@@ -1,0 +1,4 @@
+Own position in PQW equals r [cos f, sin f, 0]: True
+Circular fallback: P equals [cos Omega, sin Omega, 0]: True
+Mars periapsis direction matches the position at M = 0: True
+Frame graph matches rotation_eci_to_pqw: True

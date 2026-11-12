@@ -1,0 +1,2 @@
+Azimuth: 284.9352 deg, Elevation: -45.3034 deg
+RA: 101.280000 deg, Dec: -16.720000 deg

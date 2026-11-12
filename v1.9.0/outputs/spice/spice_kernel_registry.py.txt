@@ -1,0 +1,11 @@
+Loaded kernels: ['de440s']
+
+Moon position rel. Earth (km): [ 152116.87845619 -307796.3409078  -166865.16270426]
+Moon velocity rel. Earth (m/s): [932.54734647 394.5520516  212.86016362]
+Sun distance rel. Earth (AU): 0.983353
+
+Moon position from de440s directly (km): [ 152116.87845619 -307796.3409078  -166865.16270426]
+
+Mars position rel. Earth (km): [-51311894.31463633  73955612.24801372  39369562.97881442]
+Mars velocity rel. Earth (m/s): [7779.24180983 -397.09894046  284.1025968 ]
+Position/state consistency check: True

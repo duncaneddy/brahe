@@ -1,0 +1,2 @@
+ECEF from array: Ok([[-2705661.0645767376, -4261795.326896624, 3885305.394669255]])
+Type of ECEF output: core::result::Result<nalgebra::base::matrix::Matrix<f64, nalgebra::base::dimension::Const<3>, nalgebra::base::dimension::Const<1>, nalgebra::base::array_storage::ArrayStorage<f64, 3, 1>>, alloc::string::String>

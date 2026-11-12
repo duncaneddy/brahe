@@ -1,0 +1,5 @@
+Rates rule error: cannot compute state transform through SC_BODY@SC: orientation link SC_BODY@SC carries no angular velocity; provide rates or wrap the provider with with_numerical_rates
+
+Body-frame state with numerical rates: [1194.670999, 1890.174914, 3000.000000, 1.890175, -1.194671, 0.000000]
+
+Example validated successfully!

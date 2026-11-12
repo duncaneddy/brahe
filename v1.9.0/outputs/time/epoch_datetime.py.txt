@@ -1,0 +1,4 @@
+Date only: 2024-01-01 00:00:00.000 UTC
+Full datetime: 2024-06-15 14:30:45.500 UTC
+GPS time system: 2024-12-25 18:00:00.000 GPS
+GPS time system: 2024-12-25 18:00:00.000 TAI

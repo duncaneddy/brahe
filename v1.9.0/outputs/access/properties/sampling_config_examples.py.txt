@@ -1,0 +1,4 @@
+Midpoint: SamplingConfig.midpoint()
+Relative points: SamplingConfig.relative_points([0.0, 0.25, 0.5, 0.75, 1.0])
+Fixed interval (1s): SamplingConfig.fixed_interval(interval=1, offset=0)
+Fixed count (50): SamplingConfig.fixed_count(50)

@@ -1,0 +1,8 @@
+All non-decayed objects:
+  /basicspacedata/query/class/gp/DECAY_DATE/null-val/orderby/NORAD_CAT_ID%20asc/format/json
+
+Active payloads only:
+  /basicspacedata/query/class/gp/DECAY_DATE/null-val/OBJECT_TYPE/PAYLOAD/orderby/NORAD_CAT_ID%20asc/format/json
+
+Active LEO objects:
+  /basicspacedata/query/class/gp/DECAY_DATE/null-val/PERIOD/%3C128/orderby/NORAD_CAT_ID%20asc/format/json

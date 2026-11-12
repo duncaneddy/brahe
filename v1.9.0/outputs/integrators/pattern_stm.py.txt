@@ -1,0 +1,5 @@
+Initial state: 1.000000
+State after 0.21s: 0.979544
+State transition matrix:
+  Φ = 0.990547
+  (Analytical Φ = 0.979544)

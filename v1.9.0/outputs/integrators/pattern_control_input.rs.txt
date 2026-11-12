@@ -1,0 +1,4 @@
+Initial position magnitude: 6878.000 km
+Integrating with thrust for 1.58 hours...
+Final position magnitude: 6889.188 km
+Change: 11.188 km

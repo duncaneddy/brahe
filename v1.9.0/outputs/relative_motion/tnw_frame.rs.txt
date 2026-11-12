@@ -1,0 +1,6 @@
+Circular: TNW Y equals -RTN X, TNW X equals RTN Y, TNW Z equals RTN Z: true
+TNW is NTW reordered: X_TNW equals Y_NTW, Y_TNW equals -X_NTW: true
+omega_tnw z: 1.060207e-3 rad/s, omega_ntw z: 1.060207e-3 rad/s
+omega_tnw_for_body about Mars: 9.316295e-4 rad/s
+Round trip error: 4.71e-10
+Frame graph matches rotation_eci_to_tnw: true

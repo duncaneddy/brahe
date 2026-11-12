@@ -1,0 +1,3 @@
+Azimuth open/close: 45, 135 deg
+Elevation min/max: 10, 85 deg
+Example validated successfully!

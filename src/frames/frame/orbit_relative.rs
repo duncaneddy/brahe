@@ -14,9 +14,9 @@ use crate::utils::errors::BraheError;
 /// `RTN` is the frame the SANA registries call `RSW`; brahe uses its
 /// existing RTN vocabulary (`state_eci_to_rtn`, `covariance_rtn`).
 ///
-/// Every kind is a valid frame identity, which is what parsing a data file
-/// needs, but only `RTN` has an axes derivation today. A transform through
-/// any other kind errors until issue #452 adds the remaining derivations.
+/// Every kind has an axes derivation in [`crate::relative_motion`]; `SEZ`
+/// and `ENZ` are topocentric frames on the WGS84 ellipsoid and are
+/// evaluable only for Earth-centered objects.
 ///
 /// # Examples
 ///
@@ -45,6 +45,8 @@ pub enum OrbitRelativeFrameKind {
     VNC,
     /// Nadir / Sun / normal.
     NSW,
+    /// Topocentric east / north / zenith. Not a SANA kind; brahe's ENZ vocabulary.
+    ENZ,
 }
 
 impl fmt::Display for OrbitRelativeFrameKind {
@@ -59,6 +61,7 @@ impl fmt::Display for OrbitRelativeFrameKind {
             Self::SEZ => "SEZ",
             Self::VNC => "VNC",
             Self::NSW => "NSW",
+            Self::ENZ => "ENZ",
         };
         write!(f, "{}", token)
     }
@@ -217,6 +220,7 @@ mod tests {
             (OrbitRelativeFrameKind::SEZ, "SEZ"),
             (OrbitRelativeFrameKind::VNC, "VNC"),
             (OrbitRelativeFrameKind::NSW, "NSW"),
+            (OrbitRelativeFrameKind::ENZ, "ENZ"),
         ];
         for (kind, expected) in cases {
             assert_eq!(kind.to_string(), expected);
@@ -274,6 +278,7 @@ mod tests {
             OrbitRelativeFrameKind::SEZ,
             OrbitRelativeFrameKind::VNC,
             OrbitRelativeFrameKind::NSW,
+            OrbitRelativeFrameKind::ENZ,
         ] {
             assert!(OrbitRelativeFrame::new(kind, OrbitRelativeFrameVariant::Rotating).is_ok());
             assert!(OrbitRelativeFrame::new(kind, OrbitRelativeFrameVariant::Inertial).is_ok());

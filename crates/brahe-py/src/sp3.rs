@@ -1737,12 +1737,11 @@ impl PySP3Header {
 ///
 ///     sp3 = bh.SP3(["G01", "G02"], 900.0, bh.SP3Header(agency="TEST"))
 ///     t0 = bh.Epoch(2024, 11, 10, 0, 0, 0.0, 0.0, time_system=bh.GPS)
-///     k = sp3.push_epoch(t0)
-///     sp3.set_record("G01", k, bh.SP3Record(np.array([15.0e6, 20.0e6, 5.0e6]), clock=2.5e-5))
+///     sp3.set_record("G01", t0, bh.SP3Record(np.array([15.0e6, 20.0e6, 5.0e6]), clock=2.5e-5))
 ///
 ///     parsed = bh.SP3.from_str(sp3.to_string())
 ///     assert parsed.num_epochs == 1
-///     assert abs(parsed.record("G01", 0).clock - 2.5e-5) < 1e-12
+///     assert abs(parsed.record("G01", t0).clock - 2.5e-5) < 1e-12
 ///     ```
 #[pyclass(module = "brahe._brahe", from_py_object)]
 #[pyo3(name = "SP3")]
@@ -1885,45 +1884,22 @@ impl PySP3 {
         self.inner.to_file(path).map_err(sp3_py_err)
     }
 
-    /// Append an epoch to the grid.
-    ///
-    /// The first epoch anchors the epoch grid. Later epochs must lie after
-    /// the last epoch on that grid.
-    ///
-    /// Args:
-    ///     epoch (Epoch): Epoch to append.
-    ///
-    /// Returns:
-    ///     int: Index of the new epoch.
-    ///
-    /// Raises:
-    ///     BraheError: If the epoch is not after the last epoch or is off the grid.
-    ///
-    /// Example:
-    ///     ```python
-    ///     import brahe as bh
-    ///
-    ///     sp3 = bh.SP3(["G01"], 900.0)
-    ///     t0 = bh.Epoch(2024, 11, 10, 0, 0, 0.0, 0.0, time_system=bh.GPS)
-    ///     assert sp3.push_epoch(t0) == 0
-    ///     assert sp3.push_epoch(t0 + 2700.0) == 1
-    ///     ```
-    fn push_epoch(&mut self, epoch: PyEpoch) -> PyResult<usize> {
-        self.inner.push_epoch(epoch.obj).map_err(sp3_py_err)
-    }
-
     /// Set the record of a satellite at an epoch.
     ///
-    /// A record whose position is exactly zero marks the satellite as absent
-    /// at that epoch.
+    /// An epoch the file does not hold is added at its place in the epoch
+    /// order, with every other satellite absent; it must lie on the grid of
+    /// the epoch interval anchored at the first epoch, to within 1 ms. An
+    /// epoch within 1 ms of one the file holds addresses that epoch. A record
+    /// whose position is exactly zero marks the satellite as absent at that
+    /// epoch. Nothing is modified when the call fails.
     ///
     /// Args:
     ///     satellite (str | SP3SatelliteId): Satellite.
-    ///     epoch_index (int): Index of the epoch.
+    ///     epoch (Epoch): Epoch of the record.
     ///     record (SP3Record): Record to store.
     ///
     /// Raises:
-    ///     BraheError: If the satellite is not in the file or the epoch index is out of range.
+    ///     BraheError: If the satellite is not in the file, the epoch is off the grid, or the position or velocity has a NaN or infinite component.
     ///
     /// Example:
     ///     ```python
@@ -1931,50 +1907,95 @@ impl PySP3 {
     ///     import numpy as np
     ///
     ///     sp3 = bh.SP3(["G01"], 900.0)
-    ///     k = sp3.push_epoch(bh.Epoch(2024, 11, 10, 0, 0, 0.0, 0.0, time_system=bh.GPS))
-    ///     sp3.set_record("G01", k, bh.SP3Record(np.array([2.0e7, 1.0e7, 1.0e7])))
-    ///     assert sp3.record("G01", k) is not None
+    ///     t0 = bh.Epoch(2024, 11, 10, 0, 0, 0.0, 0.0, time_system=bh.GPS)
+    ///     sp3.set_record("G01", t0, bh.SP3Record(np.array([2.0e7, 1.0e7, 1.0e7])))
+    ///     sp3.set_record("G01", t0 + 1800.0, bh.SP3Record(np.array([2.1e7, 1.0e7, 1.0e7])))
+    ///     assert sp3.num_epochs == 2
+    ///     assert sp3.record("G01", t0) is not None
     ///     ```
     fn set_record(
         &mut self,
         satellite: &Bound<'_, PyAny>,
-        epoch_index: usize,
+        epoch: PyEpoch,
         record: PySP3Record,
     ) -> PyResult<()> {
         let id = extract_sp3_satellite_id(satellite)?;
         self.inner
-            .set_record(id, epoch_index, record.inner)
+            .set_record(id, epoch.obj, record.inner)
             .map_err(sp3_py_err)
     }
 
-    /// Record of a satellite at an epoch.
+    /// Set the records of every satellite at an epoch.
+    ///
+    /// The epoch is added or addressed as in ``set_record``. Satellites of
+    /// the file that ``records`` does not list are absent at the epoch, so an
+    /// empty list gives an epoch at which every satellite is absent. Nothing
+    /// is modified when the call fails.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Epoch of the records.
+    ///     records (list[tuple[str | SP3SatelliteId, SP3Record]]): Satellites paired with their records.
+    ///
+    /// Raises:
+    ///     BraheError: If a satellite is not in the file or is listed twice, the epoch is off the grid, or a position or velocity has a NaN or infinite component.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     sp3 = bh.SP3(["G01", "G02"], 900.0)
+    ///     t0 = bh.Epoch(2024, 11, 10, 0, 0, 0.0, 0.0, time_system=bh.GPS)
+    ///     sp3.set_epoch(t0, [
+    ///         ("G01", bh.SP3Record(np.array([2.0e7, 1.0e7, 1.0e7]))),
+    ///         ("G02", bh.SP3Record(np.array([-1.5e7, 2.0e7, 5.0e6]))),
+    ///     ])
+    ///     sp3.set_epoch(t0 + 900.0, [("G01", bh.SP3Record(np.array([2.1e7, 1.0e7, 1.0e7])))])
+    ///     assert sp3.record("G02", t0) is not None
+    ///     assert sp3.record("G02", t0 + 900.0) is None
+    ///     ```
+    fn set_epoch(
+        &mut self,
+        epoch: PyEpoch,
+        records: Vec<(Bound<'_, PyAny>, PySP3Record)>,
+    ) -> PyResult<()> {
+        let records = records
+            .into_iter()
+            .map(|(satellite, record)| Ok((extract_sp3_satellite_id(&satellite)?, record.inner)))
+            .collect::<PyResult<Vec<_>>>()?;
+        self.inner
+            .set_epoch(epoch.obj, &records)
+            .map_err(sp3_py_err)
+    }
+
+    /// Record of a satellite at an epoch of the file.
     ///
     /// Args:
     ///     satellite (str | SP3SatelliteId): Satellite.
-    ///     epoch_index (int): Index of the epoch.
+    ///     epoch (Epoch): One of the file's epochs, matched to within 1 ms.
     ///
     /// Returns:
     ///     SP3Record | None: A copy of the record, or None if the satellite is absent at that epoch.
     ///
     /// Raises:
-    ///     BraheError: If the satellite is not in the file or the epoch index is out of range.
+    ///     BraheError: If the satellite is not in the file or the file has no such epoch.
     ///
     /// Example:
     ///     ```python
     ///     import brahe as bh
     ///
     ///     sp3 = bh.SP3.from_file("test_assets/sp3/example-d-2.sp3")
-    ///     record = sp3.record("G01", 0)
+    ///     record = sp3.record("G01", sp3.epochs[0])
     ///     print(record.position, record.clock)
     ///     ```
     fn record(
         &self,
         satellite: &Bound<'_, PyAny>,
-        epoch_index: usize,
+        epoch: PyEpoch,
     ) -> PyResult<Option<PySP3Record>> {
         let id = extract_sp3_satellite_id(satellite)?;
         self.inner
-            .record(id, epoch_index)
+            .record(id, epoch.obj)
             .map(|r| r.cloned().map(|inner| PySP3Record { inner }))
             .map_err(sp3_py_err)
     }

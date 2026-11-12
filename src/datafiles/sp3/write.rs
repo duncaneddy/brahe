@@ -101,8 +101,7 @@ impl SP3 {
     /// let header = SP3Header { has_velocity: false, ..Default::default() };
     /// let mut sp3 = SP3::new(vec![sat], 900.0, header).unwrap();
     /// let t0 = Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::GPS);
-    /// let k = sp3.push_epoch(t0).unwrap();
-    /// sp3.set_record(sat, k, SP3Record::new([1.5e7, 2.0e7, 5.0e6]).with_clock(2.5e-5)).unwrap();
+    /// sp3.set_record(sat, t0, SP3Record::new([1.5e7, 2.0e7, 5.0e6]).with_clock(2.5e-5)).unwrap();
     ///
     /// let text = sp3.to_string().unwrap();
     /// assert!(text.starts_with("#dP2024 11 10  0  0  0.00000000       1 ORBIT IGS20 EXT BRHE\n"));
@@ -164,8 +163,8 @@ impl SP3 {
     /// let sat = SP3SatelliteId::new(GNSSSystem::GPS, 1).unwrap();
     /// let mut sp3 = SP3::new(vec![sat], 900.0, SP3Header::default()).unwrap();
     /// let t0 = Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::GPS);
-    /// sp3.push_epoch(t0).unwrap();
-    /// sp3.set_record(sat, 0, SP3Record::new([1.5e7, 2.0e7, 5.0e6])).unwrap();
+    /// sp3.set_epoch(t0, &[]).unwrap();
+    /// sp3.set_record(sat, sp3.epochs()[0], SP3Record::new([1.5e7, 2.0e7, 5.0e6])).unwrap();
     ///
     /// let path = std::env::temp_dir().join("brahe_sp3_to_file_example.sp3");
     /// sp3.to_file(&path).unwrap();
@@ -800,10 +799,10 @@ mod tests {
     fn two_satellite_file(options: SP3Header) -> SP3 {
         let mut sp3 = SP3::new(vec![sat("G01"), sat("G02")], 900.0, options).unwrap();
         for k in 0..2 {
-            sp3.push_epoch(gps_t0() + 900.0 * k as f64).unwrap();
+            sp3.set_epoch(gps_t0() + 900.0 * k as f64, &[]).unwrap();
             sp3.set_record(
                 sat("G01"),
-                k,
+                gps_t0() + 900.0 * k as f64,
                 SP3Record::new([15_000_000.0, 20_000_000.0, 5_000_000.0])
                     .with_velocity([1000.0, -2000.0, 500.0])
                     .with_clock(2.5e-5)
@@ -1157,8 +1156,12 @@ mod tests {
     #[parallel]
     fn test_SP3_to_string_absent_record() {
         let mut sp3 = two_satellite_file(SP3Header::default());
-        sp3.set_record(sat("G01"), 1, SP3Record::new([1.0e7, 2.0e7, 3.0e7]))
-            .unwrap();
+        sp3.set_record(
+            sat("G01"),
+            sp3.epochs()[1],
+            SP3Record::new([1.0e7, 2.0e7, 3.0e7]),
+        )
+        .unwrap();
         let text = sp3.to_string().unwrap();
         let lines: Vec<&str> = text.lines().collect();
         let g02: Vec<&str> = lines
@@ -1179,8 +1182,8 @@ mod tests {
         assert!(lines.contains(&"VG01      0.000000      0.000000      0.000000 999999.999999"));
 
         let back = SP3::from_str(&text).unwrap();
-        assert!(back.record(sat("G02"), 0).unwrap().is_none());
-        let g01 = back.record(sat("G01"), 1).unwrap().unwrap();
+        assert!(back.record(sat("G02"), back.epochs()[0]).unwrap().is_none());
+        let g01 = back.record(sat("G01"), back.epochs()[1]).unwrap().unwrap();
         assert_eq!(
             (g01.clock, g01.velocity, g01.clock_rate),
             (None, None, None)
@@ -1205,7 +1208,7 @@ mod tests {
         record.clock_std = Some(1.025f64.powi(219) * 1e-12);
         record.clock_event = true;
         record.orbit_predicted = true;
-        sp3.set_record(sat("G01"), 0, record).unwrap();
+        sp3.set_record(sat("G01"), sp3.epochs()[0], record).unwrap();
         let text = sp3.to_string().unwrap();
         // 10 mm lies between 1.25^10 = 9.31 mm and 1.25^11 = 11.64 mm.
         assert!(
@@ -1261,7 +1264,7 @@ mod tests {
         let mut sp3 = two_satellite_file(SP3Header::default());
         let mut record = SP3Record::new([1.0e7, 2.0e7, 3.0e7]);
         record.position_std[1] = Some(0.01);
-        sp3.set_record(sat("G02"), 1, record).unwrap();
+        sp3.set_record(sat("G02"), sp3.epochs()[1], record).unwrap();
         let msg = write_error(&sp3);
         assert!(msg.contains("G02 at epoch 1"), "{msg}");
         assert!(msg.contains("no position/velocity base"), "{msg}");
@@ -1271,7 +1274,7 @@ mod tests {
         let mut record = SP3Record::new([1.0e7, 2.0e7, 3.0e7]);
         record.position_std = [Some(0.01); 3];
         record.clock_rate_std = Some(1e-16);
-        sp3.set_record(sat("G02"), 0, record).unwrap();
+        sp3.set_record(sat("G02"), sp3.epochs()[0], record).unwrap();
         let msg = write_error(&sp3);
         assert!(msg.contains("no clock base"), "{msg}");
     }
@@ -1353,14 +1356,23 @@ mod tests {
     #[parallel]
     fn test_SP3_to_string_value_errors() {
         let mut sp3 = two_satellite_file(SP3Header::default());
-        sp3.set_record(sat("G02"), 0, SP3Record::new([1.0e13, 0.0, 0.0]))
-            .unwrap();
+        sp3.set_record(
+            sat("G02"),
+            sp3.epochs()[0],
+            SP3Record::new([1.0e13, 0.0, 0.0]),
+        )
+        .unwrap();
         assert!(write_error(&sp3).contains("does not fit"));
 
         let mut sp3 = two_satellite_file(SP3Header::default());
-        sp3.set_record(sat("G02"), 0, SP3Record::new([f64::NAN, 0.0, 0.0]))
-            .unwrap();
-        assert!(write_error(&sp3).contains("does not fit"));
+        assert!(
+            sp3.set_record(
+                sat("G02"),
+                sp3.epochs()[0],
+                SP3Record::new([f64::NAN, 0.0, 0.0])
+            )
+            .is_err()
+        );
 
         let mut sp3 = two_satellite_file(SP3Header::default());
         sp3.header.accuracies[0] = Some(f64::INFINITY);
@@ -1370,7 +1382,7 @@ mod tests {
         sp3.header.position_base = Some(1.25);
         let mut record = SP3Record::new([1.0e7, 2.0e7, 3.0e7]);
         record.position_std[0] = Some(-1.0);
-        sp3.set_record(sat("G02"), 0, record).unwrap();
+        sp3.set_record(sat("G02"), sp3.epochs()[0], record).unwrap();
         assert!(write_error(&sp3).contains("standard deviation"));
     }
 
@@ -1396,7 +1408,8 @@ mod tests {
             record
         };
 
-        sp3.set_record(sat("G02"), 0, record(blank())).unwrap();
+        sp3.set_record(sat("G02"), sp3.epochs()[0], record(blank()))
+            .unwrap();
         let text = sp3.to_string().unwrap();
         assert!(text.contains("\nEP "), "{text}");
 
@@ -1404,14 +1417,16 @@ mod tests {
             std: [Some(-0.1), None, None],
             ..blank()
         };
-        sp3.set_record(sat("G02"), 0, record(negative)).unwrap();
+        sp3.set_record(sat("G02"), sp3.epochs()[0], record(negative))
+            .unwrap();
         assert!(write_error(&sp3).contains("not a non-negative number"));
 
         let not_a_number = SP3Correlation {
             xy: Some(f64::NAN),
             ..blank()
         };
-        sp3.set_record(sat("G02"), 0, record(not_a_number)).unwrap();
+        sp3.set_record(sat("G02"), sp3.epochs()[0], record(not_a_number))
+            .unwrap();
         assert!(write_error(&sp3).contains("correlation coefficient is NaN"));
     }
 
@@ -1420,7 +1435,7 @@ mod tests {
     fn test_SP3_to_string_epoch_second_rounding() {
         let mut sp3 = SP3::new(vec![sat("G01")], 30.0, SP3Header::default()).unwrap();
         let t0 = gps_t0() + 59.999_999_999_9;
-        sp3.push_epoch(t0).unwrap();
+        sp3.set_epoch(t0, &[]).unwrap();
         let text = sp3.to_string().unwrap();
         assert!(
             text.contains("\n*  2024 11 10  0  1  0.00000000\n"),
@@ -1442,7 +1457,7 @@ mod tests {
         let mut sp3 = SP3::new(vec![sat("G01")], 60.0, options).unwrap();
         let t0 = Epoch::from_datetime(2016, 12, 31, 23, 59, 0.0, 0.0, TimeSystem::UTC);
         for k in 0..3 {
-            sp3.push_epoch(t0 + 60.0 * k as f64).unwrap();
+            sp3.set_epoch(t0 + 60.0 * k as f64, &[]).unwrap();
         }
         let text = sp3.to_string().unwrap();
         assert!(
@@ -1465,7 +1480,7 @@ mod tests {
     #[parallel]
     fn test_SP3_to_string_interval_at_written_precision() {
         let mut sp3 = SP3::new(vec![sat("G01")], 1.0e-9, SP3Header::default()).unwrap();
-        sp3.push_epoch(gps_t0()).unwrap();
+        sp3.set_epoch(gps_t0(), &[]).unwrap();
         let msg = write_error(&sp3);
         assert!(
             msg.contains("epoch interval 0.000000001 s rounds to zero at 8 decimal places"),
@@ -1473,7 +1488,7 @@ mod tests {
         );
 
         let mut sp3 = SP3::new(vec![sat("G01")], 1.0e6, SP3Header::default()).unwrap();
-        sp3.push_epoch(gps_t0()).unwrap();
+        sp3.set_epoch(gps_t0(), &[]).unwrap();
         let msg = write_error(&sp3);
         assert!(
             msg.contains("epoch interval 1000000 s does not fit the 14-column ## field"),
@@ -1481,12 +1496,12 @@ mod tests {
         );
 
         let mut sp3 = SP3::new(vec![sat("G01")], 99_999.0, SP3Header::default()).unwrap();
-        sp3.push_epoch(gps_t0()).unwrap();
+        sp3.set_epoch(gps_t0(), &[]).unwrap();
         assert!(sp3.to_string().unwrap().contains(" 99999.00000000 "));
 
         let mut sp3 = SP3::new(vec![sat("G01")], 6.0e-9, SP3Header::default()).unwrap();
-        sp3.push_epoch(gps_t0() + 6.0e-9).unwrap();
-        sp3.push_epoch(gps_t0() + 12.0e-9).unwrap();
+        sp3.set_epoch(gps_t0() + 6.0e-9, &[]).unwrap();
+        sp3.set_epoch(gps_t0() + 12.0e-9, &[]).unwrap();
         let msg = write_error(&sp3);
         assert!(msg.contains("is not after the last epoch"), "{msg}");
     }
@@ -1496,7 +1511,7 @@ mod tests {
     fn test_SP3_to_string_date_reference_uses_written_start() {
         let line = |start: Epoch| {
             let mut sp3 = SP3::new(vec![sat("G01")], 900.0, SP3Header::default()).unwrap();
-            sp3.push_epoch(start).unwrap();
+            sp3.set_epoch(start, &[]).unwrap();
             sp3.to_string().unwrap().lines().nth(1).unwrap().to_string()
         };
         let rounded = line(gps_t0() - 4.0e-9);
@@ -1520,7 +1535,8 @@ mod tests {
         record.clock_std = Some(1.0);
         record.velocity_std = [Some(1.0e4), None, None];
         record.clock_rate_std = Some(1.0e-1);
-        sp3.set_record(sat("G02"), 0, record.clone()).unwrap();
+        sp3.set_record(sat("G02"), sp3.epochs()[0], record.clone())
+            .unwrap();
         let text = sp3.to_string().unwrap();
         assert!(
             text.lines().any(|l| l
@@ -1534,7 +1550,7 @@ mod tests {
         );
 
         let back = SP3::from_str(&text).unwrap();
-        let written = back.record(sat("G02"), 0).unwrap().unwrap();
+        let written = back.record(sat("G02"), back.epochs()[0]).unwrap().unwrap();
         assert_eq!(written.position_std[0], Some(f64::INFINITY));
         assert_eq!(written.clock_std, Some(f64::INFINITY));
         assert_eq!(written.velocity_std[0], Some(f64::INFINITY));
@@ -1557,7 +1573,7 @@ mod tests {
             let mut record = SP3Record::new([1.0e7, 2.0e7, 3.0e7]).with_clock(1e-4);
             record.position_std = [Some(0.010); 3];
             record.clock_std = Some(1e-10);
-            sp3.set_record(sat("G02"), 0, record).unwrap();
+            sp3.set_record(sat("G02"), sp3.epochs()[0], record).unwrap();
             sp3
         };
         for base in [0.0, 1.0, 0.5, -1.25, f64::NAN, f64::INFINITY] {
@@ -1583,7 +1599,7 @@ mod tests {
         let sp3 = with_std(Some(1.250_000_04), Some(1.025));
         let back = SP3::from_str(&sp3.to_string().unwrap()).unwrap();
         assert_eq!(back.header.position_base, Some(1.25));
-        let written = back.record(sat("G02"), 0).unwrap().unwrap();
+        let written = back.record(sat("G02"), back.epochs()[0]).unwrap().unwrap();
         assert_quantized(Some(0.010), written.position_std[0], Some(1.25), "std");
     }
 
@@ -1594,7 +1610,7 @@ mod tests {
             let mut sp3 = two_satellite_file(SP3Header::default());
             sp3.set_record(
                 sat("G02"),
-                0,
+                sp3.epochs()[0],
                 SP3Record::new([1.0e7, 2.0e7, 3.0e7]).with_clock(clock),
             )
             .unwrap();
@@ -1609,13 +1625,18 @@ mod tests {
 
         let text = clock_file(0.999_998_9).to_string().unwrap();
         let back = SP3::from_str(&text).unwrap();
-        let clock = back.record(sat("G02"), 0).unwrap().unwrap().clock.unwrap();
+        let clock = back
+            .record(sat("G02"), back.epochs()[0])
+            .unwrap()
+            .unwrap()
+            .clock
+            .unwrap();
         assert_abs_diff_eq!(clock, 0.999_998_9, epsilon = 1e-12);
 
         let mut sp3 = two_satellite_file(SP3Header::default());
         sp3.set_record(
             sat("G02"),
-            1,
+            sp3.epochs()[1],
             SP3Record::new([1.0e7, 2.0e7, 3.0e7])
                 .with_velocity([1.0, 2.0, 3.0])
                 .with_clock_rate(1.0e-4),
@@ -1662,7 +1683,7 @@ mod tests {
 
         let written = SP3::from_str(&text).unwrap();
         let blank = written
-            .record(sat("G01"), 0)
+            .record(sat("G01"), written.epochs()[0])
             .unwrap()
             .unwrap()
             .position_correlation
@@ -1673,7 +1694,7 @@ mod tests {
             [None; 6]
         );
         let full = written
-            .record(sat("G02"), 0)
+            .record(sat("G02"), written.epochs()[0])
             .unwrap()
             .unwrap()
             .position_correlation
@@ -1700,7 +1721,7 @@ mod tests {
             yc: None,
             zc: Some(-0.25),
         });
-        sp3.set_record(sat("G02"), 0, record).unwrap();
+        sp3.set_record(sat("G02"), sp3.epochs()[0], record).unwrap();
         let text = sp3.to_string().unwrap();
         assert!(
             text.lines().any(|l| l
@@ -1709,7 +1730,7 @@ mod tests {
         );
         let back = SP3::from_str(&text).unwrap();
         let c = back
-            .record(sat("G02"), 0)
+            .record(sat("G02"), back.epochs()[0])
             .unwrap()
             .unwrap()
             .position_correlation
@@ -1737,7 +1758,7 @@ mod tests {
                 yc: None,
                 zc: None,
             });
-            sp3.set_record(sat("G02"), 0, record).unwrap();
+            sp3.set_record(sat("G02"), sp3.epochs()[0], record).unwrap();
             sp3
         };
         for xy in [2.0, -2.0, 1.0, -1.0, 0.999_999_96, f64::INFINITY] {
@@ -1751,7 +1772,7 @@ mod tests {
             let text = with_xy(xy).to_string().unwrap();
             let back = SP3::from_str(&text).unwrap();
             let c = back
-                .record(sat("G02"), 0)
+                .record(sat("G02"), back.epochs()[0])
                 .unwrap()
                 .unwrap()
                 .position_correlation

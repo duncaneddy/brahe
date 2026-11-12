@@ -1724,6 +1724,7 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PySP3Correlation>()?;
     module.add_class::<PySP3Record>()?;
     module.add_class::<PySP3>()?;
+    module.add_class::<PySP3Satellite>()?;
     module.add_class::<PyOMM>()?;
     module.add_class::<PyOPM>()?;
     module.add_class::<PyOPMManeuver>()?;

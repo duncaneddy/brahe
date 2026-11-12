@@ -3062,7 +3062,7 @@ impl PyTrajectory {
     ///     interpolation_method (InterpolationMethod): Interpolation method (default Linear)
     ///
     /// Returns:
-    ///     DTrajectory: New trajectory instance populated with data
+    ///     Trajectory: New trajectory instance populated with data
     ///
     /// Raises:
     ///     BraheError: If the trajectory configuration or provided data is invalid.

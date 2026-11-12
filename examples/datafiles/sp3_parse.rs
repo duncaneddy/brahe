@@ -21,7 +21,7 @@ fn main() {
     );
 
     let g01 = SP3SatelliteId::parse("G01").unwrap();
-    let record = sp3.record(g01, 0).unwrap().unwrap();
+    let record = sp3.record(g01, sp3.epochs()[0]).unwrap().unwrap();
     println!(
         "G01 position (m):    [{:.3}, {:.3}, {:.3}]",
         record.position[0], record.position[1], record.position[2]
@@ -30,5 +30,5 @@ fn main() {
     println!("G01 velocity:        {:?}", record.velocity);
 
     // A zero position is the format's bad-value marker and is read as absent
-    println!("G01 at epoch 1:      {:?}", sp3.record(g01, 1).unwrap());
+    println!("G01 at epoch 1:      {:?}", sp3.record(g01, sp3.epochs()[1]).unwrap());
 }

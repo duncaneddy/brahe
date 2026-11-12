@@ -21,10 +21,10 @@ print(f"Interval:    {header.epoch_interval:.1f} s")
 print(f"Span:        {sp3.start_epoch} to {sp3.end_epoch}")
 
 g01 = bh.SP3SatelliteId.parse("G01")
-record = sp3.record(g01, 0)
+record = sp3.record(g01, sp3.epochs[0])
 print(f"G01 position (m):    {np.array2string(record.position, precision=3)}")
 print(f"G01 clock (us):      {record.clock * 1e6:.6f}")
 print(f"G01 velocity:        {record.velocity}")
 
 # A zero position is the format's bad-value marker and is read as absent
-print(f"G01 at epoch 1:      {sp3.record(g01, 1)}")
+print(f"G01 at epoch 1:      {sp3.record(g01, sp3.epochs[1])}")

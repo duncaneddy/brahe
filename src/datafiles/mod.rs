@@ -5,5 +5,4 @@
  * SI-unit types.
  */
 
-pub(crate) mod compression;
 pub mod sp3;

@@ -27,18 +27,16 @@ for raan in (0.0, 90.0):
         )
     )
 
-# The providers are sampled from their stored trajectories, so propagate first
+# The file is built from the trajectories the propagators store, so propagate first
 end = epoch + 3600.0
 for prop in propagators:
     prop.propagate_to(end)
 
-# Sample both satellites every 60 s for one hour
-sp3 = bh.SP3.from_propagators(
-    [("L01", propagators[0]), ("L02", propagators[1])],
-    epoch,
-    end,
-    60.0,
-    bh.SP3Header(agency="BRHE", comments=["Sampled from numerical propagators"]),
+# Resample both trajectories every 60 s over the hour they cover
+sp3 = bh.SP3.from_trajectories(
+    [("L01", propagators[0].trajectory), ("L02", propagators[1].trajectory)],
+    step=60.0,
+    header=bh.SP3Header(agency="BRHE", comments=["Sampled from numerical propagators"]),
 )
 
 print(f"Satellites: {sp3.num_satellites}, epochs: {sp3.num_epochs}")

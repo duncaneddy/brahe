@@ -6,7 +6,6 @@
  */
 
 use std::collections::BTreeSet;
-use std::ops::Range;
 
 use nalgebra::{DVector, Vector3, Vector6};
 use uuid::Uuid;
@@ -22,20 +21,12 @@ use crate::trajectories::dorbit_trajectory::DOrbitTrajectory;
 use crate::trajectories::traits::{OrbitRepresentation, Trajectory};
 use crate::utils::{BraheError, DOrbitStateProvider, DStateProvider, Identifiable};
 
-/// Degree of the Lagrange polynomials [`SP3Satellite`] fits through its
-/// samples. A degree of 9 fits 10 samples.
-///
-/// # Examples
-///
-/// ```
-/// use brahe::datafiles::sp3::SP3_DEFAULT_LAGRANGE_DEGREE;
-///
-/// assert_eq!(SP3_DEFAULT_LAGRANGE_DEGREE, 9);
-/// ```
-pub const SP3_DEFAULT_LAGRANGE_DEGREE: usize = 9;
+/// Degree of the Lagrange polynomials an [`SP3`] gives its satellites unless
+/// its `interpolation_degree` is changed. A degree of 9 fits 10 samples.
+pub(crate) const DEFAULT_INTERPOLATION_DEGREE: usize = 9;
 
 /// Spacing, as a multiple of the epoch interval, above which two consecutive
-/// samples belong to different runs.
+/// samples have a gap between them.
 const GAP_FACTOR: f64 = 1.5;
 
 /// Orbit and clock samples of one satellite from SP3 data.
@@ -45,26 +36,30 @@ const GAP_FACTOR: f64 = 1.5;
 /// [`SP3Satellite::epochs`]. Positions and velocities are in the file's
 /// Earth-fixed frame (ITRF), in m and m/s.
 ///
-/// Two consecutive samples more than 1.5 epoch intervals apart belong to
-/// different runs, and the satellite has a gap between them.
-///
 /// The satellite is an orbit state provider ([`DStateProvider`] and
 /// [`DOrbitStateProvider`]) and is [`Identifiable`], named after its
 /// identifier (such as `"G01"`), so it can be passed to
 /// [`location_accesses`](crate::access::location_accesses). A state is
 /// interpolated in ITRF with a Lagrange polynomial of degree
-/// [`SP3_DEFAULT_LAGRANGE_DEGREE`] through the samples of the run around the
-/// requested epoch, as centered as the run allows; a shorter run uses all its
-/// samples. The velocity is interpolated from the records when every sample
-/// of the fit has one, and is the derivative of the position polynomial
-/// otherwise. A request outside the samples, inside a gap, or at a sample
-/// that forms a run on its own is an error.
+/// [`SP3Satellite::interpolation_degree`] through the samples nearest the
+/// requested epoch, as centered as the samples allow; a satellite with fewer
+/// samples uses all of them. The velocity is interpolated from the records
+/// when every sample of the fit has one, and is the derivative of the
+/// position polynomial otherwise. A request before the first sample or after
+/// the last one is an error, as is any request to a satellite with a single
+/// sample.
+///
+/// Missing samples do not stop interpolation: a state between two samples
+/// that are further apart than the epoch interval is fitted through the
+/// samples around the hole and loses accuracy as the hole grows.
+/// [`SP3Satellite::gaps`] lists those holes.
 ///
 /// # Examples
 ///
 /// ```
 /// use brahe::datafiles::sp3::{SP3, SP3Header, SP3Record, SP3SatelliteId};
 /// use brahe::time::{Epoch, TimeSystem};
+/// use brahe::trajectories::traits::Trajectory;
 /// use brahe::utils::{DOrbitStateProvider, Identifiable};
 ///
 /// let id: SP3SatelliteId = "G01".parse().unwrap();
@@ -72,27 +67,28 @@ const GAP_FACTOR: f64 = 1.5;
 /// let mut sp3 = SP3::new(vec![id], 900.0, header).unwrap();
 /// let t0 = Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::GPS);
 /// for k in 0..4 {
-///     let index = sp3.push_epoch(t0 + 900.0 * k as f64).unwrap();
 ///     let x = 2.0e7 + 900.0 * k as f64;
-///     sp3.set_record(id, index, SP3Record::new([x, 1.0e7, 1.0e7])).unwrap();
+///     sp3.set_record(id, t0 + 900.0 * k as f64, SP3Record::new([x, 1.0e7, 1.0e7])).unwrap();
 /// }
 ///
 /// let sat = sp3.satellite(id).unwrap();
 /// assert_eq!(sat.len(), 4);
 /// assert_eq!(sat.get_name(), Some("G01"));
+/// assert!(sat.gaps().is_empty());
 ///
 /// let state = sat.state_itrf(t0 + 450.0).unwrap();
 /// assert!((state[0] - 2.0e7 - 450.0).abs() < 1e-6);
 /// assert!((state[3] - 1.0).abs() < 1e-9);
 ///
-/// assert_eq!(sat.to_trajectories().unwrap().len(), 1);
+/// assert_eq!(sat.to_trajectory().unwrap().len(), 4);
 /// ```
 #[derive(Debug, Clone)]
 pub struct SP3Satellite {
     id: SP3SatelliteId,
     epochs: Vec<Epoch>,
     records: Vec<SP3Record>,
-    runs: Vec<Range<usize>>,
+    interval: f64,
+    interpolation_degree: usize,
     name: Option<String>,
     uuid: Option<Uuid>,
     numeric_id: Option<u64>,
@@ -106,57 +102,48 @@ impl SP3Satellite {
     /// * `id` - Satellite identifier
     /// * `samples` - Epoch and record of each valid sample
     /// * `interval` - Epoch interval of the samples. Units: s
+    /// * `interpolation_degree` - Degree of the Lagrange polynomials fitted through the samples
     ///
     /// # Returns
     ///
     /// * `Result<SP3Satellite, BraheError>` - The satellite, or an error if there are no
-    ///   samples or two consecutive samples are out of order or closer than half the
-    ///   epoch interval
+    ///   samples, the degree is zero, or two consecutive samples are out of order or
+    ///   closer than half the epoch interval
     pub(crate) fn from_samples(
         id: SP3SatelliteId,
         samples: Vec<(Epoch, SP3Record)>,
         interval: f64,
+        interpolation_degree: usize,
     ) -> Result<SP3Satellite, BraheError> {
         if samples.is_empty() {
             return Err(sp3_error(&format!("satellite {} has no valid sample", id)));
         }
+        check_interpolation_degree(interpolation_degree)?;
         let (epochs, records): (Vec<Epoch>, Vec<SP3Record>) = samples.into_iter().unzip();
 
-        let mut runs = Vec::new();
-        let mut start = 0;
-        for i in 1..epochs.len() {
-            let spacing = epochs[i] - epochs[i - 1];
+        for pair in epochs.windows(2) {
+            let spacing = pair[1] - pair[0];
             if spacing <= 0.0 {
                 return Err(sp3_error(&format!(
                     "samples of satellite {} are not in increasing epoch order: {} follows {}",
-                    id,
-                    epochs[i],
-                    epochs[i - 1]
+                    id, pair[1], pair[0]
                 )));
             }
             if spacing < 0.5 * interval {
                 return Err(sp3_error(&format!(
                     "samples of satellite {} at {} and {} are {} s apart, less than half \
                      the {} s epoch interval",
-                    id,
-                    epochs[i - 1],
-                    epochs[i],
-                    spacing,
-                    interval
+                    id, pair[0], pair[1], spacing, interval
                 )));
             }
-            if spacing > GAP_FACTOR * interval {
-                runs.push(start..i);
-                start = i;
-            }
         }
-        runs.push(start..epochs.len());
 
         Ok(SP3Satellite {
             id,
             epochs,
             records,
-            runs,
+            interval,
+            interpolation_degree,
             name: Some(id.to_string()),
             uuid: None,
             numeric_id: None,
@@ -168,7 +155,8 @@ impl SP3Satellite {
     /// The valid samples of each file are joined in order. Where two
     /// consecutive files share a boundary epoch, to within the tolerance of
     /// the epoch grid, the later file's sample replaces the earlier one. An
-    /// identifier without a valid sample in any file is skipped.
+    /// identifier without a valid sample in any file is skipped. The
+    /// satellites take the interpolation degree of the first file.
     ///
     /// # Arguments
     ///
@@ -211,7 +199,12 @@ impl SP3Satellite {
                 samples.append(&mut next);
             }
             if !samples.is_empty() {
-                satellites.push(SP3Satellite::from_samples(id, samples, interval)?);
+                satellites.push(SP3Satellite::from_samples(
+                    id,
+                    samples,
+                    interval,
+                    first.interpolation_degree,
+                )?);
             }
         }
         Ok(satellites)
@@ -226,7 +219,8 @@ impl SP3Satellite {
     /// gap in it. Two consecutive files may share their boundary epoch, where
     /// the later file's sample is kept. The files must have the same epoch
     /// interval. Time systems, agencies, coordinate system labels, and orbit
-    /// types need not match.
+    /// types need not match. The satellites take the interpolation degree of
+    /// the earliest file.
     ///
     /// # Arguments
     ///
@@ -252,9 +246,9 @@ impl SP3Satellite {
     ///     let header = SP3Header { has_velocity: false, ..Default::default() };
     ///     let mut sp3 = SP3::new(vec![id], 900.0, header).unwrap();
     ///     for k in start..start + 3 {
-    ///         let index = sp3.push_epoch(t0 + 900.0 * k as f64).unwrap();
+    ///         sp3.set_epoch(t0 + 900.0 * k as f64, &[]).unwrap();
     ///         let x = 2.0e7 + 900.0 * k as f64;
-    ///         sp3.set_record(id, index, SP3Record::new([x, 1.0e7, 1.0e7])).unwrap();
+    ///         sp3.set_record(id, t0 + 900.0 * k as f64, SP3Record::new([x, 1.0e7, 1.0e7])).unwrap();
     ///     }
     ///     sp3
     /// };
@@ -291,26 +285,22 @@ impl SP3Satellite {
         SP3Satellite::from_ordered_files(&ordered, ids)
     }
 
-    /// ITRF state at an epoch, interpolated from the run that contains it.
+    /// ITRF state at an epoch, interpolated from the samples nearest to it.
     fn interpolate(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
-        self.interpolate_at(epoch, SP3_DEFAULT_LAGRANGE_DEGREE)
+        self.interpolate_at(epoch, self.interpolation_degree)
     }
 
     /// ITRF state at an epoch from a Lagrange fit of at most `degree`.
     fn interpolate_at(&self, epoch: Epoch, degree: usize) -> Result<Vector6<f64>, BraheError> {
-        let index = self
-            .runs
-            .partition_point(|run| self.epochs[run.end - 1] < epoch);
-        let run = match self.runs.get(index) {
-            Some(run) if run.len() >= 2 && self.epochs[run.start] <= epoch => run,
-            _ => return Err(self.unavailable_error(epoch)),
-        };
+        let n = self.epochs.len();
+        if n < 2 || epoch < self.epochs[0] || epoch > self.epochs[n - 1] {
+            return Err(self.unavailable_error(epoch));
+        }
 
-        let n = run.len();
         let m = (degree + 1).min(n);
-        let before = self.epochs[run.clone()].partition_point(|&e| e <= epoch) - 1;
+        let before = self.epochs.partition_point(|&e| e <= epoch) - 1;
         let offset = before.saturating_sub((m - 1) / 2).min(n - m);
-        let window = (run.start + offset)..(run.start + offset + m);
+        let window = offset..(offset + m);
 
         let origin = self.epochs[window.start];
         let times: Vec<f64> = self.epochs[window.clone()]
@@ -341,31 +331,140 @@ impl SP3Satellite {
         ))
     }
 
-    /// Error for a state request at an epoch no run of two or more samples covers.
+    /// Error for a state request the samples cannot answer.
     fn unavailable_error(&self, epoch: Epoch) -> BraheError {
         let (first, last) = (self.start_epoch(), self.end_epoch());
-        let detail = if epoch < first || epoch > last {
+        let detail = if self.epochs.len() < 2 {
+            format!(
+                "satellite {} has a single sample at {}; a state needs at least two samples",
+                self.id, first
+            )
+        } else {
             format!(
                 "satellite {} has samples from {} to {}; epoch {} is outside that span",
                 self.id, first, last, epoch
             )
-        } else {
-            let next = self.epochs.partition_point(|&e| e <= epoch);
-            let previous = next - 1;
-            if self.epochs[previous] == epoch {
-                format!(
-                    "satellite {} has a single sample at {} that is not part of a contiguous run \
-                     of at least two samples",
-                    self.id, epoch
-                )
-            } else {
-                format!(
-                    "satellite {} has no samples from {} to {}; epoch {} is inside that gap",
-                    self.id, self.epochs[previous], self.epochs[next], epoch
-                )
-            }
         };
         BraheError::OutOfBoundsError(format!("SP3: {}", detail))
+    }
+
+    /// Degree of the Lagrange polynomials fitted through the samples.
+    ///
+    /// # Returns
+    ///
+    /// * `usize` - The degree; a degree of 9 fits 10 samples
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use brahe::datafiles::sp3::{SP3, SP3Header, SP3Record, SP3SatelliteId};
+    /// # use brahe::time::{Epoch, TimeSystem};
+    /// # let id: SP3SatelliteId = "G01".parse().unwrap();
+    /// # let mut sp3 = SP3::new(vec![id], 900.0, SP3Header::default()).unwrap();
+    /// # let t0 = Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::GPS);
+    /// # sp3.set_record(id, t0, SP3Record::new([2.0e7, 1.0e7, 1.0e7])).unwrap();
+    /// assert_eq!(sp3.satellite(id).unwrap().interpolation_degree(), 9);
+    ///
+    /// sp3.interpolation_degree = 7;
+    /// assert_eq!(sp3.satellite(id).unwrap().interpolation_degree(), 7);
+    /// ```
+    pub fn interpolation_degree(&self) -> usize {
+        self.interpolation_degree
+    }
+
+    /// Set the degree of the Lagrange polynomials fitted through the samples.
+    ///
+    /// # Arguments
+    ///
+    /// * `degree` - Degree of at least 1; a fit uses `degree + 1` samples, or every
+    ///   sample when the satellite has fewer
+    ///
+    /// # Returns
+    ///
+    /// * `Result<(), BraheError>` - An error if `degree` is zero
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use brahe::datafiles::sp3::{SP3, SP3Header, SP3Record, SP3SatelliteId};
+    /// # use brahe::time::{Epoch, TimeSystem};
+    /// # let id: SP3SatelliteId = "G01".parse().unwrap();
+    /// # let mut sp3 = SP3::new(vec![id], 900.0, SP3Header::default()).unwrap();
+    /// # let t0 = Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::GPS);
+    /// # sp3.set_record(id, t0, SP3Record::new([2.0e7, 1.0e7, 1.0e7])).unwrap();
+    /// let mut sat = sp3.satellite(id).unwrap();
+    /// sat.set_interpolation_degree(5).unwrap();
+    /// assert_eq!(sat.interpolation_degree(), 5);
+    /// assert!(sat.set_interpolation_degree(0).is_err());
+    /// ```
+    pub fn set_interpolation_degree(&mut self, degree: usize) -> Result<(), BraheError> {
+        check_interpolation_degree(degree)?;
+        self.interpolation_degree = degree;
+        Ok(())
+    }
+
+    /// Return the satellite with another interpolation degree.
+    ///
+    /// # Arguments
+    ///
+    /// * `degree` - Degree of at least 1; a fit uses `degree + 1` samples, or every
+    ///   sample when the satellite has fewer
+    ///
+    /// # Returns
+    ///
+    /// * `Result<SP3Satellite, BraheError>` - The satellite, or an error if `degree` is zero
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use brahe::datafiles::sp3::{SP3, SP3Header, SP3Record, SP3SatelliteId};
+    /// # use brahe::time::{Epoch, TimeSystem};
+    /// # let id: SP3SatelliteId = "G01".parse().unwrap();
+    /// # let mut sp3 = SP3::new(vec![id], 900.0, SP3Header::default()).unwrap();
+    /// # let t0 = Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::GPS);
+    /// # sp3.set_record(id, t0, SP3Record::new([2.0e7, 1.0e7, 1.0e7])).unwrap();
+    /// let sat = sp3.satellite(id).unwrap().with_interpolation_degree(5).unwrap();
+    /// assert_eq!(sat.interpolation_degree(), 5);
+    /// ```
+    pub fn with_interpolation_degree(mut self, degree: usize) -> Result<Self, BraheError> {
+        self.set_interpolation_degree(degree)?;
+        Ok(self)
+    }
+
+    /// Spans where samples are missing.
+    ///
+    /// Two consecutive samples more than 1.5 epoch intervals apart have a gap
+    /// between them. A satellite with zero positions at 10:15 and 10:30 in a
+    /// 15-minute file has one gap, from 10:00 to 10:45.
+    ///
+    /// # Returns
+    ///
+    /// * `Vec<(Epoch, Epoch)>` - The last sample before and the first sample after each
+    ///   gap, in time order
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::datafiles::sp3::{SP3, SP3Header, SP3Record, SP3SatelliteId};
+    /// use brahe::time::{Epoch, TimeSystem};
+    ///
+    /// let id: SP3SatelliteId = "G01".parse().unwrap();
+    /// let mut sp3 = SP3::new(vec![id], 900.0, SP3Header::default()).unwrap();
+    /// let t0 = Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::GPS);
+    /// for k in [0, 1, 2, 5, 6] {
+    ///     let y = 1.0e7 + 1000.0 * k as f64;
+    ///     sp3.set_record(id, t0 + 900.0 * k as f64, SP3Record::new([2.0e7, y, 1.0e7])).unwrap();
+    /// }
+    ///
+    /// let gaps = sp3.satellite(id).unwrap().gaps();
+    /// assert_eq!(gaps, vec![(t0 + 1800.0, t0 + 4500.0)]);
+    /// ```
+    pub fn gaps(&self) -> Vec<(Epoch, Epoch)> {
+        self.epochs
+            .windows(2)
+            .filter(|pair| pair[1] - pair[0] > GAP_FACTOR * self.interval)
+            .map(|pair| (pair[0], pair[1]))
+            .collect()
     }
 
     /// Satellite identifier.
@@ -382,8 +481,8 @@ impl SP3Satellite {
     /// # let id: SP3SatelliteId = "G01".parse().unwrap();
     /// # let mut sp3 = SP3::new(vec![id], 900.0, SP3Header::default()).unwrap();
     /// # let t0 = Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::GPS);
-    /// # sp3.push_epoch(t0).unwrap();
-    /// # sp3.set_record(id, 0, SP3Record::new([2.0e7, 1.0e7, 1.0e7])).unwrap();
+    /// # sp3.set_epoch(t0, &[]).unwrap();
+    /// # sp3.set_record(id, sp3.epochs()[0], SP3Record::new([2.0e7, 1.0e7, 1.0e7])).unwrap();
     /// assert_eq!(sp3.satellite(id).unwrap().id(), id);
     /// ```
     pub fn id(&self) -> SP3SatelliteId {
@@ -404,8 +503,8 @@ impl SP3Satellite {
     /// # let id: SP3SatelliteId = "G01".parse().unwrap();
     /// # let mut sp3 = SP3::new(vec![id], 900.0, SP3Header::default()).unwrap();
     /// # let t0 = Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::GPS);
-    /// # sp3.push_epoch(t0).unwrap();
-    /// # sp3.set_record(id, 0, SP3Record::new([2.0e7, 1.0e7, 1.0e7])).unwrap();
+    /// # sp3.set_epoch(t0, &[]).unwrap();
+    /// # sp3.set_record(id, sp3.epochs()[0], SP3Record::new([2.0e7, 1.0e7, 1.0e7])).unwrap();
     /// assert_eq!(sp3.satellite(id).unwrap().len(), 1);
     /// ```
     pub fn len(&self) -> usize {
@@ -427,8 +526,8 @@ impl SP3Satellite {
     /// # let id: SP3SatelliteId = "G01".parse().unwrap();
     /// # let mut sp3 = SP3::new(vec![id], 900.0, SP3Header::default()).unwrap();
     /// # let t0 = Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::GPS);
-    /// # sp3.push_epoch(t0).unwrap();
-    /// # sp3.set_record(id, 0, SP3Record::new([2.0e7, 1.0e7, 1.0e7])).unwrap();
+    /// # sp3.set_epoch(t0, &[]).unwrap();
+    /// # sp3.set_record(id, sp3.epochs()[0], SP3Record::new([2.0e7, 1.0e7, 1.0e7])).unwrap();
     /// assert!(!sp3.satellite(id).unwrap().is_empty());
     /// ```
     pub fn is_empty(&self) -> bool {
@@ -449,8 +548,8 @@ impl SP3Satellite {
     /// # let id: SP3SatelliteId = "G01".parse().unwrap();
     /// # let mut sp3 = SP3::new(vec![id], 900.0, SP3Header::default()).unwrap();
     /// # let t0 = Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::GPS);
-    /// # sp3.push_epoch(t0).unwrap();
-    /// # sp3.set_record(id, 0, SP3Record::new([2.0e7, 1.0e7, 1.0e7])).unwrap();
+    /// # sp3.set_epoch(t0, &[]).unwrap();
+    /// # sp3.set_record(id, sp3.epochs()[0], SP3Record::new([2.0e7, 1.0e7, 1.0e7])).unwrap();
     /// assert_eq!(sp3.satellite(id).unwrap().start_epoch(), t0);
     /// ```
     pub fn start_epoch(&self) -> Epoch {
@@ -471,8 +570,8 @@ impl SP3Satellite {
     /// # let id: SP3SatelliteId = "G01".parse().unwrap();
     /// # let mut sp3 = SP3::new(vec![id], 900.0, SP3Header::default()).unwrap();
     /// # let t0 = Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::GPS);
-    /// # sp3.push_epoch(t0).unwrap();
-    /// # sp3.set_record(id, 0, SP3Record::new([2.0e7, 1.0e7, 1.0e7])).unwrap();
+    /// # sp3.set_epoch(t0, &[]).unwrap();
+    /// # sp3.set_record(id, sp3.epochs()[0], SP3Record::new([2.0e7, 1.0e7, 1.0e7])).unwrap();
     /// assert_eq!(sp3.satellite(id).unwrap().end_epoch(), t0);
     /// ```
     pub fn end_epoch(&self) -> Epoch {
@@ -493,8 +592,8 @@ impl SP3Satellite {
     /// # let id: SP3SatelliteId = "G01".parse().unwrap();
     /// # let mut sp3 = SP3::new(vec![id], 900.0, SP3Header::default()).unwrap();
     /// # let t0 = Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::GPS);
-    /// # sp3.push_epoch(t0).unwrap();
-    /// # sp3.set_record(id, 0, SP3Record::new([2.0e7, 1.0e7, 1.0e7])).unwrap();
+    /// # sp3.set_epoch(t0, &[]).unwrap();
+    /// # sp3.set_record(id, sp3.epochs()[0], SP3Record::new([2.0e7, 1.0e7, 1.0e7])).unwrap();
     /// assert_eq!(sp3.satellite(id).unwrap().epochs(), &[t0]);
     /// ```
     pub fn epochs(&self) -> &[Epoch] {
@@ -515,8 +614,8 @@ impl SP3Satellite {
     /// # let id: SP3SatelliteId = "G01".parse().unwrap();
     /// # let mut sp3 = SP3::new(vec![id], 900.0, SP3Header::default()).unwrap();
     /// # let t0 = Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::GPS);
-    /// # sp3.push_epoch(t0).unwrap();
-    /// sp3.set_record(id, 0, SP3Record::new([2.0e7, 1.0e7, 1.0e7])).unwrap();
+    /// # sp3.set_epoch(t0, &[]).unwrap();
+    /// sp3.set_record(id, sp3.epochs()[0], SP3Record::new([2.0e7, 1.0e7, 1.0e7])).unwrap();
     /// assert_eq!(sp3.satellite(id).unwrap().positions(), vec![[2.0e7, 1.0e7, 1.0e7]]);
     /// ```
     pub fn positions(&self) -> Vec<[f64; 3]> {
@@ -542,9 +641,9 @@ impl SP3Satellite {
     /// # let id: SP3SatelliteId = "G01".parse().unwrap();
     /// # let mut sp3 = SP3::new(vec![id], 900.0, SP3Header::default()).unwrap();
     /// # let t0 = Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::GPS);
-    /// # sp3.push_epoch(t0).unwrap();
+    /// # sp3.set_epoch(t0, &[]).unwrap();
     /// let record = SP3Record::new([2.0e7, 1.0e7, 1.0e7]).with_velocity([0.0, 3.0e3, 0.0]);
-    /// sp3.set_record(id, 0, record).unwrap();
+    /// sp3.set_record(id, sp3.epochs()[0], record).unwrap();
     /// assert_eq!(sp3.satellite(id).unwrap().velocities(), vec![Some([0.0, 3.0e3, 0.0])]);
     /// ```
     pub fn velocities(&self) -> Vec<Option<[f64; 3]>> {
@@ -566,8 +665,8 @@ impl SP3Satellite {
     /// # let id: SP3SatelliteId = "G01".parse().unwrap();
     /// # let mut sp3 = SP3::new(vec![id], 900.0, SP3Header::default()).unwrap();
     /// # let t0 = Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::GPS);
-    /// # sp3.push_epoch(t0).unwrap();
-    /// sp3.set_record(id, 0, SP3Record::new([2.0e7, 1.0e7, 1.0e7]).with_clock(1.5e-5)).unwrap();
+    /// # sp3.set_epoch(t0, &[]).unwrap();
+    /// sp3.set_record(id, sp3.epochs()[0], SP3Record::new([2.0e7, 1.0e7, 1.0e7]).with_clock(1.5e-5)).unwrap();
     /// assert_eq!(sp3.satellite(id).unwrap().clocks(), vec![Some(1.5e-5)]);
     /// ```
     pub fn clocks(&self) -> Vec<Option<f64>> {
@@ -589,11 +688,11 @@ impl SP3Satellite {
     /// # let id: SP3SatelliteId = "G01".parse().unwrap();
     /// # let mut sp3 = SP3::new(vec![id], 900.0, SP3Header::default()).unwrap();
     /// # let t0 = Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::GPS);
-    /// # sp3.push_epoch(t0).unwrap();
+    /// # sp3.set_epoch(t0, &[]).unwrap();
     /// let record = SP3Record::new([2.0e7, 1.0e7, 1.0e7])
     ///     .with_velocity([0.0, 3.0e3, 0.0])
     ///     .with_clock_rate(1.0e-12);
-    /// sp3.set_record(id, 0, record).unwrap();
+    /// sp3.set_record(id, sp3.epochs()[0], record).unwrap();
     /// assert_eq!(sp3.satellite(id).unwrap().clock_rates(), vec![Some(1.0e-12)]);
     /// ```
     pub fn clock_rates(&self) -> Vec<Option<f64>> {
@@ -617,8 +716,8 @@ impl SP3Satellite {
     /// # let id: SP3SatelliteId = "G01".parse().unwrap();
     /// # let mut sp3 = SP3::new(vec![id], 900.0, SP3Header::default()).unwrap();
     /// # let t0 = Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::GPS);
-    /// # sp3.push_epoch(t0).unwrap();
-    /// sp3.set_record(id, 0, SP3Record::new([2.0e7, 1.0e7, 1.0e7]).with_clock(1.5e-5)).unwrap();
+    /// # sp3.set_epoch(t0, &[]).unwrap();
+    /// sp3.set_record(id, sp3.epochs()[0], SP3Record::new([2.0e7, 1.0e7, 1.0e7]).with_clock(1.5e-5)).unwrap();
     ///
     /// let sat = sp3.satellite(id).unwrap();
     /// assert_eq!(sat.records()[0].position, [2.0e7, 1.0e7, 1.0e7]);
@@ -628,21 +727,21 @@ impl SP3Satellite {
         &self.records
     }
 
-    /// Convert the samples to ITRF trajectories, one per contiguous run.
+    /// Convert the samples to an ITRF trajectory.
     ///
-    /// Each trajectory is a six-element Cartesian [`DOrbitTrajectory`] in the
+    /// The trajectory is a six-element Cartesian [`DOrbitTrajectory`] in the
     /// ITRF frame with the name, ID, and UUID of the satellite and Lagrange
-    /// interpolation of degree [`SP3_DEFAULT_LAGRANGE_DEGREE`], or the run
-    /// length less one for a shorter run. The state at each sample is the one
-    /// the satellite provides at that epoch, so a velocity comes from the
-    /// records only when every sample of the fit around it has one, and from
-    /// the position fit otherwise. A sample that forms a run on its own is
-    /// left out.
+    /// interpolation of degree [`SP3Satellite::interpolation_degree`], or the
+    /// number of samples less one for a satellite with fewer samples. The
+    /// state at each sample is the one the satellite provides at that epoch,
+    /// so a velocity comes from the records only when every sample of the
+    /// fit around it has one, and from the position fit otherwise. Gaps are
+    /// not marked in the trajectory; see [`SP3Satellite::gaps`].
     ///
     /// # Returns
     ///
-    /// * `Result<Vec<DOrbitTrajectory>, BraheError>` - One trajectory per run of at least
-    ///   two samples, in time order
+    /// * `Result<DOrbitTrajectory, BraheError>` - The trajectory, or an error for a
+    ///   satellite with a single sample
     ///
     /// # Examples
     ///
@@ -655,38 +754,43 @@ impl SP3Satellite {
     /// let header = SP3Header { has_velocity: false, ..Default::default() };
     /// let mut sp3 = SP3::new(vec![id], 900.0, header).unwrap();
     /// let t0 = Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::GPS);
-    /// for k in [0, 1, 2, 5, 6] {
-    ///     let index = sp3.push_epoch(t0 + 900.0 * k as f64).unwrap();
+    /// for k in 0..5 {
     ///     let y = 1.0e7 + 1000.0 * k as f64;
-    ///     sp3.set_record(id, index, SP3Record::new([2.0e7, y, 1.0e7])).unwrap();
+    ///     sp3.set_record(id, t0 + 900.0 * k as f64, SP3Record::new([2.0e7, y, 1.0e7])).unwrap();
     /// }
     ///
-    /// let trajectories = sp3.satellite(id).unwrap().to_trajectories().unwrap();
-    /// assert_eq!(trajectories.len(), 2);
-    /// assert_eq!(trajectories[0].len(), 3);
-    /// assert_eq!(trajectories[1].start_epoch(), Some(t0 + 4500.0));
+    /// let trajectory = sp3.satellite(id).unwrap().to_trajectory().unwrap();
+    /// assert_eq!(trajectory.len(), 5);
+    /// assert_eq!(trajectory.start_epoch(), Some(t0));
     /// ```
-    pub fn to_trajectories(&self) -> Result<Vec<DOrbitTrajectory>, BraheError> {
-        let mut trajectories = Vec::new();
-        for run in self.runs.iter().filter(|run| run.len() >= 2) {
-            let mut trajectory = DOrbitTrajectory::new(
-                6,
-                CelestialFrame::ITRF,
-                OrbitRepresentation::Cartesian,
-                None,
-            )?
-            .with_identity(self.name.as_deref(), self.uuid, self.numeric_id)
-            .with_interpolation_method(InterpolationMethod::Lagrange {
-                degree: SP3_DEFAULT_LAGRANGE_DEGREE.min(run.len() - 1),
-            });
-            for &epoch in &self.epochs[run.clone()] {
-                let state = self.interpolate(epoch)?;
-                trajectory.add(epoch, DVector::from_column_slice(state.as_slice()))?;
-            }
-            trajectories.push(trajectory);
+    pub fn to_trajectory(&self) -> Result<DOrbitTrajectory, BraheError> {
+        if self.epochs.len() < 2 {
+            return Err(self.unavailable_error(self.epochs[0]));
         }
-        Ok(trajectories)
+        let mut trajectory = DOrbitTrajectory::new(
+            6,
+            CelestialFrame::ITRF,
+            OrbitRepresentation::Cartesian,
+            None,
+        )?
+        .with_identity(self.name.as_deref(), self.uuid, self.numeric_id)
+        .with_interpolation_method(InterpolationMethod::Lagrange {
+            degree: self.interpolation_degree.min(self.epochs.len() - 1),
+        });
+        for &epoch in &self.epochs {
+            let state = self.interpolate(epoch)?;
+            trajectory.add(epoch, DVector::from_column_slice(state.as_slice()))?;
+        }
+        Ok(trajectory)
     }
+}
+
+/// Error for an interpolation degree of zero.
+fn check_interpolation_degree(degree: usize) -> Result<(), BraheError> {
+    if degree == 0 {
+        return Err(sp3_error("interpolation degree must be at least 1"));
+    }
+    Ok(())
 }
 
 impl Identifiable for SP3Satellite {
@@ -905,7 +1009,7 @@ mod tests {
         .unwrap();
         for k in 0..N_EPOCHS {
             let epoch = t0() + k as f64 * STEP;
-            let index = sp3.push_epoch(epoch).unwrap();
+            sp3.set_epoch(epoch, &[]).unwrap();
             for (n, id) in ids.iter().enumerate() {
                 let present = match n {
                     0 => !(40..=43).contains(&k),
@@ -921,10 +1025,10 @@ mod tests {
                 if !(n == 1 && k == 5) {
                     record = record.with_clock(1.0e-5 + 1.0e-9 * k as f64);
                 }
-                sp3.set_record(*id, index, record).unwrap();
+                sp3.set_record(*id, epoch, record).unwrap();
             }
         }
-        sp3.set_record(sid("G04"), 3, SP3Record::new([0.0; 3]))
+        sp3.set_record(sid("G04"), sp3.epochs()[3], SP3Record::new([0.0; 3]))
             .unwrap();
         (sp3, propagators)
     }
@@ -948,22 +1052,20 @@ mod tests {
 
     #[test]
     #[serial]
-    fn test_SP3Satellite_gap_split() {
+    fn test_SP3Satellite_gaps() {
         let (sp3, _) = build_sp3();
         let t0 = t0();
         let g01 = sp3.satellite("G01".parse().unwrap()).unwrap();
         assert_eq!(g01.len(), 93);
-        let trajectories = g01.to_trajectories().unwrap();
-        assert_eq!(trajectories.len(), 2);
-        assert_eq!(trajectories[0].get_name(), Some("G01"));
-        assert_eq!(
-            trajectories[0].frame,
-            ReferenceFrame::from(CelestialFrame::ITRF)
-        );
-        assert_eq!(trajectories[0].len(), 40);
-        assert_eq!(trajectories[0].epochs[39], t0 + 39.0 * 900.0);
-        assert_eq!(trajectories[1].len(), 53);
-        assert_eq!(trajectories[1].epochs[0], t0 + 44.0 * 900.0);
+        assert_eq!(g01.gaps(), vec![(t0 + 39.0 * 900.0, t0 + 44.0 * 900.0)]);
+        assert!(sp3.satellite(sid("G02")).unwrap().gaps().len() == 1);
+
+        let trajectory = g01.to_trajectory().unwrap();
+        assert_eq!(trajectory.get_name(), Some("G01"));
+        assert_eq!(trajectory.frame, ReferenceFrame::from(CelestialFrame::ITRF));
+        assert_eq!(trajectory.len(), 93);
+        assert_eq!(trajectory.epochs[39], t0 + 39.0 * 900.0);
+        assert_eq!(trajectory.epochs[40], t0 + 44.0 * 900.0);
     }
 
     #[test]
@@ -985,7 +1087,7 @@ mod tests {
         assert!(!g02.epochs().contains(&(t0 + 7.0 * 900.0)));
         assert_eq!(g02.start_epoch(), t0);
         assert_eq!(g02.end_epoch(), t0 + 96.0 * 900.0);
-        let expected = sp3.record(sid("G02"), 8).unwrap().unwrap();
+        let expected = sp3.record(sid("G02"), sp3.epochs()[8]).unwrap().unwrap();
         assert_eq!(g02.positions()[7], expected.position);
         assert_eq!(&g02.records()[7], expected);
     }
@@ -1014,23 +1116,35 @@ mod tests {
 
     #[test]
     #[serial]
-    fn test_SP3Satellite_single_sample_run() {
+    fn test_SP3Satellite_isolated_sample_is_kept() {
         let (sp3, _) = build_sp3();
+        let t0 = t0();
         let g03 = sp3.satellite("G03".parse().unwrap()).unwrap();
         assert_eq!(g03.len(), 12);
-        let trajectories = g03.to_trajectories().unwrap();
-        assert_eq!(trajectories.len(), 1);
-        assert_eq!(trajectories[0].len(), 11);
+        let isolated: Epoch = t0 + 20.0 * STEP;
+        assert_eq!(g03.gaps(), vec![(t0 + 10.0 * STEP, isolated)]);
+        assert_eq!(g03.to_trajectory().unwrap().len(), 12);
+
+        let state = g03.state_itrf(isolated).unwrap();
+        assert_eq!([state[0], state[1], state[2]], g03.positions()[11]);
+        assert!(g03.state_itrf(t0 + 15.0 * STEP).is_ok());
+        assert!(g03.state_itrf(t0 + 5.0 * STEP).is_ok());
     }
 
     #[test]
     #[parallel]
-    fn test_SP3Satellite_to_trajectories_single_sample() {
+    fn test_SP3Satellite_to_trajectory_single_sample() {
         let t0 = t0();
-        let sat =
-            SP3Satellite::from_samples(sid("G07"), vec![sample(t0, [1.0e7, 2.0e7, 3.0e6])], 900.0)
-                .unwrap();
-        assert!(sat.to_trajectories().unwrap().is_empty());
+        let sat = SP3Satellite::from_samples(
+            sid("G07"),
+            vec![sample(t0, [1.0e7, 2.0e7, 3.0e6])],
+            900.0,
+            DEFAULT_INTERPOLATION_DEGREE,
+        )
+        .unwrap();
+        assert!(sat.gaps().is_empty());
+        let err = sat.to_trajectory().unwrap_err().to_string();
+        assert!(err.contains("single sample"), "{err}");
         let err = sat.state_itrf(t0).unwrap_err().to_string();
         assert!(err.contains("G07") && err.contains(&t0.to_string()));
     }
@@ -1048,30 +1162,56 @@ mod tests {
 
     #[test]
     #[serial]
-    fn test_SP3Satellite_to_trajectories_interpolation_method() {
-        let (sp3, _) = build_sp3();
-        for trajectory in sp3
-            .satellite(sid("G01"))
-            .unwrap()
-            .to_trajectories()
-            .unwrap()
-        {
-            assert_eq!(
-                trajectory.get_interpolation_method(),
-                InterpolationMethod::Lagrange {
-                    degree: SP3_DEFAULT_LAGRANGE_DEGREE
-                }
-            );
-        }
+    fn test_SP3Satellite_interpolation_degree() {
+        let (mut sp3, _) = build_sp3();
+        let g01 = sp3.satellite(sid("G01")).unwrap();
+        assert_eq!(g01.interpolation_degree(), 9);
+        assert_eq!(
+            g01.to_trajectory().unwrap().get_interpolation_method(),
+            InterpolationMethod::Lagrange { degree: 9 }
+        );
+
+        // A satellite takes the degree of its file and can replace it.
+        sp3.interpolation_degree = 5;
+        let mut g01 = sp3.satellite(sid("G01")).unwrap();
+        assert_eq!(g01.interpolation_degree(), 5);
+        assert!(
+            sp3.satellites()
+                .unwrap()
+                .iter()
+                .all(|s| s.interpolation_degree() == 5)
+        );
+        assert_eq!(
+            g01.to_trajectory().unwrap().get_interpolation_method(),
+            InterpolationMethod::Lagrange { degree: 5 }
+        );
+        let t = t0() + 10.0 * STEP + 137.0;
+        let fifth = g01.state_itrf(t).unwrap();
+        assert_eq!(fifth, g01.interpolate_at(t, 5).unwrap());
+        g01.set_interpolation_degree(7).unwrap();
+        assert_eq!(
+            g01.state_itrf(t).unwrap(),
+            g01.interpolate_at(t, 7).unwrap()
+        );
+        assert_ne!(g01.state_itrf(t).unwrap(), fifth);
+        let g01 = g01.with_interpolation_degree(3).unwrap();
+        assert_eq!(g01.interpolation_degree(), 3);
+
+        let err = g01.clone().with_interpolation_degree(0).unwrap_err();
+        assert!(err.to_string().contains("at least 1"), "{err}");
+        sp3.interpolation_degree = 0;
+        assert!(sp3.satellite(sid("G01")).is_err());
+        assert!(sp3.satellites().is_err());
 
         let t0 = t0();
         let samples = (0..3)
             .map(|k| sample(t0 + 900.0 * k as f64, quadratic_position(900.0 * k as f64)))
             .collect();
-        let sat = SP3Satellite::from_samples(sid("G08"), samples, 900.0).unwrap();
-        let trajectories = sat.to_trajectories().unwrap();
+        let sat =
+            SP3Satellite::from_samples(sid("G08"), samples, 900.0, DEFAULT_INTERPOLATION_DEGREE)
+                .unwrap();
         assert_eq!(
-            trajectories[0].get_interpolation_method(),
+            sat.to_trajectory().unwrap().get_interpolation_method(),
             InterpolationMethod::Lagrange { degree: 2 }
         );
         let state = sat.state_itrf(t0 + 450.0).unwrap();
@@ -1085,9 +1225,10 @@ mod tests {
     fn test_SP3Satellite_derived_velocity_matches_propagator() {
         let (sp3, propagators) = build_sp3();
         let g01 = sp3.satellite(sid("G01")).unwrap();
-        let half = SP3_DEFAULT_LAGRANGE_DEGREE.div_ceil(2);
-        let runs = [(0usize, 40usize), (40, 93)];
-        for (start, end) in runs {
+        let half = DEFAULT_INTERPOLATION_DEGREE.div_ceil(2);
+        // Samples before and after the gap.
+        let stretches = [(0usize, 40usize), (40, 93)];
+        for (start, end) in stretches {
             for i in (start + half)..(end - half) {
                 let epoch = g01.epochs()[i];
                 let truth = propagators[0].state_itrf(epoch).unwrap();
@@ -1111,7 +1252,9 @@ mod tests {
             .iter()
             .map(|&t| sample(t0 + t, quadratic_position(t)))
             .collect();
-        let sat = SP3Satellite::from_samples(sid("G09"), samples, 300.0).unwrap();
+        let sat =
+            SP3Satellite::from_samples(sid("G09"), samples, 300.0, DEFAULT_INTERPOLATION_DEGREE)
+                .unwrap();
         for t in offsets.iter().copied().chain([150.0, 1777.0, 3599.0]) {
             let state = sat.state_itrf(t0 + t).unwrap();
             for (derived, expected) in state.iter().skip(3).zip(quadratic_velocity(t)) {
@@ -1123,7 +1266,8 @@ mod tests {
             sample(t0, [0.0, 1.0e7, 2.0e7]),
             sample(t0 + 60.0, [600.0, 1.0e7 - 120.0, 2.0e7]),
         ];
-        let sat = SP3Satellite::from_samples(sid("G10"), pair, 60.0).unwrap();
+        let sat = SP3Satellite::from_samples(sid("G10"), pair, 60.0, DEFAULT_INTERPOLATION_DEGREE)
+            .unwrap();
         for t in [0.0, 30.0, 60.0] {
             let state = sat.state_itrf(t0 + t).unwrap();
             assert_abs_diff_eq!(state[3], 10.0, epsilon = 1e-9);
@@ -1162,15 +1306,23 @@ mod tests {
             )
         };
         let samples: Vec<(Epoch, SP3Record)> = (0..5).map(with_velocity).collect();
-        let sat = SP3Satellite::from_samples(sid("G11"), samples.clone(), 900.0).unwrap();
+        let sat = SP3Satellite::from_samples(
+            sid("G11"),
+            samples.clone(),
+            900.0,
+            DEFAULT_INTERPOLATION_DEGREE,
+        )
+        .unwrap();
         let state = sat.state_itrf(t0 + 1800.0).unwrap();
         assert_eq!([state[3], state[4], state[5]], [1.0, 2.0, 1803.0]);
-        let trajectory = &sat.to_trajectories().unwrap()[0];
+        let trajectory = sat.to_trajectory().unwrap();
         assert_eq!(trajectory.states[2][5], 1803.0);
 
         let mut mixed = samples;
         mixed[3].1.velocity = None;
-        let sat = SP3Satellite::from_samples(sid("G11"), mixed, 900.0).unwrap();
+        let sat =
+            SP3Satellite::from_samples(sid("G11"), mixed, 900.0, DEFAULT_INTERPOLATION_DEGREE)
+                .unwrap();
         for epoch in sat.epochs() {
             let state = sat.state_itrf(*epoch).unwrap();
             for (derived, expected) in state.iter().skip(3).zip(quadratic_velocity(*epoch - t0)) {
@@ -1193,11 +1345,11 @@ mod tests {
             sample(t0 + 4501.0, p),
             sample(t0 + 5401.0, p),
         ];
-        let sat = SP3Satellite::from_samples(sid("G12"), samples, 900.0).unwrap();
-        let trajectories = sat.to_trajectories().unwrap();
-        assert_eq!(trajectories.len(), 2);
-        assert_eq!(trajectories[0].len(), 4);
-        assert_eq!(trajectories[1].epochs[0], t0 + 4501.0);
+        let sat =
+            SP3Satellite::from_samples(sid("G12"), samples, 900.0, DEFAULT_INTERPOLATION_DEGREE)
+                .unwrap();
+        assert_eq!(sat.gaps(), vec![(t0 + 3150.0, t0 + 4501.0)]);
+        assert_eq!(sat.to_trajectory().unwrap().len(), 6);
     }
 
     #[test]
@@ -1205,24 +1357,35 @@ mod tests {
     fn test_SP3Satellite_from_samples_errors() {
         let t0 = t0();
         let p = [1.0e7, 2.0e7, 3.0e6];
-        let err = SP3Satellite::from_samples(sid("G13"), Vec::new(), 900.0)
-            .unwrap_err()
-            .to_string();
+        let err =
+            SP3Satellite::from_samples(sid("G13"), Vec::new(), 900.0, DEFAULT_INTERPOLATION_DEGREE)
+                .unwrap_err()
+                .to_string();
         assert!(err.contains("G13"));
         let unordered = vec![sample(t0 + 900.0, p), sample(t0, p)];
-        assert!(SP3Satellite::from_samples(sid("G13"), unordered, 900.0).is_err());
+        assert!(
+            SP3Satellite::from_samples(sid("G13"), unordered, 900.0, DEFAULT_INTERPOLATION_DEGREE)
+                .is_err()
+        );
         let repeated = vec![sample(t0, p), sample(t0, p)];
-        assert!(SP3Satellite::from_samples(sid("G13"), repeated, 900.0).is_err());
+        assert!(
+            SP3Satellite::from_samples(sid("G13"), repeated, 900.0, DEFAULT_INTERPOLATION_DEGREE)
+                .is_err()
+        );
 
         let (e1, e2): (Epoch, Epoch) = (t0 + 900.0, t0 + 1300.0);
         let close = vec![sample(t0, p), sample(e1, p), sample(e2, p)];
-        let err = SP3Satellite::from_samples(sid("G13"), close, 900.0)
-            .unwrap_err()
-            .to_string();
+        let err =
+            SP3Satellite::from_samples(sid("G13"), close, 900.0, DEFAULT_INTERPOLATION_DEGREE)
+                .unwrap_err()
+                .to_string();
         assert!(err.contains("G13"), "{err}");
         assert!(err.contains(&e1.to_string()), "{err}");
         assert!(err.contains(&e2.to_string()), "{err}");
         assert!(err.contains("half the 900 s epoch interval"), "{err}");
+
+        let pair = vec![sample(t0, p), sample(t0 + 900.0, p)];
+        assert!(SP3Satellite::from_samples(sid("G13"), pair, 900.0, 0).is_err());
     }
 
     /// A 24 h position-only file at 900 s with three gap-free satellites,
@@ -1247,10 +1410,10 @@ mod tests {
         .unwrap();
         for k in 0..N_EPOCHS {
             let epoch = t0() + k as f64 * STEP;
-            let index = sp3.push_epoch(epoch).unwrap();
+            sp3.set_epoch(epoch, &[]).unwrap();
             for (id, propagator) in ids.iter().zip(&propagators) {
                 let x = propagator.state_itrf(epoch).unwrap();
-                sp3.set_record(*id, index, SP3Record::new([x[0], x[1], x[2]]))
+                sp3.set_record(*id, epoch, SP3Record::new([x[0], x[1], x[2]]))
                     .unwrap();
             }
         }
@@ -1259,7 +1422,7 @@ mod tests {
 
     #[test]
     #[serial]
-    fn test_SP3Satellite_DOrbitStateProvider_returns_file_positions_at_run_edges() {
+    fn test_SP3Satellite_DOrbitStateProvider_returns_file_positions_at_samples() {
         let (sp3, _) = build_sp3();
         let g01 = sp3.satellite(sid("G01")).unwrap();
         let positions = g01.positions();
@@ -1278,20 +1441,10 @@ mod tests {
 
     #[test]
     #[serial]
-    fn test_SP3Satellite_DOrbitStateProvider_errors_outside_runs() {
+    fn test_SP3Satellite_DOrbitStateProvider_errors_outside_samples() {
         let (sp3, _) = build_sp3();
         let t0 = t0();
         let g01 = sp3.satellite(sid("G01")).unwrap();
-
-        let gap_midpoint = t0 + 41.5 * STEP;
-        let err = g01.state_itrf(gap_midpoint).unwrap_err().to_string();
-        assert!(err.contains("G01"), "{err}");
-        let gap_start: Epoch = t0 + 39.0 * STEP;
-        let gap_end: Epoch = t0 + 44.0 * STEP;
-        assert!(
-            err.contains(&gap_start.to_string()) && err.contains(&gap_end.to_string()),
-            "{err}"
-        );
 
         let before = g01.state_itrf(t0 - 1.0).unwrap_err().to_string();
         assert!(
@@ -1306,56 +1459,54 @@ mod tests {
         );
 
         // Every provider method and batch form reports the same error.
-        assert!(g01.state(gap_midpoint).is_err());
-        assert!(g01.state_eci(gap_midpoint).is_err());
-        assert!(g01.state_gcrf(gap_midpoint).is_err());
-        assert!(g01.state_ecef(gap_midpoint).is_err());
-        assert!(g01.state_eme2000(gap_midpoint).is_err());
-        assert!(g01.state_bci(gap_midpoint).is_err());
-        assert!(g01.state_bcbf(gap_midpoint).is_err());
-        assert!(
-            g01.state_in_frame(CelestialFrame::GCRF, gap_midpoint)
-                .is_err()
-        );
-        assert!(
-            g01.state_koe_osc(gap_midpoint, AngleFormat::Degrees)
-                .is_err()
-        );
-        assert!(
-            g01.state_koe_mean(gap_midpoint, AngleFormat::Degrees)
-                .is_err()
-        );
-        assert!(g01.states_eci(&[t0, gap_midpoint]).is_err());
+        let outside = t0 - 1.0;
+        assert!(g01.state(outside).is_err());
+        assert!(g01.state_eci(outside).is_err());
+        assert!(g01.state_gcrf(outside).is_err());
+        assert!(g01.state_ecef(outside).is_err());
+        assert!(g01.state_eme2000(outside).is_err());
+        assert!(g01.state_bci(outside).is_err());
+        assert!(g01.state_bcbf(outside).is_err());
+        assert!(g01.state_in_frame(CelestialFrame::GCRF, outside).is_err());
+        assert!(g01.state_koe_osc(outside, AngleFormat::Degrees).is_err());
+        assert!(g01.state_koe_mean(outside, AngleFormat::Degrees).is_err());
+        assert!(g01.states_eci(&[t0, outside]).is_err());
     }
 
     #[test]
     #[serial]
-    fn test_SP3Satellite_DOrbitStateProvider_isolated_sample_errors() {
-        let (sp3, _) = build_sp3();
-        let t0 = t0();
-        let g03 = sp3.satellite(sid("G03")).unwrap();
-        let isolated: Epoch = t0 + 20.0 * STEP;
-        let err = g03.state_itrf(isolated).unwrap_err().to_string();
-        assert!(
-            err.contains("G03") && err.contains(&isolated.to_string()),
-            "{err}"
-        );
-        assert!(g03.state_itrf(t0 + 15.0 * STEP).is_err());
-        assert!(g03.state_itrf(t0 + 5.0 * STEP).is_ok());
+    fn test_SP3Satellite_DOrbitStateProvider_interpolates_inside_gap() {
+        let (sp3, propagators) = build_sp3();
+        let g01 = sp3.satellite(sid("G01")).unwrap();
+        // Epochs 40..=43 are missing, so the fit spans a 75 min hole and is
+        // far less accurate than between adjacent samples.
+        let inside = t0() + 41.5 * STEP;
+        let error = |epoch: Epoch| {
+            let state = g01.state_itrf(epoch).unwrap();
+            let truth = propagators[0].state_itrf(epoch).unwrap();
+            (0..3)
+                .map(|i| (state[i] - truth[i]).powi(2))
+                .sum::<f64>()
+                .sqrt()
+        };
+        let clean = error(t0() + 20.5 * STEP);
+        let gap = error(inside);
+        assert!(clean < 1e-2, "{clean}");
+        assert!(gap.is_finite() && gap > 100.0 * clean, "{gap} vs {clean}");
     }
 
     #[test]
     #[serial]
-    fn test_SP3Satellite_DOrbitStateProvider_matches_trajectories() {
+    fn test_SP3Satellite_DOrbitStateProvider_matches_trajectory() {
         let (sp3, _) = build_sp3();
         let g01 = sp3.satellite(sid("G01")).unwrap();
-        let segments = g01.to_trajectories().unwrap();
+        let trajectory = g01.to_trajectory().unwrap();
         // Between samples the satellite differentiates the position fit, while
         // a trajectory interpolates the sample velocities.
         let tolerance = |axis: usize| if axis < 3 { 1e-9 } else { 1e-6 };
         let t = t0() + 10.0 * STEP + 137.0;
         let from_satellite = g01.state_eci(t).unwrap();
-        let from_segment = segments[0].state_eci(t).unwrap();
+        let from_segment = trajectory.state_eci(t).unwrap();
         for axis in 0..6 {
             assert_abs_diff_eq!(
                 from_satellite[axis],
@@ -1364,10 +1515,10 @@ mod tests {
             );
         }
 
-        // The second run dispatches to the second segment.
+        // An epoch after the gap.
         let t = t0() + 60.0 * STEP + 11.0;
         let from_satellite = g01.state_itrf(t).unwrap();
-        let from_segment = segments[1].state_itrf(t).unwrap();
+        let from_segment = trajectory.state_itrf(t).unwrap();
         for axis in 0..6 {
             assert_abs_diff_eq!(
                 from_satellite[axis],
@@ -1402,9 +1553,7 @@ mod tests {
 
         let renamed = sp3.satellite(sid("G02")).unwrap().with_name("spare");
         assert_eq!(renamed.get_name(), Some("spare"));
-        for traj in renamed.to_trajectories().unwrap() {
-            assert_eq!(traj.get_name(), Some("spare"));
-        }
+        assert_eq!(renamed.to_trajectory().unwrap().get_name(), Some("spare"));
 
         let mut sat = sp3
             .satellite(sid("G02"))
@@ -1529,7 +1678,7 @@ mod tests {
     /// by up to 8e-6 m/s over the test orbits. Step doubling cannot see that
     /// jump: within `2 h` of a node the reference falls between the two
     /// one-sided derivatives, up to 4e-6 m/s from either. The samples at
-    /// 00:00 GPS lie 18 s from 00:00 UTC and are run edges, so the interior
+    /// 00:00 GPS lie 18 s from 00:00 UTC and are the ends of the samples, so the interior
     /// error figures are unaffected. This is the time derivative of the ITRF
     /// position. The `state_itrf` velocity is not: `state_gcrf_to_itrf` uses
     /// the constant `OMEGA_EARTH` and omits the precession-nutation and polar
@@ -1544,7 +1693,7 @@ mod tests {
     }
 
     /// Maximum interpolation and derived-velocity errors of one Lagrange
-    /// degree, split into the interior of a run and its edges.
+    /// degree, split into the interior of the samples and their edges.
     #[derive(Debug, Default)]
     struct AccuracyErrors {
         itrf_position_interior: f64,
@@ -1595,7 +1744,7 @@ mod tests {
     fn test_SP3Satellite_interpolation_accuracy_keplerian() {
         let (sp3, propagators) = build_clean_sp3();
         let degrees = [5, 7, 9, 11];
-        assert!(degrees.contains(&SP3_DEFAULT_LAGRANGE_DEGREE));
+        assert!(degrees.contains(&DEFAULT_INTERPOLATION_DEGREE));
         let mut errors: Vec<AccuracyErrors> =
             degrees.iter().map(|_| AccuracyErrors::default()).collect();
         let mut reference_step_difference = 0.0_f64;
@@ -1705,13 +1854,13 @@ mod tests {
             e.itrf_position_interior <= 1e-3 && e.itrf_velocity_interior <= 1e-4
         };
         for (&degree, e) in degrees.iter().zip(&errors) {
-            if degree < SP3_DEFAULT_LAGRANGE_DEGREE {
+            if degree < DEFAULT_INTERPOLATION_DEGREE {
                 assert!(
                     !meets_bounds(e),
                     "degree {degree} also meets the bounds: {e:?}"
                 );
             }
-            if degree == SP3_DEFAULT_LAGRANGE_DEGREE {
+            if degree == DEFAULT_INTERPOLATION_DEGREE {
                 assert!(meets_bounds(e), "{e:?}");
                 assert!(e.gcrf_position_interior <= 1e-3, "{e:?}");
                 assert!(e.gcrf_velocity_interior <= 1e-4, "{e:?}");
@@ -1738,7 +1887,7 @@ mod tests {
     fn itrf_errors(sat: &SP3Satellite, propagator: &KeplerianPropagator) -> [f64; 4] {
         let epochs = sat.epochs();
         let n = epochs.len();
-        let half = SP3_DEFAULT_LAGRANGE_DEGREE / 2;
+        let half = DEFAULT_INTERPOLATION_DEGREE / 2;
         let mut errors = [0.0_f64; 4];
         let [
             position_interior,
@@ -1802,7 +1951,7 @@ mod tests {
         let (sp3, propagators) = build_clean_sp3();
         let parsed = SP3::from_str(&sp3.to_string().unwrap()).unwrap();
 
-        let m = SP3_DEFAULT_LAGRANGE_DEGREE + 1;
+        let m = DEFAULT_INTERPOLATION_DEGREE + 1;
         let times: Vec<f64> = (0..m).map(|k| STEP * k as f64).collect();
         let basis = |j: usize, t: f64| {
             (0..m)
@@ -1878,15 +2027,17 @@ mod tests {
         )
         .unwrap();
         for k in (0..file.num_epochs()).step_by(3) {
-            let index = subsampled.push_epoch(file.epochs()[k]).unwrap();
+            subsampled.set_epoch(file.epochs()[k], &[]).unwrap();
             for id in &ids {
-                let record = file.record(*id, k).unwrap().unwrap().clone();
-                subsampled.set_record(*id, index, record).unwrap();
+                let record = file.record(*id, file.epochs()[k]).unwrap().unwrap().clone();
+                subsampled
+                    .set_record(*id, file.epochs()[k], record)
+                    .unwrap();
             }
         }
 
         let n = subsampled.num_epochs();
-        let half = SP3_DEFAULT_LAGRANGE_DEGREE / 2;
+        let half = DEFAULT_INTERPOLATION_DEGREE / 2;
         let mut max_interior_error = 0.0_f64;
         for id in &ids {
             let sat = subsampled.satellite(*id).unwrap();
@@ -1896,7 +2047,11 @@ mod tests {
                     continue;
                 }
                 let state = sat.state(file.epochs()[k]).unwrap();
-                let truth = file.record(*id, k).unwrap().unwrap().position;
+                let truth = file
+                    .record(*id, file.epochs()[k])
+                    .unwrap()
+                    .unwrap()
+                    .position;
                 let error = (0..3)
                     .map(|axis| (state[axis] - truth[axis]).powi(2))
                     .sum::<f64>()

@@ -69,7 +69,7 @@ The `refresh()` methods of `CachingEOPProvider` and `CachingSpaceWeatherProvider
 
 ## `SPACETRACK_USER` and `SPACETRACK_PASS`
 
-Credentials for [Space-Track.org](https://www.space-track.org). The `brahe spacetrack` CLI commands read them at startup and exit with an error when either is unset; the library's `SpaceTrackClient` takes credentials as constructor arguments and does not read these variables. See [Space-Track](../ephemeris/spacetrack/index.md).
+Credentials for [Space-Track.org](https://www.space-track.org). The `brahe spacetrack` CLI commands read them at startup and exit with an error when either is unset; the library's `SpaceTrackClient` takes credentials as constructor arguments and does not read these variables. See [Space-Track](../clients/spacetrack/index.md).
 
 ---
 

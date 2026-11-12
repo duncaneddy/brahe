@@ -80,7 +80,7 @@ Files with a `.Z` suffix were compressed with the Unix `compress` utility, which
 ## See Also
 
 - [SP3 Precise Orbit Files](../datafiles/sp3.md) -- The format of the orbit products and the satellite trajectory types
-- [Ephemeris Data Sources](index.md) -- Overview of the other ephemeris clients
+- [Clients](index.md) -- Overview of the other ephemeris clients
 - [Starlink Public Ephemerides](starlink.md) -- A client with the same cache and save semantics
 - [Caching](../utilities/caching.md) -- Cache directory layout and offline behavior
-- [IGS Products API Reference](../../library_api/ephemeris/igs.md) -- Class and function documentation
+- [IGS Products API Reference](../../library_api/clients/igs.md) -- Class and function documentation

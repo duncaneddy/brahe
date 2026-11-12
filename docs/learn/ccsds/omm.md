@@ -104,6 +104,6 @@ Note that OMM KVN does not use `META_START`/`META_STOP` markers — all keywords
 - [API Reference — OMM](../../library_api/ccsds/omm.md)
 - [CCSDS Data Formats](index.md) — Overview of all message types
 - [Two-Line Elements](../orbits/two_line_elements.md) — Traditional TLE format
-- [Ephemeris Data Sources](../ephemeris/index.md) — CelesTrak and Space-Track clients
+- [Clients](../clients/index.md) — CelesTrak and Space-Track clients
 - [SGP Propagation](../orbit_propagation/sgp_propagation.md) — SGP4/SDP4 propagation theory and usage
 - [CCSDS 502.0-B-3](https://ccsds.org/Pubs/502x0b3e1.pdf) — Orbit Data Messages, the standard OMM implements

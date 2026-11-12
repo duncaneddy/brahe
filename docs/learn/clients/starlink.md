@@ -158,4 +158,4 @@ never reads or writes the public endpoint's cached files.
 - [Modified ITC Ephemeris Format](itc.md) -- The file format `StarlinkClient` downloads
 - [File Operations](spacetrack/file_operations.md) -- Space-Track's own SP Ephemeris downloads, in the same format
 - [Caching](../utilities/caching.md) -- Cache directory layout and offline behavior
-- [Starlink API Reference](../../library_api/ephemeris/starlink.md) -- Class and method documentation
+- [Starlink API Reference](../../library_api/clients/starlink.md) -- Class and method documentation

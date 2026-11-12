@@ -1,4 +1,4 @@
-# Ephemeris Data Sources
+# Clients
 
 Brahe queries satellite orbital data from two public sources -- CelesTrak and Space-Track --
 and returns it as `GPRecord` objects that convert directly into SGP4 propagators. For most
@@ -53,7 +53,7 @@ all JSON values as strings (e.g., `"NORAD_CAT_ID": "25544"`), while CelesTrak re
 numeric fields as native JSON numbers (e.g., `"NORAD_CAT_ID": 25544`). Custom deserializers
 accept both formats, so downstream code works identically regardless of which source
 produced the data. For the complete field listing, see the
-[GPRecord API Reference](../../library_api/ephemeris/shared_types.md).
+[GPRecord API Reference](../../library_api/clients/shared_types.md).
 
 ## How the Pieces Connect
 
@@ -103,6 +103,6 @@ products, and returns parsed `SP3` objects; see [IGS Precise Products](igs_produ
 - [Starlink Public Ephemerides](starlink.md) -- Using the Starlink client
 - [IGS Precise Products](igs_products.md) -- Using the IGS product client
 - [Modified ITC Ephemeris Format](itc.md) -- The format Starlink and Space-Track SP Ephemeris share
-- [Ephemeris API Reference](../../library_api/ephemeris/index.md) -- Complete function and type documentation
+- [Ephemeris API Reference](../../library_api/clients/index.md) -- Complete function and type documentation
 - [Two-Line Elements](../orbits/two_line_elements.md) -- TLE and 3LE format details
 - [SGP Propagation](../orbit_propagation/sgp_propagation.md) -- SGP4/SDP4 propagation theory and usage

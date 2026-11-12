@@ -3,7 +3,7 @@
 The datasets module provides convenient access to groundstation locations and planetary ephemeris kernels.
 
 !!! tip "Satellite Ephemeris Data"
-    For satellite ephemeris API clients (CelesTrak, Space-Track), see [Ephemeris Data Sources](../ephemeris/index.md).
+    For satellite ephemeris API clients (CelesTrak, Space-Track), see [Clients](../clients/index.md).
 
 ## Module Overview
 
@@ -30,4 +30,4 @@ The module is organized by data source:
 ## See Also
 
 - [Datasets Overview](../../learn/datasets/index.md) - Understanding datasets module
-- [Ephemeris Data Sources](../ephemeris/index.md) - CelesTrak and Space-Track API clients
+- [Clients](../clients/index.md) - CelesTrak and Space-Track API clients

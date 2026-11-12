@@ -98,6 +98,64 @@ pub fn orbital_period_from_state(state_eci: &nalgebra::Vector6<f64>, gm: f64) ->
     orbital_period_general(a, gm)
 }
 
+/// Computes the unit vector toward the ascending node of an orbit from its Cartesian state.
+///
+/// The line of nodes is the intersection of the orbit plane with the reference plane of the
+/// inertial frame, so it is perpendicular to both the reference-plane normal `ẑ = [0, 0, 1]`
+/// and the orbit normal `ĥ = (r × v) / |r × v|`. With inclination `i` and right ascension of the
+/// ascending node `Ω`, `ĥ = [sin i sin Ω, −sin i cos Ω, cos i]`, and therefore
+///
+/// `ẑ × ĥ = sin i [cos Ω, sin Ω, 0]`
+///
+/// which points at the ascending node for every inclination between 0 and 180 degrees. The
+/// function returns this vector normalized.
+///
+/// On an equatorial orbit `ẑ × ĥ` vanishes and the node is undefined. When its norm is below
+/// `1e-9` the function returns the inertial x axis projected into the orbit plane, which
+/// corresponds to `Ω = 0`.
+///
+/// # Arguments
+///
+/// * `state_eci` - Cartesian inertial state vector [x, y, z, vx, vy, vz] in meters and m/s
+///
+/// # Returns
+///
+/// * `node` - Unit vector toward the ascending node, in inertial axes (dimensionless)
+///
+/// # References
+///
+/// - D. Vallado, *Fundamentals of Astrodynamics and Applications*, 4th ed., 2013,
+///   Algorithm 9 (RV2COE), node vector `n = K × h`
+///
+/// # Examples
+///
+/// ```
+/// use brahe::constants::{DEGREES, R_EARTH};
+/// use brahe::coordinates::state_koe_to_eci;
+/// use brahe::orbits::ascending_node_direction;
+/// use nalgebra::Vector6;
+///
+/// let oe = Vector6::new(R_EARTH + 500e3, 0.01, 97.8, 15.0, 30.0, 45.0);
+/// let state = state_koe_to_eci(oe, DEGREES);
+///
+/// // [cos(15°), sin(15°), 0]
+/// let node = ascending_node_direction(&state);
+/// ```
+pub fn ascending_node_direction(state_eci: &nalgebra::Vector6<f64>) -> nalgebra::Vector3<f64> {
+    let r = state_eci.fixed_rows::<3>(0);
+    let v = state_eci.fixed_rows::<3>(3);
+    let h = r.cross(&v);
+    let h_hat = h / h.norm();
+
+    let node = nalgebra::Vector3::new(-h_hat[1], h_hat[0], 0.0);
+    if node.norm() > 1e-9 {
+        node / node.norm()
+    } else {
+        let x_in_plane = nalgebra::Vector3::x() - h_hat[0] * h_hat;
+        x_in_plane / x_in_plane.norm()
+    }
+}
+
 /// Computes the semi-major axis of an astronomical object from its orbital period.
 ///
 /// # Arguments
@@ -808,6 +866,51 @@ mod tests {
             5676.977164028288,
             epsilon = 1e-12
         );
+    }
+
+    #[test]
+    #[parallel]
+    fn test_ascending_node_direction_inclined_orbit() {
+        let oe = nalgebra::Vector6::new(R_EARTH + 700e3, 0.01, 97.8, 15.0, 30.0, 45.0);
+        let x = crate::coordinates::state_koe_to_eci(oe, DEGREES);
+        let node = ascending_node_direction(&x);
+        let raan = 15.0_f64.to_radians();
+        assert_abs_diff_eq!(
+            node,
+            nalgebra::Vector3::new(raan.cos(), raan.sin(), 0.0),
+            epsilon = 1e-12
+        );
+    }
+
+    #[test]
+    #[parallel]
+    fn test_ascending_node_direction_retrograde_orbit() {
+        let oe = nalgebra::Vector6::new(R_EARTH + 700e3, 0.01, 140.0, 250.0, 30.0, 45.0);
+        let x = crate::coordinates::state_koe_to_eci(oe, DEGREES);
+        let node = ascending_node_direction(&x);
+        let raan = 250.0_f64.to_radians();
+        assert_abs_diff_eq!(
+            node,
+            nalgebra::Vector3::new(raan.cos(), raan.sin(), 0.0),
+            epsilon = 1e-12
+        );
+    }
+
+    #[test]
+    #[parallel]
+    fn test_ascending_node_direction_equatorial_orbit_falls_back_to_x() {
+        let r = R_EARTH + 700e3;
+        let x = nalgebra::Vector6::new(0.0, r, 0.0, -7.5e3, 0.0, 0.0);
+        assert_eq!(ascending_node_direction(&x), nalgebra::Vector3::x());
+
+        // Just inside the tolerance the result stays unit length and in the orbit plane
+        let h_hat = nalgebra::Vector3::new(5e-10, 0.0, 1.0).normalize();
+        let r_vec = nalgebra::Vector3::new(0.0, r, 0.0);
+        let v_vec = 7.5e3 * h_hat.cross(&r_vec.normalize());
+        let x = nalgebra::Vector6::new(r_vec[0], r_vec[1], r_vec[2], v_vec[0], v_vec[1], v_vec[2]);
+        let node = ascending_node_direction(&x);
+        assert_abs_diff_eq!(node.norm(), 1.0, epsilon = 1e-15);
+        assert_abs_diff_eq!(node.dot(&h_hat), 0.0, epsilon = 1e-15);
     }
 
     #[test]

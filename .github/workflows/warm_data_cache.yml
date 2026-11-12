@@ -34,7 +34,7 @@ jobs:
             # Restore-only against test_rust.yml's Linux cache for its
             # registry; this weekly job should not save an entry of its own.
             -   name: Set up Rust toolchain
-                uses: actions-rust-lang/setup-rust-toolchain@v2.0.0
+                uses: actions-rust-lang/setup-rust-toolchain@v2.0.1
                 with:
                     toolchain: stable
                     cache-shared-key: test-rust

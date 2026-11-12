@@ -1,0 +1,11 @@
+Version:     d
+Agency:      MGEX
+Time system: GPS
+Satellites:  140
+Epochs:      3
+Interval:    900.0 s
+Span:        2013-04-03 00:00:00.000 GPS to 2013-04-03 23:45:00.000 GPS
+G01 position (m):    [  5783206.741 -18133044.484 -18510756.016]
+G01 clock (us):      12.734450
+G01 velocity:        None
+G01 at epoch 1:      None

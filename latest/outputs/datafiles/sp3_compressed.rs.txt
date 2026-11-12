@@ -1,0 +1,4 @@
+Read 4 satellites and 8 epochs from test_assets/sp3/IGS0OPSFIN_20243150000_01D_15M_ORB_subset.SP3.gz
+Same content from bytes: true
+First bytes of the written file: 1f8b
+Round trip: true

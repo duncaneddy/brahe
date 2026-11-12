@@ -205,6 +205,42 @@
         <loc>https://docs.brahe.space/latest/learn/cli/transform.html</loc>
       </url>
       <url>
+        <loc>https://docs.brahe.space/latest/learn/clients/celestrak.html</loc>
+      </url>
+      <url>
+        <loc>https://docs.brahe.space/latest/learn/clients/igs_products.html</loc>
+      </url>
+      <url>
+        <loc>https://docs.brahe.space/latest/learn/clients/index.html</loc>
+      </url>
+      <url>
+        <loc>https://docs.brahe.space/latest/learn/clients/itc.html</loc>
+      </url>
+      <url>
+        <loc>https://docs.brahe.space/latest/learn/clients/spacetrack/cdm.html</loc>
+      </url>
+      <url>
+        <loc>https://docs.brahe.space/latest/learn/clients/spacetrack/client.html</loc>
+      </url>
+      <url>
+        <loc>https://docs.brahe.space/latest/learn/clients/spacetrack/common_queries.html</loc>
+      </url>
+      <url>
+        <loc>https://docs.brahe.space/latest/learn/clients/spacetrack/file_operations.html</loc>
+      </url>
+      <url>
+        <loc>https://docs.brahe.space/latest/learn/clients/spacetrack/index.html</loc>
+      </url>
+      <url>
+        <loc>https://docs.brahe.space/latest/learn/clients/spacetrack/query_builder.html</loc>
+      </url>
+      <url>
+        <loc>https://docs.brahe.space/latest/learn/clients/spacetrack/rate_limiting.html</loc>
+      </url>
+      <url>
+        <loc>https://docs.brahe.space/latest/learn/clients/starlink.html</loc>
+      </url>
+      <url>
         <loc>https://docs.brahe.space/latest/learn/constants.html</loc>
       </url>
       <url>
@@ -224,6 +260,12 @@
       </url>
       <url>
         <loc>https://docs.brahe.space/latest/learn/coordinates/topocentric_transformations.html</loc>
+      </url>
+      <url>
+        <loc>https://docs.brahe.space/latest/learn/datafiles/index.html</loc>
+      </url>
+      <url>
+        <loc>https://docs.brahe.space/latest/learn/datafiles/sp3.html</loc>
       </url>
       <url>
         <loc>https://docs.brahe.space/latest/learn/datasets/gcat.html</loc>
@@ -263,39 +305,6 @@
       </url>
       <url>
         <loc>https://docs.brahe.space/latest/learn/eop/what_is_eop_data.html</loc>
-      </url>
-      <url>
-        <loc>https://docs.brahe.space/latest/learn/ephemeris/celestrak.html</loc>
-      </url>
-      <url>
-        <loc>https://docs.brahe.space/latest/learn/ephemeris/index.html</loc>
-      </url>
-      <url>
-        <loc>https://docs.brahe.space/latest/learn/ephemeris/itc.html</loc>
-      </url>
-      <url>
-        <loc>https://docs.brahe.space/latest/learn/ephemeris/spacetrack/cdm.html</loc>
-      </url>
-      <url>
-        <loc>https://docs.brahe.space/latest/learn/ephemeris/spacetrack/client.html</loc>
-      </url>
-      <url>
-        <loc>https://docs.brahe.space/latest/learn/ephemeris/spacetrack/common_queries.html</loc>
-      </url>
-      <url>
-        <loc>https://docs.brahe.space/latest/learn/ephemeris/spacetrack/file_operations.html</loc>
-      </url>
-      <url>
-        <loc>https://docs.brahe.space/latest/learn/ephemeris/spacetrack/index.html</loc>
-      </url>
-      <url>
-        <loc>https://docs.brahe.space/latest/learn/ephemeris/spacetrack/query_builder.html</loc>
-      </url>
-      <url>
-        <loc>https://docs.brahe.space/latest/learn/ephemeris/spacetrack/rate_limiting.html</loc>
-      </url>
-      <url>
-        <loc>https://docs.brahe.space/latest/learn/ephemeris/starlink.html</loc>
       </url>
       <url>
         <loc>https://docs.brahe.space/latest/learn/estimation/batch_least_squares.html</loc>
@@ -646,6 +655,45 @@
         <loc>https://docs.brahe.space/latest/library_api/ccsds/opm.html</loc>
       </url>
       <url>
+        <loc>https://docs.brahe.space/latest/library_api/clients/celestrak.html</loc>
+      </url>
+      <url>
+        <loc>https://docs.brahe.space/latest/library_api/clients/igs.html</loc>
+      </url>
+      <url>
+        <loc>https://docs.brahe.space/latest/library_api/clients/index.html</loc>
+      </url>
+      <url>
+        <loc>https://docs.brahe.space/latest/library_api/clients/itc.html</loc>
+      </url>
+      <url>
+        <loc>https://docs.brahe.space/latest/library_api/clients/shared_types.html</loc>
+      </url>
+      <url>
+        <loc>https://docs.brahe.space/latest/library_api/clients/spacetrack/client.html</loc>
+      </url>
+      <url>
+        <loc>https://docs.brahe.space/latest/library_api/clients/spacetrack/enums.html</loc>
+      </url>
+      <url>
+        <loc>https://docs.brahe.space/latest/library_api/clients/spacetrack/index.html</loc>
+      </url>
+      <url>
+        <loc>https://docs.brahe.space/latest/library_api/clients/spacetrack/operators.html</loc>
+      </url>
+      <url>
+        <loc>https://docs.brahe.space/latest/library_api/clients/spacetrack/query.html</loc>
+      </url>
+      <url>
+        <loc>https://docs.brahe.space/latest/library_api/clients/spacetrack/rate_limiting.html</loc>
+      </url>
+      <url>
+        <loc>https://docs.brahe.space/latest/library_api/clients/spacetrack/responses.html</loc>
+      </url>
+      <url>
+        <loc>https://docs.brahe.space/latest/library_api/clients/starlink.html</loc>
+      </url>
+      <url>
         <loc>https://docs.brahe.space/latest/library_api/constants/index.html</loc>
       </url>
       <url>
@@ -677,6 +725,12 @@
       </url>
       <url>
         <loc>https://docs.brahe.space/latest/library_api/coordinates/topocentric.html</loc>
+      </url>
+      <url>
+        <loc>https://docs.brahe.space/latest/library_api/datafiles/index.html</loc>
+      </url>
+      <url>
+        <loc>https://docs.brahe.space/latest/library_api/datafiles/sp3.html</loc>
       </url>
       <url>
         <loc>https://docs.brahe.space/latest/library_api/datasets/gcat.html</loc>
@@ -734,42 +788,6 @@
       </url>
       <url>
         <loc>https://docs.brahe.space/latest/library_api/eop/static_provider.html</loc>
-      </url>
-      <url>
-        <loc>https://docs.brahe.space/latest/library_api/ephemeris/celestrak.html</loc>
-      </url>
-      <url>
-        <loc>https://docs.brahe.space/latest/library_api/ephemeris/index.html</loc>
-      </url>
-      <url>
-        <loc>https://docs.brahe.space/latest/library_api/ephemeris/itc.html</loc>
-      </url>
-      <url>
-        <loc>https://docs.brahe.space/latest/library_api/ephemeris/shared_types.html</loc>
-      </url>
-      <url>
-        <loc>https://docs.brahe.space/latest/library_api/ephemeris/spacetrack/client.html</loc>
-      </url>
-      <url>
-        <loc>https://docs.brahe.space/latest/library_api/ephemeris/spacetrack/enums.html</loc>
-      </url>
-      <url>
-        <loc>https://docs.brahe.space/latest/library_api/ephemeris/spacetrack/index.html</loc>
-      </url>
-      <url>
-        <loc>https://docs.brahe.space/latest/library_api/ephemeris/spacetrack/operators.html</loc>
-      </url>
-      <url>
-        <loc>https://docs.brahe.space/latest/library_api/ephemeris/spacetrack/query.html</loc>
-      </url>
-      <url>
-        <loc>https://docs.brahe.space/latest/library_api/ephemeris/spacetrack/rate_limiting.html</loc>
-      </url>
-      <url>
-        <loc>https://docs.brahe.space/latest/library_api/ephemeris/spacetrack/responses.html</loc>
-      </url>
-      <url>
-        <loc>https://docs.brahe.space/latest/library_api/ephemeris/starlink.html</loc>
       </url>
       <url>
         <loc>https://docs.brahe.space/latest/library_api/estimation/batch_least_squares.html</loc>

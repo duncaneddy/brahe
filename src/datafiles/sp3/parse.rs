@@ -1665,12 +1665,12 @@ mod tests {
     fn test_SP3_from_file_igs_combination_subset() {
         let sp3 =
             SP3::from_file(fixture("IGS0OPSFIN_20243150000_01D_15M_ORB_subset.SP3.gz")).unwrap();
-        assert_eq!(sp3.header().version, SP3Version::C);
-        assert_eq!(sp3.header().agency, "IGS");
-        assert_eq!(sp3.header().coordinate_system, "IGS20");
+        assert_eq!(sp3.header.version, SP3Version::C);
+        assert_eq!(sp3.header.agency, "IGS");
+        assert_eq!(sp3.header.coordinate_system, "IGS20");
         assert_eq!(sp3.num_satellites(), 4);
         assert_eq!(sp3.num_epochs(), 8);
-        assert_eq!(sp3.header().epoch_interval, 900.0);
+        assert_eq!(sp3.header.epoch_interval, 900.0);
         let ids: Vec<String> = sp3
             .satellite_ids()
             .iter()

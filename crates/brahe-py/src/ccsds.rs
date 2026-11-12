@@ -7251,16 +7251,19 @@ impl PyAEM {
     /// registers it in the global frame registry as the link between the segment's two
     /// `REF_FRAME` endpoints. A CCSDS message names its frames but not the object they
     /// belong to, so the body endpoint is bound to `name` here. One endpoint must resolve
-    /// to a `CelestialFrame` — that becomes the parent — and the other must be a body
-    /// frame. The quaternion series is inverted when the celestial frame is endpoint B, so
-    /// the registered orientation always rotates parent-frame vectors into the body frame.
+    /// to a `CelestialFrame` or be an orbit-relative frame — that becomes the parent, an
+    /// orbit-relative parent being bound to `name` — and the other must be a body frame.
+    /// The quaternion series is inverted when the celestial or orbit-relative frame is
+    /// endpoint B, so the registered orientation always rotates parent-frame vectors into
+    /// the body frame.
     ///
     /// Args:
     ///     name (str): The object identity to bind the body frame endpoint to
     ///
     /// Raises:
     ///     BraheError: If the AEM does not have exactly one segment, neither endpoint
-    ///         resolves to a celestial frame, or the remaining endpoint is not a body frame
+    ///         resolves to a celestial or orbit-relative frame, or the remaining endpoint
+    ///         is not a body frame
     ///
     /// Returns:
     ///     None: The frame is registered in the global frame registry

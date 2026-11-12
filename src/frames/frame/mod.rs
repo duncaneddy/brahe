@@ -103,9 +103,9 @@ impl ReferenceFrame {
     /// Constructs a bound Local-Vertical Local-Horizontal orbit-relative
     /// frame (rotating variant).
     ///
-    /// Among the orbit-relative kinds only `RTN` has an axes derivation
-    /// today, so this frame is constructible but every transform through
-    /// it errors until issue #452 adds the remaining derivations.
+    /// Axes follow the CCSDS/SANA definition: Z toward nadir, Y opposite
+    /// the orbit normal, X = Y × Z (see
+    /// [`crate::relative_motion::rotation_lvlh_to_eci`]).
     ///
     /// # Arguments
     /// * `object` - The object the frame is defined relative to
@@ -132,9 +132,10 @@ impl ReferenceFrame {
     /// Constructs a bound Normal/Tangential/cross-track orbit-relative
     /// frame (rotating variant).
     ///
-    /// Among the orbit-relative kinds only `RTN` has an axes derivation
-    /// today, so this frame is constructible but every transform through
-    /// it errors until issue #452 adds the remaining derivations.
+    /// Axes: Y along velocity, Z along the orbit normal, X = Y × Z (see
+    /// [`crate::relative_motion::rotation_ntw_to_eci`]). The rotating
+    /// variant's rate uses the gravitational parameter of the object's
+    /// declared center.
     ///
     /// # Arguments
     /// * `object` - The object the frame is defined relative to
@@ -161,9 +162,10 @@ impl ReferenceFrame {
     /// Constructs a bound Tangential/Normal/cross-track orbit-relative
     /// frame (rotating variant).
     ///
-    /// Among the orbit-relative kinds only `RTN` has an axes derivation
-    /// today, so this frame is constructible but every transform through
-    /// it errors until issue #452 adds the remaining derivations.
+    /// Axes: X along velocity, Z along the orbit normal, Y = Z × X pointing
+    /// inward (see [`crate::relative_motion::rotation_tnw_to_eci`]). The
+    /// rotating variant's rate uses the gravitational parameter of the
+    /// object's declared center.
     ///
     /// # Arguments
     /// * `object` - The object the frame is defined relative to
@@ -190,9 +192,10 @@ impl ReferenceFrame {
     /// Constructs a bound topocentric South/East/Zenith orbit-relative
     /// frame (rotating variant).
     ///
-    /// Among the orbit-relative kinds only `RTN` has an axes derivation
-    /// today, so this frame is constructible but every transform through
-    /// it errors until issue #452 adds the remaining derivations.
+    /// Axes: S due south, E east, Z along the WGS84 geodetic vertical at
+    /// the object's position (see
+    /// [`crate::relative_motion::rotation_ecef_to_sez`]). Evaluable only
+    /// for Earth-centered objects.
     ///
     /// # Arguments
     /// * `object` - The object the frame is defined relative to
@@ -216,12 +219,43 @@ impl ReferenceFrame {
         )
     }
 
+    /// Constructs a bound east/north/zenith topocentric frame (rotating
+    /// variant).
+    ///
+    /// Axes: E east, N north, Z along the WGS84 geodetic vertical at the
+    /// object's position (see
+    /// [`crate::relative_motion::rotation_ecef_to_enz`]). Not a SANA frame;
+    /// evaluable only for Earth-centered objects.
+    ///
+    /// # Arguments
+    /// * `object` - The object the frame is defined relative to
+    ///
+    /// # Returns
+    /// `ReferenceFrame`: The bound `ENZ (rotating)` orbit-relative frame
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use brahe::frames::ReferenceFrame;
+    ///
+    /// assert_eq!(ReferenceFrame::ENZ("GS").to_string(), "ENZ (rotating)@GS");
+    /// ```
+    #[allow(non_snake_case)]
+    pub fn ENZ(object: impl Into<ObjectId>) -> ReferenceFrame {
+        ReferenceFrame::orbit_relative_unchecked(
+            OrbitRelativeFrameKind::ENZ,
+            OrbitRelativeFrameVariant::Rotating,
+            object,
+        )
+    }
+
     /// Constructs a bound Velocity/Normal/Co-normal orbit-relative frame
     /// (rotating variant).
     ///
-    /// Among the orbit-relative kinds only `RTN` has an axes derivation
-    /// today, so this frame is constructible but every transform through
-    /// it errors until issue #452 adds the remaining derivations.
+    /// Axes: X along velocity, Y along the orbit normal, Z = X × Y pointing
+    /// outward (see [`crate::relative_motion::rotation_vnc_to_eci`]). The
+    /// rotating variant's rate uses the gravitational parameter of the
+    /// object's declared center.
     ///
     /// # Arguments
     /// * `object` - The object the frame is defined relative to
@@ -248,9 +282,10 @@ impl ReferenceFrame {
     /// Constructs a bound Nadir/Sun/Normal orbit-relative frame (rotating
     /// variant).
     ///
-    /// Among the orbit-relative kinds only `RTN` has an axes derivation
-    /// today, so this frame is constructible but every transform through
-    /// it errors until issue #452 adds the remaining derivations.
+    /// Axes: X toward nadir, Y as close to the Sun as possible while normal
+    /// to X, Z = X × Y (see
+    /// [`crate::relative_motion::rotation_nsw_to_eci`]). The Sun state
+    /// comes from the SPICE registry.
     ///
     /// # Arguments
     /// * `object` - The object the frame is defined relative to
@@ -277,9 +312,12 @@ impl ReferenceFrame {
     /// Constructs a bound Perifocal orbit-relative frame (inertial-snapshot
     /// variant; `PQW` is SANA-registered only as inertial).
     ///
-    /// Among the orbit-relative kinds only `RTN` has an axes derivation
-    /// today, so this frame is constructible but every transform through
-    /// it errors until issue #452 adds the remaining derivations.
+    /// Axes: P toward periapsis along the eccentricity vector, W along the
+    /// orbit normal, Q = W × P (see
+    /// [`crate::relative_motion::rotation_pqw_to_inertial_for_body`]). SANA
+    /// registers PQW only as an inertial snapshot, so its rate is zero;
+    /// locating periapsis uses the gravitational parameter of the object's
+    /// declared center.
     ///
     /// # Arguments
     /// * `object` - The object the frame is defined relative to
@@ -307,9 +345,9 @@ impl ReferenceFrame {
     /// (inertial-snapshot variant; `EQW` is SANA-registered only as
     /// inertial).
     ///
-    /// Among the orbit-relative kinds only `RTN` has an axes derivation
-    /// today, so this frame is constructible but every transform through
-    /// it errors until issue #452 adds the remaining derivations.
+    /// Axes: E along the ascending node, W along the orbit normal, Q = W ×
+    /// E (see [`crate::relative_motion::rotation_eqw_to_eci`]). SANA
+    /// registers EQW only as an inertial snapshot, so its rate is zero.
     ///
     /// # Arguments
     /// * `object` - The object the frame is defined relative to
@@ -354,10 +392,6 @@ impl ReferenceFrame {
     /// General form of the `ReferenceFrame::<KIND>(object)` constructors, for
     /// callers that hold a runtime `kind`/`variant` pair (e.g. parsed from
     /// a CCSDS file) and an optional, not-yet-bound object.
-    ///
-    /// Among the orbit-relative kinds only `RTN` has an axes derivation
-    /// today; the others construct successfully but every transform through
-    /// them errors until issue #452 adds the remaining derivations.
     ///
     /// # Arguments
     /// * `kind` - The frame construction (axes definition)
@@ -782,9 +816,8 @@ impl ReferenceFrame {
     /// requires: a celestial frame (always), or an orbit-relative/body
     /// frame with a bound object. `true` is necessary but not sufficient
     /// for the frame to actually resolve. An orbit-relative frame also needs
-    /// an axes derivation for its `kind` (currently only `RTN`), and a body
-    /// frame also needs its orientation chain registered
-    /// (`register_frame`).
+    /// its object registered, and a body frame also needs its orientation
+    /// chain registered (`register_frame`).
     ///
     /// # Returns
     /// `bool`: `true` if the frame is bound (celestial frames are always
@@ -992,6 +1025,7 @@ mod tests {
             (ReferenceFrame::VNC("SC"), "VNC (rotating)@SC"),
             (ReferenceFrame::NSW("SC"), "NSW (rotating)@SC"),
             (ReferenceFrame::EQW("SC"), "EQW (inertial)@SC"),
+            (ReferenceFrame::ENZ("GS"), "ENZ (rotating)@GS"),
         ];
         for (frame, expected) in cases {
             assert_eq!(frame.to_string(), expected);

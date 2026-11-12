@@ -15,7 +15,7 @@ mod satellite;
 mod types;
 mod write;
 
-pub use satellite::{SP3_DEFAULT_LAGRANGE_DEGREE, SP3Satellite};
+pub use satellite::SP3Satellite;
 
 pub use types::{
     GNSSSystem, SP3, SP3Correlation, SP3FileType, SP3Header, SP3OrbitType, SP3Record,

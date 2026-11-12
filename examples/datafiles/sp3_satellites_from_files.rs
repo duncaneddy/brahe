@@ -34,15 +34,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
     }
 
-    // Every satellite is one continuous run, so each converts to a single trajectory
-    let trajectories = satellites[0].to_trajectories()?;
-    let traj = &trajectories[0];
+    // The files leave no gap, and each satellite converts to one trajectory
+    let traj = satellites[0].to_trajectory()?;
     println!(
-        "\n{} trajectories: {}",
+        "\n{} gaps: {}",
         satellites[0].get_name().unwrap(),
-        trajectories.len()
+        satellites[0].gaps().len()
     );
-    println!("First trajectory: {} states in {}", traj.len(), traj.frame);
+    println!("Trajectory: {} states in {}", traj.len(), traj.frame);
 
     // A file that starts more than 1.5 intervals after the previous one leaves a gap
     let later = SP3::from_file("test_assets/sp3/gbm19500_large_gap.sp3")?;
@@ -52,12 +51,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         sat.get_name().unwrap(),
         sat.len()
     );
-    for traj in sat.to_trajectories()? {
-        println!(
-            "  trajectory {} to {}",
-            traj.start_epoch().unwrap(),
-            traj.end_epoch().unwrap()
-        );
+    for (before, after) in sat.gaps() {
+        println!("  gap from {} to {}", before, after);
     }
 
     Ok(())

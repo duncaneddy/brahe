@@ -18,15 +18,14 @@ fn main() {
 
     let t0 = Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::GPS);
     for k in 0..3 {
-        let index = sp3.push_epoch(t0 + 900.0 * k as f64).unwrap();
         let record = SP3Record::new([2.0e7 + 1.0e3 * k as f64, 1.0e7, 1.0e7])
             .with_velocity([100.0, 2.0e3, -5.0e2])
             .with_clock(2.5e-5);
-        sp3.set_record(g01, index, record).unwrap();
+        sp3.set_record(g01, t0 + 900.0 * k as f64, record).unwrap();
     }
 
     // G02 is left absent at every epoch except the first
-    sp3.set_record(g02, 0, SP3Record::new([-1.5e7, 2.0e7, 5.0e6])).unwrap();
+    sp3.set_record(g02, t0, SP3Record::new([-1.5e7, 2.0e7, 5.0e6])).unwrap();
 
     let text = sp3.to_string().unwrap();
     let lines: Vec<&str> = text.lines().collect();
@@ -40,5 +39,5 @@ fn main() {
         parsed.num_satellites(),
         parsed.num_epochs()
     );
-    println!("G02 at epoch 1: {:?}", parsed.record(g02, 1).unwrap());
+    println!("G02 at epoch 1: {:?}", parsed.record(g02, parsed.epochs()[1]).unwrap());
 }

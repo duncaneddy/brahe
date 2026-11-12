@@ -24,9 +24,7 @@ use crate::constants::SECONDS_PER_DAY;
 use crate::datafiles::sp3::SP3;
 use crate::time::Epoch;
 use crate::utils::cache::is_older_than;
-use crate::utils::compression::{
-    Compression, UNIX_COMPRESS_UNSUPPORTED, compression_of, decompress,
-};
+use crate::utils::compression::{Compression, compression_of, decompress};
 use crate::utils::download::{backoff_delay, is_retryable_error};
 use crate::utils::fs::{
     copy_file, is_within, move_file, resolve_destination, validate_path_component,
@@ -603,23 +601,23 @@ impl IGSProductsClient {
 
     /// Downloads a product, if it is not cached, and writes it to `destination`.
     ///
-    /// An existing directory, or a path whose last component has no
-    /// extension, is treated as a directory (created if missing). A gzip
-    /// product is written decompressed, in a directory under its published
-    /// name without `.gz`. Unix-compressed (`.Z`) and uncompressed products
-    /// are written unchanged under their published name. A path with an
-    /// extension is the file written. With `keep_cached` false the cached
-    /// file is removed, so a later [`IGSProductsClient::download`] downloads
-    /// it again; with `keep_cached` true it stays.
+    /// A path with an extension is the file written. An existing directory,
+    /// or a path whose last component has no extension, is a directory,
+    /// created if missing, that receives the file under its published name.
+    /// The file is written as published unless `decompress` is set, which
+    /// decompresses a gzip or Unix-compressed (`.Z`) product and drops the
+    /// `.gz` or `.Z` suffix from the name used in a directory.
     ///
     /// # Arguments
     /// * `product` - Product to save, as returned by a listing
     /// * `destination` - Directory or file path, outside the cache directory
-    /// * `keep_cached` - Leave the cached file in place
+    /// * `keep_cached` - Leave the cached file in place; otherwise it is removed and a
+    ///   later [`IGSProductsClient::download`] downloads it again
+    /// * `decompress` - Write a compressed product decompressed
     ///
     /// # Returns
     /// * `Ok(PathBuf)`: Path written
-    /// * `Err(BraheError)`: If `destination` resolves inside the cache directory, which is checked before anything is downloaded, the download fails, the gzip data is invalid, or the file cannot be written
+    /// * `Err(BraheError)`: If `destination` resolves inside the cache directory, which is checked before anything is downloaded, the download fails, the compressed data is invalid, or the file cannot be written
     ///
     /// # Examples
     ///
@@ -631,7 +629,7 @@ impl IGSProductsClient {
     /// let epoch = Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::GPS);
     /// let filter = IGSProductFilter::new().with_center(IGSAnalysisCenter::COD).with_content(IGSContentType::Orbit);
     /// let product = &client.list_products(epoch, &filter).unwrap()[0];
-    /// let path = client.save(product, "./igs", false).unwrap();
+    /// let path = client.save(product, "./igs", false, false).unwrap();
     /// println!("{}", path.display());
     /// ```
     pub fn save<P: AsRef<Path>>(
@@ -639,6 +637,7 @@ impl IGSProductsClient {
         product: &IGSProduct,
         destination: P,
         keep_cached: bool,
+        decompress: bool,
     ) -> Result<PathBuf, BraheError> {
         let destination = destination.as_ref();
         if is_within(destination, &self.cache_dir()?) {
@@ -648,25 +647,23 @@ impl IGSProductsClient {
             )));
         }
         let cached = self.download(product)?;
-        let target = resolve_destination(destination, saved_name(product))?;
-        write_saved(product, &cached, &target, keep_cached)?;
+        let target = resolve_destination(destination, saved_name(product, decompress))?;
+        write_saved(product, &cached, &target, keep_cached, decompress)?;
         Ok(target)
     }
 
     /// Downloads an SP3 orbit product, if it is not cached, and parses it.
     ///
     /// The product is downloaded as [`IGSProductsClient::download`] does and
-    /// read with [`SP3::from_file`], which decompresses gzip data. Unix
-    /// compress (`.Z`) data cannot be decompressed, so a `.Z` product is
-    /// rejected before anything is downloaded; download it with
-    /// [`IGSProductsClient::save`] and decompress it externally.
+    /// read with [`SP3::from_file`], which decompresses gzip and Unix
+    /// compress (`.Z`) data.
     ///
     /// # Arguments
     /// * `product` - SP3 product to download, as returned by a listing
     ///
     /// # Returns
     /// * `Ok(SP3)`: The parsed file
-    /// * `Err(BraheError)`: If the product is not an SP3 file or is Unix-compressed, both checked before anything is downloaded, or if the download or parse fails
+    /// * `Err(BraheError)`: If the product is not an SP3 file, which is checked before anything is downloaded, or if the download or parse fails
     ///
     /// # Examples
     ///
@@ -692,7 +689,6 @@ impl IGSProductsClient {
                 product.file_name.format().code()
             )));
         }
-        self.reject_unix_compress(product)?;
         self.parse_sp3(product, &self.download(product)?)
     }
 
@@ -715,15 +711,12 @@ impl IGSProductsClient {
     ///   `solution`, such as `cod21003.sp3` (rapid and ultra-rapid products
     ///   use the center's own code, such as `igr`).
     ///
-    /// In both conventions, uncompressed and gzip files are preferred to
-    /// Unix-compressed (`.Z`) ones before sampling is compared.
-    ///
     /// Every file is chosen, and every listing and selection error below is
     /// raised, before anything is downloaded. Ultra-rapid orbits are
     /// rejected: their issues every six hours overlap one another, so they do
-    /// not chain into one time series. A day inside the span with no file, or
-    /// whose file is only published Unix-compressed, is an error; such a
-    /// padding day is skipped. A padding file that is listed but whose
+    /// not chain into one time series. A day inside the span with no file is
+    /// an error; such a padding day is skipped. A padding file that is listed
+    /// but whose
     /// download answers 404 is also skipped, and its day is left out of the
     /// result; any other failure to download or parse a padding file, and
     /// any failure for a file inside the span, including a 404, is an error.
@@ -739,7 +732,7 @@ impl IGSProductsClient {
     ///
     /// # Returns
     /// * `Ok(Vec<SP3>)`: Parsed daily files in time order
-    /// * `Err(BraheError)`: If `solution` is ultra-rapid, `end` is before `start`, a week listing containing part of the span cannot be obtained, a day inside the span has no file on the source (including when its week directory answers 404) or only a Unix-compressed one, or a download or parse fails other than a 404 for a padding file; a parse error names the product
+    /// * `Err(BraheError)`: If `solution` is ultra-rapid, `end` is before `start`, a week listing containing part of the span cannot be obtained, a day inside the span has no file on the source (including when its week directory answers 404), or a download or parse fails other than a 404 for a padding file; a parse error names the product
     ///
     /// # Examples
     ///
@@ -876,13 +869,6 @@ impl IGSProductsClient {
         for day in low_day..=high_day {
             let in_span = span_days.contains(&day);
             match daily_orbit(&week_products[&(day / 7)], day, options.sampling) {
-                Some(product)
-                    if product.file_name.compression() == IGSCompression::UnixCompress =>
-                {
-                    if in_span {
-                        self.reject_unix_compress(product)?;
-                    }
-                }
                 Some(product) => selected.push(SP3RangeFile {
                     product: product.clone(),
                     padding: !in_span,
@@ -913,24 +899,6 @@ impl IGSProductsClient {
             )));
         }
         Ok(selected)
-    }
-
-    /// Fails for a Unix-compressed (`.Z`) product, which cannot be parsed.
-    ///
-    /// # Arguments
-    /// * `product` - Product to check
-    ///
-    /// # Returns
-    /// * `Ok(())`: The product is not Unix-compressed
-    /// * `Err(BraheError)`: An error naming the product and stating [`UNIX_COMPRESS_UNSUPPORTED`]
-    fn reject_unix_compress(&self, product: &IGSProduct) -> Result<(), BraheError> {
-        if product.file_name.compression() == IGSCompression::UnixCompress {
-            return Err(BraheError::Error(format!(
-                "{}: {UNIX_COMPRESS_UNSUPPORTED}",
-                self.product_resource(product)
-            )));
-        }
-        Ok(())
     }
 
     /// Lists the files of a week directory with their sizes.
@@ -1200,9 +1168,8 @@ impl IGSProductsClient {
     /// Checks that a downloaded body is the file its name describes before
     /// it is cached.
     ///
-    /// A `.gz` or `.Z` product must start with that format's magic bytes, and
-    /// a `.gz` product must decompress completely within the decompression
-    /// size limit. An uncompressed CDDIS product must not be an HTML page.
+    /// A `.gz` or `.Z` product must start with that format's magic bytes and
+    /// decompress completely within the decompression size limit. An uncompressed CDDIS product must not be an HTML page.
     ///
     /// # Arguments
     /// * `product` - Product the body was downloaded for
@@ -1221,9 +1188,9 @@ impl IGSProductsClient {
             Some((compression, format)) if compression_of(body) != compression => {
                 Some(format!("is not {format} data"))
             }
-            Some((Compression::Gzip, _)) => decompress(body)
+            Some((_, format)) => decompress(body)
                 .err()
-                .map(|e| format!("is not valid gzip data ({e})")),
+                .map(|e| format!("is not valid {format} data ({e})")),
             None if self.source == IGSProductSource::CDDIS && is_html(body) => {
                 Some("is an HTML page".to_string())
             }
@@ -1642,10 +1609,11 @@ fn is_html(body: &[u8]) -> bool {
 }
 
 /// Name a product is saved under in a directory: the published name, without
-/// `.gz` for a gzip product.
+/// the `.gz` or `.Z` of a compressed product when it is saved decompressed.
 ///
 /// # Arguments
 /// * `product` - Product saved
+/// * `decompress` - Whether the product is saved decompressed
 ///
 /// # Returns
 /// * `&str`: The file name
@@ -1661,40 +1629,47 @@ fn is_html(body: &[u8]) -> bool {
 ///     size: None,
 ///     gps_week: 2340,
 /// };
-/// assert_eq!(saved_name(&product), "IGS0OPSFIN_20243150000_01D_15M_ORB.SP3");
+/// assert_eq!(saved_name(&product, true), "IGS0OPSFIN_20243150000_01D_15M_ORB.SP3");
+/// assert_eq!(saved_name(&product, false), name);
 /// ```
-fn saved_name(product: &IGSProduct) -> &str {
+fn saved_name(product: &IGSProduct, decompress: bool) -> &str {
+    if !decompress {
+        return &product.name;
+    }
     match product.file_name.compression() {
         IGSCompression::Gzip => product.name.strip_suffix(".gz").unwrap_or(&product.name),
-        IGSCompression::UnixCompress | IGSCompression::None => &product.name,
+        IGSCompression::UnixCompress => product.name.strip_suffix(".Z").unwrap_or(&product.name),
+        IGSCompression::None => &product.name,
     }
 }
 
-/// Writes a cached product to `target`, decompressing gzip products.
+/// Writes a cached product to `target`, as published or decompressed.
 ///
 /// # Arguments
 /// * `product` - Product written
 /// * `cached` - Cached file of the product
 /// * `target` - File to write
 /// * `keep_cached` - Leave the cached file in place; otherwise it is removed
+/// * `decompressed` - Write a compressed product decompressed
 ///
 /// # Returns
 /// * `Ok(())`: The file was written
-/// * `Err(BraheError)`: If the cached file cannot be read or removed, its gzip data is invalid, or `target` cannot be written
+/// * `Err(BraheError)`: If the cached file cannot be read or removed, its compressed data is invalid, or `target` cannot be written
 ///
 /// # Examples
 ///
 /// ```ignore
 /// // `product` is a gzip product whose cached copy is `cached`.
-/// write_saved(&product, &cached, Path::new("orbits/IGS0OPSFIN_20243150000_01D_15M_ORB.SP3"), true)?;
+/// write_saved(&product, &cached, Path::new("orbits/IGS0OPSFIN_20243150000_01D_15M_ORB.SP3"), true, true)?;
 /// ```
 fn write_saved(
     product: &IGSProduct,
     cached: &Path,
     target: &Path,
     keep_cached: bool,
+    decompressed: bool,
 ) -> Result<(), BraheError> {
-    if product.file_name.compression() != IGSCompression::Gzip {
+    if !decompressed || product.file_name.compression() == IGSCompression::None {
         return if keep_cached {
             copy_file(cached, target)
         } else {
@@ -1807,10 +1782,9 @@ fn daily_orbit(products: &[IGSProduct], day: u32, sampling: Option<f64>) -> Opti
         .min_by(|a, b| daily_orbit_preference(a, b))
 }
 
-/// Preference order of daily orbit files for the same day: files that are
-/// not Unix-compressed first, since those cannot be parsed, then coarsest
-/// sampling, then the `OPS` campaign, then the lowest version, then `.sp3`
-/// short names before other SP3 extensions, then name.
+/// Preference order of daily orbit files for the same day: coarsest sampling
+/// first, then the `OPS` campaign, then the lowest version, then `.sp3` short
+/// names before other SP3 extensions, then name.
 ///
 /// # Arguments
 /// * `a` - First product
@@ -1827,18 +1801,13 @@ fn daily_orbit(products: &[IGSProduct], day: u32, sampling: Option<f64>) -> Opti
 /// ```
 fn daily_orbit_preference(a: &IGSProduct, b: &IGSProduct) -> CmpOrdering {
     let (x, y) = (&a.file_name, &b.file_name);
-    let unix = |name: &IGSProductFileName| name.compression() == IGSCompression::UnixCompress;
     let other_campaign = |name: &IGSProductFileName| name.campaign().is_some_and(|c| c != "OPS");
     let other_extension = |product: &IGSProduct| {
         product.file_name.name_style() == IGSNameStyle::Short && !product.name.contains(".sp3")
     };
-    unix(x)
-        .cmp(&unix(y))
-        .then_with(|| {
-            y.sampling()
-                .unwrap_or(0.0)
-                .total_cmp(&x.sampling().unwrap_or(0.0))
-        })
+    y.sampling()
+        .unwrap_or(0.0)
+        .total_cmp(&x.sampling().unwrap_or(0.0))
         .then_with(|| other_campaign(x).cmp(&other_campaign(y)))
         .then_with(|| x.version().cmp(&y.version()))
         .then_with(|| other_extension(a).cmp(&other_extension(b)))
@@ -3155,7 +3124,7 @@ mod tests {
             .join("garner/2340")
             .join(SP3_NAME);
 
-        let saved = client.save(&product, out.path(), true).unwrap();
+        let saved = client.save(&product, out.path(), true, true).unwrap();
         assert_eq!(
             saved,
             out.path().join("COD0OPSFIN_20243150000_01D_05M_ORB.SP3")
@@ -3164,7 +3133,7 @@ mod tests {
         assert!(cached.is_file());
 
         let custom = out.path().join("nested").join("custom.sp3");
-        let saved = client.save(&product, &custom, false).unwrap();
+        let saved = client.save(&product, &custom, false, true).unwrap();
         assert_eq!(saved, custom);
         assert_eq!(fs::read_to_string(&custom).unwrap(), SP3_TEXT);
         assert!(!cached.exists());
@@ -3173,7 +3142,41 @@ mod tests {
 
     #[test]
     #[serial]
-    fn test_igs_products_client_save_unix_compress_unchanged() {
+    fn test_igs_products_client_save_keeps_published_file() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("online"));
+        let out = tempfile::tempdir().unwrap();
+        let server = MockServer::start();
+        let published = gzip(SP3_TEXT.as_bytes()).unwrap();
+        let file = mock_file(
+            &server,
+            &format!("/pub/products/2340/{SP3_NAME}"),
+            published.clone(),
+        );
+        let client = garner_client(&server);
+        let product = product(&client, SP3_NAME, 2340);
+        let cached = client
+            .cache_dir()
+            .unwrap()
+            .join("garner/2340")
+            .join(SP3_NAME);
+
+        let saved = client.save(&product, out.path(), true, false).unwrap();
+        assert_eq!(saved, out.path().join(SP3_NAME));
+        assert_eq!(fs::read(&saved).unwrap(), published);
+        assert!(cached.is_file());
+
+        let custom = out.path().join("nested").join("custom.sp3.gz");
+        let saved = client.save(&product, &custom, false, false).unwrap();
+        assert_eq!(saved, custom);
+        assert_eq!(fs::read(&custom).unwrap(), published);
+        assert!(!cached.exists());
+        file.assert_calls(1);
+    }
+
+    #[test]
+    #[serial]
+    fn test_igs_products_client_save_unix_compress_decompresses() {
         let _cache = CacheRedirect::new();
         let _mode = NetworkModeGuard::set(Some("online"));
         let out = tempfile::tempdir().unwrap();
@@ -3186,9 +3189,9 @@ mod tests {
         let client = garner_client(&server);
         let product = product(&client, SHORT_Z_NAME, 2340);
 
-        let saved = client.save(&product, out.path(), false).unwrap();
-        assert_eq!(saved, out.path().join(SHORT_Z_NAME));
-        assert_eq!(fs::read(&saved).unwrap(), SHORT_Z_BYTES);
+        let saved = client.save(&product, out.path(), false, true).unwrap();
+        assert_eq!(saved, out.path().join("igr23400.sp3"));
+        assert_eq!(fs::read(&saved).unwrap(), b"#2");
         assert!(
             !client
                 .cache_dir()
@@ -3214,7 +3217,7 @@ mod tests {
         let cache = client.cache_dir().unwrap();
         for destination in [cache.clone(), cache.join("saved").join("out.sp3")] {
             let err = client
-                .save(&product, &destination, false)
+                .save(&product, &destination, false, false)
                 .unwrap_err()
                 .to_string();
             assert!(err.contains("inside the IGS cache directory"), "{err}");
@@ -3447,7 +3450,7 @@ mod tests {
 
     #[test]
     #[serial]
-    fn test_igs_products_client_save_unix_compress_keep_cached_copies() {
+    fn test_igs_products_client_save_unix_compress_keep_cached() {
         let _cache = CacheRedirect::new();
         let _mode = NetworkModeGuard::set(Some("online"));
         let out = tempfile::tempdir().unwrap();
@@ -3460,8 +3463,9 @@ mod tests {
         let client = garner_client(&server);
         let product = product(&client, SHORT_Z_NAME, 2340);
 
-        let saved = client.save(&product, out.path(), true).unwrap();
-        assert_eq!(fs::read(&saved).unwrap(), SHORT_Z_BYTES);
+        let saved = client.save(&product, out.path(), true, true).unwrap();
+        assert_eq!(saved, out.path().join("igr23400.sp3"));
+        assert_eq!(fs::read(&saved).unwrap(), b"#2");
         assert_eq!(
             fs::read(
                 client
@@ -3602,6 +3606,7 @@ mod tests {
     }
 
     const SP3_FIXTURE: &str = "test_assets/sp3/IGS0OPSFIN_20243150000_01D_15M_ORB_subset.SP3.gz";
+    const UNIX_SP3_FIXTURE: &str = "test_assets/sp3/gbm18432.sp3.Z";
 
     impl IGSProductsClient {
         /// The products [`IGSProductsClient::sp3_range_files`] chooses, in order.
@@ -3694,6 +3699,26 @@ mod tests {
 
     #[test]
     #[serial]
+    fn test_igs_products_client_download_sp3_unix_compress() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("online"));
+        let server = MockServer::start();
+        let name = "gbm18432.sp3.Z";
+        let file = mock_file(
+            &server,
+            &format!("/pub/products/1843/{name}"),
+            fs::read(UNIX_SP3_FIXTURE).unwrap(),
+        );
+        let client = garner_client(&server);
+
+        let sp3 = client.download_sp3(&product(&client, name, 1843)).unwrap();
+        assert_eq!(sp3, SP3::from_file(UNIX_SP3_FIXTURE).unwrap());
+        assert_eq!(sp3.num_epochs(), 288);
+        file.assert_calls(1);
+    }
+
+    #[test]
+    #[serial]
     fn test_igs_products_client_download_sp3_rejects_before_download() {
         let _cache = CacheRedirect::new();
         let _mode = NetworkModeGuard::set(Some("online"));
@@ -3703,13 +3728,6 @@ mod tests {
             then.status(200).body(sp3_fixture());
         });
         let client = garner_client(&server);
-
-        let err = client
-            .download_sp3(&product(&client, "cod21000.sp3.Z", 2100))
-            .unwrap_err()
-            .to_string();
-        assert!(err.contains(UNIX_COMPRESS_UNSUPPORTED), "{err}");
-        assert!(err.contains("cod21000.sp3.Z"), "{err}");
 
         let err = client
             .download_sp3(&product(
@@ -4097,34 +4115,19 @@ mod tests {
                 "cod21000.sp3.Z",
                 "cod21001.sp3.gz",
                 "cod21002.sp3.Z",
-                "cod21003.sp3.Z",
-                "cod21003.sp3.gz",
                 "cod21003.clk.Z",
             ]),
         );
-        let files = server.mock(|when, then| {
-            when.method(GET).path_prefix("/pub/products/2100/cod");
-            then.status(200).body(sp3_fixture());
+        let unix = server.mock(|when, then| {
+            when.method(GET).path_suffix(".sp3.Z");
+            then.status(200).body(fs::read(UNIX_SP3_FIXTURE).unwrap());
         });
+        let gzipped = mock_file(&server, "/pub/products/2100/cod21001.sp3.gz", sp3_fixture());
         let client = garner_client(&server);
         let options = IGSRangeOptions::new();
 
-        // Sunday 2020-04-05 is day 0 of week 2100.
-        let err = client
-            .download_sp3_range(
-                gps(2020, 4, 5, 6),
-                gps(2020, 4, 6, 6),
-                IGSAnalysisCenter::parse("cod"),
-                IGSSolutionType::Final,
-                &options,
-            )
-            .unwrap_err()
-            .to_string();
-        assert!(err.contains(UNIX_COMPRESS_UNSUPPORTED), "{err}");
-        assert!(err.contains("cod21000.sp3.Z"), "{err}");
-        files.assert_calls(0);
-
-        // The `.Z` padding days are skipped, and gzip is preferred to `.Z`.
+        // Sunday 2020-04-05 is day 0 of week 2100. Unix-compressed files are
+        // chosen like any other, inside the span and as padding.
         let chosen = client
             .sp3_range_products(
                 gps(2020, 4, 6, 6),
@@ -4134,18 +4137,29 @@ mod tests {
                 &options,
             )
             .unwrap();
-        assert_eq!(names(&chosen), ["cod21001.sp3.gz"]);
-        let chosen = client
-            .sp3_range_products(
-                gps(2020, 4, 8, 6),
-                gps(2020, 4, 8, 12),
-                &IGSAnalysisCenter::COD,
-                &IGSSolutionType::Final,
+        assert_eq!(
+            names(&chosen),
+            ["cod21000.sp3.Z", "cod21001.sp3.gz", "cod21002.sp3.Z"]
+        );
+
+        let files = client
+            .download_sp3_range(
+                gps(2020, 4, 5, 6),
+                gps(2020, 4, 6, 6),
+                IGSAnalysisCenter::parse("cod"),
+                IGSSolutionType::Final,
                 &options.clone().with_pad(false),
             )
             .unwrap();
-        assert_eq!(names(&chosen), ["cod21003.sp3.gz"]);
-        files.assert_calls(0);
+        assert_eq!(
+            files,
+            vec![
+                SP3::from_file(UNIX_SP3_FIXTURE).unwrap(),
+                SP3::from_file(SP3_FIXTURE).unwrap()
+            ]
+        );
+        unix.assert_calls(1);
+        gzipped.assert_calls(1);
 
         // A missing short-name day names the day.
         let err = client
@@ -4290,11 +4304,13 @@ mod tests {
             .collect();
         assert_eq!(
             daily_orbit(&short, 2100 * 7, None).unwrap().name,
-            "cod21000.eph"
+            "cod21000.sp3.Z"
         );
         assert_eq!(
-            daily_orbit(&short[..2], 2100 * 7, None).unwrap().name,
-            "cod21000.sp3.Z"
+            daily_orbit(&[short[0].clone(), short[2].clone()], 2100 * 7, None)
+                .unwrap()
+                .name,
+            "cod21000.eph"
         );
     }
 
@@ -4339,7 +4355,7 @@ mod tests {
     #[test]
     #[serial]
     #[cfg_attr(not(feature = "integration"), ignore)]
-    fn test_integration_garner_raw_unix_compress_download() {
+    fn test_integration_garner_unix_compress_download() {
         let _cache = CacheRedirect::new();
         let _mode = NetworkModeGuard::set(None);
         let client = IGSProductsClient::new(IGSProductSource::Garner);
@@ -4357,7 +4373,9 @@ mod tests {
         let path = client.download(product).unwrap();
         let bytes = fs::read(path).unwrap();
         assert_eq!(&bytes[..2], &[0x1f, 0x9d]);
-        assert!(client.download_sp3(product).is_err());
+        let sp3 = client.download_sp3(product).unwrap();
+        assert_eq!(sp3.num_epochs(), 96);
+        assert!(sp3.num_satellites() >= 30);
     }
 
     #[test]
@@ -4534,59 +4552,6 @@ mod tests {
         assert!(err.contains("not found"), "{err}");
         assert!(err.contains("CDDIS"), "{err}");
         assert!(err.contains(SP3_NAME), "{err}");
-    }
-
-    #[test]
-    #[serial]
-    fn test_igs_products_client_download_sp3_range_prefers_parseable_finer_file() {
-        let _cache = CacheRedirect::new();
-        let _mode = NetworkModeGuard::set(Some("online"));
-        let server = MockServer::start();
-        let coarse_z = "COD0OPSFIN_20243160000_01D_15M_ORB.SP3.Z";
-        let fine_gz = cod_daily(316, "05M");
-        let only_z = "COD0OPSFIN_20243170000_01D_15M_ORB.SP3.Z";
-        mock_listing(
-            &server,
-            "/pub/products/2340/",
-            apache_listing(&[coarse_z, &fine_gz, only_z]),
-        );
-        let fine = mock_file(
-            &server,
-            &format!("/pub/products/2340/{fine_gz}"),
-            sp3_fixture(),
-        );
-        let unix = server.mock(|when, then| {
-            when.method(GET).path_suffix(".SP3.Z");
-            then.status(200).body(SHORT_Z_BYTES);
-        });
-        let client = garner_client(&server);
-        let options = IGSRangeOptions::new().with_pad(false);
-
-        let files = client
-            .download_sp3_range(
-                gps(2024, 11, 11, 6),
-                gps(2024, 11, 11, 12),
-                IGSAnalysisCenter::COD,
-                IGSSolutionType::Final,
-                &options,
-            )
-            .unwrap();
-        assert_eq!(files, vec![SP3::from_file(SP3_FIXTURE).unwrap()]);
-        fine.assert_calls(1);
-
-        let err = client
-            .download_sp3_range(
-                gps(2024, 11, 12, 6),
-                gps(2024, 11, 12, 12),
-                IGSAnalysisCenter::COD,
-                IGSSolutionType::Final,
-                &options,
-            )
-            .unwrap_err()
-            .to_string();
-        assert!(err.contains(UNIX_COMPRESS_UNSUPPORTED), "{err}");
-        assert!(err.contains(only_z), "{err}");
-        unix.assert_calls(0);
     }
 
     #[test]

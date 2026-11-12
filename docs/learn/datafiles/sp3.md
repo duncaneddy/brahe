@@ -29,7 +29,7 @@ The Extended Standard Product 3 (SP3) format is the exchange format for precise 
 
 ## Compressed Files
 
-IGS products are distributed as gzip files with a `.gz` suffix. `SP3.from_file` detects gzip data from the first bytes of the file, so the file name does not matter, and decompresses it before parsing; the result equals the object read from the plain file. `SP3.from_bytes` takes the contents of a file already held in memory, either plain text or a gzip stream, which is the entry point for data fetched over the network or read from an archive.
+IGS products are distributed as gzip files with a `.gz` suffix. `SP3.from_file` detects gzip data from the first bytes of the file, so the file name does not matter, and decompresses it before parsing; the result equals the object read from the plain file. `SP3.from_bytes` takes the contents of a file already held in memory, as plain text or a gzip or Unix compress stream, which is the entry point for data fetched over the network or read from an archive.
 
 === "Python"
     ``` python
@@ -52,7 +52,7 @@ IGS products are distributed as gzip files with a `.gz` suffix. `SP3.from_file` 
         --8<-- "./docs/outputs/datafiles/sp3_compressed.rs.txt"
         ```
 
-`to_file` writes gzip when the path ends in `.gz`, in any letter case, and plain text otherwise. Files compressed with the Unix `compress` utility, which carry a `.Z` suffix and are common in older IGS archives, are not supported. Reading one raises an error that asks for the file to be decompressed first. Decompress it externally with `gzip -d file.sp3.Z` and read the resulting plain file.
+`to_file` writes gzip when the path ends in `.gz`, in any letter case, and plain text otherwise. Files compressed with the Unix `compress` utility, which carry a `.Z` suffix and are common in older IGS archives, are read the same way as gzip files. Brahe does not write them.
 
 ## Format and Versions
 

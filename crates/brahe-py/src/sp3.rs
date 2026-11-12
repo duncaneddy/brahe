@@ -1822,18 +1822,18 @@ impl PySP3 {
             .map_err(sp3_py_err)
     }
 
-    /// Parse an SP3 file from bytes that are plain text or gzip-compressed.
+    /// Parse an SP3 file from bytes that are plain text or compressed.
     ///
-    /// Gzip data is detected from its leading bytes and decompressed; the decompressed size is limited to 1 GiB. Unix compress (``.Z``) data is rejected.
+    /// Gzip and Unix compress (``.Z``) data is detected from its leading bytes and decompressed; the decompressed size is limited to 1 GiB.
     ///
     /// Args:
-    ///     data (bytes): File contents, either SP3 text or a gzip stream of SP3 text.
+    ///     data (bytes): File contents: SP3 text, or a gzip or Unix compress stream of SP3 text.
     ///
     /// Returns:
     ///     SP3: The parsed file.
     ///
     /// Raises:
-    ///     BraheError: If the gzip stream is corrupt or decompresses to more than 1 GiB, the text is not UTF-8, the data is Unix compress data, or the header or any record is malformed.
+    ///     BraheError: If the compressed stream is corrupt or decompresses to more than 1 GiB, the text is not UTF-8, or the header or any record is malformed.
     ///
     /// Example:
     ///     ```python
@@ -1852,10 +1852,10 @@ impl PySP3 {
 
     /// Read and parse an SP3 file.
     ///
-    /// Gzip-compressed files are decompressed based on their leading bytes. Unix compress (``.Z``) files are rejected.
+    /// Gzip and Unix compress (``.Z``) files are decompressed based on their leading bytes.
     ///
     /// Args:
-    ///     path (str): Path to a plain-text or gzip-compressed file; any ``os.PathLike`` is accepted.
+    ///     path (str): Path to a plain-text, gzip-compressed, or Unix-compressed file; any ``os.PathLike`` is accepted.
     ///
     /// Returns:
     ///     SP3: The parsed file.

@@ -5,7 +5,58 @@
     --md-accent-fg-color:         #FF9D00;
     --md-accent-fg-color--transparent: #FF9D001a;
   }
-  
+
+/* Orange header and navigation tabs */
+.md-header,
+.md-tabs {
+  color: var(--md-primary-bg-color);
+  background-color: var(--md-primary-fg-color);
+}
+
+.md-header {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+.md-tabs {
+  box-shadow: none;
+}
+
+.md-tabs__item--active {
+  border-bottom-color: currentcolor;
+}
+
+.md-header .md-search__button {
+  color: var(--md-primary-bg-color);
+  background-color: #00000042;
+}
+
+.md-header .md-search__button:focus,
+.md-header .md-search__button:hover {
+  color: var(--md-primary-bg-color);
+  background-color: #0000005c;
+}
+
+.md-header .md-search__button:before {
+  background-color: var(--md-primary-bg-color);
+}
+
+/* Compact sidebar navigation */
+.md-nav__list {
+  gap: 0;
+}
+
+.md-nav__link,
+.md-nav__container > .md-nav__link {
+  padding-top: .2rem;
+  padding-bottom: .2rem;
+}
+
+.md-nav__link.md-nav__container {
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
 .plotly-embed {
     overflow: hidden;
 }

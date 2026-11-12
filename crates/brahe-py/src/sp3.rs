@@ -1745,12 +1745,11 @@ impl PySP3Header {
 ///
 ///     sp3 = bh.SP3(["G01", "G02"], 900.0, bh.SP3Header(agency="TEST"))
 ///     t0 = bh.Epoch(2024, 11, 10, 0, 0, 0.0, 0.0, time_system=bh.GPS)
-///     k = sp3.push_epoch(t0)
-///     sp3.set_record("G01", k, bh.SP3Record(np.array([15.0e6, 20.0e6, 5.0e6]), clock=2.5e-5))
+///     sp3.set_record("G01", t0, bh.SP3Record(np.array([15.0e6, 20.0e6, 5.0e6]), clock=2.5e-5))
 ///
 ///     parsed = bh.SP3.from_str(sp3.to_string())
 ///     assert parsed.num_epochs == 1
-///     assert abs(parsed.record("G01", 0).clock - 2.5e-5) < 1e-12
+///     assert abs(parsed.record("G01", t0).clock - 2.5e-5) < 1e-12
 ///     ```
 #[pyclass(module = "brahe._brahe", from_py_object)]
 #[pyo3(name = "SP3")]
@@ -1893,46 +1892,22 @@ impl PySP3 {
         self.inner.to_file(path).map_err(sp3_py_err)
     }
 
-    /// Append an epoch to the grid.
-    ///
-    /// The first epoch anchors the epoch grid. Later epochs must lie after
-    /// the last epoch on that grid.
-    ///
-    /// Args:
-    ///     epoch (Epoch): Epoch to append.
-    ///
-    /// Returns:
-    ///     int: Index of the new epoch.
-    ///
-    /// Raises:
-    ///     BraheError: If the epoch is not after the last epoch or is off the grid.
-    ///
-    /// Example:
-    ///     ```python
-    ///     import brahe as bh
-    ///
-    ///     sp3 = bh.SP3(["G01"], 900.0)
-    ///     t0 = bh.Epoch(2024, 11, 10, 0, 0, 0.0, 0.0, time_system=bh.GPS)
-    ///     assert sp3.push_epoch(t0) == 0
-    ///     assert sp3.push_epoch(t0 + 2700.0) == 1
-    ///     ```
-    fn push_epoch(&mut self, epoch: PyEpoch) -> PyResult<usize> {
-        self.inner.push_epoch(epoch.obj).map_err(sp3_py_err)
-    }
-
     /// Set the record of a satellite at an epoch.
     ///
-    /// A record whose position is exactly zero marks the satellite as absent
-    /// at that epoch.
+    /// An epoch the file does not hold is added at its place in the epoch
+    /// order, with every other satellite absent; it must lie on the grid of
+    /// the epoch interval anchored at the first epoch, to within 1 ms. An
+    /// epoch within 1 ms of one the file holds addresses that epoch. A record
+    /// whose position is exactly zero marks the satellite as absent at that
+    /// epoch. Nothing is modified when the call fails.
     ///
     /// Args:
     ///     satellite (str | SP3SatelliteId): Satellite.
-    ///     epoch_index (int): Index of the epoch.
+    ///     epoch (Epoch): Epoch of the record.
     ///     record (SP3Record): Record to store.
     ///
     /// Raises:
-    ///     BraheError: If the satellite is not in the file, the epoch index is out of range,
-    ///         or the position or velocity has a NaN or infinite component.
+    ///     BraheError: If the satellite is not in the file, the epoch is off the grid, or the position or velocity has a NaN or infinite component.
     ///
     /// Example:
     ///     ```python
@@ -1940,50 +1915,95 @@ impl PySP3 {
     ///     import numpy as np
     ///
     ///     sp3 = bh.SP3(["G01"], 900.0)
-    ///     k = sp3.push_epoch(bh.Epoch(2024, 11, 10, 0, 0, 0.0, 0.0, time_system=bh.GPS))
-    ///     sp3.set_record("G01", k, bh.SP3Record(np.array([2.0e7, 1.0e7, 1.0e7])))
-    ///     assert sp3.record("G01", k) is not None
+    ///     t0 = bh.Epoch(2024, 11, 10, 0, 0, 0.0, 0.0, time_system=bh.GPS)
+    ///     sp3.set_record("G01", t0, bh.SP3Record(np.array([2.0e7, 1.0e7, 1.0e7])))
+    ///     sp3.set_record("G01", t0 + 1800.0, bh.SP3Record(np.array([2.1e7, 1.0e7, 1.0e7])))
+    ///     assert sp3.num_epochs == 2
+    ///     assert sp3.record("G01", t0) is not None
     ///     ```
     fn set_record(
         &mut self,
         satellite: &Bound<'_, PyAny>,
-        epoch_index: usize,
+        epoch: PyEpoch,
         record: PySP3Record,
     ) -> PyResult<()> {
         let id = extract_sp3_satellite_id(satellite)?;
         self.inner
-            .set_record(id, epoch_index, record.inner)
+            .set_record(id, epoch.obj, record.inner)
             .map_err(sp3_py_err)
     }
 
-    /// Record of a satellite at an epoch.
+    /// Set the records of every satellite at an epoch.
+    ///
+    /// The epoch is added or addressed as in ``set_record``. Satellites of
+    /// the file that ``records`` does not list are absent at the epoch, so an
+    /// empty list gives an epoch at which every satellite is absent. Nothing
+    /// is modified when the call fails.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Epoch of the records.
+    ///     records (list[tuple[str | SP3SatelliteId, SP3Record]]): Satellites paired with their records.
+    ///
+    /// Raises:
+    ///     BraheError: If a satellite is not in the file or is listed twice, the epoch is off the grid, or a position or velocity has a NaN or infinite component.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     sp3 = bh.SP3(["G01", "G02"], 900.0)
+    ///     t0 = bh.Epoch(2024, 11, 10, 0, 0, 0.0, 0.0, time_system=bh.GPS)
+    ///     sp3.set_epoch(t0, [
+    ///         ("G01", bh.SP3Record(np.array([2.0e7, 1.0e7, 1.0e7]))),
+    ///         ("G02", bh.SP3Record(np.array([-1.5e7, 2.0e7, 5.0e6]))),
+    ///     ])
+    ///     sp3.set_epoch(t0 + 900.0, [("G01", bh.SP3Record(np.array([2.1e7, 1.0e7, 1.0e7])))])
+    ///     assert sp3.record("G02", t0) is not None
+    ///     assert sp3.record("G02", t0 + 900.0) is None
+    ///     ```
+    fn set_epoch(
+        &mut self,
+        epoch: PyEpoch,
+        records: Vec<(Bound<'_, PyAny>, PySP3Record)>,
+    ) -> PyResult<()> {
+        let records = records
+            .into_iter()
+            .map(|(satellite, record)| Ok((extract_sp3_satellite_id(&satellite)?, record.inner)))
+            .collect::<PyResult<Vec<_>>>()?;
+        self.inner
+            .set_epoch(epoch.obj, &records)
+            .map_err(sp3_py_err)
+    }
+
+    /// Record of a satellite at an epoch of the file.
     ///
     /// Args:
     ///     satellite (str | SP3SatelliteId): Satellite.
-    ///     epoch_index (int): Index of the epoch.
+    ///     epoch (Epoch): One of the file's epochs, matched to within 1 ms.
     ///
     /// Returns:
     ///     SP3Record | None: A copy of the record, or None if the satellite is absent at that epoch.
     ///
     /// Raises:
-    ///     BraheError: If the satellite is not in the file or the epoch index is out of range.
+    ///     BraheError: If the satellite is not in the file or the file has no such epoch.
     ///
     /// Example:
     ///     ```python
     ///     import brahe as bh
     ///
     ///     sp3 = bh.SP3.from_file("test_assets/sp3/example-d-2.sp3")
-    ///     record = sp3.record("G01", 0)
+    ///     record = sp3.record("G01", sp3.epochs[0])
     ///     print(record.position, record.clock)
     ///     ```
     fn record(
         &self,
         satellite: &Bound<'_, PyAny>,
-        epoch_index: usize,
+        epoch: PyEpoch,
     ) -> PyResult<Option<PySP3Record>> {
         let id = extract_sp3_satellite_id(satellite)?;
         self.inner
-            .record(id, epoch_index)
+            .record(id, epoch.obj)
             .map(|r| r.cloned().map(|inner| PySP3Record { inner }))
             .map_err(sp3_py_err)
     }
@@ -2000,6 +2020,32 @@ impl PySP3 {
     #[setter]
     fn set_header(&mut self, value: PySP3Header) {
         self.inner.header = value.inner;
+    }
+
+    /// Degree of the Lagrange polynomials that the satellites taken from the
+    /// file fit through their samples. It is not part of the file format and
+    /// is 9 for a new or parsed file; a degree of 9 fits 10 samples.
+    ///
+    /// Returns:
+    ///     int: The degree.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     sp3 = bh.SP3.from_file("test_assets/sp3/example-d-2.sp3")
+    ///     assert sp3.interpolation_degree == 9
+    ///     sp3.interpolation_degree = 7
+    ///     assert sp3.satellite("G01").interpolation_degree == 7
+    ///     ```
+    #[getter]
+    fn interpolation_degree(&self) -> usize {
+        self.inner.interpolation_degree
+    }
+
+    #[setter]
+    fn set_interpolation_degree(&mut self, value: usize) {
+        self.inner.interpolation_degree = value;
     }
 
     /// Epochs of the file.
@@ -2120,12 +2166,12 @@ impl PySP3 {
     ///
     ///     sp3 = bh.SP3(["G01"], 900.0)
     ///     t0 = bh.Epoch(2024, 11, 10, 0, 0, 0.0, 0.0, time_system=bh.GPS)
-    ///     sp3.push_epoch(t0)
-    ///     sp3.push_epoch(t0 + 900.0)
-    ///     sp3.set_record("G01", 0, bh.SP3Record(np.array([2.0e7, 1.0e7, 1.0e7])))
+    ///     sp3.set_epoch(t0, [])
+    ///     sp3.set_epoch(t0 + 900.0, [])
+    ///     sp3.set_record("G01", sp3.epochs[0], bh.SP3Record(np.array([2.0e7, 1.0e7, 1.0e7])))
     ///
     ///     sp3.set_clocks("G01", [1e-5, None])
-    ///     assert sp3.record("G01", 0).clock == 1e-5
+    ///     assert sp3.record("G01", sp3.epochs[0]).clock == 1e-5
     ///     ```
     fn set_clocks(
         &mut self,
@@ -2157,12 +2203,12 @@ impl PySP3 {
     ///     import numpy as np
     ///
     ///     sp3 = bh.SP3(["G01"], 900.0)
-    ///     sp3.push_epoch(bh.Epoch(2024, 11, 10, 0, 0, 0.0, 0.0, time_system=bh.GPS))
+    ///     sp3.set_epoch(bh.Epoch(2024, 11, 10, 0, 0, 0.0, 0.0, time_system=bh.GPS), [])
     ///     record = bh.SP3Record(np.array([2.0e7, 1.0e7, 1.0e7]), velocity=np.array([0.0, 3000.0, 0.0]))
-    ///     sp3.set_record("G01", 0, record)
+    ///     sp3.set_record("G01", sp3.epochs[0], record)
     ///
     ///     sp3.set_clock_rates("G01", [1e-12])
-    ///     assert sp3.record("G01", 0).clock_rate == 1e-12
+    ///     assert sp3.record("G01", sp3.epochs[0]).clock_rate == 1e-12
     ///     ```
     fn set_clock_rates(
         &mut self,
@@ -2175,28 +2221,34 @@ impl PySP3 {
             .map_err(sp3_py_err)
     }
 
-    /// Build an SP3 file by sampling orbit state providers on a regular grid.
+    /// Build an SP3 file from orbit trajectories.
     ///
-    /// Each provider is sampled with ``state_itrf`` at ``start + k * step``
-    /// for ``k = 0, 1, ...`` up to the last grid point not after ``end``.
-    /// Velocities are stored when ``header.has_velocity`` is set. Clocks and
-    /// clock rates are absent and are written as the format's bad-clock value
-    /// unless set with ``set_clocks`` and ``set_clock_rates``. The file type
-    /// follows the satellite systems.
+    /// Without ``step``, the file holds the epochs the trajectories store:
+    /// the trajectories must store the same epochs, to within 1 ms, on a
+    /// regular grid whose interval is the spacing of the first two. With
+    /// ``step``, each trajectory is interpolated at ``start + k * step`` over
+    /// the span all trajectories cover, from the latest first epoch to the
+    /// earliest last epoch. States are converted to ITRF. Velocities are
+    /// stored when ``header.has_velocity`` is set. Clocks and clock rates are
+    /// absent and are written as the format's bad-clock value unless set with
+    /// ``set_clocks`` and ``set_clock_rates``. The file type follows the
+    /// satellite systems.
+    ///
+    /// A propagator supplies the trajectory it has propagated as
+    /// ``propagator.trajectory``, and an ``SP3Satellite`` supplies one with
+    /// ``to_trajectory()``.
     ///
     /// Args:
-    ///     propagators (list[tuple[str | SP3SatelliteId, KeplerianPropagator | SGPPropagator | NumericalOrbitPropagator | OrbitTrajectory | SP3Satellite]]): Satellite identifiers paired with the providers that supply their states; provider types may be mixed.
-    ///     start (Epoch): First epoch of the file.
-    ///     end (Epoch): Last epoch to include.
-    ///     step (float): Epoch spacing, seconds.
-    ///     header (SP3Header, optional): Header of the file; defaults to ``SP3Header()``. Its epoch interval is set to ``step``.
+    ///     trajectories (list[tuple[str | SP3SatelliteId, OrbitTrajectory]]): Satellite identifiers paired with their trajectories.
+    ///     step (float, optional): Epoch spacing to resample at, seconds. Default: None, which keeps the stored epochs.
+    ///     header (SP3Header, optional): Header of the file; defaults to ``SP3Header()``. Its epoch interval is set from the epochs written.
     ///
     /// Returns:
     ///     SP3: The file.
     ///
     /// Raises:
-    ///     TypeError: If an item is not a ``(satellite, provider)`` tuple or a provider is not one of the accepted types.
-    ///     BraheError: If ``end`` precedes ``start``, the satellites are invalid, or a provider cannot supply a state at a grid epoch. A provider error names the satellite and the epoch.
+    ///     TypeError: If an item is not a ``(satellite, OrbitTrajectory)`` tuple.
+    ///     BraheError: If no trajectory is given, a trajectory is empty, the satellites are invalid, the trajectories share no span, the stored epochs differ between trajectories, number fewer than two, or are off a regular grid, or a state is unavailable or not finite.
     ///
     /// Example:
     ///     ```python
@@ -2207,42 +2259,39 @@ impl PySP3 {
     ///     t0 = bh.Epoch(2024, 11, 10, 0, 0, 0.0, 0.0, time_system=bh.GPS)
     ///     oe = np.array([bh.R_EARTH + 800e3, 0.001, 98.0, 0.0, 0.0, 0.0])
     ///     prop = bh.KeplerianPropagator.from_keplerian(t0, oe, bh.AngleFormat.DEGREES, 60.0)
+    ///     prop.propagate_to(t0 + 3600.0)
     ///
-    ///     sp3 = bh.SP3.from_propagators(
-    ///         [("L01", prop)], t0, t0 + 3600.0, 60.0, bh.SP3Header(agency="DEMO")
-    ///     )
+    ///     sp3 = bh.SP3.from_trajectories([("L01", prop.trajectory)], header=bh.SP3Header(agency="DEMO"))
     ///     assert sp3.num_epochs == 61
+    ///
+    ///     sp3 = bh.SP3.from_trajectories([("L01", prop.trajectory)], step=300.0)
+    ///     assert sp3.num_epochs == 13
     ///     ```
     #[staticmethod]
-    #[pyo3(signature = (propagators, start, end, step, header=None))]
-    fn from_propagators<'py>(
-        propagators: Vec<Bound<'py, PyAny>>,
-        start: PyEpoch,
-        end: PyEpoch,
-        step: f64,
+    #[pyo3(signature = (trajectories, step=None, header=None))]
+    fn from_trajectories<'py>(
+        trajectories: Vec<Bound<'py, PyAny>>,
+        step: Option<f64>,
         header: Option<PySP3Header>,
     ) -> PyResult<Self> {
-        let mut entries: Vec<(sp3::SP3SatelliteId, SP3ProviderRef<'py>)> =
-            Vec::with_capacity(propagators.len());
-        for item in &propagators {
-            let (satellite, provider): (Bound<'py, PyAny>, Bound<'py, PyAny>) =
+        let mut entries: Vec<(sp3::SP3SatelliteId, PyRef<'py, PyOrbitalTrajectory>)> =
+            Vec::with_capacity(trajectories.len());
+        for item in &trajectories {
+            let (satellite, trajectory): (Bound<'py, PyAny>, PyRef<'py, PyOrbitalTrajectory>) =
                 item.extract().map_err(|_| {
                     exceptions::PyTypeError::new_err(
-                        "each item of propagators must be a (satellite, provider) tuple",
+                        "each item of trajectories must be a (satellite, OrbitTrajectory) tuple",
                     )
                 })?;
-            entries.push((
-                extract_sp3_satellite_id(&satellite)?,
-                SP3ProviderRef::extract(&provider)?,
-            ));
+            entries.push((extract_sp3_satellite_id(&satellite)?, trajectory));
         }
-        let providers: Vec<(sp3::SP3SatelliteId, &dyn DOrbitStateProvider)> = entries
+        let borrowed: Vec<(sp3::SP3SatelliteId, &trajectories::DOrbitTrajectory)> = entries
             .iter()
-            .map(|(id, guard)| (*id, guard.provider()))
+            .map(|(id, trajectory)| (*id, &trajectory.trajectory))
             .collect();
 
         let header = header.map(|h| h.inner).unwrap_or_default();
-        sp3::SP3::from_propagators(&providers, start.obj, end.obj, step, header)
+        sp3::SP3::from_trajectories(&borrowed, step, header)
             .map(|inner| Self { inner })
             .map_err(sp3_py_err)
     }
@@ -2320,52 +2369,6 @@ impl PySP3 {
     }
 }
 
-/// Borrow of a Python orbit state provider accepted by `SP3.from_propagators`.
-#[allow(clippy::upper_case_acronyms)]
-enum SP3ProviderRef<'py> {
-    Keplerian(PyRef<'py, PyKeplerianPropagator>),
-    SGP(PyRef<'py, PySGPPropagator>),
-    Numerical(PyRef<'py, PyNumericalOrbitPropagator>),
-    Trajectory(PyRef<'py, PyOrbitalTrajectory>),
-    Satellite(PyRef<'py, PySP3Satellite>),
-}
-
-impl<'py> SP3ProviderRef<'py> {
-    /// Borrow `obj` as one of the accepted provider types.
-    fn extract(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
-        if let Ok(p) = obj.cast::<PyKeplerianPropagator>() {
-            return Ok(Self::Keplerian(p.try_borrow()?));
-        }
-        if let Ok(p) = obj.cast::<PySGPPropagator>() {
-            return Ok(Self::SGP(p.try_borrow()?));
-        }
-        if let Ok(p) = obj.cast::<PyNumericalOrbitPropagator>() {
-            return Ok(Self::Numerical(p.try_borrow()?));
-        }
-        if let Ok(t) = obj.cast::<PyOrbitalTrajectory>() {
-            return Ok(Self::Trajectory(t.try_borrow()?));
-        }
-        if let Ok(s) = obj.cast::<PySP3Satellite>() {
-            return Ok(Self::Satellite(s.try_borrow()?));
-        }
-        Err(exceptions::PyTypeError::new_err(format!(
-            "provider must be a KeplerianPropagator, SGPPropagator, NumericalOrbitPropagator, \
-             OrbitTrajectory, or SP3Satellite, got {}",
-            obj.get_type().name()?
-        )))
-    }
-
-    fn provider(&self) -> &dyn DOrbitStateProvider {
-        match self {
-            Self::Keplerian(p) => &p.propagator,
-            Self::SGP(p) => &p.propagator,
-            Self::Numerical(p) => &p.propagator,
-            Self::Trajectory(t) => &t.trajectory,
-            Self::Satellite(s) => &s.inner,
-        }
-    }
-}
-
 /// Convert per-sample 3-vectors into an (N, 3) array.
 fn sp3_vectors_to_numpy<'py>(py: Python<'py>, rows: &[[f64; 3]]) -> Bound<'py, PyArray<f64, Ix2>> {
     ndarray::Array2::from_shape_fn((rows.len(), 3), |(i, j)| rows[i][j]).into_pyarray(py)
@@ -2410,19 +2413,21 @@ fn sp3_parse_uuid(uuid_str: Option<String>) -> PyResult<Option<uuid::Uuid>> {
 /// ``records()`` holds one ``SP3Record`` per epoch of ``epochs()``. Positions
 /// and velocities are in the file's Earth-fixed frame (ITRF), in m and m/s.
 ///
-/// Two consecutive samples more than 1.5 epoch intervals apart belong to
-/// different runs, and the satellite has a gap between them.
-///
 /// The satellite is an orbit state provider with the same ``state_*`` and
 /// ``states_*`` methods as ``OrbitTrajectory``, named after its identifier
 /// (such as ``"G01"``), so it can be passed to ``location_accesses``. A state
 /// is interpolated in ITRF with a Lagrange polynomial of degree
-/// ``SP3_DEFAULT_LAGRANGE_DEGREE`` through the samples of the run around the
-/// requested epoch, as centered as the run allows; a shorter run uses all its
-/// samples. The velocity is interpolated from the records when every sample
+/// ``interpolation_degree`` through the samples nearest the requested epoch,
+/// as centered as the samples allow; a satellite with fewer samples uses all
+/// of them. The velocity is interpolated from the records when every sample
 /// of the fit has one, and is the derivative of the position polynomial
-/// otherwise. A request outside the samples, inside a gap, or at a sample
-/// that forms a run on its own raises ``BraheError``.
+/// otherwise. A request before the first sample or after the last one raises
+/// ``BraheError``, as does any request to a satellite with a single sample.
+///
+/// Missing samples do not stop interpolation: a state between two samples
+/// that are further apart than the epoch interval is fitted through the
+/// samples around the hole and loses accuracy as the hole grows. ``gaps()``
+/// lists those holes.
 ///
 /// Example:
 ///     ```python
@@ -2432,15 +2437,15 @@ fn sp3_parse_uuid(uuid_str: Option<String>) -> PyResult<Option<uuid::Uuid>> {
 ///     sp3 = bh.SP3(["G01"], 900.0, bh.SP3Header(has_velocity=False))
 ///     t0 = bh.Epoch(2024, 11, 10, 0, 0, 0.0, 0.0, time_system=bh.GPS)
 ///     for k in range(4):
-///         index = sp3.push_epoch(t0 + 900.0 * k)
-///         sp3.set_record("G01", index, bh.SP3Record(np.array([2.0e7 + 900.0 * k, 1.0e7, 1.0e7])))
+///         sp3.set_record("G01", t0 + 900.0 * k, bh.SP3Record(np.array([2.0e7 + 900.0 * k, 1.0e7, 1.0e7])))
 ///
 ///     sat = sp3.satellite("G01")
 ///     assert len(sat) == 4
 ///     assert sat.get_name() == "G01"
 ///     state = sat.state_itrf(t0 + 450.0)
 ///     assert abs(state[3] - 1.0) < 1e-9
-///     assert len(sat.to_trajectories()) == 1
+///     assert sat.gaps() == []
+///     assert len(sat.to_trajectory()) == 4
 ///     ```
 #[pyclass(module = "brahe._brahe")]
 #[pyo3(name = "SP3Satellite")]
@@ -2670,36 +2675,88 @@ impl PySP3Satellite {
             .collect()
     }
 
-    /// Convert the samples to ITRF trajectories, one per contiguous run.
-    ///
-    /// Each trajectory is a Cartesian ``OrbitTrajectory`` in the ITRF frame
-    /// with the name, ID, and UUID of the satellite and Lagrange
-    /// interpolation of degree ``SP3_DEFAULT_LAGRANGE_DEGREE``, or the run
-    /// length less one for a shorter run. The state at each sample is the one
-    /// the satellite provides at that epoch. A sample that forms a run on its
-    /// own is left out.
+    /// Degree of the Lagrange polynomials fitted through the samples. A fit
+    /// uses ``degree + 1`` samples, or every sample when the satellite has
+    /// fewer. The satellite takes the degree of the file it comes from.
     ///
     /// Returns:
-    ///     list[OrbitTrajectory]: One trajectory per run of at least two samples, in time order.
+    ///     int: The degree, at least 1.
+    ///
+    /// Raises:
+    ///     BraheError: If set to zero.
     ///
     /// Example:
     ///     ```python
     ///     import brahe as bh
     ///
     ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
-    ///     trajectories = sat.to_trajectories()
-    ///     assert len(trajectories) == 1
-    ///     gcrf = trajectories[0].to_gcrf()
+    ///     assert sat.interpolation_degree == 9
+    ///     sat.interpolation_degree = 7
     ///     ```
-    fn to_trajectories(&self) -> PyResult<Vec<PyOrbitalTrajectory>> {
+    #[getter]
+    fn interpolation_degree(&self) -> usize {
+        self.inner.interpolation_degree()
+    }
+
+    #[setter]
+    fn set_interpolation_degree(&mut self, value: usize) -> PyResult<()> {
         self.inner
-            .to_trajectories()
-            .map(|trajs| {
-                trajs
-                    .into_iter()
-                    .map(|trajectory| PyOrbitalTrajectory { trajectory })
-                    .collect()
-            })
+            .set_interpolation_degree(value)
+            .map_err(sp3_py_err)
+    }
+
+    /// Spans where samples are missing.
+    ///
+    /// Two consecutive samples more than 1.5 epoch intervals apart have a gap
+    /// between them. A satellite with zero positions at 10:15 and 10:30 in a
+    /// 15-minute file has one gap, from 10:00 to 10:45.
+    ///
+    /// Returns:
+    ///     list[tuple[Epoch, Epoch]]: The last sample before and the first sample after each gap, in time order.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     assert sat.gaps() == []
+    ///     ```
+    fn gaps(&self) -> Vec<(PyEpoch, PyEpoch)> {
+        self.inner
+            .gaps()
+            .into_iter()
+            .map(|(before, after)| (PyEpoch { obj: before }, PyEpoch { obj: after }))
+            .collect()
+    }
+
+    /// Convert the samples to an ITRF trajectory.
+    ///
+    /// The trajectory is a Cartesian ``OrbitTrajectory`` in the ITRF frame
+    /// with the name, ID, and UUID of the satellite and Lagrange
+    /// interpolation of degree ``interpolation_degree``, or the number of
+    /// samples less one for a satellite with fewer samples. The state at each
+    /// sample is the one the satellite provides at that epoch. Gaps are not
+    /// marked in the trajectory; see ``gaps()``.
+    ///
+    /// Returns:
+    ///     OrbitTrajectory: The trajectory.
+    ///
+    /// Raises:
+    ///     BraheError: If the satellite has a single sample.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
+    ///     trajectory = sat.to_trajectory()
+    ///     assert len(trajectory) == len(sat)
+    ///     gcrf = trajectory.to_gcrf()
+    ///     ```
+    fn to_trajectory(&self) -> PyResult<PyOrbitalTrajectory> {
+        self.inner
+            .to_trajectory()
+            .map(|trajectory| PyOrbitalTrajectory { trajectory })
             .map_err(sp3_py_err)
     }
 
@@ -2712,7 +2769,7 @@ impl PySP3Satellite {
     ///     numpy.ndarray: ITRF state [x, y, z, vx, vy, vz] (meters, m/s).
     ///
     /// Raises:
-    ///     BraheError: If the epoch is outside the samples, inside a gap, or at a sample that forms a run on its own.
+    ///     BraheError: If the epoch is outside the samples or the satellite has a single sample.
     ///
     /// Example:
     ///     ```python

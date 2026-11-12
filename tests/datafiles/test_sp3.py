@@ -271,26 +271,29 @@ def test_SP3FileType_invalid_code():
 # ---------------------------------------------------------------------------
 
 
-def test_SP3_new_and_push_epoch():
+def test_SP3_new_and_set_record():
     sp3 = SP3(["G01", "G02"], 900.0)
     t0 = gps_t0()
-    assert sp3.push_epoch(t0) == 0
-    assert sp3.push_epoch(t0 + 900.0) == 1
+    sp3.set_epoch(t0, [])
+    sp3.set_epoch(t0 + 2700.0, [])
+    sp3.set_epoch(t0 + 900.0, [])
     with pytest.raises(bh.BraheError):
-        sp3.push_epoch(t0 + 1000.0)
-    with pytest.raises(bh.BraheError):
-        sp3.push_epoch(t0)
-    assert sp3.push_epoch(t0 + 2700.0) == 2
+        sp3.set_epoch(t0 + 1000.0, [])
+    sp3.set_epoch(t0, [])
+    assert sp3.epochs == [t0, t0 + 900.0, t0 + 2700.0]
     g02 = sat("G02")
-    sp3.set_record(g02, 1, SP3Record([1.0, 2.0, 3.0], clock=1e-6))
-    assert sp3.record(g02, 1).clock == 1e-6
-    assert sp3.record(g02, 0) is None
+    sp3.set_record(g02, t0 + 900.0, SP3Record([1.0, 2.0, 3.0], clock=1e-6))
+    assert sp3.record(g02, t0 + 900.0).clock == 1e-6
+    assert sp3.record(g02, t0) is None
     with pytest.raises(bh.BraheError):
-        sp3.record(sat("G03"), 0)
+        sp3.record("G03", t0)
     with pytest.raises(bh.BraheError):
-        sp3.set_record(g02, 9, SP3Record([0.0, 0.0, 0.0]))
+        sp3.record(g02, t0 + 1800.0)
     with pytest.raises(bh.BraheError):
-        sp3.set_record(sat("G03"), 0, SP3Record([0.0, 0.0, 0.0]))
+        sp3.set_record(g02, t0 + 1000.0, SP3Record([1.0, 2.0, 3.0]))
+    with pytest.raises(bh.BraheError):
+        sp3.set_record("G03", t0, SP3Record([1.0, 2.0, 3.0]))
+    assert sp3.num_epochs == 3
     assert sp3.header.agency == "BRHE"
     assert sp3.header.time_system == SP3TimeSystem.GPS
     assert sp3.header.has_velocity
@@ -326,8 +329,8 @@ def test_SP3_empty_start_end_epoch():
 def test_SP3_start_fields_follow_first_epoch():
     sp3 = SP3(["G01"], 900.0)
     t0 = bh.Epoch.from_datetime(2024, 11, 10, 6, 0, 0.0, 0.0, bh.TimeSystem.GPS)
-    sp3.push_epoch(t0)
-    sp3.push_epoch(t0 + 900.0)
+    sp3.set_epoch(t0, [])
+    sp3.set_epoch(t0 + 900.0, [])
     assert sp3.num_epochs == 2
     assert sp3.gps_week == 2340
     assert sp3.seconds_of_week == 6.0 * 3600.0
@@ -346,18 +349,18 @@ def test_SP3_start_fields_follow_first_epoch():
 
 def test_SP3_set_record_zero_position_is_absent():
     sp3 = SP3(["G01"], 900.0)
-    sp3.push_epoch(gps_t0())
-    sp3.set_record("G01", 0, SP3Record([1.0, 2.0, 3.0]))
-    assert sp3.record("G01", 0) is not None
-    sp3.set_record("G01", 0, SP3Record([0.0, 0.0, 0.0]))
-    assert sp3.record("G01", 0) is None
+    sp3.set_epoch(gps_t0(), [])
+    sp3.set_record("G01", sp3.epochs[0], SP3Record([1.0, 2.0, 3.0]))
+    assert sp3.record("G01", sp3.epochs[0]) is not None
+    sp3.set_record("G01", sp3.epochs[0], SP3Record([0.0, 0.0, 0.0]))
+    assert sp3.record("G01", sp3.epochs[0]) is None
 
 
 def test_SP3_set_record_rejects_non_finite():
     sp3 = SP3(["G01"], 900.0)
     t0 = gps_t0()
-    sp3.push_epoch(t0)
-    sp3.set_record("G01", 0, SP3Record([2.0e7, 1.0e7, 1.0e7]))
+    sp3.set_epoch(t0, [])
+    sp3.set_record("G01", sp3.epochs[0], SP3Record([2.0e7, 1.0e7, 1.0e7]))
     bad = [
         ("position", SP3Record([math.nan, 1.0e7, 1.0e7])),
         ("position", SP3Record([2.0e7, math.inf, 1.0e7])),
@@ -366,10 +369,10 @@ def test_SP3_set_record_rejects_non_finite():
     ]
     for what, record in bad:
         with pytest.raises(bh.BraheError) as excinfo:
-            sp3.set_record("G01", 0, record)
+            sp3.set_record("G01", sp3.epochs[0], record)
         err = str(excinfo.value)
         assert "G01" in err and what in err and str(t0) in err
-        stored = sp3.record("G01", 0)
+        stored = sp3.record("G01", sp3.epochs[0])
         np.testing.assert_array_equal(stored.position, [2.0e7, 1.0e7, 1.0e7])
         assert stored.velocity is None
 
@@ -404,16 +407,16 @@ def test_SP3_header_is_copy():
 
 def test_SP3_record_is_copy():
     sp3 = SP3(["G01"], 900.0)
-    sp3.push_epoch(gps_t0())
-    sp3.set_record("G01", 0, SP3Record([1.0, 2.0, 3.0], clock=1e-6))
-    record = sp3.record("G01", 0)
+    sp3.set_epoch(gps_t0(), [])
+    sp3.set_record("G01", sp3.epochs[0], SP3Record([1.0, 2.0, 3.0], clock=1e-6))
+    record = sp3.record("G01", sp3.epochs[0])
     record.clock = 2e-6
     record.maneuver = True
-    assert sp3.record("G01", 0).clock == 1e-6
-    assert not sp3.record("G01", 0).maneuver
-    sp3.set_record("G01", 0, record)
-    assert sp3.record("G01", 0).clock == 2e-6
-    assert sp3.record("G01", 0).maneuver
+    assert sp3.record("G01", sp3.epochs[0]).clock == 1e-6
+    assert not sp3.record("G01", sp3.epochs[0]).maneuver
+    sp3.set_record("G01", sp3.epochs[0], record)
+    assert sp3.record("G01", sp3.epochs[0]).clock == 2e-6
+    assert sp3.record("G01", sp3.epochs[0]).maneuver
 
 
 def test_SP3_new_header_applied():
@@ -528,22 +531,55 @@ def test_SP3_new_rejects_more_than_999_satellites():
     assert "999" in str(excinfo.value)
 
 
-def test_SP3_push_epoch_requires_new_grid_point():
+def test_SP3_set_record_matches_epochs_within_tolerance():
     t0 = gps_t0()
     sp3 = SP3(["G01"], 900.0)
-    sp3.push_epoch(t0)
-    sp3.push_epoch(t0 + 900.0)
-    with pytest.raises(bh.BraheError) as excinfo:
-        sp3.push_epoch(t0 + 900.0005)
-    assert "same 900 s grid point" in str(excinfo.value)
-    assert sp3.num_epochs == 2
-    assert sp3.push_epoch(t0 + 1800.0005) == 2
-
-    sp3 = SP3(["G01"], 900.0)
-    sp3.push_epoch(t0)
-    assert sp3.push_epoch(t0 + 899.9995) == 1
+    sp3.set_epoch(t0, [])
+    sp3.set_epoch(t0 + 900.0, [])
+    sp3.set_record("G01", t0 + 900.0005, SP3Record([1.0, 2.0, 3.0]))
+    assert sp3.epochs == [t0, t0 + 900.0]
+    assert sp3.record("G01", t0 + 900.0) is not None
+    assert sp3.record("G01", t0 + 899.9995) is not None
+    sp3.set_epoch(t0 + 1800.0005, [])
+    assert sp3.num_epochs == 3
     with pytest.raises(bh.BraheError):
-        sp3.push_epoch(t0 + 900.0004)
+        sp3.set_epoch(t0 + 2700.002, [])
+    assert sp3.num_epochs == 3
+
+
+def test_SP3_set_epoch():
+    t0 = gps_t0()
+    sp3 = SP3(["G01", "G02"], 900.0)
+    sp3.set_epoch(
+        t0,
+        [("G02", SP3Record([2.0, 2.0, 3.0])), (sat("G01"), SP3Record([1.0, 2.0, 3.0]))],
+    )
+    assert sp3.record("G01", t0).position[0] == 1.0
+    assert sp3.record("G02", t0).position[0] == 2.0
+
+    # An epoch before the first one is placed in order.
+    sp3.set_epoch(t0 - 900.0, [("G02", SP3Record([3.0, 2.0, 3.0]))])
+    assert sp3.epochs == [t0 - 900.0, t0]
+    assert sp3.record("G01", t0 - 900.0) is None
+    assert sp3.record("G01", t0).position[0] == 1.0
+
+    # Satellites that are not listed become absent.
+    sp3.set_epoch(t0, [("G01", SP3Record([4.0, 2.0, 3.0]))])
+    assert sp3.record("G01", t0).position[0] == 4.0
+    assert sp3.record("G02", t0) is None
+
+    record = SP3Record([5.0, 2.0, 3.0])
+    with pytest.raises(bh.BraheError) as excinfo:
+        sp3.set_epoch(t0, [("G01", record), ("G01", record)])
+    assert "G01 is listed twice" in str(excinfo.value)
+    with pytest.raises(bh.BraheError):
+        sp3.set_epoch(t0, [("G03", record)])
+    with pytest.raises(bh.BraheError):
+        sp3.set_epoch(t0, [("G01", SP3Record([math.nan, 2.0, 3.0]))])
+    with pytest.raises(bh.BraheError):
+        sp3.set_epoch(t0 + 1000.0, [("G01", record)])
+    assert sp3.epochs == [t0 - 900.0, t0]
+    assert sp3.record("G01", t0).position[0] == 4.0
 
 
 def test_SP3_new_rejects_invalid_satellite_number():
@@ -558,12 +594,12 @@ def test_SP3_new_rejects_invalid_satellite_number():
 def test_epoch_grid_error_rejects_non_positive_interval():
     for interval in [0.0, -900.0, math.nan, math.inf]:
         sp3 = SP3(["G01"], 900.0)
-        sp3.push_epoch(gps_t0())
+        sp3.set_epoch(gps_t0(), [])
         header = sp3.header
         header.epoch_interval = interval
         sp3.header = header
         with pytest.raises(bh.BraheError) as excinfo:
-            sp3.push_epoch(gps_t0() + 900.0)
+            sp3.set_epoch(gps_t0() + 900.0, [])
         assert "epoch interval must be positive and finite" in str(excinfo.value)
 
 
@@ -587,10 +623,10 @@ def test_SP3_new_file_type_from_systems(ids, expected):
     assert SP3(ids, 900.0).header.file_type == expected
 
 
-def test_SP3_push_epoch_non_gps_time_system():
+def test_SP3_set_epoch_non_gps_time_system():
     sp3 = SP3(["G01"], 900.0, SP3Header(time_system=SP3TimeSystem.UTC))
     t0 = bh.Epoch.from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
-    sp3.push_epoch(t0)
+    sp3.set_epoch(t0, [])
     assert sp3.mjd == 60624
     assert sp3.fractional_day == 0.0
 
@@ -673,9 +709,9 @@ def test_SP3Record_eq():
     assert record != [1.0, 2.0, 3.0]
 
     sp3 = SP3(["G01"], 900.0)
-    sp3.push_epoch(gps_t0())
-    sp3.set_record("G01", 0, record)
-    assert sp3.record("G01", 0) == record
+    sp3.set_epoch(gps_t0(), [])
+    sp3.set_record("G01", sp3.epochs[0], record)
+    assert sp3.record("G01", sp3.epochs[0]) == record
 
 
 def test_SP3Correlation_eq():
@@ -772,8 +808,8 @@ def test_SP3_from_file_example_a_1():
     assert sp3.satellite_ids[0] == g01
     assert sp3.satellite_ids[24] == sat("G31")
     assert sat("G03") not in sp3
-    assert sp3.record(sat("G04"), 2) is not None
-    r = sp3.record(g01, 0)
+    assert sp3.record(sat("G04"), sp3.epochs[2]) is not None
+    r = sp3.record(g01, sp3.epochs[0])
     assert r.position[0] == pytest.approx(16258524.75, abs=1e-6)
     assert r.position[1] == pytest.approx(-3529015.75, abs=1e-6)
     assert r.position[2] == pytest.approx(-20611427.05, abs=1e-6)
@@ -788,7 +824,7 @@ def test_SP3_from_file_example_a_1():
 def test_SP3_from_file_example_a_2_velocity():
     sp3 = SP3.from_file(fixture("example-a-2.sp3"))
     assert sp3.header.has_velocity
-    r = sp3.record(sat("G01"), 0)
+    r = sp3.record(sat("G01"), sp3.epochs[0])
     v = r.velocity
     assert v[0] == pytest.approx(-656.0373522, abs=1e-9)
     assert v[1] == pytest.approx(2560.5954994, abs=1e-9)
@@ -804,33 +840,33 @@ def test_SP3_from_file_example_c_1_flags():
     assert h.position_base == 1.25
     assert h.clock_base == 1.025
 
-    r = sp3.record(sat("G01"), 0)
+    r = sp3.record(sat("G01"), sp3.epochs[0])
     assert r.position[0] == pytest.approx(-11044805.8, abs=1e-6)
     assert r.position[1] == pytest.approx(-10475672.35, abs=1e-6)
     assert r.position[2] == pytest.approx(21929418.2, abs=1e-6)
     assert r.clock == pytest.approx(189.1633e-6, abs=1e-15)
 
-    g02 = sp3.record(sat("G02"), 0)
+    g02 = sp3.record(sat("G02"), sp3.epochs[0])
     assert g02.maneuver
     assert not (g02.clock_event or g02.clock_predicted or g02.orbit_predicted)
 
-    g04 = sp3.record(sat("G04"), 1)
+    g04 = sp3.record(sat("G04"), sp3.epochs[1])
     assert g04.clock_event
     assert g04.clock_predicted
     assert not g04.maneuver
     assert g04.orbit_predicted
 
-    g01 = sp3.record(sat("G01"), 1)
+    g01 = sp3.record(sat("G01"), sp3.epochs[1])
     assert not g01.clock_event
     assert g01.clock_predicted and g01.orbit_predicted
 
-    assert sp3.record(sat("G07"), 0) is None
-    assert sp3.record(sat("G05"), 1) is None
+    assert sp3.record(sat("G07"), sp3.epochs[0]) is None
+    assert sp3.record(sat("G05"), sp3.epochs[1]) is None
 
 
 def test_SP3_from_file_example_c_2_correlations():
     sp3 = SP3.from_file(fixture("example-c-2.sp3"))
-    r = sp3.record(sat("G01"), 0)
+    r = sp3.record(sat("G01"), sp3.epochs[0])
     v = r.velocity
     assert v[0] == pytest.approx(2029.8880364, abs=1e-9)
     assert v[1] == pytest.approx(-1846.2044804, abs=1e-9)
@@ -855,7 +891,7 @@ def test_SP3_from_file_example_c_2_correlations():
     for c in [ev.xy, ev.xz, ev.xc, ev.yz, ev.yc, ev.zc]:
         assert c == pytest.approx(0.1234567, abs=1e-15)
 
-    g02 = sp3.record(sat("G02"), 0)
+    g02 = sp3.record(sat("G02"), sp3.epochs[0])
     assert g02.maneuver
     assert g02.position_correlation is not None
 
@@ -883,13 +919,13 @@ def test_SP3_from_file_example_d_1():
     assert sum(1 for s in ids if s.system == GNSSSystem.BEIDOU) == 35
 
     s37 = sat("S37")
-    r = sp3.record(s37, 0)
+    r = sp3.record(s37, sp3.epochs[0])
     assert r.position[0] == pytest.approx(-34534904.566, abs=1e-6)
     assert r.position[1] == pytest.approx(24164610.955, abs=1e-6)
     assert r.position[2] == pytest.approx(29812.840, abs=1e-6)
     assert r.clock == pytest.approx(0.29942e-6, abs=1e-15)
-    assert sp3.record(s37, 1) is None
-    assert sp3.record(s37, 2) is not None
+    assert sp3.record(s37, sp3.epochs[1]) is None
+    assert sp3.record(s37, sp3.epochs[2]) is not None
     assert_epoch(
         sp3.end_epoch,
         bh.Epoch.from_datetime(2013, 4, 3, 23, 45, 0.0, 0.0, bh.TimeSystem.GPS),
@@ -905,7 +941,7 @@ def test_SP3_from_file_example_d_2():
     assert h.has_velocity
 
     g01 = sat("G01")
-    r = sp3.record(g01, 0)
+    r = sp3.record(g01, sp3.epochs[0])
     assert r.position[0] == pytest.approx(-11044.805800e3, abs=1e-6)
     assert r.position[1] == pytest.approx(-10475.672350e3, abs=1e-6)
     assert r.position[2] == pytest.approx(21929.418200e3, abs=1e-6)
@@ -918,7 +954,7 @@ def test_SP3_from_file_example_d_2():
     assert_rel(r.clock_rate_std, 1.025**191 * 1e-16, 1e-12)
     assert not (r.clock_event or r.clock_predicted or r.maneuver or r.orbit_predicted)
 
-    later = sp3.record(g01, 1)
+    later = sp3.record(g01, sp3.epochs[1])
     assert not later.clock_event
     assert later.clock_predicted
     assert not later.maneuver
@@ -928,8 +964,8 @@ def test_SP3_from_file_example_d_2():
         bh.Epoch.from_datetime(2001, 8, 9, 23, 45, 0.0, 0.0, bh.TimeSystem.GPS),
     )
 
-    assert sp3.record(sat("G06"), 0) is None
-    assert sp3.record(sat("G03"), 1) is None
+    assert sp3.record(sat("G06"), sp3.epochs[0]) is None
+    assert sp3.record(sat("G03"), sp3.epochs[1]) is None
 
 
 def test_SP3_from_str_bad_clock():
@@ -945,12 +981,12 @@ def test_SP3_from_str_bad_clock():
         )
     )
     sp3 = SP3.from_str(content)
-    r = sp3.record(sat("G01"), 0)
+    r = sp3.record(sat("G01"), sp3.epochs[0])
     assert r.clock is None
     assert r.clock_rate is None
     assert r.position[0] == pytest.approx(-11044805.8, abs=1e-6)
     assert r.velocity is not None
-    g02 = sp3.record(sat("G02"), 0)
+    g02 = sp3.record(sat("G02"), sp3.epochs[0])
     assert g02.clock is not None
 
 
@@ -1009,7 +1045,7 @@ def test_SP3_from_str_too_large_standard_deviations():
         )
     )
     sp3 = SP3.from_str(content)
-    r = sp3.record(sat("G01"), 0)
+    r = sp3.record(sat("G01"), sp3.epochs[0])
     assert r.position_std[0] == math.inf
     assert_rel(r.position_std[1], 1.25**18 * 1e-3, 1e-12)
     assert r.position_std[2] is None
@@ -1039,7 +1075,7 @@ def test_SP3_from_str_zero_velocity():
         1,
     )
     sp3 = SP3.from_str(content)
-    r = sp3.record(sat("G01"), 0)
+    r = sp3.record(sat("G01"), sp3.epochs[0])
     assert r.velocity is None
     assert r.clock_rate == pytest.approx(-4.534317e-10, abs=1e-22)
 
@@ -1158,7 +1194,7 @@ def test_SP3_from_file_minutes_rollover():
     assert_epoch(sp3.epochs[30], at(17, 0))
     assert_epoch(sp3.epochs[31], at(17, 2))
     assert_epoch(sp3.epochs[60], at(18, 0))
-    r = sp3.record(sat("L51"), 30)
+    r = sp3.record(sat("L51"), sp3.epochs[30])
     assert r.position[0] == pytest.approx(11948228.978, abs=1e-6)
     assert r.velocity[2] == pytest.approx(-5331.6820671, abs=1e-9)
 
@@ -1177,7 +1213,7 @@ def test_SP3_from_file_hours_rollover():
         sp3.epochs[31],
         bh.Epoch.from_datetime(2016, 7, 7, 0, 2, 0.0, 0.0, bh.TimeSystem.UTC),
     )
-    r = sp3.record(sat("L51"), 30)
+    r = sp3.record(sat("L51"), sp3.epochs[30])
     assert r.position[0] == pytest.approx(2989229.334, abs=1e-6)
 
 
@@ -1195,7 +1231,7 @@ def test_SP3_from_file_days_rollover():
     assert_epoch(sp3.epochs[59], at(31, 0, 58))
     assert_epoch(sp3.epochs[60], at(31, 1, 0))
     assert_epoch(sp3.epochs[61], at(31, 1, 2))
-    r = sp3.record(sat("L51"), 61)
+    r = sp3.record(sat("L51"), sp3.epochs[61])
     assert r.position[0] == pytest.approx(-5691093.473, abs=1e-6)
     assert r.velocity[0] == pytest.approx(-3918.8598237, abs=1e-9)
 
@@ -1324,7 +1360,7 @@ def test_SP3_from_file_missing_agency():
 def test_SP3_from_file_truncated_clock_columns():
     sp3 = SP3.from_file(fixture("truncated-nsgf.orb.lageos2.160305.v35.sp3"))
     assert sp3.header.file_type == SP3FileType.LEO
-    r = sp3.record(sat("L52"), 0)
+    r = sp3.record(sat("L52"), sp3.epochs[0])
     assert r.position[0] == pytest.approx(2228470.946, abs=1e-6)
     assert r.velocity[2] == pytest.approx(-711.62228, abs=1e-9)
     assert r.clock is None
@@ -1343,19 +1379,19 @@ def test_SP3_from_file_other_orbit_types(f, label):
     sp3 = SP3.from_file(fixture(f))
     assert sp3.header.orbit_type == SP3OrbitType.parse(label)
     assert str(sp3.header.orbit_type) == label
-    assert sp3.record(sat("G18"), 0) is not None
+    assert sp3.record(sat("G18"), sp3.epochs[0]) is not None
 
 
 def test_SP3_from_file_missing_standard_deviation():
     sp3 = SP3.from_file(fixture("missing-standard-deviation.sp3"))
     g06 = sat("G06")
     for i in [7, 8]:
-        r = sp3.record(g06, i)
+        r = sp3.record(g06, sp3.epochs[i])
         assert r.position_std[0] is not None
         assert r.position_std[1] is None
         assert r.position_std[2] is not None
         assert r.clock_std is not None
-    r = sp3.record(g06, 6)
+    r = sp3.record(g06, sp3.epochs[6])
     assert all(s is not None for s in r.position_std)
 
 
@@ -1372,7 +1408,7 @@ def test_SP3_from_file_ilrs_comments_and_no_eof():
     assert h.time_system == SP3TimeSystem.UTC
     assert h.comments[0] == "ilrsa.orb.lageos1.220101.v70.sp3 Reference TRF: SLRF2008"
     assert len(h.comments) == 4
-    r = sp3.record(sat("L51"), 0)
+    r = sp3.record(sat("L51"), sp3.epochs[0])
     assert r.position[2] == pytest.approx(-11075527.276, abs=1e-6)
     assert r.velocity[0] == pytest.approx(-1772.0521773, abs=1e-9)
     assert r.clock is None
@@ -1405,11 +1441,11 @@ def test_SP3_from_str_blank_partial_fields():
         )
     )
     sp3 = SP3.from_str(content)
-    r = sp3.record(sat("G01"), 0)
+    r = sp3.record(sat("G01"), sp3.epochs[0])
     assert r.clock == pytest.approx(189.1633e-6, abs=1e-15)
     assert r.position_std == (None, None, None)
     assert r.clock_std is None
-    r = sp3.record(sat("G02"), 0)
+    r = sp3.record(sat("G02"), sp3.epochs[0])
     assert r.position[2] == pytest.approx(-20354534.4, abs=1e-6)
     assert r.clock is None
 
@@ -1627,12 +1663,12 @@ def test_SP3_from_str_blank_correlation_coefficients():
         FULL_EP_LINE, "EP    10   10   10", 1
     )
     sp3 = SP3.from_str(content)
-    ep = sp3.record("G01", 0).position_correlation
+    ep = sp3.record("G01", sp3.epochs[0]).position_correlation
     assert ep.std == (0.010, 0.010, 0.010)
     assert ep.clock_std is None
     assert (ep.xy, ep.xz, ep.xc, ep.yz, ep.yc, ep.zc) == (None,) * 6
 
-    full = sp3.record("G02", 0).position_correlation
+    full = sp3.record("G02", sp3.epochs[0]).position_correlation
     assert full.xy == pytest.approx(0.1234567, abs=1e-15)
     assert full.yz == pytest.approx(-0.0000030, abs=1e-15)
 
@@ -1645,10 +1681,10 @@ def test_SP3_from_str_blank_correlation_coefficients():
 def two_satellite_file(**header):
     sp3 = SP3(["G01", "G02"], 900.0, SP3Header(**header))
     for k in range(2):
-        sp3.push_epoch(gps_t0() + 900.0 * k)
+        sp3.set_epoch(gps_t0() + 900.0 * k, [])
         sp3.set_record(
             "G01",
-            k,
+            gps_t0() + 900.0 * k,
             SP3Record(
                 [15_000_000.0, 20_000_000.0, 5_000_000.0],
                 velocity=[1000.0, -2000.0, 500.0],
@@ -1811,8 +1847,8 @@ def test_SP3_round_trip(f):
     rh, wh = read.header, written.header
     for k in range(read.num_epochs):
         for sat_id in read.satellite_ids:
-            r = read.record(sat_id, k)
-            w = written.record(sat_id, k)
+            r = read.record(sat_id, read.epochs[k])
+            w = written.record(sat_id, written.epochs[k])
             if r is None and w is None:
                 continue
             assert r is not None and w is not None, f"epoch {k} satellite {sat_id}"
@@ -1925,7 +1961,7 @@ def test_SP3_to_string_date_reference_from_epochs():
 
 def test_SP3_to_string_absent_record():
     sp3 = two_satellite_file()
-    sp3.set_record("G01", 1, SP3Record([1.0e7, 2.0e7, 3.0e7]))
+    sp3.set_record("G01", sp3.epochs[1], SP3Record([1.0e7, 2.0e7, 3.0e7]))
     text = sp3.to_string()
     lines = text.splitlines()
     g02 = [l for l in lines if l[1:4] == "G02"]
@@ -1939,8 +1975,8 @@ def test_SP3_to_string_absent_record():
     assert "VG01      0.000000      0.000000      0.000000 999999.999999" in lines
 
     back = SP3.from_str(text)
-    assert back.record("G02", 0) is None
-    g01 = back.record("G01", 1)
+    assert back.record("G02", back.epochs[0]) is None
+    g01 = back.record("G01", back.epochs[1])
     assert (g01.clock, g01.velocity, g01.clock_rate) == (None, None, None)
 
 
@@ -1958,7 +1994,7 @@ def test_SP3_to_string_standard_deviations():
         clock_event=True,
         orbit_predicted=True,
     )
-    sp3.set_record("G01", 0, record)
+    sp3.set_record("G01", sp3.epochs[0], record)
     text = sp3.to_string()
     # 10 mm lies between 1.25^10 = 9.31 mm and 1.25^11 = 11.64 mm.
     assert (
@@ -1995,7 +2031,9 @@ def test_SP3_to_string_comment_length():
 def test_SP3_to_string_standard_deviation_without_base():
     sp3 = two_satellite_file()
     sp3.set_record(
-        "G02", 1, SP3Record([1.0e7, 2.0e7, 3.0e7], position_std=[None, 0.01, None])
+        "G02",
+        sp3.epochs[1],
+        SP3Record([1.0e7, 2.0e7, 3.0e7], position_std=[None, 0.01, None]),
     )
     msg = write_error(sp3)
     assert "G02 at epoch 1" in msg
@@ -2007,7 +2045,7 @@ def test_SP3_to_string_standard_deviation_without_base():
     sp3.header = header
     sp3.set_record(
         "G02",
-        0,
+        sp3.epochs[0],
         SP3Record(
             [1.0e7, 2.0e7, 3.0e7],
             position_std=[0.01] * 3,
@@ -2073,12 +2111,12 @@ def test_SP3_to_string_header_label_errors():
 
 def test_SP3_to_string_value_errors():
     sp3 = two_satellite_file()
-    sp3.set_record("G02", 0, SP3Record([1.0e13, 0.0, 0.0]))
+    sp3.set_record("G02", sp3.epochs[0], SP3Record([1.0e13, 0.0, 0.0]))
     assert "does not fit" in write_error(sp3)
 
     sp3 = two_satellite_file()
     with pytest.raises(bh.BraheError):
-        sp3.set_record("G02", 0, SP3Record([math.nan, 0.0, 0.0]))
+        sp3.set_record("G02", sp3.epochs[0], SP3Record([math.nan, 0.0, 0.0]))
 
     sp3 = two_satellite_file()
     header = sp3.header
@@ -2091,7 +2129,9 @@ def test_SP3_to_string_value_errors():
     header.position_base = 1.25
     sp3.header = header
     sp3.set_record(
-        "G02", 0, SP3Record([1.0e7, 2.0e7, 3.0e7], position_std=[-1.0, None, None])
+        "G02",
+        sp3.epochs[0],
+        SP3Record([1.0e7, 2.0e7, 3.0e7], position_std=[-1.0, None, None]),
     )
     assert "standard deviation" in write_error(sp3)
 
@@ -2107,20 +2147,20 @@ def test_SP3_to_string_correlation_errors():
         return SP3Record([1.0e7, 2.0e7, 3.0e7], position_correlation=correlation)
 
     zeros = {"xy": 0.0, "xz": 0.0, "xc": 0.0, "yz": 0.0, "yc": 0.0, "zc": 0.0}
-    sp3.set_record("G02", 0, record(SP3Correlation(**zeros)))
+    sp3.set_record("G02", sp3.epochs[0], record(SP3Correlation(**zeros)))
     assert "\nEP " in sp3.to_string()
 
-    sp3.set_record("G02", 0, record(SP3Correlation(std=(-0.1, None, None))))
+    sp3.set_record("G02", sp3.epochs[0], record(SP3Correlation(std=(-0.1, None, None))))
     assert "not a non-negative number" in write_error(sp3)
 
-    sp3.set_record("G02", 0, record(SP3Correlation(xy=math.nan)))
+    sp3.set_record("G02", sp3.epochs[0], record(SP3Correlation(xy=math.nan)))
     assert "correlation coefficient is NaN" in write_error(sp3)
 
 
 def test_SP3_to_string_epoch_second_rounding():
     sp3 = SP3(["G01"], 30.0)
     t0 = gps_t0() + 59.999_999_999_9
-    sp3.push_epoch(t0)
+    sp3.set_epoch(t0, [])
     text = sp3.to_string()
     assert "\n*  2024 11 10  0  1  0.00000000\n" in text
     assert text.startswith("#dV2024 11 10  0  1  0.00000000")
@@ -2130,7 +2170,7 @@ def test_SP3_to_string_utc_leap_second_round_trip():
     sp3 = SP3(["G01"], 60.0, SP3Header(time_system=SP3TimeSystem.UTC))
     t0 = bh.Epoch.from_datetime(2016, 12, 31, 23, 59, 0.0, 0.0, bh.TimeSystem.UTC)
     for k in range(3):
-        sp3.push_epoch(t0 + 60.0 * k)
+        sp3.set_epoch(t0 + 60.0 * k, [])
     text = sp3.to_string()
     assert "\n*  2016 12 31 23 59 60.00000000\n" in text
     assert "\n*  2017  1  1  0  0 59.00000000\n" in text
@@ -2143,31 +2183,31 @@ def test_SP3_to_string_utc_leap_second_round_trip():
 
 def test_SP3_to_string_interval_at_written_precision():
     sp3 = SP3(["G01"], 1.0e-9)
-    sp3.push_epoch(gps_t0())
+    sp3.set_epoch(gps_t0(), [])
     assert "epoch interval 0.000000001 s rounds to zero at 8 decimal places" in (
         write_error(sp3)
     )
 
     sp3 = SP3(["G01"], 1.0e6)
-    sp3.push_epoch(gps_t0())
+    sp3.set_epoch(gps_t0(), [])
     assert "epoch interval 1000000 s does not fit the 14-column ## field" in (
         write_error(sp3)
     )
 
     sp3 = SP3(["G01"], 99_999.0)
-    sp3.push_epoch(gps_t0())
+    sp3.set_epoch(gps_t0(), [])
     assert " 99999.00000000 " in sp3.to_string()
 
     sp3 = SP3(["G01"], 6.0e-9)
-    sp3.push_epoch(gps_t0() + 6.0e-9)
-    sp3.push_epoch(gps_t0() + 12.0e-9)
+    sp3.set_epoch(gps_t0() + 6.0e-9, [])
+    sp3.set_epoch(gps_t0() + 12.0e-9, [])
     assert "is not after the last epoch" in write_error(sp3)
 
 
 def test_SP3_to_string_date_reference_uses_written_start():
     def line(start):
         sp3 = SP3(["G01"], 900.0)
-        sp3.push_epoch(start)
+        sp3.set_epoch(start, [])
         return sp3.to_string().splitlines()[1]
 
     rounded = line(gps_t0() - 4.0e-9)
@@ -2193,7 +2233,7 @@ def test_SP3_to_string_saturates_large_standard_deviations():
         velocity_std=(1.0e4, None, None),
         clock_rate_std=1.0e-1,
     )
-    sp3.set_record("G02", 0, record)
+    sp3.set_record("G02", sp3.epochs[0], record)
     lines = sp3.to_string().splitlines()
     assert (
         "PG02  10000.000000  20000.000000  30000.000000    100.000000 99 98    999"
@@ -2204,7 +2244,7 @@ def test_SP3_to_string_saturates_large_standard_deviations():
         in lines
     )
 
-    written = SP3.from_str(sp3.to_string()).record("G02", 0)
+    written = SP3.from_str(sp3.to_string()).record("G02", gps_t0())
     assert written.position_std[0] == math.inf
     assert written.clock_std == math.inf
     assert written.velocity_std[0] == math.inf
@@ -2223,7 +2263,7 @@ def test_SP3_to_string_invalid_bases():
         sp3.header = header
         sp3.set_record(
             "G02",
-            0,
+            sp3.epochs[0],
             SP3Record(
                 [1.0e7, 2.0e7, 3.0e7],
                 clock=1e-4,
@@ -2248,13 +2288,17 @@ def test_SP3_to_string_invalid_bases():
 
     back = SP3.from_str(with_std(1.250_000_04, 1.025).to_string())
     assert back.header.position_base == 1.25
-    assert_quantized(0.010, back.record("G02", 0).position_std[0], 1.25, "std")
+    assert_quantized(
+        0.010, back.record("G02", back.epochs[0]).position_std[0], 1.25, "std"
+    )
 
 
 def test_SP3_to_string_clock_in_missing_value_range():
     def clock_file(clock):
         sp3 = two_satellite_file()
-        sp3.set_record("G02", 0, SP3Record([1.0e7, 2.0e7, 3.0e7], clock=clock))
+        sp3.set_record(
+            "G02", sp3.epochs[0], SP3Record([1.0e7, 2.0e7, 3.0e7], clock=clock)
+        )
         return sp3
 
     msg = write_error(clock_file(1.0))
@@ -2265,12 +2309,14 @@ def test_SP3_to_string_clock_in_missing_value_range():
     assert "missing-value marker" in write_error(clock_file(0.999_998_999_999_9))
 
     back = SP3.from_str(clock_file(0.999_998_9).to_string())
-    assert back.record("G02", 0).clock == pytest.approx(0.999_998_9, abs=1e-12)
+    assert back.record("G02", back.epochs[0]).clock == pytest.approx(
+        0.999_998_9, abs=1e-12
+    )
 
     sp3 = two_satellite_file()
     sp3.set_record(
         "G02",
-        1,
+        sp3.epochs[1],
         SP3Record([1.0e7, 2.0e7, 3.0e7], velocity=[1.0, 2.0, 3.0], clock_rate=1.0e-4),
     )
     assert "clock rate 1000000.000000" in write_error(sp3)
@@ -2284,9 +2330,9 @@ def test_SP3_round_trip_blank_correlation_coefficients():
     assert "EP    10   10   10" in text.splitlines()
 
     written = SP3.from_str(text)
-    blank = written.record("G01", 0).position_correlation
+    blank = written.record("G01", written.epochs[0]).position_correlation
     assert (blank.xy, blank.xz, blank.xc, blank.yz, blank.yc, blank.zc) == (None,) * 6
-    full = written.record("G02", 0).position_correlation
+    full = written.record("G02", written.epochs[0]).position_correlation
     expected = [0.1234567, -0.1234567, 0.5999999, -0.0000030, 0.0000021, -0.1230000]
     for name, value in zip(["xy", "xz", "xc", "yz", "yc", "zc"], expected):
         assert getattr(full, name) == pytest.approx(value, abs=1e-15)
@@ -2295,7 +2341,7 @@ def test_SP3_round_trip_blank_correlation_coefficients():
     sp3 = two_satellite_file()
     sp3.set_record(
         "G02",
-        0,
+        sp3.epochs[0],
         SP3Record(
             [1.0e7, 2.0e7, 3.0e7],
             position_correlation=SP3Correlation(xz=0.5, zc=-0.25),
@@ -2306,7 +2352,7 @@ def test_SP3_round_trip_blank_correlation_coefficients():
         "EP                                   5000000                            -2500000"
         in text.splitlines()
     ), text
-    c = SP3.from_str(text).record("G02", 0).position_correlation
+    c = SP3.from_str(text).record("G02", gps_t0()).position_correlation
     assert (c.xy, c.xz, c.xc, c.yz, c.yc, c.zc) == (None, 0.5, None, None, None, -0.25)
 
 
@@ -2315,7 +2361,7 @@ def test_SP3_to_string_correlation_out_of_range():
         sp3 = two_satellite_file()
         sp3.set_record(
             "G02",
-            0,
+            sp3.epochs[0],
             SP3Record(
                 [1.0e7, 2.0e7, 3.0e7], position_correlation=SP3Correlation(xy=xy)
             ),
@@ -2326,9 +2372,9 @@ def test_SP3_to_string_correlation_out_of_range():
         assert "is outside [-0.9999999, 0.9999999]" in write_error(with_xy(xy)), xy
     for xy in [0.9999999, -0.9999999, 0.999_999_94]:
         back = SP3.from_str(with_xy(xy).to_string())
-        assert back.record("G02", 0).position_correlation.xy == pytest.approx(
-            xy, abs=1e-7
-        )
+        assert back.record(
+            "G02", back.epochs[0]
+        ).position_correlation.xy == pytest.approx(xy, abs=1e-7)
 
 
 def test_SP3_to_string_no_epochs(tmp_path):

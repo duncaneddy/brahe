@@ -25,7 +25,7 @@ The Extended Standard Product 3 (SP3) format is the exchange format for precise 
         --8<-- "./docs/outputs/datafiles/sp3_parse.rs.txt"
         ```
 
-`SP3.from_file` reads a plain-text file and `SP3.from_str` parses text already in memory. Both return the same object and raise a parse error when the file is malformed. `sp3.record(satellite, epoch_index)` returns the `SP3Record` of a satellite at an epoch, or `None` when the satellite has no usable position at that epoch. The satellite argument is an `SP3SatelliteId` or, in Python, a string such as `"G01"`. In the example, the second epoch of G01 is `None` because the file tabulates the position as the format's bad-value marker `0.000000`.
+`SP3.from_file` reads a plain-text file and `SP3.from_str` parses text already in memory. Both return the same object and raise a parse error when the file is malformed. `sp3.record(satellite, epoch)` returns the `SP3Record` of a satellite at an epoch, or `None` when the satellite has no usable position at that epoch. The satellite argument is an `SP3SatelliteId` or, in Python, a string such as `"G01"`. In the example, the second epoch of G01 is `None` because the file tabulates the position as the format's bad-value marker `0.000000`.
 
 ## Format and Versions
 
@@ -133,7 +133,9 @@ An `SP3Satellite` stores the epoch and the `SP3Record` of each valid sample, so 
 
 ### Orbit State Provider
 
-An `SP3Satellite` is an orbit state provider with the same `state_*` and `states_*` methods as an `OrbitTrajectory`, named after its identifier, such as `"G01"`. It can be passed to `location_accesses` and to any other function that takes an orbit state provider. A state is interpolated in ITRF with a Lagrange polynomial of degree `SP3_DEFAULT_LAGRANGE_DEGREE` (9, which fits 10 samples) through the samples around the requested epoch, and `state_gcrf`, `state_eci`, and `state_in_frame` apply the Earth-orientation transforms. The velocity is interpolated from the velocity records when the samples of the fit have them, and is the derivative of the position polynomial otherwise.
+An `SP3Satellite` is an orbit state provider with the same `state_*` and `states_*` methods as an `OrbitTrajectory`, named after its identifier, such as `"G01"`. It can be passed to `location_accesses` and to any other function that takes an orbit state provider. A state is interpolated in ITRF with a Lagrange polynomial through the samples around the requested epoch, and `state_gcrf`, `state_eci`, and `state_in_frame` apply the Earth-orientation transforms. The velocity is interpolated from the velocity records when the samples of the fit have them, and is the derivative of the position polynomial otherwise.
+
+The polynomial has degree 9, which fits 10 samples, unless another degree is set. `sp3.interpolation_degree` is the degree given to every satellite taken from the file, and `interpolation_degree` on an `SP3Satellite` (`set_interpolation_degree` and `with_interpolation_degree` in Rust) changes it for one satellite. A satellite with fewer samples than the degree needs uses all of them.
 
 === "Python"
     ``` python
@@ -160,9 +162,11 @@ The example computes access windows over a ground station in Boulder for the thr
 
 ### Gaps and Trajectories
 
-Two consecutive valid samples more than 1.5 epoch intervals apart belong to different runs, and the satellite has a gap between them. A satellite with zero positions from 10:00 to 10:45 in a 15-minute file has one gap. A state request before the first sample, after the last sample, or inside a gap raises an error naming the satellite, so an access search that reaches a gap fails.
+SP3 files have a constant epoch interval, and a satellite that is absent at an epoch is written with a zero position, so missing data appears as missing samples. `gaps()` returns them: two consecutive valid samples more than 1.5 epoch intervals apart have a gap between them, reported as the last sample before it and the first sample after it. A satellite with zero positions at 10:15 and 10:30 in a 15-minute file has one gap, from 10:00 to 10:45.
 
-`to_trajectories()` converts the samples to `OrbitTrajectory` objects, one for each run of at least two samples. Each is a six-element Cartesian trajectory in the `ITRF` frame, named after the satellite, with Lagrange interpolation of degree 9, or the run length less one for a shorter run. For a satellite with gaps, search each trajectory separately. Call `to_gcrf()` on a trajectory for an inertial copy.
+A gap does not stop interpolation. A state inside one is fitted through the samples on both sides and loses accuracy as the gap grows: for a GPS orbit sampled every 15 minutes, the worst position error was 3 mm with one sample missing, 2 cm with two, 0.4 m with four, and 24 m with eight. Check `gaps()` when that matters. A state request before the first sample or after the last sample raises an error naming the satellite, as does any request to a satellite with a single sample.
+
+`to_trajectory()` converts the samples to an `OrbitTrajectory`: a six-element Cartesian trajectory in the `ITRF` frame, named after the satellite, with Lagrange interpolation of the satellite's degree, or the number of samples less one for a satellite with fewer samples. The trajectory holds every sample and does not mark gaps. Call `to_gcrf()` on it for an inertial copy.
 
 ### Interpolation Accuracy
 
@@ -172,14 +176,14 @@ The figures below are for a 900 s GPS orbit. The last row compares interpolated 
 |---|---|---|
 | Exact positions, interior | 0.8 mm | $2 \times 10^{-6}$ m/s |
 | Positions at SP3 file precision (1 mm grid), interior | 1.4 mm | $2.2 \times 10^{-6}$ m/s |
-| Positions at SP3 file precision, within 4 samples of a run edge | 1.2 cm | $1.4 \times 10^{-4}$ m/s |
+| Positions at SP3 file precision, within 4 samples of the first or last sample | 1.2 cm | $1.4 \times 10^{-4}$ m/s |
 | CODE final orbit subsampled from 300 s to 900 s, interior | 1.4 mm | Not measured |
 
-Within four samples of the start or end of a run the fit is one-sided and less accurate. Chaining the neighboring days around a span of interest places that span in the interior of the fit.
+Within four samples of the first or last sample the fit is one-sided and less accurate. Chaining the neighboring days around a span of interest places that span in the interior of the fit.
 
 ## Chaining Files
 
-`SP3Satellite.from_files(files)` builds one `SP3Satellite` per satellite across several `SP3` objects and returns them in ascending identifier order. The files are sorted by start epoch, so they can be passed in any order, and each satellite collects its valid samples from every file that contains it. A file that lacks a satellite leaves a gap in that satellite.
+`SP3Satellite.from_files(files)` builds one `SP3Satellite` per satellite across several `SP3` objects and returns them in ascending identifier order. The files are sorted by start epoch, so they can be passed in any order, and each satellite collects its valid samples from every file that contains it. A file that lacks a satellite leaves a gap in that satellite. The satellites take the interpolation degree of the earliest file.
 
 === "Python"
     ``` python
@@ -202,7 +206,7 @@ Within four samples of the start or end of a run the fit is one-sided and less a
         --8<-- "./docs/outputs/datafiles/sp3_satellites_from_files.rs.txt"
         ```
 
-The example chains three five-minute files. The first two files and the last two files each share a boundary epoch, so every satellite has four samples and one run. Chaining the first file with a file that starts at 00:20 leaves a 15-minute gap and two trajectories.
+The example chains three five-minute files. The first two files and the last two files each share a boundary epoch, so every satellite has four samples and no gap. Chaining the first file with a file that starts at 00:20 leaves a 15-minute gap, which `gaps()` reports.
 
 The files must have the same epoch interval. Two consecutive files may share their boundary epoch, to within 1 ms, and the later file's sample is kept there when it is valid. Files that overlap by more than a shared boundary epoch raise an error naming the agency and span of both files. Time systems, coordinate system labels, agencies, and orbit types do not need to match, because epochs are absolute instants and every label maps to Brahe's single ITRF frame. No agreement check is applied at a boundary: daily fits from the same center can differ by centimeters there, and a change of ITRF realization or of analysis center adds a jump of its own.
 
@@ -229,7 +233,7 @@ The files must have the same epoch interval. Two consecutive files may share the
         --8<-- "./docs/outputs/datafiles/sp3_write.rs.txt"
         ```
 
-`SP3(satellites, epoch_interval, header)` creates an empty file with a fixed epoch grid. The `SP3Header` sets the agency, time system, coordinate system label, orbit type, data-used label, whether velocity records are written, and the comment lines; a default header is SP3-d in GPS time with agency `BRHE`, coordinate system `IGS20`, orbit type `EXT`, and data used `ORBIT`. The constructor sets the header's epoch interval and file type from its other arguments. `push_epoch` appends an epoch and returns its index, and `set_record` stores an `SP3Record` for a satellite at that index. An appended epoch must be later than the last epoch and lie on the grid anchored at the first epoch, to within one millisecond; grid points may be skipped. A satellite without a record at an epoch is written with the zero position and the missing-clock value that the format defines for absent data, and reads back as `None`.
+`SP3(satellites, epoch_interval, header)` creates an empty file with a fixed epoch grid. The `SP3Header` sets the agency, time system, coordinate system label, orbit type, data-used label, whether velocity records are written, and the comment lines; a default header is SP3-d in GPS time with agency `BRHE`, coordinate system `IGS20`, orbit type `EXT`, and data used `ORBIT`. The constructor sets the header's epoch interval and file type from its other arguments. `set_record(satellite, epoch, record)` stores an `SP3Record` for one satellite at an epoch, and `set_epoch(epoch, records)` stores the records of every satellite at an epoch in one call, leaving the satellites it does not list absent. Either call adds the epoch when the file does not hold it, in any order. Every epoch must lie on the grid anchored at the first epoch, to within one millisecond; grid points may be skipped. `record(satellite, epoch)` reads a record back. A satellite without a record at an epoch is written with the zero position and the missing-clock value that the format defines for absent data, and reads back as `None`.
 
 `to_string` returns the file as SP3-d text with `\n` line endings, and `to_file` writes it to a path. The writer always produces version d, so a file read as version a, b, or c is upgraded when written. The writer reports an error when the file cannot be represented in SP3-d: a file with no epochs, more than 999 satellites, a satellite number outside 1 to 99, a time system without a Brahe equivalent, an epoch interval that rounds to zero or does not fit the 14-column `##` field at eight decimal places, epochs that, rounded to the 1e-8 s resolution of the epoch lines, are out of order or off the grid of the interval as written, a comment longer than 77 characters, a header label longer than its field (agency 4, coordinate system 5, data used 5, and orbit type 3 characters; shorten it in the header before writing), a standard deviation base that is not finite and greater than 1 as written, a clock or clock rate that would read back as the missing-clock value, or a value that does not fit its field width.
 
@@ -241,9 +245,13 @@ $$
 
 computed with the base as written in the `%f` line. An infinite value, or an exponent that reaches 99 for a position or velocity component or 999 for a clock, is written as the unbounded marker, so the written standard deviation is never smaller than the stored one. Satellite accuracies are written as $\lceil \log_2 \sigma_\mathrm{mm} \rceil$, at least 1, with an unknown accuracy written as 0. The first line of the file written above, `#dV2024 11 10  0  0  0.00000000       3 ORBIT IGS20 EXT BRHE`, shows the version `d`, the `V` flag for a file with velocity records, the start epoch, the epoch count, and the data-used, coordinate system, orbit type, and agency labels.
 
-## Building from Propagators and Setting Clocks
+## Building from Trajectories and Setting Clocks
 
-`SP3.from_propagators(propagators, start, end, step, header)` builds a file by sampling orbit state providers on a regular grid. The `propagators` argument is a list of satellite identifier and provider pairs, where a provider is any orbit state provider: a numerical, Keplerian, or SGP propagator, an orbit trajectory, or an `SP3Satellite`, which resamples an existing file. Each provider is sampled with `state_itrf` at `start + k * step` from `start` up to the last grid point not after `end`, and velocities are stored when the header's `has_velocity` is set. The `header` argument is the same `SP3Header` the `SP3` constructor takes. The file type follows the satellite systems: the system letter when all identifiers share one system, `L` for low Earth orbit satellites only, and `M` for mixed systems. A provider that cannot supply a state at a grid epoch, such as a propagator that has not been propagated that far, raises an error naming the satellite and the epoch.
+`SP3.from_trajectories(trajectories, step, header)` builds a file from orbit trajectories. The `trajectories` argument is a list of satellite identifier and `OrbitTrajectory` pairs. A propagator supplies the trajectory it has propagated (`propagator.trajectory`), and an `SP3Satellite` supplies one with `to_trajectory()`, which resamples an existing file.
+
+Without `step`, the file holds the epochs the trajectories store. The trajectories must then store the same epochs, to within 1 ms, on a regular grid whose interval is the spacing of the first two epochs. With `step`, each trajectory is interpolated at `start + k * step` over the span that all trajectories cover, from the latest first epoch to the earliest last epoch. Pass a step for trajectories from an adaptive-step propagator, whose stored epochs are not evenly spaced.
+
+States are converted to ITRF, and velocities are stored when the header's `has_velocity` is set. The `header` argument is the same `SP3Header` the `SP3` constructor takes. The file type follows the satellite systems: the system letter when all identifiers share one system, `L` for low Earth orbit satellites only, and `M` for mixed systems.
 
 === "Python"
     ``` python
@@ -268,7 +276,7 @@ computed with the base as written in the `%f` line. An infinite value, or an exp
 
 The example propagates two satellites for an hour before building the file, because a numerical propagator answers state requests from the trajectory it has accumulated. The first ten lines printed are the header of the written file, which lists both satellites and declares 61 epochs at a 60 s interval.
 
-`from_propagators` takes no clock input, so clocks and clock rates are absent and are written as the missing-clock value `999999.999999`. `sp3.set_clocks(satellite, clocks)` sets the clock correction of a satellite at every epoch of the file, in seconds, and `sp3.set_clock_rates(satellite, rates)` sets the clock rate in s/s. Both take one value per epoch, `None` clears the value at that epoch, and in Python `NaN` is treated as `None`, so the `clocks()` array of an `SP3Satellite` can be passed back directly. Clock rates are stored on velocity records, so `set_clock_rates` requires a file with velocity records. A call that fails, for example because the number of values differs from the number of epochs or a value is given where the satellite has no record, leaves the file unchanged.
+`from_trajectories` takes no clock input, so clocks and clock rates are absent and are written as the missing-clock value `999999.999999`. `sp3.set_clocks(satellite, clocks)` sets the clock correction of a satellite at every epoch of the file, in seconds, and `sp3.set_clock_rates(satellite, rates)` sets the clock rate in s/s. Both take one value per epoch, `None` clears the value at that epoch, and in Python `NaN` is treated as `None`, so the `clocks()` array of an `SP3Satellite` can be passed back directly. Clock rates are stored on velocity records, so `set_clock_rates` requires a file with velocity records. A call that fails, for example because the number of values differs from the number of epochs or a value is given where the satellite has no record, leaves the file unchanged.
 
 ---
 

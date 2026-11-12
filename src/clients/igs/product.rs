@@ -4,9 +4,7 @@
  */
 
 use crate::clients::igs::centers::IGSAnalysisCenter;
-use crate::clients::igs::file_name::{
-    IGSContentType, IGSFileFormat, IGSProductFileName, IGSSolutionType,
-};
+use crate::clients::igs::file_name::{IGSContentType, IGSProductFileName, IGSSolutionType};
 
 /// A product file listed in an IGS archive's GPS week directory.
 ///
@@ -39,7 +37,7 @@ pub struct IGSProduct {
     pub gps_week: u32,
 }
 
-/// Selects IGS products by analysis center, solution, content, and format.
+/// Selects IGS products by analysis center, solution, and content.
 ///
 /// Each criterion left as `None` matches every product. The center is
 /// compared without regard to case, so `"cod"` and `"COD"` select the same
@@ -64,8 +62,6 @@ pub struct IGSProductFilter {
     pub solution: Option<IGSSolutionType>,
     /// Content type, such as Orbit or Clock.
     pub content: Option<IGSContentType>,
-    /// File format, such as SP3.
-    pub format: Option<IGSFileFormat>,
 }
 
 impl IGSProductFilter {
@@ -148,27 +144,6 @@ impl IGSProductFilter {
         self
     }
 
-    /// Restricts the filter to one file format.
-    ///
-    /// # Arguments
-    /// * `format` - File format to keep
-    ///
-    /// # Returns
-    /// * `IGSProductFilter`: The filter, for chaining
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use brahe::igs::{IGSFileFormat, IGSProductFilter};
-    ///
-    /// let filter = IGSProductFilter::new().with_format(IGSFileFormat::SP3);
-    /// assert_eq!(filter.format, Some(IGSFileFormat::SP3));
-    /// ```
-    pub fn with_format(mut self, format: IGSFileFormat) -> Self {
-        self.format = Some(format);
-        self
-    }
-
     /// Whether a product meets every criterion of the filter.
     ///
     /// # Arguments
@@ -208,10 +183,6 @@ impl IGSProductFilter {
                 .content
                 .as_ref()
                 .is_none_or(|content| content == name.content())
-            && self
-                .format
-                .as_ref()
-                .is_none_or(|format| format == name.format())
     }
 }
 
@@ -352,7 +323,7 @@ mod tests {
 
     #[test]
     #[parallel]
-    fn test_igs_product_filter_solution_content_format() {
+    fn test_igs_product_filter_solution_content() {
         let orbit = product("COD0OPSFIN_20243150000_01D_05M_ORB.SP3.gz");
         let clock = product("COD0OPSFIN_20243150000_01D_30S_CLK.CLK.gz");
         let rapid = product("COD0OPSRAP_20243150000_01D_05M_ORB.SP3.gz");
@@ -364,7 +335,7 @@ mod tests {
         assert!(!filter.matches(&clock));
         assert!(!filter.matches(&rapid));
 
-        let filter = IGSProductFilter::new().with_format(IGSFileFormat::CLK);
+        let filter = IGSProductFilter::new().with_content(IGSContentType::Clock);
         assert!(filter.matches(&clock));
         assert!(!filter.matches(&orbit));
     }
@@ -375,15 +346,13 @@ mod tests {
         let filter = IGSProductFilter::new()
             .with_center(IGSAnalysisCenter::ESA)
             .with_solution(IGSSolutionType::Rapid)
-            .with_content(IGSContentType::Clock)
-            .with_format(IGSFileFormat::CLK);
+            .with_content(IGSContentType::Clock);
         assert_eq!(
             filter,
             IGSProductFilter {
                 center: Some(IGSAnalysisCenter::ESA),
                 solution: Some(IGSSolutionType::Rapid),
                 content: Some(IGSContentType::Clock),
-                format: Some(IGSFileFormat::CLK),
             }
         );
     }

@@ -1509,24 +1509,24 @@ impl PyIGSProductsClient {
 
     /// Downloads a product, if it is not cached, and writes it to ``destination``.
     ///
-    /// An existing directory, or a path whose last component has no
-    /// extension, is treated as a directory (created if missing). A gzip or
-    /// Unix-compressed (``.Z``) product is written decompressed, in a
-    /// directory under its published name without ``.gz`` or ``.Z``. An
-    /// uncompressed product is written unchanged under its published name. A
-    /// path with an extension is the file written. With ``keep_cached`` False the
-    /// cached file is removed; with ``keep_cached`` True it stays.
+    /// A path with an extension is the file written. An existing directory,
+    /// or a path whose last component has no extension, is a directory,
+    /// created if missing, that receives the file under its published name.
+    /// The file is written as published unless ``decompress`` is set, which
+    /// decompresses a gzip or Unix-compressed (``.Z``) product and drops the
+    /// ``.gz`` or ``.Z`` suffix from the name used in a directory.
     ///
     /// Args:
     ///     product (IGSProduct): Product to save, as returned by a listing.
     ///     destination (str): Directory or file path, outside the cache directory; any ``os.PathLike`` is accepted.
-    ///     keep_cached (bool, optional): Leave the cached file in place. Default: False.
+    ///     keep_cached (bool, optional): Leave the cached file in place; otherwise it is removed and a later ``download`` fetches it again. Default: False.
+    ///     decompress (bool, optional): Write a compressed product decompressed. Default: False.
     ///
     /// Returns:
     ///     str: Path written.
     ///
     /// Raises:
-    ///     BraheError: If ``destination`` resolves inside the cache directory, which is checked before anything is downloaded, the download fails, the gzip data is invalid, or the file cannot be written.
+    ///     BraheError: If ``destination`` resolves inside the cache directory, which is checked before anything is downloaded, the download fails, the compressed data is invalid, or the file cannot be written.
     ///
     /// Example:
     ///     ```python
@@ -1540,16 +1540,20 @@ impl PyIGSProductsClient {
     ///     with tempfile.TemporaryDirectory() as directory:
     ///         path = client.save(product, directory)
     ///     ```
-    #[pyo3(signature = (product, destination, keep_cached=false))]
+    #[pyo3(signature = (product, destination, keep_cached=false, decompress=false))]
     fn save(
         &self,
         py: Python<'_>,
         product: &PyIGSProduct,
         destination: PathBuf,
         keep_cached: bool,
+        decompress: bool,
     ) -> PyResult<String> {
         let product = product.inner.clone();
-        py.detach(|| self.inner.save(&product, &destination, keep_cached))
+        py.detach(|| {
+            self.inner
+                .save(&product, &destination, keep_cached, decompress)
+        })
             .map(|path| path.to_string_lossy().into_owned())
             .map_err(igs_py_err)
     }

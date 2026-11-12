@@ -24,10 +24,10 @@ use crate::clients::igs::product::{IGSProduct, IGSProductFilter, IGSRangeOptions
 use crate::clients::igs::source::IGSProductSource;
 use crate::clients::{RateLimitConfig, RateLimiter};
 use crate::constants::SECONDS_PER_DAY;
-use crate::datafiles::compression::{Compression, compression_of, decompress};
 use crate::datafiles::sp3::SP3;
 use crate::time::Epoch;
 use crate::utils::cache::is_older_than;
+use crate::utils::compression::{Compression, compression_of, decompress};
 use crate::utils::download::{backoff_delay, is_retryable_error, parse_retry_after};
 use crate::utils::fs::{
     copy_file, is_within, move_file, resolve_destination, validate_path_component,
@@ -661,19 +661,19 @@ impl IGSProductsClient {
 
     /// Downloads a product, if it is not cached, and writes it to `destination`.
     ///
-    /// An existing directory, or a path whose last component has no
-    /// extension, is treated as a directory (created if missing). A gzip or
-    /// Unix-compressed (`.Z`) product is written decompressed, in a directory
-    /// under its published name without `.gz` or `.Z`. An uncompressed
-    /// product is written unchanged under its published name. A path with an
-    /// extension is the file written. With `keep_cached` false the cached
-    /// file is removed, so a later [`IGSProductsClient::download`] downloads
-    /// it again; with `keep_cached` true it stays.
+    /// A path with an extension is the file written. An existing directory,
+    /// or a path whose last component has no extension, is a directory,
+    /// created if missing, that receives the file under its published name.
+    /// The file is written as published unless `decompress` is set, which
+    /// decompresses a gzip or Unix-compressed (`.Z`) product and drops the
+    /// `.gz` or `.Z` suffix from the name used in a directory.
     ///
     /// # Arguments
     /// * `product` - Product to save, as returned by a listing
     /// * `destination` - Directory or file path, outside the cache directory
-    /// * `keep_cached` - Leave the cached file in place
+    /// * `keep_cached` - Leave the cached file in place; otherwise it is removed and a
+    ///   later [`IGSProductsClient::download`] downloads it again
+    /// * `decompress` - Write a compressed product decompressed
     ///
     /// # Returns
     /// * `Ok(PathBuf)`: Path written
@@ -689,7 +689,7 @@ impl IGSProductsClient {
     /// let epoch = Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::GPS);
     /// let filter = IGSProductFilter::new().with_center(IGSAnalysisCenter::COD).with_content(IGSContentType::Orbit);
     /// let product = &client.list_products(epoch, &filter).unwrap()[0];
-    /// let path = client.save(product, "./igs", false).unwrap();
+    /// let path = client.save(product, "./igs", false, false).unwrap();
     /// println!("{}", path.display());
     /// ```
     pub fn save<P: AsRef<Path>>(
@@ -697,6 +697,7 @@ impl IGSProductsClient {
         product: &IGSProduct,
         destination: P,
         keep_cached: bool,
+        decompress: bool,
     ) -> Result<PathBuf, BraheError> {
         let destination = destination.as_ref();
         if is_within(destination, &self.cache_dir()?) {
@@ -706,8 +707,8 @@ impl IGSProductsClient {
             )));
         }
         let cached = self.download(product)?;
-        let target = resolve_destination(destination, saved_name(product))?;
-        write_saved(product, &cached, &target, keep_cached)?;
+        let target = resolve_destination(destination, saved_name(product, decompress))?;
+        write_saved(product, &cached, &target, keep_cached, decompress)?;
         Ok(target)
     }
 
@@ -1809,10 +1810,11 @@ fn is_html(body: &[u8]) -> bool {
 }
 
 /// Name a product is saved under in a directory: the published name, without
-/// the `.gz` or `.Z` of a compressed product.
+/// the `.gz` or `.Z` of a compressed product when it is saved decompressed.
 ///
 /// # Arguments
 /// * `product` - Product saved
+/// * `decompress` - Whether the product is saved decompressed
 ///
 /// # Returns
 /// * `&str`: The file name
@@ -1828,9 +1830,13 @@ fn is_html(body: &[u8]) -> bool {
 ///     size: None,
 ///     gps_week: 2340,
 /// };
-/// assert_eq!(saved_name(&product), "IGS0OPSFIN_20243150000_01D_15M_ORB.SP3");
+/// assert_eq!(saved_name(&product, true), "IGS0OPSFIN_20243150000_01D_15M_ORB.SP3");
+/// assert_eq!(saved_name(&product, false), name);
 /// ```
-fn saved_name(product: &IGSProduct) -> &str {
+fn saved_name(product: &IGSProduct, decompress: bool) -> &str {
+    if !decompress {
+        return &product.name;
+    }
     match product.file_name.compression() {
         IGSCompression::Gzip => product.name.strip_suffix(".gz").unwrap_or(&product.name),
         IGSCompression::UnixCompress => product.name.strip_suffix(".Z").unwrap_or(&product.name),
@@ -1838,13 +1844,14 @@ fn saved_name(product: &IGSProduct) -> &str {
     }
 }
 
-/// Writes a cached product to `target`, decompressing compressed products.
+/// Writes a cached product to `target`, as published or decompressed.
 ///
 /// # Arguments
 /// * `product` - Product written
 /// * `cached` - Cached file of the product
 /// * `target` - File to write
 /// * `keep_cached` - Leave the cached file in place; otherwise it is removed
+/// * `decompressed` - Write a compressed product decompressed
 ///
 /// # Returns
 /// * `Ok(())`: The file was written
@@ -1854,15 +1861,16 @@ fn saved_name(product: &IGSProduct) -> &str {
 ///
 /// ```ignore
 /// // `product` is a gzip product whose cached copy is `cached`.
-/// write_saved(&product, &cached, Path::new("orbits/IGS0OPSFIN_20243150000_01D_15M_ORB.SP3"), true)?;
+/// write_saved(&product, &cached, Path::new("orbits/IGS0OPSFIN_20243150000_01D_15M_ORB.SP3"), true, true)?;
 /// ```
 fn write_saved(
     product: &IGSProduct,
     cached: &Path,
     target: &Path,
     keep_cached: bool,
+    decompressed: bool,
 ) -> Result<(), BraheError> {
-    if product.file_name.compression() == IGSCompression::None {
+    if !decompressed || product.file_name.compression() == IGSCompression::None {
         return if keep_cached {
             copy_file(cached, target)
         } else {
@@ -2195,8 +2203,8 @@ fn listed_weeks(html: &str) -> Vec<u32> {
 mod tests {
     use super::*;
     use crate::clients::igs::file_name::{IGSContentType, IGSFileFormat, IGSSolutionType};
-    use crate::datafiles::compression::gzip;
     use crate::time::TimeSystem;
+    use crate::utils::compression::gzip;
     use crate::utils::testing::{CacheRedirect, NetworkModeGuard};
     use httpmock::prelude::*;
     use serial_test::{parallel, serial};
@@ -3317,7 +3325,7 @@ mod tests {
             .join("garner/2340")
             .join(SP3_NAME);
 
-        let saved = client.save(&product, out.path(), true).unwrap();
+        let saved = client.save(&product, out.path(), true, true).unwrap();
         assert_eq!(
             saved,
             out.path().join("COD0OPSFIN_20243150000_01D_05M_ORB.SP3")
@@ -3326,9 +3334,43 @@ mod tests {
         assert!(cached.is_file());
 
         let custom = out.path().join("nested").join("custom.sp3");
-        let saved = client.save(&product, &custom, false).unwrap();
+        let saved = client.save(&product, &custom, false, true).unwrap();
         assert_eq!(saved, custom);
         assert_eq!(fs::read_to_string(&custom).unwrap(), SP3_TEXT);
+        assert!(!cached.exists());
+        file.assert_calls(1);
+    }
+
+    #[test]
+    #[serial]
+    fn test_igs_products_client_save_keeps_published_file() {
+        let _cache = CacheRedirect::new();
+        let _mode = NetworkModeGuard::set(Some("online"));
+        let out = tempfile::tempdir().unwrap();
+        let server = MockServer::start();
+        let published = gzip(SP3_TEXT.as_bytes()).unwrap();
+        let file = mock_file(
+            &server,
+            &format!("/pub/products/2340/{SP3_NAME}"),
+            published.clone(),
+        );
+        let client = garner_client(&server);
+        let product = product(&client, SP3_NAME, 2340);
+        let cached = client
+            .cache_dir()
+            .unwrap()
+            .join("garner/2340")
+            .join(SP3_NAME);
+
+        let saved = client.save(&product, out.path(), true, false).unwrap();
+        assert_eq!(saved, out.path().join(SP3_NAME));
+        assert_eq!(fs::read(&saved).unwrap(), published);
+        assert!(cached.is_file());
+
+        let custom = out.path().join("nested").join("custom.sp3.gz");
+        let saved = client.save(&product, &custom, false, false).unwrap();
+        assert_eq!(saved, custom);
+        assert_eq!(fs::read(&custom).unwrap(), published);
         assert!(!cached.exists());
         file.assert_calls(1);
     }
@@ -3348,7 +3390,7 @@ mod tests {
         let client = garner_client(&server);
         let product = product(&client, SHORT_Z_NAME, 2340);
 
-        let saved = client.save(&product, out.path(), false).unwrap();
+        let saved = client.save(&product, out.path(), false, true).unwrap();
         assert_eq!(saved, out.path().join("igr23400.sp3"));
         assert_eq!(fs::read(&saved).unwrap(), b"#2");
         assert!(
@@ -3376,7 +3418,7 @@ mod tests {
         let cache = client.cache_dir().unwrap();
         for destination in [cache.clone(), cache.join("saved").join("out.sp3")] {
             let err = client
-                .save(&product, &destination, false)
+                .save(&product, &destination, false, false)
                 .unwrap_err()
                 .to_string();
             assert!(err.contains("inside the IGS cache directory"), "{err}");
@@ -3622,7 +3664,7 @@ mod tests {
         let client = garner_client(&server);
         let product = product(&client, SHORT_Z_NAME, 2340);
 
-        let saved = client.save(&product, out.path(), true).unwrap();
+        let saved = client.save(&product, out.path(), true, true).unwrap();
         assert_eq!(saved, out.path().join("igr23400.sp3"));
         assert_eq!(fs::read(&saved).unwrap(), b"#2");
         assert_eq!(

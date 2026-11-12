@@ -4,7 +4,6 @@
 use brahe as bh;
 use bh::datafiles::sp3::{SP3, SP3SatelliteId, SP3Header};
 use bh::traits::DStatePropagator;
-use bh::utils::DOrbitStateProvider;
 use nalgebra as na;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -27,24 +26,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
     }
 
-    // The providers are sampled from their stored trajectories, so propagate first
+    // The file is built from the trajectories the propagators store, so propagate first
     let end = epoch + 3600.0;
     for prop in propagators.iter_mut() {
         prop.propagate_to(end)?;
     }
 
-    // Sample both satellites every 60 s for one hour
+    // Resample both trajectories every 60 s over the hour they cover
     let l01: SP3SatelliteId = "L01".parse()?;
     let l02: SP3SatelliteId = "L02".parse()?;
     let options = SP3Header { agency: "BRHE".to_string(), comments: vec!["Sampled from numerical propagators".to_string()], ..Default::default() };
-    let sp3 = SP3::from_propagators(
+    let sp3 = SP3::from_trajectories(
         &[
-            (l01, &propagators[0] as &dyn DOrbitStateProvider),
-            (l02, &propagators[1] as &dyn DOrbitStateProvider),
+            (l01, propagators[0].trajectory()),
+            (l02, propagators[1].trajectory()),
         ],
-        epoch,
-        end,
-        60.0,
+        Some(60.0),
         options,
     )?;
 

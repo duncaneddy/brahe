@@ -90,6 +90,10 @@ mirror. `StarlinkClient` reads them directly, without a GP or TLE intermediate, 
 satellite is a Starlink and higher-fidelity state and covariance data matters more than the
 uniform GPRecord interface; see [Starlink Public Ephemerides](starlink.md).
 
+**IGS** analysis centers publish precise GNSS orbits and clocks as SP3 files in public
+archives. `IGSProductsClient` lists those archives by GPS week, downloads and caches the
+products, and returns parsed `SP3` objects; see [IGS Precise Products](igs_products.md).
+
 ---
 
 ## See Also
@@ -97,6 +101,7 @@ uniform GPRecord interface; see [Starlink Public Ephemerides](starlink.md).
 - [CelesTrak](celestrak.md) -- Using the CelesTrak client
 - [Space-Track](spacetrack/index.md) -- Using the Space-Track client
 - [Starlink Public Ephemerides](starlink.md) -- Using the Starlink client
+- [IGS Precise Products](igs_products.md) -- Using the IGS product client
 - [Modified ITC Ephemeris Format](itc.md) -- The format Starlink and Space-Track SP Ephemeris share
 - [Ephemeris API Reference](../../library_api/ephemeris/index.md) -- Complete function and type documentation
 - [Two-Line Elements](../orbits/two_line_elements.md) -- TLE and 3LE format details

@@ -26,7 +26,6 @@ use crate::time::{Epoch, TimeSystem};
 use crate::utils::BraheError;
 
 /// First GPS week for which the archives use long product file names.
-#[allow(dead_code)]
 pub(crate) const IGS_LONG_NAME_FIRST_WEEK: u32 = 2238;
 
 const SECONDS_PER_DAY: f64 = 86400.0;

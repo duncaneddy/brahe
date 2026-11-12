@@ -197,6 +197,7 @@ nav = [
       ] },
       { "CelesTrak" = "learn/ephemeris/celestrak.md" },
       { "Starlink" = "learn/ephemeris/starlink.md" },
+      { "IGS Products" = "learn/ephemeris/igs_products.md" },
       { "Modified ITC Format" = "learn/ephemeris/itc.md" },
     ] },
     { "Data Files" = [
@@ -431,6 +432,7 @@ nav = [
       { "Shared Types" = "library_api/ephemeris/shared_types.md" },
       { "CelesTrak" = "library_api/ephemeris/celestrak.md" },
       { "Starlink" = "library_api/ephemeris/starlink.md" },
+      { "IGS Products" = "library_api/ephemeris/igs.md" },
       { "Modified ITC" = "library_api/ephemeris/itc.md" },
       { "Space-Track" = [
         "library_api/ephemeris/spacetrack/index.md",

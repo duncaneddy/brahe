@@ -379,14 +379,14 @@ def test_igs_products_client_list_products_filters_solution_and_content(archive)
         "ESA0OPSRAP_20243150000_01D_05M_CLK.CLK.gz",
     ]
     clocks = client.list_products(
-        week_2340(), center="ESA", content=bh.IGSContentType.CLOCK
+        week_2340(), center="ESA", format=bh.IGSFileFormat.CLK
     )
     assert names(clocks) == expected_clocks
-    assert names(client.list_products(week_2340(), center="esa", content="clk")) == (
+    assert names(client.list_products(week_2340(), center="esa", format="clk")) == (
         expected_clocks
     )
 
-    for kwarg in ("solution", "content"):
+    for kwarg in ("solution", "content", "format"):
         with pytest.raises(TypeError):
             client.list_products(week_2340(), **{kwarg: 1})
 
@@ -1314,6 +1314,7 @@ def assert_integration_final_orbit(client):
         center="IGS",
         solution=bh.IGSSolutionType.FINAL,
         content=bh.IGSContentType.ORBIT,
+        format=bh.IGSFileFormat.SP3,
     )
     product = next((p for p in products if p.name == INTEGRATION_FINAL_ORBIT), None)
     assert product is not None, f"{INTEGRATION_FINAL_ORBIT} not listed"

@@ -353,7 +353,7 @@ jobs:
           name: release-notes
 
       - name: Publish GitHub Release
-        uses: softprops/action-gh-release@v3.0.3
+        uses: softprops/action-gh-release@v3.0.4
         with:
           tag_name: ${{ github.ref_name }}
           name: Release ${{ github.ref_name }}
@@ -416,7 +416,7 @@ jobs:
           git push origin latest --force
 
       - name: Update latest release
-        uses: softprops/action-gh-release@v3.0.3
+        uses: softprops/action-gh-release@v3.0.4
         with:
           tag_name: latest
           name: Latest Release (${{ github.ref_name }})

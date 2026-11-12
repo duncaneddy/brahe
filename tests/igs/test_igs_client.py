@@ -852,15 +852,38 @@ def test_igs_products_client_save_gzip_decompresses(archive, tmp_path):
     product = listed_product(archive, client, SP3_NAME, 2340, week_2340())
     cached = Path(client.cache_dir()) / "garner" / "2340" / SP3_NAME
 
-    saved = client.save(product, str(out), True)
+    saved = client.save(product, str(out), True, True)
     assert Path(saved) == out / "COD0OPSFIN_20243150000_01D_05M_ORB.SP3"
     assert Path(saved).read_text() == SP3_TEXT
     assert cached.is_file()
 
     custom = out / "nested" / "custom.sp3"
-    saved = client.save(product, custom, keep_cached=False)
+    saved = client.save(product, custom, keep_cached=False, decompress=True)
     assert Path(saved) == custom
     assert custom.read_text() == SP3_TEXT
+    assert not cached.exists()
+    assert archive.calls(f"/pub/products/2340/{SP3_NAME}") == 1
+
+
+def test_igs_products_client_save_keeps_published_file(archive, tmp_path):
+    """Rust: test_igs_products_client_save_keeps_published_file"""
+    out = tmp_path / "out"
+    out.mkdir()
+    published = gzip.compress(SP3_TEXT.encode())
+    archive.serve(f"/pub/products/2340/{SP3_NAME}", published)
+    client = garner_client(archive)
+    product = listed_product(archive, client, SP3_NAME, 2340, week_2340())
+    cached = Path(client.cache_dir()) / "garner" / "2340" / SP3_NAME
+
+    saved = client.save(product, out, keep_cached=True)
+    assert Path(saved) == out / SP3_NAME
+    assert Path(saved).read_bytes() == published
+    assert cached.is_file()
+
+    custom = out / "nested" / "custom.sp3.gz"
+    saved = client.save(product, custom)
+    assert Path(saved) == custom
+    assert custom.read_bytes() == published
     assert not cached.exists()
     assert archive.calls(f"/pub/products/2340/{SP3_NAME}") == 1
 
@@ -871,7 +894,7 @@ def test_igs_products_client_save_unix_compress_decompresses(archive, tmp_path):
     client = garner_client(archive)
     product = listed_product(archive, client, SHORT_Z_NAME, 2340, week_2340())
 
-    saved = client.save(product, tmp_path)
+    saved = client.save(product, tmp_path, decompress=True)
     assert Path(saved) == tmp_path / "igr23400.sp3"
     assert Path(saved).read_bytes() == b"#2"
     assert not (Path(client.cache_dir()) / "garner" / "2340" / SHORT_Z_NAME).exists()
@@ -895,7 +918,7 @@ def test_igs_products_client_save_unix_compress_keep_cached(archive, tmp_path):
     client = garner_client(archive)
     product = listed_product(archive, client, SHORT_Z_NAME, 2340, week_2340())
 
-    saved = client.save(product, tmp_path, keep_cached=True)
+    saved = client.save(product, tmp_path, keep_cached=True, decompress=True)
     assert Path(saved) == tmp_path / "igr23400.sp3"
     assert Path(saved).read_bytes() == b"#2"
     cached = Path(client.cache_dir()) / "garner" / "2340" / SHORT_Z_NAME

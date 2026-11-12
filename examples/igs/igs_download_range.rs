@@ -75,7 +75,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_format(IGSFileFormat::SP3);
     let mut paths = Vec::new();
     for product in client.list_products_between(start, end, &filter)? {
-        paths.push(client.save(&product, &directory, false)?);
+        paths.push(client.save(&product, &directory, false, false)?);
     }
     println!("\nSaved {} files:", paths.len());
     for path in &paths {

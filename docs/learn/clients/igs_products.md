@@ -46,9 +46,9 @@ Listings are cached under `$BRAHE_CACHE/igs/listings/` for one hour by default, 
 
 `download(product)` fetches a product into the cache and returns the cached path of the file as published. Published products do not change, so a cached file is returned without a request. The cache path is `$BRAHE_CACHE/igs/<source>/<week>/<published name>`, and `get_igs_cache_dir()` returns the `igs` directory.
 
-`save(product, destination, keep_cached=False)` downloads a product and writes it outside the cache. An existing directory, or a path whose last component has no extension, is treated as a directory and the published name is kept, while a path with an extension is the file written; a missing directory is created. A gzip or Unix-compressed (`.Z`) product is written decompressed, and in a directory it loses the `.gz` or `.Z` suffix. Uncompressed files are written unchanged. A destination inside the cache is an error, checked before anything is downloaded. With `keep_cached` false the cached copy is removed, so a later `download` fetches the file again, and with `keep_cached` true the cache keeps it. To download or save every product in a range, loop over the result of `list_products_between`, as the range example below does.
+`save(product, destination, keep_cached=False, decompress=False)` downloads a product and writes it outside the cache. An existing directory, or a path whose last component has no extension, is treated as a directory and the published name is kept, while a path with an extension is the file written; a missing directory is created. The file is written as published, and `SP3.from_file` reads gzip and Unix-compressed (`.Z`) files directly. With `decompress` true a gzip or `.Z` product is written decompressed, and in a directory it loses the `.gz` or `.Z` suffix. A destination inside the cache is an error, checked before anything is downloaded. With `keep_cached` false the cached copy is removed, so a later `download` fetches the file again, and with `keep_cached` true the cache keeps it. To download or save every product in a range, loop over the result of `list_products_between`, as the range example below does.
 
-`download_sp3(product)` downloads an SP3 product and returns the parsed `SP3`. It raises an error for a product that is not an SP3 file.
+`download_sp3(product)` downloads an SP3 product and returns the parsed `SP3`. Gzip and Unix-compressed (`.Z`) products, the latter common before GPS week 2238, are decompressed for parsing. It raises an error for a product that is not an SP3 file.
 
 ## Downloading a Range of Orbit Files
 
@@ -66,10 +66,6 @@ Listings are cached under `$BRAHE_CACHE/igs/listings/` for one hour by default, 
 
 !!! note "Ultra-rapid ranges are rejected"
     IGS issues an ultra-rapid orbit file every six hours, and each covers 48 hours. Consecutive issues therefore describe the same times with different values: the 00:00 issue predicts noon, and the 06:00 issue fits noon from observations. Chaining them would overlap, and choosing which issue supplies each time is a policy decision that depends on the application. `download_sp3_range` raises an error for the ultra-rapid solution before it makes any request. To use ultra-rapid orbits, list the products, choose the issues, and download them with `download_sp3`.
-
-### Unix-Compressed Files
-
-Files with a `.Z` suffix were compressed with the Unix `compress` utility and are common for the short-name weeks before GPS week 2238. Brahe decompresses them like gzip files: `download` caches the file as published, `save` writes it decompressed, and `download_sp3` and `download_sp3_range` parse it.
 
 ## Offline and Network Mode
 

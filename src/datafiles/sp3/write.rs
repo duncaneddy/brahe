@@ -16,9 +16,9 @@ use super::types::{
     MAX_SATELLITES, SP3, SP3Correlation, SP3Header, SP3Record, SP3SatelliteId, check_header_labels,
     epoch_grid_error, header_time_fields,
 };
-use crate::datafiles::compression::gzip;
 use crate::time::{Epoch, TimeSystem};
 use crate::utils::BraheError;
+use crate::utils::compression::gzip;
 use crate::utils::fs::atomic_write;
 
 /// Maximum number of characters of a comment after the `/* ` prefix.

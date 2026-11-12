@@ -1,3 +1,0 @@
-Verification:
-Epoch matches: True
-Elements match: True

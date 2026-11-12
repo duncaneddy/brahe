@@ -1,3 +1,0 @@
-Initial state: 1.000000
-State after 10s: 0.375000
-Analytical: 0.367879

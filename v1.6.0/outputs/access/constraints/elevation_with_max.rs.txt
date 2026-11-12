@@ -1,1 +1,0 @@
-Created: ElevationConstraint(10.00° - 80.00°)

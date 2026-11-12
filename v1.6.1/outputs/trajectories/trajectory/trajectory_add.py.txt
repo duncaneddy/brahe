@@ -1,2 +1,0 @@
-Trajectory length: 1
-Trajectory length: 2

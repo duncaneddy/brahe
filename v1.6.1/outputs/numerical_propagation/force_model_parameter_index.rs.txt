@@ -1,3 +1,0 @@
-
-Custom parameter layout example:
-  You can map parameters to any indices:

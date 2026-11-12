@@ -7,7 +7,7 @@
 
 use brahe as bh;
 use bh::igs::{
-    IGSAnalysisCenter, IGSContentType, IGSProductFilter, IGSProductSource,
+    IGSAnalysisCenter, IGSContentType, IGSFileFormat, IGSProductFilter, IGSProductSource,
     IGSProductsClient, IGSSolutionType,
 };
 use bh::time::{Epoch, TimeSystem};
@@ -25,7 +25,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let filter = IGSProductFilter::new()
             .with_center(center.clone())
             .with_solution(IGSSolutionType::Final)
-            .with_content(IGSContentType::Orbit);
+            .with_content(IGSContentType::Orbit)
+            .with_format(IGSFileFormat::SP3);
         let products = client.list_products(epoch, &filter)?;
         println!("\n{} final SP3 orbits: {}", center.code(), products.len());
         for product in products.iter().take(3) {

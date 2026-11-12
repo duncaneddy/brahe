@@ -8,7 +8,7 @@
 use brahe as bh;
 use bh::datafiles::sp3::SP3Satellite;
 use bh::igs::{
-    IGSAnalysisCenter, IGSContentType, IGSFileFormat, IGSProductFilter, IGSProductSource,
+    IGSAnalysisCenter, IGSContentType, IGSProductFilter, IGSProductSource,
     IGSProductsClient, IGSRangeOptions, IGSSolutionType,
 };
 use bh::time::{Epoch, TimeSystem};
@@ -71,8 +71,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let filter = IGSProductFilter::new()
         .with_center(IGSAnalysisCenter::COD)
         .with_solution(IGSSolutionType::Final)
-        .with_content(IGSContentType::Orbit)
-        .with_format(IGSFileFormat::SP3);
+        .with_content(IGSContentType::Orbit);
     let mut paths = Vec::new();
     for product in client.list_products_between(start, end, &filter)? {
         paths.push(client.save(&product, &directory, false, false)?);

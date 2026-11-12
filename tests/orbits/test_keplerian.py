@@ -915,3 +915,55 @@ def test_element_set_batch_and_explicit_e():
     np.testing.assert_array_equal(
         brahe.perigee_velocity(oes[:, 0], oes[:, 1]), brahe.perigee_velocity(oes)
     )
+
+
+def test_ascending_node_direction_inclined_orbit():
+    oe = np.array([brahe.R_EARTH + 700e3, 0.01, 97.8, 15.0, 30.0, 45.0])
+    x = brahe.state_koe_to_eci(oe, AngleFormat.DEGREES)
+    node = brahe.ascending_node_direction(x)
+    raan = math.radians(15.0)
+    assert node == pytest.approx([math.cos(raan), math.sin(raan), 0.0], abs=1e-12)
+
+
+def test_ascending_node_direction_retrograde_orbit():
+    oe = np.array([brahe.R_EARTH + 700e3, 0.01, 140.0, 250.0, 30.0, 45.0])
+    x = brahe.state_koe_to_eci(oe, AngleFormat.DEGREES)
+    node = brahe.ascending_node_direction(x)
+    raan = math.radians(250.0)
+    assert node == pytest.approx([math.cos(raan), math.sin(raan), 0.0], abs=1e-12)
+
+
+def test_ascending_node_direction_equatorial_orbit_falls_back_to_x():
+    r = brahe.R_EARTH + 700e3
+    x = np.array([0.0, r, 0.0, -7.5e3, 0.0, 0.0])
+    np.testing.assert_array_equal(
+        brahe.ascending_node_direction(x), np.array([1.0, 0.0, 0.0])
+    )
+
+    # Just inside the tolerance the result stays unit length and in the orbit plane
+    h_hat = np.array([5e-10, 0.0, 1.0])
+    h_hat = h_hat / np.linalg.norm(h_hat)
+    r_vec = np.array([0.0, r, 0.0])
+    v_vec = 7.5e3 * np.cross(h_hat, r_vec / r)
+    node = brahe.ascending_node_direction(np.concatenate([r_vec, v_vec]))
+    assert np.linalg.norm(node) == pytest.approx(1.0, abs=1e-15)
+    assert np.dot(node, h_hat) == pytest.approx(0.0, abs=1e-15)
+
+
+def test_ascending_node_direction_batch():
+    oe = np.array([brahe.R_EARTH + 500e3, 0.01, 97.8, 15.0, 30.0, 45.0])
+    states = np.array(
+        [
+            brahe.state_koe_to_eci(
+                oe + np.array([0, 0, 0, 10.0 * i, 0, 0]), AngleFormat.DEGREES
+            )
+            for i in range(3)
+        ]
+    )
+    out = brahe.ascending_node_direction(states)
+    assert out.shape == (3, 3)
+    for i in range(3):
+        np.testing.assert_array_equal(out[i], brahe.ascending_node_direction(states[i]))
+    np.testing.assert_array_equal(
+        brahe.ascending_node_direction(states.T, axis=0), out.T
+    )

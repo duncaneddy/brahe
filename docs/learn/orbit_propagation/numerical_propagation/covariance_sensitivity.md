@@ -148,7 +148,7 @@ $$P(t) = \Phi(t, t_0) P_0 \Phi(t, t_0)^T$$
 
 ### Covariance in RTN Frame
 
-The RTN (Radial-Tangential-Normal) frame provides physical insight into how uncertainty evolves relative to the orbit.
+The RTN (Radial-Transverse-Normal) frame provides physical insight into how uncertainty evolves relative to the orbit.
 
 === "Python"
 
@@ -179,11 +179,11 @@ The RTN (Radial-Tangential-Normal) frame provides physical insight into how unce
 | Component | Physical Meaning | Typical Behavior |
 |-----------|------------------|------------------|
 | Radial (R) | Altitude uncertainty | Bounded oscillation |
-| Tangential (T) | Along-track timing | Unbounded growth |
+| Transverse (T) | Along-track timing | Unbounded growth |
 | Normal (N) | Cross-track offset | Bounded oscillation |
 </div>
 
-The along-track (tangential) uncertainty grows fastest because velocity uncertainty causes timing errors that accumulate over time. After one orbit, the T/R ratio is typically 20-30x.
+The along-track (transverse) uncertainty grows fastest because velocity uncertainty causes timing errors that accumulate over time. After one orbit, the T/R ratio is typically 20-30x.
 
 ### Covariance Evolution Visualization
 

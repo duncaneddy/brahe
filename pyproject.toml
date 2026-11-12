@@ -3,7 +3,7 @@ name = "brahe"
 dynamic = ["version"]
 description = "Brahe is a modern satellite dynamics library for research and engineering applications designed to be easy-to-learn, high-performance, and quick-to-deploy. The north-star of the development is enabling users to solve meaningful problems and answer questions quickly, easily, and correctly."
 readme = { file = "README.md", content-type = "text/markdown" }
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = { file = "LICENSE.md" }
 keywords = ["space", "astrodynamics", "satellite", "research"]
 authors = [
@@ -21,7 +21,6 @@ classifiers = [
     "Operating System :: POSIX :: Linux",
     # Specify the Python versions you support here.
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -78,15 +77,10 @@ test = [
     "coverage>=7.0.0",
 ]
 docs = [
-    "mkdocs<2.0.0",
-    "properdocs",
-    "mike>=2.0.0",
-    "mkdocs-awesome-nav>=3.2.0",
-    "mkdocs-git-revision-date-localized-plugin>=1.4.7",
-    "mkdocs-material>=9.6.20",
-    "mkdocs-minify-plugin>=0.8.0",
-    "mkdocs-section-index>=0.3.10",
-    "mkdocs-table-reader-plugin>=3.1.0",
+    "zensical",
+    "mike @ git+https://github.com/squidfunk/mike.git",
+    "pandas",
+    "tabulate",
     "mkdocstrings>=0.30.0",
     "mkdocstrings-python>=1.18.2",
     "neoteroi-mkdocs>=1.1.3",

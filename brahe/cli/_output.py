@@ -8,7 +8,7 @@ Provides column definitions, derived value computation, and multi-format renderi
 import contextlib
 import json
 import math
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from pathlib import Path
 
@@ -164,7 +164,7 @@ def parse_columns(
 
 def _current_epoch():
     """Get current time as a brahe Epoch."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     return bh.Epoch.from_datetime(
         now.year,
         now.month,

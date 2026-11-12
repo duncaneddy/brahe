@@ -2,7 +2,7 @@
 RTN Covariance Evolution Plot
 
 Generates a plot showing how position uncertainty evolves in the RTN
-(Radial-Tangential-Normal) frame during orbital propagation.
+(Radial-Transverse-Normal) frame during orbital propagation.
 This frame provides physical insight into error behavior.
 """
 
@@ -59,7 +59,7 @@ prop.propagate_to(epoch + total_time)
 # This avoids numerical issues with covariance interpolation
 times = []  # in orbital periods
 sigma_r = []  # Radial std dev
-sigma_t = []  # Tangential std dev
+sigma_t = []  # Transverse std dev
 sigma_n = []  # Normal std dev
 
 dt = orbital_period / 50  # 50 samples per orbit
@@ -83,7 +83,7 @@ while t <= total_time:
             r_hat = r / np.linalg.norm(r)  # Radial
             h = np.cross(r, v)  # Angular momentum
             n_hat = h / np.linalg.norm(h)  # Normal (cross-track)
-            t_hat = np.cross(n_hat, r_hat)  # Tangential (along-track)
+            t_hat = np.cross(n_hat, r_hat)  # Transverse (along-track)
 
             # Rotation matrix from ECI to RTN (for position)
             R_eci_to_rtn = np.array([r_hat, t_hat, n_hat])
@@ -121,7 +121,7 @@ def create_figure(theme):
             x=times,
             y=sigma_t,
             mode="lines",
-            name="Tangential (T)",
+            name="Transverse (T)",
             line={"color": colors["secondary"], "width": 2},
         )
     )

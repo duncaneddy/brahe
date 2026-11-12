@@ -547,6 +547,25 @@ def test_SP3_set_record_matches_epochs_within_tolerance():
         sp3.set_epoch(t0 + 2700.002, [])
     assert sp3.num_epochs == 3
 
+    # Just before the first epoch is still the first epoch.
+    sp3.set_record("G01", t0 - 0.0005, SP3Record([4.0, 5.0, 6.0]))
+    assert sp3.num_epochs == 3
+    assert sp3.record("G01", t0).position[0] == 4.0
+    assert sp3.record("G01", t0 - 0.0005) is not None
+
+
+def test_SP3_set_epoch_before_first_keeps_epochs_on_grid():
+    t0 = gps_t0()
+    sp3 = SP3(["G01"], 900.0)
+    sp3.set_epoch(t0, [])
+    sp3.set_epoch(t0 + 900.0008, [])
+    with pytest.raises(bh.BraheError, match="would start a 900 s grid"):
+        sp3.set_epoch(t0 - 900.0008, [])
+    assert sp3.num_epochs == 2
+    sp3.set_epoch(t0 - 900.0, [])
+    assert sp3.num_epochs == 3
+    assert sp3.record("G01", t0 + 900.0008) is None
+
 
 def test_SP3_set_epoch():
     t0 = gps_t0()

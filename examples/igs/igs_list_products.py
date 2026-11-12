@@ -25,6 +25,7 @@ for center in (bh.IGSAnalysisCenter.COD, bh.IGSAnalysisCenter.IGS):
         center=center,
         solution=bh.IGSSolutionType.FINAL,
         content=bh.IGSContentType.ORBIT,
+        format=bh.IGSFileFormat.SP3,
     )
     print(f"\n{center} final SP3 orbits: {len(products)}")
     for product in products[:3]:

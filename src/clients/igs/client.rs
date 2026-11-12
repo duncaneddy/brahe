@@ -21,12 +21,12 @@ use crate::clients::igs::file_name::{
 use crate::clients::igs::product::{IGSProduct, IGSProductFilter, IGSRangeOptions};
 use crate::clients::igs::source::IGSProductSource;
 use crate::constants::SECONDS_PER_DAY;
-use crate::datafiles::compression::{
-    Compression, UNIX_COMPRESS_UNSUPPORTED, compression_of, decompress,
-};
 use crate::datafiles::sp3::SP3;
 use crate::time::Epoch;
 use crate::utils::cache::is_older_than;
+use crate::utils::compression::{
+    Compression, UNIX_COMPRESS_UNSUPPORTED, compression_of, decompress,
+};
 use crate::utils::download::{backoff_delay, is_retryable_error};
 use crate::utils::fs::{
     copy_file, is_within, move_file, resolve_destination, validate_path_component,
@@ -2033,8 +2033,8 @@ fn listed_weeks(html: &str) -> Vec<u32> {
 mod tests {
     use super::*;
     use crate::clients::igs::file_name::{IGSContentType, IGSFileFormat, IGSSolutionType};
-    use crate::datafiles::compression::gzip;
     use crate::time::TimeSystem;
+    use crate::utils::compression::gzip;
     use crate::utils::testing::{CacheRedirect, NetworkModeGuard};
     use httpmock::prelude::*;
     use serial_test::{parallel, serial};

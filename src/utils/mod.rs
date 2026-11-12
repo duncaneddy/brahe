@@ -15,6 +15,7 @@ pub use threading::*;
 pub(crate) mod batch;
 pub use batch::{get_vectorization_length_threshold, set_vectorization_length_threshold};
 pub mod cache;
+pub(crate) mod compression;
 pub mod download;
 pub mod errors;
 pub mod formatting;

@@ -1,37 +1,44 @@
 /*!
- * SP3 files built from orbit state providers.
+ * SP3 files built from orbit trajectories.
  */
 
 use crate::datafiles::sp3::parse::sp3_error;
-use crate::datafiles::sp3::types::{SP3, SP3Header, SP3Record, SP3SatelliteId};
+use crate::datafiles::sp3::types::{GRID_TOLERANCE, SP3, SP3Header, SP3Record, SP3SatelliteId};
 use crate::time::Epoch;
+use crate::trajectories::dorbit_trajectory::DOrbitTrajectory;
 use crate::utils::{BraheError, DOrbitStateProvider};
 
 impl SP3 {
-    /// Build an SP3 file by sampling orbit state providers on a regular grid.
+    /// Build an SP3 file from orbit trajectories.
     ///
-    /// Each provider is sampled with `state_itrf` at `start + k * step` for
-    /// `k = 0..=floor((end - start) / step)`. Velocities are stored when
-    /// `header.has_velocity` is set. Clocks and clock rates are absent
-    /// and are written as the format's bad-clock value unless set with
+    /// Without `step`, the file holds the epochs the trajectories store: the
+    /// trajectories must store the same epochs, to within 1 ms, on a regular
+    /// grid whose interval is the spacing of the first two. With `step`, each
+    /// trajectory is interpolated at `start + k * step` over the span all
+    /// trajectories cover, from the latest first epoch to the earliest last
+    /// epoch. States are converted to ITRF with `state_itrf`. Velocities are
+    /// stored when `header.has_velocity` is set. Clocks and clock rates are
+    /// absent and are written as the format's bad-clock value unless set with
     /// [`SP3::set_clocks`] and [`SP3::set_clock_rates`]. The file type follows
     /// the satellite systems.
     ///
+    /// A propagator supplies the trajectory it has propagated, and an
+    /// [`SP3Satellite`](crate::datafiles::sp3::SP3Satellite) supplies one with
+    /// `to_trajectory`.
+    ///
     /// # Arguments
     ///
-    /// * `propagators` - Satellite identifiers paired with the providers that supply their
-    ///   states: numerical, Keplerian, and SGP propagators, orbit trajectories, and
-    ///   [`SP3Satellite`](crate::datafiles::sp3::SP3Satellite)
-    /// * `start` - First epoch of the file
-    /// * `end` - Last epoch to include; the grid stops at the last point not after `end`
-    /// * `step` - Epoch spacing. Units: s
-    /// * `header` - Header of the file; its epoch interval is set to `step`
+    /// * `trajectories` - Satellite identifiers paired with their trajectories
+    /// * `step` - Epoch spacing to resample at, or `None` to keep the stored epochs. Units: s
+    /// * `header` - Header of the file; its epoch interval is set from the epochs written
     ///
     /// # Returns
     ///
-    /// * `Result<SP3, BraheError>` - The file, or an error if `end` precedes `start`, the
-    ///   satellites are invalid, or a provider cannot supply a state at a
-    ///   grid epoch. A provider error names the satellite and the epoch.
+    /// * `Result<SP3, BraheError>` - The file, or an error if no trajectory is given, a
+    ///   trajectory is empty, the satellites are invalid, the trajectories share no span,
+    ///   the stored epochs differ between trajectories, number fewer than two, or are off
+    ///   a regular grid, or a state is unavailable or not finite. A state error names the satellite and
+    ///   the epoch.
     ///
     /// # Examples
     ///
@@ -39,67 +46,144 @@ impl SP3 {
     /// use brahe::datafiles::sp3::{SP3, SP3SatelliteId, SP3Header};
     /// use brahe::eop::{StaticEOPProvider, set_global_eop_provider};
     /// use brahe::propagators::KeplerianPropagator;
+    /// use brahe::propagators::traits::SStatePropagator;
     /// use brahe::constants::{AngleFormat, R_EARTH};
     /// use brahe::time::{Epoch, TimeSystem};
-    /// use brahe::utils::DOrbitStateProvider;
     /// use nalgebra::Vector6;
     ///
     /// set_global_eop_provider(StaticEOPProvider::from_zero());
     /// let t0 = Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::GPS);
-    /// let prop = KeplerianPropagator::from_keplerian(
+    /// let mut prop = KeplerianPropagator::from_keplerian(
     ///     t0,
     ///     Vector6::new(R_EARTH + 800e3, 0.001, 98.0, 0.0, 0.0, 0.0),
     ///     AngleFormat::Degrees,
     ///     60.0,
     /// )
     /// .unwrap();
+    /// prop.propagate_to(t0 + 3600.0).unwrap();
     /// let leo: SP3SatelliteId = "L01".parse().unwrap();
     ///
-    /// let sp3 = SP3::from_propagators(
-    ///     &[(leo, &prop as &dyn DOrbitStateProvider)],
-    ///     t0,
-    ///     t0 + 3600.0,
-    ///     60.0,
-    ///     SP3Header::default(),
-    /// )
-    /// .unwrap();
+    /// // The 61 states the propagator stored, one per 60 s step.
+    /// let sp3 = SP3::from_trajectories(&[(leo, &prop.trajectory)], None, SP3Header::default())
+    ///     .unwrap();
     /// assert_eq!(sp3.num_epochs(), 61);
+    ///
+    /// // The same span resampled at 300 s.
+    /// let sp3 = SP3::from_trajectories(&[(leo, &prop.trajectory)], Some(300.0), SP3Header::default())
+    ///     .unwrap();
+    /// assert_eq!(sp3.num_epochs(), 13);
     /// ```
-    pub fn from_propagators(
-        propagators: &[(SP3SatelliteId, &dyn DOrbitStateProvider)],
-        start: Epoch,
-        end: Epoch,
-        step: f64,
+    pub fn from_trajectories(
+        trajectories: &[(SP3SatelliteId, &DOrbitTrajectory)],
+        step: Option<f64>,
         header: SP3Header,
     ) -> Result<Self, BraheError> {
-        let include_velocity = header.has_velocity;
-        let ids: Vec<SP3SatelliteId> = propagators.iter().map(|(id, _)| *id).collect();
-        let mut sp3 = SP3::new(ids, step, header)?;
-
-        let span = end - start;
-        if span.is_nan() || span < 0.0 {
-            return Err(sp3_error(&format!(
-                "end epoch {} precedes start epoch {}",
-                end, start
-            )));
+        let Some((first_id, first)) = trajectories.first() else {
+            return Err(sp3_error("no trajectory given"));
+        };
+        if let Some((id, _)) = trajectories.iter().find(|(_, t)| t.epochs.is_empty()) {
+            return Err(sp3_error(&format!("trajectory of {} has no states", id)));
         }
-        let n_steps = (span / step + 1e-9).floor() as usize;
-        for k in 0..=n_steps {
-            let epoch = start + step * k as f64;
-            let index = sp3.push_epoch(epoch)?;
-            for (id, provider) in propagators {
-                let state = provider.state_itrf(epoch).map_err(|e| {
+
+        let (epochs, interval) = match step {
+            Some(step) => (common_grid(trajectories, step)?, step),
+            None => {
+                if first.epochs.len() < 2 {
+                    return Err(sp3_error(&format!(
+                        "trajectory of {} stores one epoch, which gives no epoch interval; \
+                         pass a step to resample",
+                        first_id
+                    )));
+                }
+                for (id, trajectory) in &trajectories[1..] {
+                    let same = trajectory.epochs.len() == first.epochs.len()
+                        && trajectory
+                            .epochs
+                            .iter()
+                            .zip(&first.epochs)
+                            .all(|(a, b)| (*a - *b).abs() <= GRID_TOLERANCE);
+                    if !same {
+                        return Err(sp3_error(&format!(
+                            "trajectories of {} and {} store different epochs; pass a step to \
+                             resample",
+                            first_id, id
+                        )));
+                    }
+                }
+                let interval = first.epochs[1] - first.epochs[0];
+                if let Some(off) = first.epochs.iter().find(|e| {
+                    let offset = **e - first.epochs[0];
+                    ((offset / interval).round() * interval - offset).abs() > GRID_TOLERANCE
+                }) {
+                    return Err(sp3_error(&format!(
+                        "stored epoch {} is off the {} s grid of the first two epochs; pass a \
+                         step to resample",
+                        off, interval
+                    )));
+                }
+                (first.epochs.clone(), interval)
+            }
+        };
+
+        let include_velocity = header.has_velocity;
+        let ids: Vec<SP3SatelliteId> = trajectories.iter().map(|(id, _)| *id).collect();
+        let mut sp3 = SP3::new(ids, interval, header)?;
+        let mut records = Vec::with_capacity(trajectories.len());
+        for epoch in epochs {
+            records.clear();
+            for (id, trajectory) in trajectories {
+                let state = trajectory.state_itrf(epoch).map_err(|e| {
                     sp3_error(&format!("state of {} at {} unavailable: {}", id, epoch, e))
                 })?;
                 let mut record = SP3Record::new([state[0], state[1], state[2]]);
                 if include_velocity {
                     record = record.with_velocity([state[3], state[4], state[5]]);
                 }
-                sp3.set_record(*id, index, record)?;
+                records.push((*id, record));
             }
+            sp3.set_epoch(epoch, &records)?;
         }
         Ok(sp3)
     }
+}
+
+/// Epochs `start + k * step` over the span every trajectory covers.
+///
+/// # Arguments
+///
+/// * `trajectories` - Satellite identifiers paired with non-empty trajectories
+/// * `step` - Epoch spacing. Units: s
+///
+/// # Returns
+///
+/// * `Result<Vec<Epoch>, BraheError>` - The epochs from the latest first epoch up to the
+///   last grid point not after the earliest last epoch, or an error if the step is not
+///   positive and finite or the trajectories share no span
+fn common_grid(
+    trajectories: &[(SP3SatelliteId, &DOrbitTrajectory)],
+    step: f64,
+) -> Result<Vec<Epoch>, BraheError> {
+    if !(step.is_finite() && step > 0.0) {
+        return Err(sp3_error(&format!(
+            "step must be positive and finite, got {}",
+            step
+        )));
+    }
+    let mut start = trajectories[0].1.epochs[0];
+    let mut end = trajectories[0].1.epochs[trajectories[0].1.epochs.len() - 1];
+    for (_, trajectory) in &trajectories[1..] {
+        start = start.max(trajectory.epochs[0]);
+        end = end.min(trajectory.epochs[trajectory.epochs.len() - 1]);
+    }
+    let span = end - start;
+    if span < 0.0 {
+        return Err(sp3_error(&format!(
+            "trajectories share no span: the latest starts at {} and the earliest ends at {}",
+            start, end
+        )));
+    }
+    let n_steps = (span / step + 1e-9).floor() as usize;
+    Ok((0..=n_steps).map(|k| start + step * k as f64).collect())
 }
 
 #[cfg(test)]
@@ -112,7 +196,7 @@ mod tests {
     use crate::datafiles::sp3::satellite::SP3Satellite;
     use crate::datafiles::sp3::types::{SP3FileType, SP3Header, SP3Record, SP3TimeSystem};
     use crate::frames::CelestialFrame;
-    use crate::propagators::traits::DStatePropagator;
+    use crate::propagators::traits::{DStatePropagator, SStatePropagator};
     use crate::propagators::{
         DNumericalOrbitPropagator, ForceModelConfig, KeplerianPropagator,
         NumericalPropagationConfig,
@@ -146,13 +230,16 @@ mod tests {
         linear_file_at(300.0, ids, epochs, options)
     }
 
-    /// Start and end epoch of each trajectory of a satellite.
+    /// Start and end epoch of each stretch of a satellite between its gaps.
     fn spans(sat: &SP3Satellite) -> Vec<(Epoch, Epoch)> {
-        sat.to_trajectories()
-            .unwrap()
-            .iter()
-            .map(|t| (t.start_epoch().unwrap(), t.end_epoch().unwrap()))
-            .collect()
+        let mut spans = Vec::new();
+        let mut start = sat.start_epoch();
+        for (before, after) in sat.gaps() {
+            spans.push((start, before));
+            start = after;
+        }
+        spans.push((start, sat.end_epoch()));
+        spans
     }
 
     /// ITRF velocity a satellite provides at each of its samples.
@@ -181,10 +268,10 @@ mod tests {
         let mut sp3 = SP3::new(ids.to_vec(), interval, header).unwrap();
         let origin = Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::GPS);
         for epoch in epochs {
-            let index = sp3.push_epoch(*epoch).unwrap();
+            sp3.set_epoch(*epoch, &[]).unwrap();
             for (n, id) in ids.iter().enumerate() {
                 let x = 2.0e7 + 1.0e6 * n as f64 + 1000.0 * (*epoch - origin);
-                sp3.set_record(*id, index, SP3Record::new([x, 1.0e7, 1.0e7]))
+                sp3.set_record(*id, *epoch, SP3Record::new([x, 1.0e7, 1.0e7]))
                     .unwrap();
             }
         }
@@ -204,14 +291,18 @@ mod tests {
         let c01 = sats.iter().find(|s| s.id().to_string() == "C01").unwrap();
         assert_eq!(c01.len(), 3);
         let p_b = b
-            .record("C01".parse().unwrap(), 0)
+            .record("C01".parse().unwrap(), b.epochs()[0])
             .unwrap()
             .unwrap()
             .position;
         assert_eq!(c01.positions()[1], p_b);
         assert_eq!(spans(c01).len(), 1);
 
-        let p_a = a.record(sid("C01"), 1).unwrap().unwrap().position;
+        let p_a = a
+            .record(sid("C01"), a.epochs()[1])
+            .unwrap()
+            .unwrap()
+            .position;
         assert_ne!(p_a, p_b);
         assert_eq!(c01.epochs()[1], b.epochs()[0]);
         assert_eq!(sats.len(), 87);
@@ -263,7 +354,7 @@ mod tests {
         )
         .unwrap();
         shifted
-            .push_epoch(a.start_epoch().unwrap() + 150.0)
+            .set_epoch(a.start_epoch().unwrap() + 150.0, &[])
             .unwrap();
         let err = SP3Satellite::from_files(&[shifted, a.clone()])
             .unwrap_err()
@@ -283,8 +374,7 @@ mod tests {
         assert_eq!(spans(g01).len(), 2);
 
         let inside_gap = Epoch::from_datetime(2017, 5, 21, 0, 12, 0.0, 0.0, TimeSystem::GPS);
-        let err = g01.state_itrf(inside_gap).unwrap_err().to_string();
-        assert!(err.contains("G01") && err.contains("gap"), "{err}");
+        assert!(g01.state_itrf(inside_gap).is_ok());
     }
 
     #[test]
@@ -345,12 +435,20 @@ mod tests {
             },
         )
         .unwrap();
-        second.push_epoch(gps(5, 0.0)).unwrap();
-        second.push_epoch(gps(10, 0.0)).unwrap();
+        second.set_epoch(gps(5, 0.0), &[]).unwrap();
+        second.set_epoch(gps(10, 0.0), &[]).unwrap();
         second
-            .set_record(id, 1, SP3Record::new([3.0e7, 1.0e7, 1.0e7]))
+            .set_record(
+                id,
+                second.epochs()[1],
+                SP3Record::new([3.0e7, 1.0e7, 1.0e7]),
+            )
             .unwrap();
-        let expected = first.record(id, 1).unwrap().unwrap().position;
+        let expected = first
+            .record(id, first.epochs()[1])
+            .unwrap()
+            .unwrap()
+            .position;
 
         let sats = SP3Satellite::from_files(&[first, second]).unwrap();
         let g01 = find(&sats, "G01");
@@ -466,13 +564,13 @@ mod tests {
         };
         let mut sp3 = SP3::new(vec![id], interval, options).unwrap();
         for epoch in epochs {
-            let index = sp3.push_epoch(*epoch).unwrap();
+            sp3.set_epoch(*epoch, &[]).unwrap();
             let x = 2.0e7 + 1000.0 * (*epoch - gps(0, 0.0));
             let mut record = SP3Record::new([x, 1.0e7, 1.0e7]);
             if velocity {
                 record = record.with_velocity([1000.0, 0.0, 0.0]);
             }
-            sp3.set_record(id, index, record).unwrap();
+            sp3.set_record(id, *epoch, record).unwrap();
         }
         sp3
     }
@@ -491,11 +589,15 @@ mod tests {
             },
         )
         .unwrap();
-        single.push_epoch(gps(0, 0.0)).unwrap();
+        single.set_epoch(gps(0, 0.0), &[]).unwrap();
         single
-            .set_record(id, 0, SP3Record::new([3.0e7, 1.0e7, 1.0e7]))
+            .set_record(
+                id,
+                single.epochs()[0],
+                SP3Record::new([3.0e7, 1.0e7, 1.0e7]),
+            )
             .unwrap();
-        let expected = long.record(id, 0).unwrap().unwrap().position;
+        let expected = long.record(id, long.epochs()[0]).unwrap().unwrap().position;
 
         let forward = SP3Satellite::from_files(&[long.clone(), single.clone()]).unwrap();
         let reverse = SP3Satellite::from_files(&[single, long]).unwrap();
@@ -585,9 +687,9 @@ mod tests {
         .unwrap();
         for k in 0..=96 {
             let epoch = start + 900.0 * k as f64;
-            let index = sp3.push_epoch(epoch).unwrap();
+            sp3.set_epoch(epoch, &[]).unwrap();
             let x = propagator.state_itrf(epoch).unwrap();
-            sp3.set_record(id, index, SP3Record::new([x[0], x[1], x[2]]))
+            sp3.set_record(id, epoch, SP3Record::new([x[0], x[1], x[2]]))
                 .unwrap();
         }
         sp3
@@ -659,9 +761,9 @@ mod tests {
         .unwrap();
         for k in 0..=96 {
             let epoch = start + 900.0 * k as f64 + shift(k);
-            let index = sp3.push_epoch(epoch).unwrap();
+            sp3.set_epoch(epoch, &[]).unwrap();
             let x = propagator.state_itrf(epoch).unwrap();
-            sp3.set_record(id, index, SP3Record::new([x[0], x[1], x[2]]))
+            sp3.set_record(id, epoch, SP3Record::new([x[0], x[1], x[2]]))
                 .unwrap();
         }
         sp3
@@ -762,8 +864,9 @@ mod tests {
         let mut a = SP3::new(vec![id], 300.0, SP3Header::default()).unwrap();
         let mut b = a.clone();
         for k in 0..3 {
-            a.push_epoch(t0 + 300.0 * k as f64).unwrap();
-            b.push_epoch(t0 + 600.0 - 2e-3 + 300.0 * k as f64).unwrap();
+            a.set_epoch(t0 + 300.0 * k as f64, &[]).unwrap();
+            b.set_epoch(t0 + 600.0 - 2e-3 + 300.0 * k as f64, &[])
+                .unwrap();
         }
         let err = SP3Satellite::from_files(&[a, b]).unwrap_err().to_string();
         assert!(err.contains("overlap"), "{err}");
@@ -792,9 +895,31 @@ mod tests {
             epoch,
             Vector6::new(R_EARTH + 800e3, 0.001, 98.0, raan, 0.0, 0.0),
             AngleFormat::Degrees,
-            60.0,
+            30.0,
         )
         .unwrap()
+    }
+
+    /// ITRF trajectory holding the states of a LEO propagator at `offsets`
+    /// seconds after the start of the day.
+    fn leo_trajectory(raan: f64, offsets: &[f64]) -> DOrbitTrajectory {
+        setup_global_test_eop();
+        let t0 = day_start();
+        let prop = leo_propagator(t0, raan);
+        let mut trajectory = DOrbitTrajectory::new(
+            6,
+            CelestialFrame::ITRF,
+            OrbitRepresentation::Cartesian,
+            None,
+        )
+        .unwrap();
+        for offset in offsets {
+            let state = prop.state_itrf(t0 + *offset).unwrap();
+            trajectory
+                .add(t0 + *offset, DVector::from_column_slice(state.as_slice()))
+                .unwrap();
+        }
+        trajectory
     }
 
     fn day_start() -> Epoch {
@@ -804,16 +929,13 @@ mod tests {
     fn two_leo_sp3(options: SP3Header) -> (SP3, KeplerianPropagator, KeplerianPropagator) {
         setup_global_test_eop();
         let t0 = day_start();
-        let a = leo_propagator(t0, 0.0);
-        let b = leo_propagator(t0, 40.0);
-        let sp3 = SP3::from_propagators(
-            &[
-                (sid("L01"), &a as &dyn DOrbitStateProvider),
-                (sid("L02"), &b as &dyn DOrbitStateProvider),
-            ],
-            t0,
-            t0 + 86400.0,
-            30.0,
+        let mut a = leo_propagator(t0, 0.0);
+        let mut b = leo_propagator(t0, 40.0);
+        a.propagate_to(t0 + 86400.0).unwrap();
+        b.propagate_to(t0 + 86400.0).unwrap();
+        let sp3 = SP3::from_trajectories(
+            &[(sid("L01"), &a.trajectory), (sid("L02"), &b.trajectory)],
+            None,
             options,
         )
         .unwrap();
@@ -822,7 +944,7 @@ mod tests {
 
     #[test]
     #[serial]
-    fn test_SP3_from_propagators_keplerian() {
+    fn test_SP3_from_trajectories_stored_epochs() {
         let (sp3, a, b) = two_leo_sp3(SP3Header::default());
         assert_eq!(sp3.header.file_type, SP3FileType::LEO);
         assert_eq!(sp3.num_epochs(), 2881);
@@ -835,7 +957,7 @@ mod tests {
             for k in [0, 1, 1000, 2880] {
                 let epoch = day_start() + 30.0 * k as f64;
                 let truth = prop.state_itrf(epoch).unwrap();
-                let record = sp3.record(sid(id), k).unwrap().unwrap();
+                let record = sp3.record(sid(id), sp3.epochs()[k]).unwrap().unwrap();
                 for i in 0..3 {
                     assert_abs_diff_eq!(record.position[i], truth[i], epsilon = 1e-9);
                     assert_abs_diff_eq!(record.velocity.unwrap()[i], truth[3 + i], epsilon = 1e-9);
@@ -848,32 +970,32 @@ mod tests {
 
     #[test]
     #[serial]
-    fn test_SP3_from_propagators_mixed_file_type() {
-        setup_global_test_eop();
-        let t0 = day_start();
-        let a = leo_propagator(t0, 0.0);
-        let b = leo_propagator(t0, 40.0);
-        let sp3 = SP3::from_propagators(
-            &[
-                (sid("G01"), &a as &dyn DOrbitStateProvider),
-                (sid("L01"), &b as &dyn DOrbitStateProvider),
-            ],
-            t0,
-            t0 + 600.0,
-            30.0,
+    fn test_SP3_from_trajectories_mixed_file_type() {
+        let offsets = [0.0, 30.0, 60.0];
+        let (a, b) = (
+            leo_trajectory(0.0, &offsets),
+            leo_trajectory(40.0, &offsets),
+        );
+        let sp3 = SP3::from_trajectories(
+            &[(sid("G01"), &a), (sid("L01"), &b)],
+            None,
             SP3Header::default(),
         )
         .unwrap();
         assert_eq!(sp3.header.file_type, SP3FileType::Mixed);
+        assert_eq!(sp3.num_epochs(), 3);
     }
 
     #[test]
     #[serial]
-    fn test_SP3_from_propagators_clocks_absent_and_round_trip() {
+    fn test_SP3_from_trajectories_clocks_absent_and_round_trip() {
         let (sp3, a, _) = two_leo_sp3(SP3Header::default());
         for k in 0..sp3.num_epochs() {
             for id in ["L01", "L02"] {
-                assert_eq!(sp3.record(sid(id), k).unwrap().unwrap().clock, None);
+                assert_eq!(
+                    sp3.record(sid(id), sp3.epochs()[k]).unwrap().unwrap().clock,
+                    None
+                );
             }
         }
         let text = sp3.to_string().unwrap();
@@ -895,37 +1017,102 @@ mod tests {
 
     #[test]
     #[serial]
-    fn test_SP3_from_propagators_grid_includes_end_within_tolerance() {
-        setup_global_test_eop();
+    fn test_SP3_from_trajectories_resampled_grid() {
         let t0 = day_start();
-        let a = leo_propagator(t0, 0.0);
-        let providers = [(sid("L01"), &a as &dyn DOrbitStateProvider)];
-        let build = |end: Epoch| {
-            SP3::from_propagators(&providers, t0, end, 30.0, SP3Header::default()).unwrap()
+        let header = SP3Header::default;
+        let uneven = leo_trajectory(0.0, &[0.0, 30.0, 60.0, 90.0, 100.0]);
+        let build = |trajectory: &DOrbitTrajectory, step: f64| {
+            SP3::from_trajectories(&[(sid("L01"), trajectory)], Some(step), header())
         };
-        assert_eq!(build(t0 + 100.0).num_epochs(), 4);
-        assert_eq!(build(t0 + 90.0).num_epochs(), 4);
-        assert_eq!(build(t0).num_epochs(), 1);
+        let sp3 = build(&uneven, 30.0).unwrap();
+        assert_eq!(sp3.epochs(), &[t0, t0 + 30.0, t0 + 60.0, t0 + 90.0]);
+        assert_eq!(sp3.header.epoch_interval, 30.0);
+        assert_eq!(build(&uneven, 50.0).unwrap().num_epochs(), 3);
+        assert_eq!(
+            build(&leo_trajectory(0.0, &[0.0]), 30.0)
+                .unwrap()
+                .num_epochs(),
+            1
+        );
+        for step in [0.0, -30.0, f64::NAN] {
+            let err = build(&uneven, step).unwrap_err().to_string();
+            assert!(err.contains("step must be positive and finite"), "{err}");
+        }
 
-        let err = SP3::from_propagators(&providers, t0, t0 - 30.0, 30.0, SP3Header::default())
+        // Resampling covers the span every trajectory covers.
+        let early = leo_trajectory(0.0, &[0.0, 30.0, 60.0, 90.0, 120.0]);
+        let late = leo_trajectory(40.0, &[60.0, 90.0, 120.0, 150.0, 180.0]);
+        let both = [(sid("L01"), &early), (sid("L02"), &late)];
+        let sp3 = SP3::from_trajectories(&both, Some(30.0), header()).unwrap();
+        assert_eq!(sp3.epochs(), &[t0 + 60.0, t0 + 90.0, t0 + 120.0]);
+
+        let apart = leo_trajectory(40.0, &[150.0, 180.0]);
+        let disjoint = [(sid("L01"), &early), (sid("L02"), &apart)];
+        let err = SP3::from_trajectories(&disjoint, Some(30.0), header())
             .unwrap_err()
             .to_string();
-        assert!(err.contains("precedes"), "{err}");
-        assert!(
-            SP3::from_propagators(&providers, t0, t0 + 60.0, 0.0, SP3Header::default()).is_err()
-        );
+        assert!(err.contains("share no span"), "{err}");
     }
 
     #[test]
     #[serial]
-    fn test_SP3_from_propagators_position_only_rejects_clock_rates() {
+    fn test_SP3_from_trajectories_stored_epoch_errors() {
+        let header = SP3Header::default;
+        let stored = |trajectories: &[(SP3SatelliteId, &DOrbitTrajectory)]| {
+            SP3::from_trajectories(trajectories, None, header())
+                .unwrap_err()
+                .to_string()
+        };
+        assert!(stored(&[]).contains("no trajectory given"));
+
+        let empty = DOrbitTrajectory::new(
+            6,
+            CelestialFrame::ITRF,
+            OrbitRepresentation::Cartesian,
+            None,
+        )
+        .unwrap();
+        let err = stored(&[(sid("L01"), &empty)]);
+        assert!(err.contains("L01 has no states"), "{err}");
+        assert!(SP3::from_trajectories(&[(sid("L01"), &empty)], Some(30.0), header()).is_err());
+
+        let err = stored(&[(sid("L01"), &leo_trajectory(0.0, &[0.0]))]);
+        assert!(
+            err.contains("one epoch") && err.contains("pass a step"),
+            "{err}"
+        );
+
+        let uneven = leo_trajectory(0.0, &[0.0, 30.0, 60.0, 100.0]);
+        let err = stored(&[(sid("L01"), &uneven)]);
+        let off: Epoch = day_start() + 100.0;
+        assert!(err.contains("off the 30 s grid"), "{err}");
+        assert!(err.contains(&off.to_string()), "{err}");
+
+        let a = leo_trajectory(0.0, &[0.0, 30.0, 60.0]);
+        let shifted = leo_trajectory(40.0, &[0.0, 30.0, 90.0]);
+        let shorter = leo_trajectory(40.0, &[0.0, 30.0]);
+        for other in [&shifted, &shorter] {
+            let err = stored(&[(sid("L01"), &a), (sid("L02"), other)]);
+            assert!(err.contains("L01 and L02 store different epochs"), "{err}");
+        }
+
+        // A skipped grid point is kept as a skipped epoch.
+        let skipped = leo_trajectory(0.0, &[0.0, 30.0, 90.0]);
+        let sp3 = SP3::from_trajectories(&[(sid("L01"), &skipped)], None, header()).unwrap();
+        assert_eq!(sp3.num_epochs(), 3);
+        assert_eq!(sp3.header.epoch_interval, 30.0);
+    }
+
+    #[test]
+    #[serial]
+    fn test_SP3_from_trajectories_position_only_rejects_clock_rates() {
         let (mut sp3, _, _) = two_leo_sp3(SP3Header {
             has_velocity: false,
             ..Default::default()
         });
         assert!(!sp3.header.has_velocity);
         assert!(
-            sp3.record(sid("L01"), 3)
+            sp3.record(sid("L01"), sp3.epochs()[3])
                 .unwrap()
                 .unwrap()
                 .velocity
@@ -960,21 +1147,37 @@ mod tests {
         sp3.set_clock_rates(sid("L01"), &rates).unwrap();
 
         for k in [0, 5, 6, n - 1] {
-            let record = sp3.record(sid("L01"), k).unwrap().unwrap();
+            let record = sp3.record(sid("L01"), sp3.epochs()[k]).unwrap().unwrap();
             assert_eq!(record.clock, clocks[k]);
             assert_eq!(record.clock_rate, rates[k]);
         }
-        assert_eq!(sp3.record(sid("L02"), 6).unwrap().unwrap().clock, None);
+        assert_eq!(
+            sp3.record(sid("L02"), sp3.epochs()[6])
+                .unwrap()
+                .unwrap()
+                .clock,
+            None
+        );
 
         let parsed = SP3::from_str(&sp3.to_string().unwrap()).unwrap();
-        let record = parsed.record(sid("L01"), 6).unwrap().unwrap();
+        let record = parsed
+            .record(sid("L01"), parsed.epochs()[6])
+            .unwrap()
+            .unwrap();
         assert_abs_diff_eq!(record.clock.unwrap(), clocks[6].unwrap(), epsilon = 1e-12);
         assert_abs_diff_eq!(
             record.clock_rate.unwrap(),
             rates[6].unwrap(),
             epsilon = 1e-16
         );
-        assert_eq!(parsed.record(sid("L01"), 5).unwrap().unwrap().clock, None);
+        assert_eq!(
+            parsed
+                .record(sid("L01"), parsed.epochs()[5])
+                .unwrap()
+                .unwrap()
+                .clock,
+            None
+        );
     }
 
     #[test]
@@ -995,21 +1198,36 @@ mod tests {
         assert!(sp3.set_clocks(sid("G05"), &vec![None; n]).is_err());
 
         let mut sparse = SP3::new(vec![sid("G01")], 300.0, SP3Header::default()).unwrap();
-        sparse.push_epoch(gps(0, 0.0)).unwrap();
-        sparse.push_epoch(gps(5, 0.0)).unwrap();
+        sparse.set_epoch(gps(0, 0.0), &[]).unwrap();
+        sparse.set_epoch(gps(5, 0.0), &[]).unwrap();
         sparse
-            .set_record(sid("G01"), 0, SP3Record::new([2.0e7, 1.0e7, 1.0e7]))
+            .set_record(
+                sid("G01"),
+                sparse.epochs()[0],
+                SP3Record::new([2.0e7, 1.0e7, 1.0e7]),
+            )
             .unwrap();
         let err = sparse
             .set_clocks(sid("G01"), &[Some(1e-5), Some(1e-5)])
             .unwrap_err()
             .to_string();
         assert!(err.contains("G01") && err.contains("no record"), "{err}");
-        assert_eq!(sparse.record(sid("G01"), 0).unwrap().unwrap().clock, None);
+        assert_eq!(
+            sparse
+                .record(sid("G01"), sparse.epochs()[0])
+                .unwrap()
+                .unwrap()
+                .clock,
+            None
+        );
 
         sparse.set_clocks(sid("G01"), &[Some(1e-5), None]).unwrap();
         assert_eq!(
-            sparse.record(sid("G01"), 0).unwrap().unwrap().clock,
+            sparse
+                .record(sid("G01"), sparse.epochs()[0])
+                .unwrap()
+                .unwrap()
+                .clock,
             Some(1e-5)
         );
         assert!(
@@ -1021,82 +1239,36 @@ mod tests {
 
     #[test]
     #[serial]
-    fn test_SP3_from_propagators_trajectory_outside_span_errors() {
-        setup_global_test_eop();
-        let t0 = day_start();
-        let prop = leo_propagator(t0, 0.0);
-        let mut traj = DOrbitTrajectory::new(
-            6,
-            CelestialFrame::ITRF,
-            OrbitRepresentation::Cartesian,
-            None,
-        )
-        .unwrap();
-        for k in 0..=720 {
-            let epoch = t0 + 60.0 * k as f64;
-            let s = prop.state_itrf(epoch).unwrap();
-            traj.add(epoch, DVector::from_column_slice(s.as_slice()))
-                .unwrap();
-        }
-
-        let covered = SP3::from_propagators(
-            &[(sid("L01"), &traj as &dyn DOrbitStateProvider)],
-            t0,
-            t0 + 43200.0,
-            60.0,
-            SP3Header::default(),
-        )
-        .unwrap();
-        assert_eq!(covered.num_epochs(), 721);
-
-        let err = SP3::from_propagators(
-            &[(sid("L01"), &traj as &dyn DOrbitStateProvider)],
-            t0,
-            t0 + 86400.0,
-            60.0,
-            SP3Header::default(),
-        )
-        .unwrap_err()
-        .to_string();
-        assert!(err.contains("L01"), "{err}");
-        let first_missing: Epoch = t0 + 43260.0;
-        assert!(err.contains(&first_missing.to_string()), "{err}");
-    }
-
-    #[test]
-    #[serial]
-    fn test_SP3_from_propagators_resamples_sp3_satellite() {
+    fn test_SP3_from_trajectories_resamples_sp3_satellite() {
         let (sp3, _, _) = two_leo_sp3(SP3Header::default());
         let sat = sp3.satellite(sid("L02")).unwrap();
         let t0 = day_start();
-        let resampled = SP3::from_propagators(
-            &[(sid("L02"), &sat as &dyn DOrbitStateProvider)],
-            t0 + 3600.0,
-            t0 + 7200.0,
-            45.0,
+        let resampled = SP3::from_trajectories(
+            &[(sid("L02"), &sat.to_trajectory().unwrap())],
+            Some(45.0),
             SP3Header {
                 agency: "DEMO".to_string(),
                 ..Default::default()
             },
         )
         .unwrap();
-        assert_eq!(resampled.num_epochs(), 81);
+        assert_eq!(resampled.num_epochs(), 1921);
         assert_eq!(resampled.header.agency, "DEMO");
         assert_eq!(resampled.header.epoch_interval, 45.0);
-        for k in [0, 40, 80] {
-            let epoch = t0 + 3600.0 + 45.0 * k as f64;
+        for k in [100, 960, 1800] {
+            let epoch = t0 + 45.0 * k as f64;
             let truth = sat.state_itrf(epoch).unwrap();
-            let record = resampled.record(sid("L02"), k).unwrap().unwrap();
+            let record = resampled.record(sid("L02"), epoch).unwrap().unwrap();
             for i in 0..3 {
-                assert_abs_diff_eq!(record.position[i], truth[i], epsilon = 1e-9);
-                assert_abs_diff_eq!(record.velocity.unwrap()[i], truth[3 + i], epsilon = 1e-9);
+                assert_abs_diff_eq!(record.position[i], truth[i], epsilon = 1e-6);
+                assert_abs_diff_eq!(record.velocity.unwrap()[i], truth[3 + i], epsilon = 1e-6);
             }
         }
     }
 
     #[test]
     #[serial]
-    fn test_SP3_from_propagators_numerical_propagator() {
+    fn test_SP3_from_trajectories_numerical_propagator() {
         setup_global_test_eop();
         setup_global_test_gravity_model();
         let t0 = Epoch::from_datetime(2024, 11, 10, 0, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -1114,11 +1286,9 @@ mod tests {
         .unwrap();
         prop.propagate_to(t0 + 7200.0).unwrap();
 
-        let sp3 = SP3::from_propagators(
-            &[(sid("L05"), &prop as &dyn DOrbitStateProvider)],
-            t0,
-            t0 + 7200.0,
-            60.0,
+        let sp3 = SP3::from_trajectories(
+            &[(sid("L05"), prop.trajectory())],
+            Some(60.0),
             SP3Header::default(),
         )
         .unwrap();
@@ -1126,7 +1296,7 @@ mod tests {
         for k in [0, 1, 60, 120] {
             let epoch = t0 + 60.0 * k as f64;
             let truth = prop.state_itrf(epoch).unwrap();
-            let record = sp3.record(sid("L05"), k).unwrap().unwrap();
+            let record = sp3.record(sid("L05"), sp3.epochs()[k]).unwrap().unwrap();
             for i in 0..3 {
                 assert_abs_diff_eq!(record.position[i], truth[i], epsilon = 1e-9);
                 assert_abs_diff_eq!(record.velocity.unwrap()[i], truth[3 + i], epsilon = 1e-9);
@@ -1136,7 +1306,7 @@ mod tests {
 
     #[test]
     #[serial]
-    fn test_SP3_from_propagators_non_finite_state_errors() {
+    fn test_SP3_from_trajectories_non_finite_state_errors() {
         setup_global_test_eop();
         let t0 = day_start();
         let prop = leo_propagator(t0, 0.0);
@@ -1153,15 +1323,9 @@ mod tests {
         traj.add(t0 + 60.0, DVector::from_element(6, f64::NAN))
             .unwrap();
 
-        let err = SP3::from_propagators(
-            &[(sid("L01"), &traj as &dyn DOrbitStateProvider)],
-            t0,
-            t0 + 60.0,
-            60.0,
-            SP3Header::default(),
-        )
-        .unwrap_err()
-        .to_string();
+        let err = SP3::from_trajectories(&[(sid("L01"), &traj)], None, SP3Header::default())
+            .unwrap_err()
+            .to_string();
         let second: Epoch = t0 + 60.0;
         assert!(err.contains("L01") && err.contains("non-finite"), "{err}");
         assert!(err.contains(&second.to_string()), "{err}");

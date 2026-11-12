@@ -41,7 +41,7 @@ const GAP_FACTOR: f64 = 1.5;
 /// identifier (such as `"G01"`), so it can be passed to
 /// [`location_accesses`](crate::access::location_accesses). A state is
 /// interpolated in ITRF with a Lagrange polynomial of degree
-/// [`SP3Satellite::interpolation_degree`] through the samples nearest the
+/// [`SP3Satellite::interpolation_degree`] through the samples around the
 /// requested epoch, as centered as the samples allow; a satellite with fewer
 /// samples uses all of them. The velocity is interpolated from the records
 /// when every sample of the fit has one, and is the derivative of the
@@ -285,7 +285,7 @@ impl SP3Satellite {
         SP3Satellite::from_ordered_files(&ordered, ids)
     }
 
-    /// ITRF state at an epoch, interpolated from the samples nearest to it.
+    /// ITRF state at an epoch, interpolated from the samples around it.
     fn interpolate(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
         self.interpolate_at(epoch, self.interpolation_degree)
     }
@@ -297,7 +297,7 @@ impl SP3Satellite {
             return Err(self.unavailable_error(epoch));
         }
 
-        let m = (degree + 1).min(n);
+        let m = degree.saturating_add(1).min(n);
         let before = self.epochs.partition_point(|&e| e <= epoch) - 1;
         let offset = before.saturating_sub((m - 1) / 2).min(n - m);
         let window = offset..(offset + m);
@@ -1218,6 +1218,9 @@ mod tests {
         for (value, expected) in state.iter().zip(quadratic_position(450.0)) {
             assert_abs_diff_eq!(*value, expected, epsilon = 1e-6);
         }
+        // A degree above the number of samples fits all of them.
+        let all = sat.clone().with_interpolation_degree(usize::MAX).unwrap();
+        assert_eq!(all.state_itrf(t0 + 450.0).unwrap(), state);
     }
 
     #[test]

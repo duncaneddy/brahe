@@ -24,15 +24,14 @@ for sat in satellites[:3]:
         f"to {sat.end_epoch}"
     )
 
-# Every satellite is one continuous run, so each converts to a single trajectory
-trajectories = satellites[0].to_trajectories()
-traj = trajectories[0]
-print(f"\n{satellites[0].get_name()} trajectories: {len(trajectories)}")
-print(f"First trajectory: {len(traj)} states in {traj.frame}")
+# The files leave no gap, and each satellite converts to one trajectory
+traj = satellites[0].to_trajectory()
+print(f"\n{satellites[0].get_name()} gaps: {len(satellites[0].gaps())}")
+print(f"Trajectory: {len(traj)} states in {traj.frame}")
 
 # A file that starts more than 1.5 intervals after the previous one leaves a gap
 later = bh.SP3.from_file("test_assets/sp3/gbm19500_large_gap.sp3")
 sat = bh.SP3Satellite.from_files([files[0], later])[0]
 print(f"\n{sat.get_name()} across a gap: {len(sat)} samples")
-for traj in sat.to_trajectories():
-    print(f"  trajectory {traj.start_epoch} to {traj.end_epoch}")
+for before, after in sat.gaps():
+    print(f"  gap from {before} to {after}")

@@ -233,7 +233,7 @@ jobs:
           path: docs/figures/
 
       - name: Build documentation (verify only, no deployment)
-        run: uv run properdocs build
+        run: uv run zensical build
 
   # Single aggregation check to require in branch protection. Matrix job names
   # (e.g. "test-rust (ubuntu-latest, stable)") are brittle to reference directly,

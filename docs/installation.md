@@ -123,7 +123,7 @@ source .venv/bin/activate  # On Unix/macOS
 
 This includes tools for:
 - Testing (pytest, pytest-cov)
-- Documentation (mkdocs, mkdocstrings)
+- Documentation (Zensical, mkdocstrings)
 - Code quality (ruff, pre-commit)
 - Type stubs generation (pyo3-stubgen)
 

@@ -27,7 +27,7 @@ from __future__ import annotations
 import json
 import math
 import subprocess
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import TextIO
 
@@ -101,7 +101,7 @@ def run_accuracy(
     # Spacecraft-type registration conflict that the in-process path
     # had to work around.
 
-    timestamp = datetime.now(timezone.utc).isoformat()
+    timestamp = datetime.now(UTC).isoformat()
     output_dir = output or RESULTS_DIR
     output_dir.mkdir(parents=True, exist_ok=True)
     ts_for_filename = timestamp.replace(":", "-").replace("+00-00", "Z").split(".")[0]

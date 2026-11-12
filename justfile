@@ -578,12 +578,12 @@ check-test-labels: _setup
 # Build documentation
 docs: _setup
     ./scripts/generate_stubs.sh
-    uv run properdocs build
+    uv run zensical build
 
 # Serve documentation locally
 docs-serve: _setup
     ./scripts/generate_stubs.sh
-    uv run properdocs serve
+    uv run zensical serve
 
 # ───── Plots & Figures ─────
 

@@ -81,10 +81,10 @@ repos:
   # Ensure documentation builds without warnings
   # - repo: local
   #   hooks:
-  #     - id: mkdocs-check
-  #       name: mkdocs build
+  #     - id: zensical-check
+  #       name: zensical build
   #       language: system
-  #       entry: uv run properdocs build --strict
+  #       entry: uv run zensical build --strict
 
   # Additional useful hooks
   - repo: https://github.com/pre-commit/pre-commit-hooks

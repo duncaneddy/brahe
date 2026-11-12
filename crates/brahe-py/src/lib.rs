@@ -1023,6 +1023,8 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_position_frame_to_frame, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_frame_to_frame, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_transform_jacobian, module)?)?;
+    module.add_function(wrap_pyfunction!(py_jacobian_inertial_to_rotating, module)?)?;
+    module.add_function(wrap_pyfunction!(py_jacobian_rotating_to_inertial, module)?)?;
     module.add_function(wrap_pyfunction!(py_rotate_covariance, module)?)?;
     module.add_function(wrap_pyfunction!(py_covariance_frame_to_frame, module)?)?;
 
@@ -1084,6 +1086,7 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_orbital_period, module)?)?;
     module.add_function(wrap_pyfunction!(py_orbital_period_general, module)?)?;
     module.add_function(wrap_pyfunction!(py_orbital_period_from_state, module)?)?;
+    module.add_function(wrap_pyfunction!(py_ascending_node_direction, module)?)?;
     module.add_function(wrap_pyfunction!(py_mean_motion, module)?)?;
     module.add_function(wrap_pyfunction!(py_mean_motion_general, module)?)?;
     module.add_function(wrap_pyfunction!(py_semimajor_axis, module)?)?;
@@ -1191,6 +1194,68 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_covariance_eci_to_rtn, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_eci_to_rtn, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_rtn_to_eci, module)?)?;
+    module.add_function(wrap_pyfunction!(py_rotation_lvlh_to_eci, module)?)?;
+    module.add_function(wrap_pyfunction!(py_rotation_eci_to_lvlh, module)?)?;
+    module.add_function(wrap_pyfunction!(py_omega_lvlh, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_eci_to_lvlh, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_lvlh_to_eci, module)?)?;
+    module.add_function(wrap_pyfunction!(py_rotation_ntw_to_eci, module)?)?;
+    module.add_function(wrap_pyfunction!(py_rotation_eci_to_ntw, module)?)?;
+    module.add_function(wrap_pyfunction!(py_omega_ntw, module)?)?;
+    module.add_function(wrap_pyfunction!(py_omega_ntw_for_body, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_eci_to_ntw, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_inertial_to_ntw_for_body, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_ntw_to_eci, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_ntw_to_inertial_for_body, module)?)?;
+    module.add_function(wrap_pyfunction!(py_rotation_tnw_to_eci, module)?)?;
+    module.add_function(wrap_pyfunction!(py_rotation_eci_to_tnw, module)?)?;
+    module.add_function(wrap_pyfunction!(py_omega_tnw, module)?)?;
+    module.add_function(wrap_pyfunction!(py_omega_tnw_for_body, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_eci_to_tnw, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_inertial_to_tnw_for_body, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_tnw_to_eci, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_tnw_to_inertial_for_body, module)?)?;
+    module.add_function(wrap_pyfunction!(py_rotation_vnc_to_eci, module)?)?;
+    module.add_function(wrap_pyfunction!(py_rotation_eci_to_vnc, module)?)?;
+    module.add_function(wrap_pyfunction!(py_omega_vnc, module)?)?;
+    module.add_function(wrap_pyfunction!(py_omega_vnc_for_body, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_eci_to_vnc, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_inertial_to_vnc_for_body, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_vnc_to_eci, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_vnc_to_inertial_for_body, module)?)?;
+    module.add_function(wrap_pyfunction!(py_rotation_pqw_to_eci, module)?)?;
+    module.add_function(wrap_pyfunction!(
+        py_rotation_pqw_to_inertial_for_body,
+        module
+    )?)?;
+    module.add_function(wrap_pyfunction!(py_rotation_eci_to_pqw, module)?)?;
+    module.add_function(wrap_pyfunction!(
+        py_rotation_inertial_to_pqw_for_body,
+        module
+    )?)?;
+    module.add_function(wrap_pyfunction!(py_state_eci_to_pqw, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_inertial_to_pqw_for_body, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_pqw_to_eci, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_pqw_to_inertial_for_body, module)?)?;
+    module.add_function(wrap_pyfunction!(py_rotation_eqw_to_eci, module)?)?;
+    module.add_function(wrap_pyfunction!(py_rotation_eci_to_eqw, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_eci_to_eqw, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_eqw_to_eci, module)?)?;
+    module.add_function(wrap_pyfunction!(py_rotation_nsw_to_eci, module)?)?;
+    module.add_function(wrap_pyfunction!(py_rotation_eci_to_nsw, module)?)?;
+    module.add_function(wrap_pyfunction!(py_omega_nsw, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_eci_to_nsw, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_nsw_to_eci, module)?)?;
+    module.add_function(wrap_pyfunction!(py_rotation_ecef_to_sez, module)?)?;
+    module.add_function(wrap_pyfunction!(py_rotation_sez_to_ecef, module)?)?;
+    module.add_function(wrap_pyfunction!(py_omega_sez, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_ecef_to_sez, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_sez_to_ecef, module)?)?;
+    module.add_function(wrap_pyfunction!(py_rotation_ecef_to_enz, module)?)?;
+    module.add_function(wrap_pyfunction!(py_rotation_enz_to_ecef, module)?)?;
+    module.add_function(wrap_pyfunction!(py_omega_enz, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_ecef_to_enz, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_enz_to_ecef, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_oe_to_roe, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_roe_to_oe, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_eci_to_roe, module)?)?;
@@ -1203,6 +1268,7 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyCovarianceInterpolationMethod>()?;
     module.add_class::<PyOrbitalTrajectory>()?;
     module.add_class::<PyTrajectory>()?;
+    module.add_class::<PyAttitudeInterpolationMethod>()?;
     module.add_class::<PyAttitudeState>()?;
     module.add_class::<PyAttitudeTrajectory>()?;
 

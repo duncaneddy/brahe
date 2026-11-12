@@ -105,7 +105,7 @@ When adding new functionality to Brahe, follow this sequence:
 **6. Documentation**
 - Update or create documentation in `docs/`
 - Reference examples using snippet includes (see template below)
-- Build Locally: `uv run properdocs serve`
+- Build Locally: `uv run zensical serve`
 
 **7. Final Checks**
 ```bash
@@ -119,8 +119,8 @@ uv pip install -e ".[all]" && ./scripts/generate_stubs.sh && uv run pytest
 # Documentation
 just test-examples
 just make-plots
-uv run properdocs build --strict
-uv run properdocs serve
+uv run zensical build --strict
+uv run zensical serve
 ```
 
 ## Rust Standards and Guidelines

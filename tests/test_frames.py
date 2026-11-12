@@ -2823,6 +2823,70 @@ def test_rotate_covariance_shape_errors():
         brahe.rotate_covariance(np.zeros((6, 5)), j)
 
 
+# ============================================================================
+# State kinematics Jacobians
+# ============================================================================
+
+
+def _spinning_axes(rate, t):
+    theta = rate * t
+    s, c = np.sin(theta), np.cos(theta)
+    return np.array([[c, s, 0.0], [-s, c, 0.0], [0.0, 0.0, 1.0]])
+
+
+def test_jacobian_inertial_to_rotating_reproduces_state_map():
+    """Rust: test_jacobian_inertial_to_rotating_reproduces_state_map"""
+    r = _spinning_axes(7.2921150e-5, 3.6e3)
+    omega_b = np.array([1.0e-6, -2.0e-6, 7.2921150e-5])
+    x = np.array([7.0e6, -1.2e6, 3.4e5, -1.1e3, 7.4e3, 2.0e2])
+
+    p = r @ x[:3]
+    v = r @ x[3:] - np.cross(omega_b, p)
+    expected = np.concatenate([p, v])
+
+    j = brahe.jacobian_inertial_to_rotating(r, omega_b)
+    np.testing.assert_allclose(j @ x, expected, atol=1e-12 * np.linalg.norm(x), rtol=0)
+
+
+def test_jacobian_rotating_to_inertial_reproduces_state_map():
+    """Rust: test_jacobian_rotating_to_inertial_reproduces_state_map"""
+    r = _spinning_axes(7.2921150e-5, 3.6e3)
+    omega_b = np.array([1.0e-6, -2.0e-6, 7.2921150e-5])
+    x = np.array([7.0e6, -1.2e6, 3.4e5, -1.1e3, 7.4e3, 2.0e2])
+
+    p = r.T @ x[:3]
+    v = r.T @ (x[3:] + np.cross(omega_b, x[:3]))
+    expected = np.concatenate([p, v])
+
+    j = brahe.jacobian_rotating_to_inertial(r, omega_b)
+    np.testing.assert_allclose(j @ x, expected, atol=1e-12 * np.linalg.norm(x), rtol=0)
+
+
+def test_jacobian_rotating_inertial_inverse_identity():
+    """Rust: test_jacobian_rotating_inertial_inverse_identity"""
+    r = _spinning_axes(2.5e-4, 7.7e3)
+    omega_b = np.array([3.0e-5, 1.0e-5, 2.5e-4])
+
+    forward = brahe.jacobian_inertial_to_rotating(r, omega_b)
+    inverse = brahe.jacobian_rotating_to_inertial(r, omega_b)
+    np.testing.assert_allclose(inverse @ forward, np.eye(6), atol=1e-14, rtol=0)
+    np.testing.assert_allclose(forward @ inverse, np.eye(6), atol=1e-14, rtol=0)
+
+
+def test_jacobian_zero_rate_is_block_diagonal():
+    """Rust: test_jacobian_zero_rate_is_block_diagonal"""
+    r = _spinning_axes(2.5e-4, 7.7e3)
+    zero = np.zeros(3)
+    z = np.zeros((3, 3))
+
+    np.testing.assert_array_equal(
+        brahe.jacobian_inertial_to_rotating(r, zero), np.block([[r, z], [z, r]])
+    )
+    np.testing.assert_array_equal(
+        brahe.jacobian_rotating_to_inertial(r, zero), np.block([[r.T, z], [z, r.T]])
+    )
+
+
 def _jacobian_with_probe_scales(
     frame_from, frame_to, epc, position_scale, velocity_scale
 ):

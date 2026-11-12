@@ -154,7 +154,7 @@ def run_suite(
 
     import sys
 
-    started_at = dt.datetime.now(dt.timezone.utc)
+    started_at = dt.datetime.now(dt.UTC)
     run_id = started_at.strftime("%Y-%m-%dT%H-%M-%SZ")
     cells: list[CellResult] = []
     system = collect_system_info()
@@ -166,7 +166,7 @@ def run_suite(
         run = BenchmarkRun(
             run_id=run_id,
             started_at=started_at.isoformat(),
-            finished_at=dt.datetime.now(dt.timezone.utc).isoformat(),
+            finished_at=dt.datetime.now(dt.UTC).isoformat(),
             seed=seed,
             iterations=iterations,
             scheduling=SchedulingPolicy(

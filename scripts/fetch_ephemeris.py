@@ -23,7 +23,7 @@ Environment variables:
 import gzip
 import os
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import brahe as bh
@@ -127,7 +127,7 @@ def main() -> None:
         d.mkdir(parents=True, exist_ok=True)
 
     # Generate timestamp for filenames
-    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H%M%SZ")
+    timestamp = datetime.now(UTC).strftime("%Y-%m-%dT%H%M%SZ")
     print(f"Fetching ephemeris data at {timestamp}")
 
     errors = []

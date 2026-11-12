@@ -6,7 +6,7 @@ on:
                 description: 'JSON array of Python versions to test'
                 required: false
                 type: string
-                default: '["3.10", "3.11", "3.12", "3.13", "3.14", "3.15"]'
+                default: '["3.11", "3.12", "3.13", "3.14", "3.15"]'
             coverage-python-version:
                 description: 'Python version used for the coverage-instrumented build'
                 required: false
@@ -49,7 +49,7 @@ jobs:
             # would duplicate that cache and push the repository past its
             # cache budget.
             -   name: Set up Rust toolchain
-                uses: actions-rust-lang/setup-rust-toolchain@v2.0.0
+                uses: actions-rust-lang/setup-rust-toolchain@v2.0.1
                 with:
                     toolchain: ${{ matrix.rust-toolchain }}
                     cache-shared-key: test-rust

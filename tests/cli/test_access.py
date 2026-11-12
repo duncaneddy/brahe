@@ -5,6 +5,7 @@ Tests for brahe access CLI commands.
 import json
 import tempfile
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 from typer.testing import CliRunner
@@ -220,6 +221,28 @@ def test_access_compute_invalid_latitude():
 
     assert result.exit_code == 1
     assert "Latitude must be between -90 and 90" in result.stdout
+
+
+@patch("brahe.celestrak.CelestrakClient")
+def test_access_compute_default_start_time(mock_client):
+    """Test that omitting --start-time defaults to the current time."""
+    mock_client.return_value.query_raw.side_effect = RuntimeError("offline")
+    result = runner.invoke(
+        app,
+        [
+            "access",
+            "compute",
+            "25544",
+            "--lat",
+            "40.7128",
+            "--lon",
+            "-74.0060",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Error parsing time" not in result.stdout
+    assert "Error fetching TLE for NORAD ID 25544: offline" in result.stdout
 
 
 def test_access_compute_invalid_longitude():

@@ -1,0 +1,181 @@
+/*!
+ * Shared relative-state transport and rates for the local orbital frames in
+ * this module.
+ */
+
+use nalgebra::Vector3;
+
+use crate::frames::{state_inertial_to_rotating, state_rotating_to_inertial};
+use crate::math::{SMatrix3, SVector6};
+
+/// Norm below which a direction vector is treated as undefined and a
+/// fallback direction is used in its place.
+pub(crate) const DEGENERATE_TOLERANCE: f64 = 1e-9;
+
+/// Relative state of a deputy with respect to a chief in a rotating local
+/// frame, from the absolute states of both in the base frame that the local
+/// frame rotates relative to.
+///
+/// The relative position is `ρ = R (r_d − r_c)` and the relative velocity
+/// applies the transport term of the rotating axes,
+/// `ρ̇ = R (v_d − v_c) − ω × ρ`.
+///
+/// # Arguments
+/// - `r_eci_to_frame`: Rotation from the base frame axes into the local frame (dimensionless)
+/// - `omega`: Angular velocity of the local frame relative to the base frame, expressed in the local frame (rad/s)
+/// - `x_chief`: Chief absolute Cartesian state in the base frame (m, m/s)
+/// - `x_deputy`: Deputy absolute Cartesian state in the base frame (m, m/s)
+///
+/// # Returns
+/// - Deputy state relative to the chief, in the local frame (m, m/s)
+pub(crate) fn absolute_states_to_relative_state(
+    r_eci_to_frame: &SMatrix3,
+    omega: &Vector3<f64>,
+    x_chief: SVector6,
+    x_deputy: SVector6,
+) -> SVector6 {
+    state_inertial_to_rotating(r_eci_to_frame, omega, &(x_deputy - x_chief))
+}
+
+/// Inverse of [`absolute_states_to_relative_state`]: the deputy's absolute
+/// state in the base frame from its relative state in a rotating local frame.
+///
+/// # Arguments
+/// - `r_eci_to_frame`: Rotation from the base frame axes into the local frame (dimensionless)
+/// - `omega`: Angular velocity of the local frame relative to the base frame, expressed in the local frame (rad/s)
+/// - `x_chief`: Chief absolute Cartesian state in the base frame (m, m/s)
+/// - `x_rel`: Deputy state relative to the chief, in the local frame (m, m/s)
+///
+/// # Returns
+/// - Deputy absolute Cartesian state in the base frame (m, m/s)
+pub(crate) fn relative_state_to_absolute_state(
+    r_eci_to_frame: &SMatrix3,
+    omega: &Vector3<f64>,
+    x_chief: SVector6,
+    x_rel: SVector6,
+) -> SVector6 {
+    x_chief + state_rotating_to_inertial(r_eci_to_frame, omega, &x_rel)
+}
+
+/// Angular rate of the radial direction about the orbit normal,
+/// `|r × v| / r²`.
+///
+/// The expression is the instantaneous rotation rate of the position vector
+/// for any motion. On a two-body orbit the apsidal line is fixed, so it is
+/// also the true-anomaly rate `ḟ`.
+///
+/// # Arguments
+/// - `x_inertial`: Cartesian state in an inertial frame (position, velocity) (m, m/s)
+///
+/// # Returns
+/// - Angular rate of the radial direction, equal to the two-body true-anomaly rate (rad/s)
+///
+/// # References:
+/// - K. T. Alfriend, S. R. Vadali, P. Gurfil, J. P. How, L. S. Breger, *Spacecraft Formation Flying*, Elsevier, 2010, eq. 2.16
+pub(crate) fn true_anomaly_rate(x_inertial: SVector6) -> f64 {
+    let r = x_inertial.fixed_rows::<3>(0);
+    let v = x_inertial.fixed_rows::<3>(3);
+    (r.cross(&v)).norm() / (r.norm().powi(2))
+}
+
+/// Rate at which the velocity direction turns under two-body motion.
+///
+/// A unit vector along the velocity rotates with angular velocity
+/// `v × a / v²`, the curvature of the path times the speed. Substituting the
+/// two-body acceleration `a = −μ r / r³` gives `μ (r × v) / (r³ v²)`, a
+/// rotation about the orbit normal `ĥ` in the direction of motion with
+/// magnitude
+///
+/// `ω_v = μ |h| / (r³ v²)`
+///
+/// This reduces to `v / r` on a circular orbit. The orbit normal is fixed
+/// under two-body motion, so `ω_v` about `ĥ` is the full angular velocity of
+/// every local orbital frame whose axes are built from `v̂` and `ĥ` (NTW, TNW,
+/// VNC).
+///
+/// # Arguments
+/// - `x_inertial`: Cartesian state in an inertial frame centered on the attracting body (m, m/s)
+/// - `gm`: Gravitational parameter of the attracting body (m³/s²)
+///
+/// # Returns
+/// - Angular rate of the velocity direction about the orbit normal (rad/s)
+pub(crate) fn velocity_direction_rate(x_inertial: SVector6, gm: f64) -> f64 {
+    let r = x_inertial.fixed_rows::<3>(0);
+    let v = x_inertial.fixed_rows::<3>(3);
+    let h = r.cross(&v).norm();
+    gm * h / (r.norm().powi(3) * v.norm_squared())
+}
+
+#[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
+mod tests {
+    use super::*;
+    use crate::AngleFormat;
+    use crate::GM_EARTH;
+    use crate::R_EARTH;
+    use crate::coordinates::state_koe_to_eci;
+    use crate::orbits::mean_motion;
+    use crate::relative_motion::{
+        omega_rtn, rotation_eci_to_rtn, state_eci_to_rtn, state_rtn_to_eci,
+    };
+    use approx::assert_abs_diff_eq;
+    use serial_test::parallel;
+
+    fn chief_and_deputy() -> (SVector6, SVector6) {
+        let x_chief = state_koe_to_eci(
+            SVector6::new(R_EARTH + 700e3, 0.01, 97.8, 15.0, 30.0, 45.0),
+            AngleFormat::Degrees,
+        );
+        let x_deputy = state_koe_to_eci(
+            SVector6::new(R_EARTH + 701e3, 0.0115, 97.85, 15.05, 30.05, 45.05),
+            AngleFormat::Degrees,
+        );
+        (x_chief, x_deputy)
+    }
+
+    #[test]
+    #[parallel]
+    fn test_relative_state_helpers_match_rtn_bitwise() {
+        let (x_chief, x_deputy) = chief_and_deputy();
+        let r = rotation_eci_to_rtn(x_chief);
+        let omega = omega_rtn(x_chief);
+
+        let rel = absolute_states_to_relative_state(&r, &omega, x_chief, x_deputy);
+        assert_eq!(rel, state_eci_to_rtn(x_chief, x_deputy));
+
+        let back = relative_state_to_absolute_state(&r, &omega, x_chief, rel);
+        assert_eq!(back, state_rtn_to_eci(x_chief, rel));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_true_anomaly_rate_matches_omega_rtn_bitwise() {
+        let x = state_koe_to_eci(
+            SVector6::new(R_EARTH + 700e3, 0.1, 97.8, 15.0, 30.0, 45.0),
+            AngleFormat::Degrees,
+        );
+        assert_eq!(true_anomaly_rate(x), omega_rtn(x)[2]);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_velocity_direction_rate_circular_equals_orbit_rate() {
+        let sma = R_EARTH + 700e3;
+        let x = state_koe_to_eci(
+            SVector6::new(sma, 0.0, 45.0, 10.0, 0.0, 20.0),
+            AngleFormat::Degrees,
+        );
+        let expected = mean_motion(sma, AngleFormat::Radians);
+        assert_abs_diff_eq!(
+            velocity_direction_rate(x, GM_EARTH),
+            expected,
+            epsilon = 1e-13
+        );
+        // Velocity-direction rate is smaller than the position-direction rate at periapsis
+        let x_peri = state_koe_to_eci(
+            SVector6::new(sma, 0.2, 45.0, 10.0, 0.0, 0.0),
+            AngleFormat::Degrees,
+        );
+        assert!(velocity_direction_rate(x_peri, GM_EARTH) < omega_rtn(x_peri)[2]);
+    }
+}

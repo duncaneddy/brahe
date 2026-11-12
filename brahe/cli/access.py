@@ -1,7 +1,7 @@
 import json
 import math
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from pathlib import Path
 from typing import Annotated
@@ -206,7 +206,7 @@ def compute(
             epoch_start = brahe.Epoch(start_time)
         else:
             # Get current time
-            dt = datetime.now(timezone.utc)
+            dt = datetime.now(UTC)
             epoch_start = brahe.Epoch.from_datetime(
                 dt.year,
                 dt.month,

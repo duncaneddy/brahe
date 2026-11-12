@@ -28,6 +28,8 @@ Functions for working with Keplerian orbital elements and computing orbital prop
 
 ::: brahe.orbits.apoapsis_velocity
 
+::: brahe.orbits.ascending_node_direction
+
 ::: brahe.orbits.perigee_velocity
 
 ::: brahe.orbits.apogee_velocity

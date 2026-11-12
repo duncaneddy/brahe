@@ -1277,7 +1277,7 @@ mod tests {
     #[case("OUT.SP3.GZ")]
     #[parallel]
     fn test_SP3_to_file_gzip(#[case] name: &str) {
-        let sp3 = two_satellite_file(SP3WriteOptions::default());
+        let sp3 = two_satellite_file(SP3Header::default());
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join(name);
         sp3.to_file(&path).unwrap();
@@ -1299,7 +1299,7 @@ mod tests {
     #[case("out.sp3.gz")]
     #[parallel]
     fn test_SP3_to_file_failure_keeps_existing_file(#[case] name: &str) {
-        let sp3 = two_satellite_file(SP3WriteOptions::default());
+        let sp3 = two_satellite_file(SP3Header::default());
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join(name);
         std::fs::write(&path, b"previous contents").unwrap();
@@ -1317,7 +1317,7 @@ mod tests {
         assert!(!dir.path().join("missing").exists());
 
         // An invalid file leaves the existing destination untouched.
-        let empty = SP3::new(vec![sat("G01")], 900.0, SP3WriteOptions::default()).unwrap();
+        let empty = SP3::new(vec![sat("G01")], 900.0, SP3Header::default()).unwrap();
         assert!(empty.to_file(&path).is_err());
         assert_eq!(std::fs::read(&path).unwrap(), b"previous contents");
 
@@ -1331,7 +1331,7 @@ mod tests {
     #[test]
     #[parallel]
     fn test_SP3_to_file_plain_extension_not_compressed() {
-        let sp3 = two_satellite_file(SP3WriteOptions::default());
+        let sp3 = two_satellite_file(SP3Header::default());
         let dir = tempfile::tempdir().unwrap();
         for name in ["out.sp3", "out.gz.sp3", "gz"] {
             let path = dir.path().join(name);

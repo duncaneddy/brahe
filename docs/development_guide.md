@@ -53,6 +53,8 @@ The package includes Rust tests, Python tests, and documentation example tests.
 cargo test
 # Run Python tests
 uv pip install -e ".[all]" && uv run pytest
+# Run the Python examples embedded in docstrings
+just test-python-docs
 # Run documentation examples
 just test-examples
 # Test specific example
@@ -166,6 +168,12 @@ enable users to more easily navigate and learn the library.
 Python tests should be placed in the `tests` directory. The test structure and names should mirror the structure of the `brahe` package. For example, tests for `brahe.orbits.keplerian` should be placed in `tests/orbits/test_keplerian.py`.
 
 All Python tests should be exact mirrors of the Rust tests, ensuring that both implementations are equivalent and consistent. There are a few exceptions to this rule, such as tests that check for Python-specific functionality or behavior, or capabilities that are not possible to reproduce in Python due to language limitations.
+
+#### Python Docstring Examples
+
+Every ```` ```python ```` block in a docstring of the `brahe` package, whether written in a PyO3 binding in `crates/brahe-py/src/` or in a module under `brahe/`, is executed by `just test-python-docs` and the `test-python-docs` CI job. Each example runs as a standalone script in an empty temporary directory that contains links to `test_assets/` and `data/`, with `BRAHE_NETWORK_MODE=offline`, so an example must import what it uses, call `bh.initialize_eop()` when it needs Earth orientation data, and read files only from those two directories.
+
+Examples that cannot run offline, such as those that download data, require Space-Track credentials, or read a file the user supplies, are fenced as ```` ```python {.no_run} ````. These are compiled to catch syntax errors but not executed, mirroring `no_run` in Rust doc tests, so they must still be checked against the current API by hand. Docstrings on PyO3 `#[new]` constructors are not exposed to Python and are not collected; document constructor usage in the class docstring.
 
 ## Documentation Examples
 

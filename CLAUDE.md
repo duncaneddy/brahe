@@ -19,6 +19,7 @@ Check src/* for existing code patterns and functions before writing new code. Bi
 | `just test-rust` / `just test-python` | Run language-specific tests with coverage (mirrors CI) |
 | `just test-rust-fast` / `just test-python-fast` | Run language-specific tests without coverage |
 | `just test-examples` | Test all standalone doc examples |
+| `just test-python-docs` | Run the Python examples embedded in docstrings |
 | `just test-integration` | Run all (network-dependent) integration tests |
 | `just test-example <topic>/<name> --lang python\|rust` | Test a single example |
 | `just lint` / `just format` | Clippy + ruff check / format all code |
@@ -55,6 +56,7 @@ Every new/modified function MUST have complete docs:
 - **Rust**: rustdoc with `# Arguments` (include units), `# Returns`, `# Examples`
 - **Python bindings** (`src/pymodule/*.rs`): Google-style with `Args`, `Returns`, `Example`
 - **CRITICAL return type format**: Must be `Type: Description` — parser breaks without type prefix
+- **Examples are executed**: every ```` ```python ```` block in a docstring runs under `just test-python-docs`; fence examples that need network access, credentials, or user-supplied files as ```` ```python {.no_run} ```` (compiled, not executed)
 
 ## Documentation (Diataxis Framework)
 - **Getting Started** (`docs/getting_started/`): Simple, direct explanations of core concepts. Ref: `docs/getting_started/first_script.md`

@@ -143,3 +143,40 @@ jobs:
                     fail_ci_if_error: false
                     verbose: true
                     use_oidc: true
+
+    # Executes the Python examples embedded in docstrings, the counterpart of
+    # test_rust.yml's test-rust-docs. The examples are platform-independent, so
+    # one leg on the newest tested Python covers them.
+    test-python-docs:
+        runs-on: ubuntu-latest
+        timeout-minutes: 30
+        env:
+            BRAHE_NETWORK_MODE: ${{ inputs.network_mode }}
+            UV_NO_SYNC: "1"
+        steps:
+            -   uses: actions/checkout@v7.0.1
+            -   name: Set up Rust toolchain
+                uses: actions-rust-lang/setup-rust-toolchain@v2.0.1
+                with:
+                    toolchain: stable
+                    cache-shared-key: test-rust
+                    cache-save-if: false
+            -   name: Seed the SPICE test kernels
+                shell: bash
+                run: |
+                    mkdir -p ~/.cache/brahe/naif
+                    cp test_assets/de440s.bsp ~/.cache/brahe/naif/
+                    cp test_assets/mar099s.bsp ~/.cache/brahe/naif/
+                    cp test_assets/moon_pa_de440_200625.bpc ~/.cache/brahe/naif/
+            -   name: Install the latest version of uv
+                uses: astral-sh/setup-uv@v10.3.3
+                with:
+                    enable-cache: true
+            -   name: Install Python ${{ inputs.coverage-python-version }}
+                run: uv python install ${{ inputs.coverage-python-version }}
+            -   name: Install dependencies
+                run: uv sync --group test --all-extras --frozen --no-install-project --python ${{ inputs.coverage-python-version }}
+            -   name: Build extension
+                run: uv pip install -e .
+            -   name: Run docstring examples
+                run: uv run --frozen pytest tests/test_docstring_examples.py -m docstring_examples -n auto

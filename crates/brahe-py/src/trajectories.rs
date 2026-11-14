@@ -2315,19 +2315,19 @@ impl PyOrbitalTrajectory {
     ///     covariance (np.ndarray): 6x6 covariance matrix in the same units
     ///
     /// Raises:
-    ///     RuntimeError: If the trajectory was not initialized with covariances enabled
+    ///     BraheError: If the trajectory was not initialized with covariances enabled
     ///
     /// Example:
     ///     ```python
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0)
+    ///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
     ///     cov = np.eye(6) * 1000.0
     ///
     ///     traj = bh.OrbitTrajectory.from_orbital_data(
-    ///         [epoch], [state], bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN,
+    ///         [epoch], np.array([state]), bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN,
     ///         covariances=np.array([cov])
     ///     )
     ///
@@ -2378,19 +2378,22 @@ impl PyOrbitalTrajectory {
     ///     epoch (Epoch): Time at which to retrieve the covariance
     ///
     /// Returns:
-    ///     np.ndarray | None: 6x6 covariance matrix, or None if no covariances are available
+    ///     np.ndarray: Covariance matrix in the trajectory's native frame
+    ///
+    /// Raises:
+    ///     BraheError: If covariance tracking is not enabled or `epoch` lies outside the trajectory
     ///
     /// Example:
     ///     ```python
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0)
+    ///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
     ///     cov = np.eye(6) * 1000.0
     ///
     ///     traj = bh.OrbitTrajectory.from_orbital_data(
-    ///         [epoch], [state], bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN,
+    ///         [epoch], np.array([state]), bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN,
     ///         covariances=np.array([cov])
     ///     )
     ///
@@ -2417,19 +2420,22 @@ impl PyOrbitalTrajectory {
     ///     epoch (Epoch): Time at which to retrieve the covariance
     ///
     /// Returns:
-    ///     np.ndarray | None: 6x6 covariance matrix in ECI frame, or None if no covariances are available
+    ///     np.ndarray: Covariance matrix in ECI frame
+    ///
+    /// Raises:
+    ///     BraheError: If covariance tracking is not enabled, `epoch` lies outside the trajectory, or the trajectory is not in ECI and its representation is not Cartesian or its covariance cannot be rotated into ECI
     ///
     /// Example:
     ///     ```python
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0)
+    ///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
     ///     cov = np.eye(6) * 1000.0
     ///
     ///     traj = bh.OrbitTrajectory.from_orbital_data(
-    ///         [epoch], [state], bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN,
+    ///         [epoch], np.array([state]), bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN,
     ///         covariances=np.array([cov])
     ///     )
     ///
@@ -2456,19 +2462,22 @@ impl PyOrbitalTrajectory {
     ///     epoch (Epoch): Time at which to retrieve the covariance
     ///
     /// Returns:
-    ///     np.ndarray | None: 6x6 covariance matrix in GCRF frame, or None if no covariances are available
+    ///     np.ndarray: Covariance matrix in GCRF frame
+    ///
+    /// Raises:
+    ///     BraheError: If covariance tracking is not enabled, `epoch` lies outside the trajectory, or the trajectory is not in GCRF and its representation is not Cartesian or its covariance cannot be rotated into GCRF
     ///
     /// Example:
     ///     ```python
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0)
+    ///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
     ///     cov = np.eye(6) * 1000.0
     ///
     ///     traj = bh.OrbitTrajectory.from_orbital_data(
-    ///         [epoch], [state], bh.CelestialFrame.GCRF, bh.OrbitRepresentation.CARTESIAN,
+    ///         [epoch], np.array([state]), bh.CelestialFrame.GCRF, bh.OrbitRepresentation.CARTESIAN,
     ///         covariances=np.array([cov])
     ///     )
     ///
@@ -2504,19 +2513,22 @@ impl PyOrbitalTrajectory {
     ///     epoch (Epoch): Time at which to retrieve the covariance
     ///
     /// Returns:
-    ///     np.ndarray | None: 6x6 covariance matrix in RTN frame, or None if no covariances are available
+    ///     np.ndarray: Covariance matrix in RTN frame
+    ///
+    /// Raises:
+    ///     BraheError: If covariance tracking is not enabled, `epoch` lies outside the trajectory, the representation is not Cartesian, or the covariance cannot be rotated into the central body's inertial frame
     ///
     /// Example:
     ///     ```python
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0)
+    ///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
     ///     cov = np.eye(6) * 1000.0
     ///
     ///     traj = bh.OrbitTrajectory.from_orbital_data(
-    ///         [epoch], [state], bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN,
+    ///         [epoch], np.array([state]), bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN,
     ///         covariances=np.array([cov])
     ///     )
     ///
@@ -2553,7 +2565,7 @@ impl PyOrbitalTrajectory {
     ///     np.ndarray: Covariance matrix in `frame`
     ///
     /// Raises:
-    ///     RuntimeError: If covariance tracking is not enabled, `epoch` lies outside the trajectory, the representation is not Cartesian, or the router cannot transform states between the frames
+    ///     BraheError: If covariance tracking is not enabled, `epoch` lies outside the trajectory, or `frame` differs from the trajectory's frame and the representation is not Cartesian or the router cannot transform states between the frames
     ///
     /// Example:
     ///     ```python
@@ -2562,12 +2574,12 @@ impl PyOrbitalTrajectory {
     ///
     ///     bh.initialize_eop()
     ///
-    ///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0)
+    ///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
     ///     cov = np.eye(6) * 1000.0
     ///
     ///     traj = bh.OrbitTrajectory.from_orbital_data(
-    ///         [epoch], [state], bh.CelestialFrame.GCRF, bh.OrbitRepresentation.CARTESIAN,
+    ///         [epoch], np.array([state]), bh.CelestialFrame.GCRF, bh.OrbitRepresentation.CARTESIAN,
     ///         covariances=np.array([cov])
     ///     )
     ///
@@ -2598,7 +2610,7 @@ impl PyOrbitalTrajectory {
     ///     np.ndarray: Covariance matrix in ITRF
     ///
     /// Raises:
-    ///     RuntimeError: If the covariance is unavailable or cannot be rotated
+    ///     BraheError: If the covariance is unavailable or cannot be rotated
     ///
     /// Example:
     ///     ```python
@@ -2607,12 +2619,12 @@ impl PyOrbitalTrajectory {
     ///
     ///     bh.initialize_eop()
     ///
-    ///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0)
+    ///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
     ///     cov = np.eye(6) * 1000.0
     ///
     ///     traj = bh.OrbitTrajectory.from_orbital_data(
-    ///         [epoch], [state], bh.CelestialFrame.GCRF, bh.OrbitRepresentation.CARTESIAN,
+    ///         [epoch], np.array([state]), bh.CelestialFrame.GCRF, bh.OrbitRepresentation.CARTESIAN,
     ///         covariances=np.array([cov])
     ///     )
     ///
@@ -2643,7 +2655,7 @@ impl PyOrbitalTrajectory {
     ///     np.ndarray: Covariance matrix in ITRF
     ///
     /// Raises:
-    ///     RuntimeError: If the covariance is unavailable or cannot be rotated
+    ///     BraheError: If the covariance is unavailable or cannot be rotated
     ///
     /// Example:
     ///     ```python
@@ -2652,12 +2664,12 @@ impl PyOrbitalTrajectory {
     ///
     ///     bh.initialize_eop()
     ///
-    ///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0)
+    ///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
     ///     cov = np.eye(6) * 1000.0
     ///
     ///     traj = bh.OrbitTrajectory.from_orbital_data(
-    ///         [epoch], [state], bh.CelestialFrame.GCRF, bh.OrbitRepresentation.CARTESIAN,
+    ///         [epoch], np.array([state]), bh.CelestialFrame.GCRF, bh.OrbitRepresentation.CARTESIAN,
     ///         covariances=np.array([cov])
     ///     )
     ///
@@ -2687,7 +2699,7 @@ impl PyOrbitalTrajectory {
     ///     np.ndarray: Covariance matrix in EME2000
     ///
     /// Raises:
-    ///     RuntimeError: If the covariance is unavailable or cannot be rotated
+    ///     BraheError: If the covariance is unavailable or cannot be rotated
     ///
     /// Example:
     ///     ```python
@@ -2696,12 +2708,12 @@ impl PyOrbitalTrajectory {
     ///
     ///     bh.initialize_eop()
     ///
-    ///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0)
+    ///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
     ///     cov = np.eye(6) * 1000.0
     ///
     ///     traj = bh.OrbitTrajectory.from_orbital_data(
-    ///         [epoch], [state], bh.CelestialFrame.GCRF, bh.OrbitRepresentation.CARTESIAN,
+    ///         [epoch], np.array([state]), bh.CelestialFrame.GCRF, bh.OrbitRepresentation.CARTESIAN,
     ///         covariances=np.array([cov])
     ///     )
     ///
@@ -2740,7 +2752,7 @@ impl PyOrbitalTrajectory {
     ///     np.ndarray: Covariance matrix in RTN axes
     ///
     /// Raises:
-    ///     RuntimeError: If the covariance is unavailable, the representation is not Cartesian, or it cannot be rotated into the central body's inertial frame
+    ///     BraheError: If the covariance is unavailable, the representation is not Cartesian, or it cannot be rotated into the central body's inertial frame
     ///
     /// Example:
     ///     ```python
@@ -2749,12 +2761,12 @@ impl PyOrbitalTrajectory {
     ///
     ///     bh.initialize_eop()
     ///
-    ///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0)
+    ///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
     ///     cov = np.eye(6) * 1000.0
     ///
     ///     traj = bh.OrbitTrajectory.from_orbital_data(
-    ///         [epoch], [state], bh.CelestialFrame.GCRF, bh.OrbitRepresentation.CARTESIAN,
+    ///         [epoch], np.array([state]), bh.CelestialFrame.GCRF, bh.OrbitRepresentation.CARTESIAN,
     ///         covariances=np.array([cov])
     ///     )
     ///

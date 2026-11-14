@@ -841,9 +841,9 @@ impl PyCelestrakSATCATRecord {
 ///     - ``query()``: Execute any ``CelestrakQuery`` and return typed results
 ///
 /// Args:
-///     base_url (str, optional): Custom base URL for testing.
-///     cache_max_age (float, optional): Cache TTL in seconds. Default: 7200.0 (2 hours).
-///     max_retries (int, optional): Maximum retries for transient HTTP errors. Default: 3.
+///     base_url (str | None, optional): Custom base URL for testing.
+///     cache_max_age (float | None, optional): Cache TTL in seconds. Default: 7200.0 (2 hours).
+///     max_retries (int | None, optional): Maximum retries for transient HTTP errors. Default: 3.
 ///
 /// Example:
 ///     ```python {.no_run}
@@ -912,10 +912,10 @@ impl PyCelestrakClient {
     /// exists.
     ///
     /// Args:
-    ///     catnr (int, optional): NORAD catalog number (e.g., 25544 for ISS).
-    ///     group (str, optional): Satellite group name (e.g., "stations", "active").
-    ///     name (str, optional): Satellite name to search for (partial match).
-    ///     intdes (str, optional): International designator (e.g., "1998-067A").
+    ///     catnr (int | None, optional): NORAD catalog number (e.g., 25544 for ISS).
+    ///     group (str | None, optional): Satellite group name (e.g., "stations", "active").
+    ///     name (str | None, optional): Satellite name to search for (partial match).
+    ///     intdes (str | None, optional): International designator (e.g., "1998-067A").
     ///
     /// Returns:
     ///     list[GPRecord]: List of matching GP records.
@@ -1012,10 +1012,10 @@ impl PyCelestrakClient {
     /// At least one parameter must be provided.
     ///
     /// Args:
-    ///     catnr (int, optional): NORAD catalog number.
-    ///     active (bool, optional): Filter to active objects only.
-    ///     payloads (bool, optional): Filter to payloads only.
-    ///     on_orbit (bool, optional): Filter to on-orbit objects only.
+    ///     catnr (int | None, optional): NORAD catalog number.
+    ///     active (bool | None, optional): Filter to active objects only.
+    ///     payloads (bool | None, optional): Filter to payloads only.
+    ///     on_orbit (bool | None, optional): Filter to on-orbit objects only.
     ///
     /// Returns:
     ///     list[CelestrakSATCATRecord]: List of matching SATCAT records.

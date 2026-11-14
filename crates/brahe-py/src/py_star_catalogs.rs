@@ -1090,7 +1090,7 @@ impl PyTycho2Catalog {
 /// goes stale.
 ///
 /// Args:
-///     cache_max_age (float, optional): Maximum cache age in seconds.
+///     cache_max_age (float | None, optional): Maximum cache age in seconds.
 ///         Defaults to None, meaning the cached copy never goes stale.
 ///         Pass 0 to force a fresh download.
 ///
@@ -1123,7 +1123,7 @@ fn py_star_catalogs_get_fk5(py: Python<'_>, cache_max_age: Option<f64>) -> PyRes
 /// cached copy never goes stale.
 ///
 /// Args:
-///     cache_max_age (float, optional): Maximum cache age in seconds.
+///     cache_max_age (float | None, optional): Maximum cache age in seconds.
 ///         Defaults to None, meaning the cached copy never goes stale.
 ///         Pass 0 to force a fresh download.
 ///
@@ -1164,7 +1164,7 @@ fn py_star_catalogs_get_hipparcos(
 /// records), so the first call may take some time.
 ///
 /// Args:
-///     cache_max_age (float, optional): Maximum cache age in seconds.
+///     cache_max_age (float | None, optional): Maximum cache age in seconds.
 ///         Defaults to None, meaning the cached copy never goes stale.
 ///         Pass 0 to force a fresh download.
 ///

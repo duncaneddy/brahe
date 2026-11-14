@@ -936,7 +936,7 @@ impl PyFileEOPProvider {
 ///         values. Recommended: True for smoother data
 ///     extrapolate (str): Behavior for dates outside EOP data range:
 ///         "Hold" (use last known value), "Zero" (return 0.0), or "Error" (raise exception)
-///     filepath (str, optional): Path to the EOP file (will be created if it doesn't exist).
+///     filepath (str | None, optional): Path to the EOP file (will be created if it doesn't exist).
 ///         If None, uses default cache location:
 ///         - StandardBulletinA: ~/.cache/brahe/finals.all.iau2000.txt
 ///         - C04: ~/.cache/brahe/EOP_C04_one_file_1962-now.txt

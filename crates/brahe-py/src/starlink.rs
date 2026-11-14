@@ -142,7 +142,7 @@ impl PyStarlinkManifest {
     /// Args:
     ///     text (str): Manifest contents.
     ///     reference (Epoch): Epoch used to place start dates in a year and to validate GPS-second metadata.
-    ///     last_modified (Epoch, optional): Server ``Last-Modified`` for the listing, if known.
+    ///     last_modified (Epoch | None, optional): Server ``Last-Modified`` for the listing, if known.
     ///
     /// Returns:
     ///     StarlinkManifest: The parsed table.
@@ -356,10 +356,10 @@ impl PyStarlinkManifest {
 /// clients sharing it; run one bulk download at a time.
 ///
 /// Args:
-///     base_url (str, optional): Custom base URL for testing or a mirror.
-///     cache_max_age (float, optional): Seconds a cached manifest is served without a refresh. Default: 3600.0.
-///     max_retries (int, optional): Extra attempts after the first on transient failures. Default: 3.
-///     rate_limit (RateLimitConfig, optional): Custom per-minute and per-hour request caps.
+///     base_url (str | None, optional): Custom base URL for testing or a mirror.
+///     cache_max_age (float | None, optional): Seconds a cached manifest is served without a refresh. Default: 3600.0.
+///     max_retries (int | None, optional): Extra attempts after the first on transient failures. Default: 3.
+///     rate_limit (RateLimitConfig | None, optional): Custom per-minute and per-hour request caps.
 ///
 /// Example:
 ///     ```python {.no_run}
@@ -553,7 +553,7 @@ impl PyStarlinkClient {
     ///
     /// Args:
     ///     norad_cat_id (int): NORAD catalog number.
-    ///     covariance_variant (OrbitRelativeFrameVariant, optional): ``INERTIAL`` (default, block-diagonal) or ``ROTATING`` RTN rotation.
+    ///     covariance_variant (OrbitRelativeFrameVariant | None, optional): ``INERTIAL`` (default, block-diagonal) or ``ROTATING`` RTN rotation.
     ///
     /// Returns:
     ///     OrbitTrajectory: Six-dimensional Cartesian trajectory.

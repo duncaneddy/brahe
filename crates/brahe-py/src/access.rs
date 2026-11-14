@@ -3716,12 +3716,12 @@ impl PyAdditionalPropertiesDict {
 /// an access window for property calculations.
 ///
 /// Args:
-///     relative_times (list[float], optional): Relative times from 0.0 (start) to 1.0 (end).
+///     relative_times (list[float] | None, optional): Relative times from 0.0 (start) to 1.0 (end).
 ///         If provided, uses relative points sampling.
-///     interval (float, optional): Time between samples (seconds). If provided with offset,
+///     interval (float | None, optional): Time between samples (seconds). If provided with offset,
 ///         uses fixed interval sampling.
-///     offset (float, optional): Time offset from window start (seconds). Used with interval.
-///     count (int, optional): Number of evenly-spaced sample points. If provided,
+///     offset (float | None, optional): Time offset from window start (seconds). Used with interval.
+///     count (int | None, optional): Number of evenly-spaced sample points. If provided,
 ///         uses fixed count sampling.
 ///
 /// Note:
@@ -4822,9 +4822,9 @@ impl PySubdivisionConfig {
 ///     adaptive_step (bool): Enable adaptive stepping after first access (default: False)
 ///     adaptive_fraction (float): Fraction of orbital period to use for adaptive step (default: 0.75)
 ///     parallel (bool): Enable parallel computation (default: True)
-///     num_threads (Optional[int]): Number of threads for parallel computation (default: None)
+///     num_threads (int | None, optional): Number of threads for parallel computation (default: None)
 ///     time_tolerance (float): Boundary refinement tolerance in seconds (default: 0.001)
-///     subdivisions (Optional[SubdivisionConfig]): Subdivision configuration per window (default: None)
+///     subdivisions (SubdivisionConfig | None, optional): Subdivision configuration per window (default: None)
 ///
 /// Example:
 ///     ```python
@@ -5117,8 +5117,8 @@ fn sequence_as_list<'py>(obj: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>>
 ///     search_start (Epoch): Start of search window
 ///     search_end (Epoch): End of search window
 ///     constraint (AccessConstraint): Access constraints to evaluate
-///     property_computers (Optional[Sequence[AccessPropertyComputer]]): Optional property computers
-///     config (Optional[AccessSearchConfig]): Search configuration (time step, tolerance, subdivisions, etc.)
+///     property_computers (Sequence[AccessPropertyComputer] | None, optional): Optional property computers
+///     config (AccessSearchConfig | None, optional): Search configuration (time step, tolerance, subdivisions, etc.)
 ///
 /// Returns:
 ///     List[AccessWindow]: List of access windows sorted by start time
@@ -5601,7 +5601,7 @@ fn py_location_accesses(
 ///     image_length (float, optional): Along-track tile length in meters (default: 5000)
 ///     crosstrack_overlap (float, optional): Cross-track overlap in meters (default: 200)
 ///     alongtrack_overlap (float, optional): Along-track overlap in meters (default: 200)
-///     asc_dsc (AscDsc, optional): Ascending/descending pass selection (default: Either)
+///     asc_dsc (AscDsc | None, optional): Ascending/descending pass selection (default: Either)
 ///     min_image_length (float, optional): Minimum tile length in meters (default: 5000)
 ///     max_image_length (float, optional): Maximum tile length in meters (default: 5000)
 ///
@@ -5747,9 +5747,9 @@ impl PyOrbitGeometryTessellatorConfig {
 /// Args:
 ///     propagator (SGPPropagator): Orbit propagator
 ///     epoch (Epoch): Reference epoch for the propagator
-///     config (OrbitGeometryTessellatorConfig, optional): Tessellation configuration.
+///     config (OrbitGeometryTessellatorConfig | None, optional): Tessellation configuration.
 ///         Defaults to ``OrbitGeometryTessellatorConfig()``.
-///     spacecraft_id (str, optional): Spacecraft identifier for tile metadata. Defaults to None.
+///     spacecraft_id (str | None, optional): Spacecraft identifier for tile metadata. Defaults to None.
 ///
 /// Example:
 ///     ```python

@@ -4609,9 +4609,9 @@ impl PyPermanentTideConfig {
 ///
 /// Args:
 ///     permanent (PermanentTideConfig): Permanent-tide / tide-system handling.
-///     solid (SolidTideConfig, optional): Solid Earth tide configuration.
+///     solid (SolidTideConfig | None, optional): Solid Earth tide configuration.
 ///         None disables solid tides. Default is None.
-///     ocean (OceanTideConfig, optional): Ocean tide configuration. None
+///     ocean (OceanTideConfig | None, optional): Ocean tide configuration. None
 ///         disables ocean tides. Default is None.
 ///     ephemeris_source (EphemerisSource, optional): Source for the Sun and
 ///         Moon positions the tidal corrections are computed from. Defaults to
@@ -4737,15 +4737,15 @@ impl PyTidesConfiguration {
 /// Specifies the gravity model: point mass or spherical harmonic expansion.
 ///
 /// Args:
-///     degree (int, optional): Maximum degree of spherical harmonic expansion.
+///     degree (int | None, optional): Maximum degree of spherical harmonic expansion.
 ///         If None, uses point mass gravity.
-///     order (int, optional): Maximum order of spherical harmonic expansion.
+///     order (int | None, optional): Maximum order of spherical harmonic expansion.
 ///         If None, uses point mass gravity.
-///     model_type (GravityModelType, optional): Gravity model to use.
+///     model_type (GravityModelType | None, optional): Gravity model to use.
 ///         Defaults to EGM2008_120.
 ///     use_global (bool, optional): If True, use global gravity model.
 ///         Defaults to False.
-///     parallel (ParallelMode, optional): Parallelization mode for the
+///     parallel (ParallelMode | None, optional): Parallelization mode for the
 ///         spherical-harmonic acceleration computation. Defaults to Auto.
 ///
 /// Example:
@@ -4844,11 +4844,11 @@ impl PyGravityConfiguration {
     /// Args:
     ///     degree (int): Maximum degree of expansion.
     ///     order (int): Maximum order of expansion.
-    ///     model_type (GravityModelType, optional): Gravity model to use.
+    ///     model_type (GravityModelType | None, optional): Gravity model to use.
     ///         Defaults to EGM2008_120.
     ///     use_global (bool, optional): If True, use global gravity model.
     ///         Defaults to False.
-    ///     parallel (ParallelMode, optional): Parallelization mode for the
+    ///     parallel (ParallelMode | None, optional): Parallelization mode for the
     ///         spherical-harmonic acceleration computation. Defaults to Auto.
     ///
     /// Returns:
@@ -5037,7 +5037,7 @@ impl PyGravityConfiguration {
 ///     model (AtmosphericModel): Atmospheric density model.
 ///     area (ParameterSource): Drag cross-sectional area source [m²].
 ///     cd (ParameterSource): Drag coefficient source (dimensionless).
-///     body (CentralBody, optional): Body whose atmosphere produces the
+///     body (CentralBody | None, optional): Body whose atmosphere produces the
 ///         drag. Defaults to None, meaning the propagation's central body.
 ///
 /// Attributes:
@@ -5238,9 +5238,9 @@ impl PyCentralBody {
     ///     name (str): Human-readable name (e.g. `"Enceladus"`).
     ///     naif_id (int): NAIF ID of the body.
     ///     gm (float): Gravitational parameter. Units: (m^3/s^2)
-    ///     radius (float, optional): Mean or equatorial radius, if known. Units: (m)
-    ///     omega (numpy.ndarray or list, optional): Body-fixed axial spin vector, if known. Units: (rad/s)
-    ///     fixed_frame (CelestialFrame, optional): Body-fixed reference frame, required for
+    ///     radius (float | None, optional): Mean or equatorial radius, if known. Units: (m)
+    ///     omega (numpy.ndarray or list or None, optional): Body-fixed axial spin vector, if known. Units: (rad/s)
+    ///     fixed_frame (CelestialFrame | None, optional): Body-fixed reference frame, required for
     ///         spherical-harmonic gravity and body-fixed rotations.
     ///
     /// Returns:
@@ -5484,7 +5484,7 @@ impl PyOccultingBody {
 ///     area (ParameterSource): SRP cross-sectional area source [m²].
 ///     cr (ParameterSource): Coefficient of reflectivity source (dimensionless).
 ///     eclipse_model (EclipseModel): Eclipse model for shadow effects.
-///     occulting_bodies (list[OccultingBody], optional): Bodies whose shadow may occult
+///     occulting_bodies (list[OccultingBody] | None, optional): Bodies whose shadow may occult
 ///         the sun. Defaults to `[OccultingBody.Earth]`.
 ///
 /// Attributes:
@@ -5857,9 +5857,9 @@ impl PyThirdBody {
 ///
 /// Args:
 ///     body (ThirdBody): The perturbing body.
-///     ephemeris_source (EphemerisSource, optional): Source for the body's
+///     ephemeris_source (EphemerisSource | None, optional): Source for the body's
 ///         position. Defaults to ``EphemerisSource.DE440s``.
-///     gravity (GravityConfiguration, optional): Gravity model for this
+///     gravity (GravityConfiguration | None, optional): Gravity model for this
 ///         perturber. Defaults to point-mass.
 ///
 /// Attributes:
@@ -6295,20 +6295,20 @@ impl PyNumericalPropagationConfig {
 /// Defines all perturbation forces to be included: gravity, drag, SRP, third-body, relativity.
 ///
 /// Args:
-///     gravity (GravityConfiguration, optional): Gravity model configuration.
+///     gravity (GravityConfiguration | None, optional): Gravity model configuration.
 ///         Default is point mass gravity.
-///     drag (DragConfiguration, optional): Atmospheric drag configuration.
+///     drag (DragConfiguration | None, optional): Atmospheric drag configuration.
 ///         Default is None (disabled).
-///     srp (SolarRadiationPressureConfiguration, optional): Solar radiation pressure configuration.
+///     srp (SolarRadiationPressureConfiguration | None, optional): Solar radiation pressure configuration.
 ///         Default is None (disabled).
-///     third_body (ThirdBodyConfiguration | ThirdBody | list, optional): Third-body
+///     third_body (ThirdBodyConfiguration | ThirdBody | list | None, optional): Third-body
 ///         perturbation entries; a single entry or a list mixing ThirdBody and
 ///         ThirdBodyConfiguration values. Default is None (disabled).
 ///     relativity (bool, optional): Enable relativistic corrections. Default is False.
-///     mass (ParameterSource, optional): Spacecraft mass source. Default is None.
-///     frame_transform (FrameTransformationModel, optional): ECI-to-body-fixed rotation
+///     mass (ParameterSource | None, optional): Spacecraft mass source. Default is None.
+///     frame_transform (FrameTransformationModel | None, optional): ECI-to-body-fixed rotation
 ///         used by every body-fixed force term. Defaults to ``FULL_EARTH_ROTATION``.
-///     tides (TidesConfiguration, optional): Earth tides configuration.
+///     tides (TidesConfiguration | None, optional): Earth tides configuration.
 ///         Default is None (disabled).
 ///
 /// Attributes:
@@ -6474,13 +6474,13 @@ impl PyForceModelConfig {
     /// Args:
     ///     central_body (CentralBody): Body the orbit is propagated relative to.
     ///     gravity (GravityConfiguration): Gravity model configuration.
-    ///     drag (DragConfiguration, optional): Atmospheric drag configuration.
-    ///     srp (SolarRadiationPressureConfiguration, optional): Solar radiation pressure configuration.
-    ///     third_body (ThirdBodyConfiguration | ThirdBody | list, optional): Third-body
+    ///     drag (DragConfiguration | None, optional): Atmospheric drag configuration.
+    ///     srp (SolarRadiationPressureConfiguration | None, optional): Solar radiation pressure configuration.
+    ///     third_body (ThirdBodyConfiguration | ThirdBody | list | None, optional): Third-body
     ///         perturbation entries; a single entry or a list mixing ThirdBody and
     ///         ThirdBodyConfiguration values.
     ///     relativity (bool, optional): Enable relativistic corrections. Default is False.
-    ///     mass (ParameterSource, optional): Spacecraft mass source.
+    ///     mass (ParameterSource | None, optional): Spacecraft mass source.
     ///
     /// Returns:
     ///     ForceModelConfig: A force model configuration for `central_body`.

@@ -73,8 +73,8 @@ impl PySBDBObject {
 /// Client for the JPL Small-Body Database (SBDB) Lookup API.
 ///
 /// Args:
-///     base_url (str, optional): Override the SBDB base URL (for testing).
-///     cache_max_age (int, optional): Cache max age in seconds (0 = always refetch).
+///     base_url (str | None, optional): Override the SBDB base URL (for testing).
+///     cache_max_age (int | None, optional): Cache max age in seconds (0 = always refetch).
 ///
 /// Example:
 ///     ```python {.no_run}

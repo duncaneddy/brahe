@@ -1019,7 +1019,7 @@ impl PyGCATPsatcat {
 /// Returns a ``GCATSatcat`` container with search and filter methods.
 ///
 /// Args:
-///     cache_max_age (float, optional): Maximum cache age in seconds.
+///     cache_max_age (float | None, optional): Maximum cache age in seconds.
 ///         Defaults to 86400 (24 hours). Pass 0 to force a fresh download.
 ///
 /// Returns:
@@ -1057,7 +1057,7 @@ fn py_gcat_get_satcat(cache_max_age: Option<f64>) -> PyResult<PyGCATSatcat> {
 /// Returns a ``GCATPsatcat`` container with search and filter methods.
 ///
 /// Args:
-///     cache_max_age (float, optional): Maximum cache age in seconds.
+///     cache_max_age (float | None, optional): Maximum cache age in seconds.
 ///         Defaults to 86400 (24 hours). Pass 0 to force a fresh download.
 ///
 /// Returns:

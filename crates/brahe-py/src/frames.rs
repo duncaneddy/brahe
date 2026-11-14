@@ -5551,7 +5551,7 @@ fn py_rotation_frame_to_frame<'py>(
 ///         passed to `CelestialFrame.BodyFixedCustom`.
 ///     rotation (callable): Callable `Epoch -> 3x3 array` returning the
 ///         ICRF -> body-fixed rotation matrix.
-///     omega (callable, optional): Callable `Epoch -> length-3 array`
+///     omega (callable | None, optional): Callable `Epoch -> length-3 array`
 ///         returning the frame's angular velocity in body-fixed axes (rad/s).
 ///
 /// Example:
@@ -6232,7 +6232,7 @@ impl PyBodyFrame {
     /// Accelerometer frame.
     ///
     /// Args:
-    ///     designator (str, optional): Sensor instance designator (e.g. "1")
+    ///     designator (str | None, optional): Sensor instance designator (e.g. "1")
     ///
     /// Returns:
     ///     BodyFrame: The `ACC` body frame
@@ -6246,7 +6246,7 @@ impl PyBodyFrame {
     /// Actuator frame.
     ///
     /// Args:
-    ///     designator (str, optional): Actuator instance designator (e.g. "1")
+    ///     designator (str | None, optional): Actuator instance designator (e.g. "1")
     ///
     /// Returns:
     ///     BodyFrame: The `ACTUATOR` body frame
@@ -6260,7 +6260,7 @@ impl PyBodyFrame {
     /// Autonomous star tracker frame.
     ///
     /// Args:
-    ///     designator (str, optional): Sensor instance designator (e.g. "1")
+    ///     designator (str | None, optional): Sensor instance designator (e.g. "1")
     ///
     /// Returns:
     ///     BodyFrame: The `AST` body frame
@@ -6274,7 +6274,7 @@ impl PyBodyFrame {
     /// Coarse sun sensor frame.
     ///
     /// Args:
-    ///     designator (str, optional): Sensor instance designator (e.g. "1")
+    ///     designator (str | None, optional): Sensor instance designator (e.g. "1")
     ///
     /// Returns:
     ///     BodyFrame: The `CSS` body frame
@@ -6288,7 +6288,7 @@ impl PyBodyFrame {
     /// Digital sun sensor frame.
     ///
     /// Args:
-    ///     designator (str, optional): Sensor instance designator (e.g. "1")
+    ///     designator (str | None, optional): Sensor instance designator (e.g. "1")
     ///
     /// Returns:
     ///     BodyFrame: The `DSS` body frame
@@ -6302,7 +6302,7 @@ impl PyBodyFrame {
     /// Earth sensor assembly frame.
     ///
     /// Args:
-    ///     designator (str, optional): Sensor instance designator (e.g. "1")
+    ///     designator (str | None, optional): Sensor instance designator (e.g. "1")
     ///
     /// Returns:
     ///     BodyFrame: The `ESA` body frame
@@ -6316,7 +6316,7 @@ impl PyBodyFrame {
     /// Gyroscope frame.
     ///
     /// Args:
-    ///     designator (str, optional): Sensor instance designator (e.g. "1")
+    ///     designator (str | None, optional): Sensor instance designator (e.g. "1")
     ///
     /// Returns:
     ///     BodyFrame: The `GYRO_FRAME` body frame
@@ -6330,7 +6330,7 @@ impl PyBodyFrame {
     /// Inertial measurement unit frame.
     ///
     /// Args:
-    ///     designator (str, optional): Sensor instance designator (e.g. "1")
+    ///     designator (str | None, optional): Sensor instance designator (e.g. "1")
     ///
     /// Returns:
     ///     BodyFrame: The `IMU_FRAME` body frame
@@ -6344,7 +6344,7 @@ impl PyBodyFrame {
     /// Instrument frame.
     ///
     /// Args:
-    ///     designator (str, optional): Instrument instance designator (e.g. "A")
+    ///     designator (str | None, optional): Instrument instance designator (e.g. "A")
     ///
     /// Returns:
     ///     BodyFrame: The `INSTRUMENT` body frame
@@ -6358,7 +6358,7 @@ impl PyBodyFrame {
     /// Magnetic torque assembly frame.
     ///
     /// Args:
-    ///     designator (str, optional): Actuator instance designator (e.g. "1")
+    ///     designator (str | None, optional): Actuator instance designator (e.g. "1")
     ///
     /// Returns:
     ///     BodyFrame: The `MTA` body frame
@@ -6372,7 +6372,7 @@ impl PyBodyFrame {
     /// Reaction wheel frame.
     ///
     /// Args:
-    ///     designator (str, optional): Actuator instance designator (e.g. "4")
+    ///     designator (str | None, optional): Actuator instance designator (e.g. "4")
     ///
     /// Returns:
     ///     BodyFrame: The `RW` body frame
@@ -6386,7 +6386,7 @@ impl PyBodyFrame {
     /// Solar array frame.
     ///
     /// Args:
-    ///     designator (str, optional): Array instance designator (e.g. "1")
+    ///     designator (str | None, optional): Array instance designator (e.g. "1")
     ///
     /// Returns:
     ///     BodyFrame: The `SA` body frame
@@ -6400,7 +6400,7 @@ impl PyBodyFrame {
     /// Spacecraft body frame.
     ///
     /// Args:
-    ///     designator (str, optional): Instance designator (e.g. "1")
+    ///     designator (str | None, optional): Instance designator (e.g. "1")
     ///
     /// Returns:
     ///     BodyFrame: The `SC_BODY` body frame
@@ -6414,7 +6414,7 @@ impl PyBodyFrame {
     /// Generic sensor frame.
     ///
     /// Args:
-    ///     designator (str, optional): Sensor instance designator (e.g. "10")
+    ///     designator (str | None, optional): Sensor instance designator (e.g. "10")
     ///
     /// Returns:
     ///     BodyFrame: The `SENSOR` body frame
@@ -6428,7 +6428,7 @@ impl PyBodyFrame {
     /// Star tracker frame.
     ///
     /// Args:
-    ///     designator (str, optional): Sensor instance designator (e.g. "2")
+    ///     designator (str | None, optional): Sensor instance designator (e.g. "2")
     ///
     /// Returns:
     ///     BodyFrame: The `STARTRACKER` body frame
@@ -6442,7 +6442,7 @@ impl PyBodyFrame {
     /// Three-axis magnetometer frame.
     ///
     /// Args:
-    ///     designator (str, optional): Sensor instance designator (e.g. "1")
+    ///     designator (str | None, optional): Sensor instance designator (e.g. "1")
     ///
     /// Returns:
     ///     BodyFrame: The `TAM` body frame
@@ -7007,7 +7007,7 @@ impl PyReferenceFrame {
     ///     kind (OrbitRelativeFrameKind): Frame construction (axes definition)
     ///     variant (OrbitRelativeFrameVariant): Rotating (true local orbital frame) or
     ///         inertial (quasi-inertial snapshot)
-    ///     object (str, optional): The bound object, or `None` for an unbound label
+    ///     object (str | None, optional): The bound object, or `None` for an unbound label
     ///
     /// Returns:
     ///     ReferenceFrame: The orbit-relative frame
@@ -7164,9 +7164,9 @@ impl SStateProvider for PyCallableStateProvider {
 ///     parent (CelestialFrame | ReferenceFrame): The frame `frame`'s orientation is expressed relative to
 ///     provider (Quaternion or RotationMatrix or EulerAngle or EulerAxis or callable): Supplies
 ///         `frame`'s rotation (and, for a callable, optionally its angular velocity) relative to `parent`
-///     omega (callable, optional): Callable `Epoch -> length-3 ndarray` returning the frame's
+///     omega (callable | None, optional): Callable `Epoch -> length-3 ndarray` returning the frame's
 ///         angular velocity relative to `parent`, expressed in `frame` (rad/s)
-///     numerical_rates_step (float, optional): Central-difference step (s) used to derive the
+///     numerical_rates_step (float | None, optional): Central-difference step (s) used to derive the
 ///         angular velocity numerically when `omega` is not given
 ///
 /// Raises:

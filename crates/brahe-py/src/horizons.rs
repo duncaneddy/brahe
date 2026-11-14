@@ -109,7 +109,7 @@ impl PyHorizonsSPKResponse {
 /// Client for the JPL Horizons SPK generation API.
 ///
 /// Args:
-///     base_url (str, optional): Override the Horizons base URL (for testing).
+///     base_url (str | None, optional): Override the Horizons base URL (for testing).
 ///
 /// Example:
 ///     ```python {.no_run}

@@ -1285,7 +1285,7 @@ impl PyFileSpaceWeatherProvider {
 ///     max_age_seconds (int): Maximum age of file in seconds before triggering a refresh
 ///     auto_refresh (bool): If True, automatically checks file age and refreshes on every data access
 ///     extrapolate (str): Behavior for dates outside data range: "Hold", "Zero", or "Error"
-///     cache_dir (str, optional): Custom cache directory. If None, uses ~/.cache/brahe/
+///     cache_dir (str | None, optional): Custom cache directory. If None, uses ~/.cache/brahe/
 ///
 /// Example:
 ///     ```python
@@ -1356,7 +1356,7 @@ impl PyCachingSpaceWeatherProvider {
     ///     max_age_seconds (int): Maximum age of file in seconds before triggering a refresh
     ///     auto_refresh (bool): If True, automatically checks file age and refreshes on every access
     ///     extrapolate (str): Behavior for dates outside data range: "Hold", "Zero", or "Error"
-    ///     cache_dir (str, optional): Custom cache directory. If None, uses ~/.cache/brahe/
+    ///     cache_dir (str | None, optional): Custom cache directory. If None, uses ~/.cache/brahe/
     ///
     /// Returns:
     ///     CachingSpaceWeatherProvider: Provider with automatic cache management from custom URL

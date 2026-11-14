@@ -100,13 +100,13 @@ impl PyITCCovarianceFrame {
 /// the file name's DataType and it defaults to ``CelestialFrame.EME2000``.
 ///
 /// Args:
-///     created (Epoch, optional): File creation time.
-///     ephemeris_start (Epoch, optional): Declared first epoch.
-///     ephemeris_stop (Epoch, optional): Declared last epoch.
-///     step_size (float, optional): Declared step between records, seconds.
-///     ephemeris_source (str, optional): Free-text source label.
-///     state_frame (CelestialFrame, optional): Frame of the states; defaults to EME2000.
-///     covariance_frame (ITCCovarianceFrame, optional): Frame of the covariance; defaults to RTN.
+///     created (Epoch | None, optional): File creation time.
+///     ephemeris_start (Epoch | None, optional): Declared first epoch.
+///     ephemeris_stop (Epoch | None, optional): Declared last epoch.
+///     step_size (float | None, optional): Declared step between records, seconds.
+///     ephemeris_source (str | None, optional): Free-text source label.
+///     state_frame (CelestialFrame | None, optional): Frame of the states; defaults to EME2000.
+///     covariance_frame (ITCCovarianceFrame | None, optional): Frame of the covariance; defaults to RTN.
 ///
 /// Example:
 ///     ```python
@@ -607,7 +607,7 @@ impl PyITC {
     /// covariance frame and the state frame.
     ///
     /// Args:
-    ///     covariance_variant (OrbitRelativeFrameVariant, optional): ``INERTIAL`` (default, block-diagonal ``[[R, 0], [0, R]]``) or ``ROTATING`` (adds the frame-rate coupling block).
+    ///     covariance_variant (OrbitRelativeFrameVariant | None, optional): ``INERTIAL`` (default, block-diagonal ``[[R, 0], [0, R]]``) or ``ROTATING`` (adds the frame-rate coupling block).
     ///
     /// Returns:
     ///     OrbitTrajectory: Six-dimensional Cartesian trajectory, named after the source file's object when known.
@@ -682,7 +682,7 @@ impl PyITC {
     /// Args:
     ///     trajectory (OrbitTrajectory): Six-dimensional Cartesian trajectory.
     ///     header (ITCHeader): Header template; start, stop and step are filled from the samples.
-    ///     covariance_variant (OrbitRelativeFrameVariant, optional): RTN convention for the covariance; ``INERTIAL`` by default.
+    ///     covariance_variant (OrbitRelativeFrameVariant | None, optional): RTN convention for the covariance; ``INERTIAL`` by default.
     ///
     /// Returns:
     ///     ITC: The message.

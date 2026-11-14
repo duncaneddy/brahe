@@ -1050,6 +1050,40 @@ def test_numericalpropagator_event_multiple_events_in_step_refined_independently
         assert event.entry_state == pytest.approx([np.cos(t), -np.sin(t)], abs=1e-6)
 
 
+def test_numericalpropagator_event_trajectory_entries_store_covariance():
+    """Trajectory entries at an event epoch store its covariance (mirrors Rust test)"""
+    epoch = create_test_epoch()
+    p0 = np.diag([4.0, 0.25])
+    config = NumericalPropagationConfig.default().with_stm().with_stm_history()
+    config.interpolation_method = InterpolationMethod.LINEAR
+    prop = NumericalPropagator(
+        epoch,
+        np.array([1.0, 0.0]),
+        sho_dynamics,
+        config,
+        initial_covariance=p0,
+    )
+
+    # One event without a callback and one with a callback
+    prop.add_event_detector(TimeEvent(epoch + 3.21, "Plain"))
+    prop.add_event_detector(
+        TimeEvent(epoch + 6.54, "Callback").with_callback(
+            lambda _epoch, _state: (None, EventAction.CONTINUE)
+        )
+    )
+    prop.propagate_to(epoch + 10.0)
+    events = prop.event_log()
+    assert len(events) == 2
+
+    # The covariance stored at each event epoch is evaluated there
+    for event in events:
+        stm_expected = sho_analytical_stm(1.0, event.window_open - epoch)
+        cov_expected = stm_expected @ p0 @ stm_expected.T
+        assert prop.covariance(event.window_open) == pytest.approx(
+            cov_expected, abs=1e-6
+        )
+
+
 def test_numericalpropagator_event_query_by_detector_index():
     """Test events_by_detector_index method (mirrors Rust test)"""
     from brahe import TimeEvent

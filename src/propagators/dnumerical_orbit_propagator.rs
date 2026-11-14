@@ -1642,6 +1642,43 @@ impl DNumericalOrbitPropagator {
         }
     }
 
+    /// Covariance, STM, and sensitivity to record with a trajectory entry at
+    /// an event epoch.
+    ///
+    /// # Arguments
+    /// * `variational` - Variational matrices evaluated at the event epoch
+    ///
+    /// # Returns
+    /// `(covariance, stm, sensitivity)`. The covariance is present when an
+    /// initial covariance is set, and the STM and sensitivity when their
+    /// history storage is enabled.
+    #[allow(clippy::type_complexity)]
+    fn event_trajectory_matrices(
+        &self,
+        variational: &EventVariational,
+    ) -> (
+        Option<DMatrix<f64>>,
+        Option<DMatrix<f64>>,
+        Option<DMatrix<f64>>,
+    ) {
+        // P(t) = Φ(t, t₀) * P(t₀) * Φ(t, t₀)^T
+        let cov = match (&self.initial_covariance, &variational.stm) {
+            (Some(p0), Some(phi)) => Some(phi * p0 * phi.transpose()),
+            _ => None,
+        };
+        let stm = if self.store_stm_history {
+            variational.stm.clone()
+        } else {
+            None
+        };
+        let sens = if self.store_sensitivity_history {
+            variational.sensitivity.clone()
+        } else {
+            None
+        };
+        (cov, stm, sens)
+    }
+
     /// Process detected events using smart sequential algorithm
     ///
     /// This implements the smart event processing strategy:
@@ -1691,8 +1728,17 @@ impl DNumericalOrbitPropagator {
 
                     // Add to trajectory at exact event time if configured
                     if !matches!(self.trajectory_mode, TrajectoryMode::Disabled) {
-                        self.trajectory
-                            .add(event.window_open, event.entry_state.clone())?;
+                        let (cov, stm, sens) = self.event_trajectory_matrices(&variational);
+                        let acc =
+                            self.compute_acceleration(event.window_open, &event.entry_state)?;
+                        self.trajectory.add_full(
+                            event.window_open,
+                            event.entry_state.clone(),
+                            cov,
+                            stm,
+                            sens,
+                            acc,
+                        )?;
                     }
 
                     // Check if this event is terminal (no callback but has terminal action)
@@ -1717,13 +1763,22 @@ impl DNumericalOrbitPropagator {
 
             Some(callback_idx) => {
                 // 3b. Process all no-callback events before the callback event
-                for (det_idx, event, _) in sorted_events.iter().take(callback_idx) {
+                for (det_idx, event, variational) in sorted_events.iter().take(callback_idx) {
                     self.event_log.push(event.clone());
                     self.event_detectors[*det_idx].mark_processed();
 
                     if !matches!(self.trajectory_mode, TrajectoryMode::Disabled) {
-                        self.trajectory
-                            .add(event.window_open, event.entry_state.clone())?;
+                        let (cov, stm, sens) = self.event_trajectory_matrices(variational);
+                        let acc =
+                            self.compute_acceleration(event.window_open, &event.entry_state)?;
+                        self.trajectory.add_full(
+                            event.window_open,
+                            event.entry_state.clone(),
+                            cov,
+                            stm,
+                            sens,
+                            acc,
+                        )?;
                     }
                 }
 
@@ -1741,12 +1796,13 @@ impl DNumericalOrbitPropagator {
                         callback_event.window_open,
                         &callback_event.entry_state,
                     )?;
+                    let (cov, stm, sens) = self.event_trajectory_matrices(&variational);
                     self.trajectory.add_full(
                         callback_event.window_open,
                         callback_event.entry_state.clone(),
-                        None,
-                        None,
-                        None,
+                        cov,
+                        stm,
+                        sens,
                         acc,
                     )?;
                 }
@@ -1765,12 +1821,13 @@ impl DNumericalOrbitPropagator {
                         if !matches!(self.trajectory_mode, TrajectoryMode::Disabled) {
                             let acc =
                                 self.compute_acceleration(callback_event.window_open, &y_new)?;
+                            let (cov, stm, sens) = self.event_trajectory_matrices(&variational);
                             self.trajectory.add_full(
                                 callback_event.window_open,
                                 y_new.clone(),
-                                None,
-                                None,
-                                None,
+                                cov,
+                                stm,
+                                sens,
                                 acc,
                             )?;
                         }
@@ -6715,6 +6772,69 @@ mod tests {
         assert_matrix_rel_eq(prop.stm().unwrap(), &stm_expected, 1e-5);
         assert_matrix_rel_eq(prop.sensitivity().unwrap(), &sens_expected, 5e-3);
         assert_matrix_rel_eq(prop.current_covariance().unwrap(), &cov_expected, 1e-5);
+    }
+
+    /// Trajectory indices whose epoch equals `epoch`.
+    fn trajectory_indices_at(prop: &DNumericalOrbitPropagator, epoch: Epoch) -> Vec<usize> {
+        (0..prop.trajectory().len())
+            .filter(|&i| prop.trajectory().epoch_at_idx(i).unwrap() == epoch)
+            .collect()
+    }
+
+    #[rstest]
+    #[case::no_callback(false, false)]
+    #[case::callback(true, false)]
+    #[case::terminal(false, true)]
+    #[case::terminal_callback(true, true)]
+    #[parallel]
+    fn test_dnumericalorbitpropagator_event_trajectory_entries_store_variational(
+        #[case] with_callback: bool,
+        #[case] terminal: bool,
+    ) {
+        setup_global_test_eop();
+        let (epoch, state) = event_variational_initial_conditions();
+
+        let mut prop = create_event_variational_propagator(epoch, state.clone(), true, true);
+        let mut event = DTimeEvent::new(epoch + 1000.3, "Event");
+        if with_callback {
+            let action = if terminal {
+                EventAction::Stop
+            } else {
+                EventAction::Continue
+            };
+            event = event.with_callback(Box::new(move |_t, _x, _params| (None, None, action)));
+        } else if terminal {
+            event = event.set_terminal();
+        }
+        prop.add_event_detector(Box::new(event));
+        prop.propagate_to(epoch + 3600.0).unwrap();
+        let epoch_event = prop.event_log()[0].window_open;
+
+        // Reference: propagate to the event epoch with no event detectors
+        let mut reference = create_event_variational_propagator(epoch, state, true, true);
+        reference.propagate_to(epoch_event).unwrap();
+
+        // Every trajectory entry recorded at the event epoch carries the
+        // matrices evaluated at that epoch.
+        let indices = trajectory_indices_at(&prop, epoch_event);
+        assert!(!indices.is_empty());
+        for idx in indices {
+            assert_matrix_rel_eq(
+                prop.stm_at_idx(idx).unwrap(),
+                reference.stm().unwrap(),
+                1e-6,
+            );
+            assert_matrix_rel_eq(
+                prop.sensitivity_at_idx(idx).unwrap(),
+                reference.sensitivity().unwrap(),
+                1e-4,
+            );
+            assert_matrix_rel_eq(
+                &prop.trajectory().covariances.as_ref().unwrap()[idx],
+                reference.current_covariance().unwrap(),
+                1e-6,
+            );
+        }
     }
 
     #[test]

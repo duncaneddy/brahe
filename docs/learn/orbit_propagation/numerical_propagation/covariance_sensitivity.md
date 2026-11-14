@@ -307,7 +307,7 @@ The following plot shows how position sensitivity to each parameter evolves over
 
 ## Variational Matrices at Events
 
-The STM, sensitivity matrix, and covariance are evaluated at the event epoch whenever [event detection](event_detection.md) stops or restarts integration. After a terminal event, `stm()`, `sensitivity()`, and the covariance describe the same epoch as `current_state()`, and propagation resumed with `reset_termination()` continues from that epoch.
+The STM, sensitivity matrix, and covariance are evaluated at the event epoch whenever [event detection](event_detection.md) stops or restarts integration. After a terminal event, `stm()`, `sensitivity()`, and the covariance describe the same epoch as `current_state()`, and propagation resumed with `reset_termination()` continues from that epoch. Trajectory entries recorded at an event epoch store the matrices evaluated at that epoch when history storage is enabled.
 
 An [event callback](event_callbacks.md) restarts integration from the event epoch. The STM and sensitivity matrix carry across the restart unchanged, which treats any state change made by the callback as independent of the pre-event state. This is exact for an impulsive maneuver with a fixed $\Delta v$ applied at a fixed time $t_e$, where $\Phi(t, t_0) = \Phi(t, t_e)\,\Phi(t_e, t_0)$. A state change that depends on the pre-event state, or an event time that depends on the state, adds terms to the true STM that are not included.
 

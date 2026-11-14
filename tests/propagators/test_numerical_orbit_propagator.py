@@ -1126,6 +1126,43 @@ def test_numericalorbitpropagator_multiple_events_in_step_refined_independently(
         assert position_error < 1e-2, f"{event.name}: {position_error} m"
 
 
+@pytest.mark.parametrize(
+    "with_callback,terminal",
+    [(False, False), (True, False), (False, True), (True, True)],
+    ids=["no_callback", "callback", "terminal", "terminal_callback"],
+)
+def test_numericalorbitpropagator_event_trajectory_entries_store_variational(
+    with_callback, terminal
+):
+    """Trajectory entries at an event epoch store its matrices (mirrors Rust test)"""
+    epoch, state = event_variational_initial_conditions()
+
+    prop = create_event_variational_propagator(epoch, state, True, True)
+    event = TimeEvent(epoch + 1000.3, "Event")
+    if with_callback:
+        action = EventAction.STOP if terminal else EventAction.CONTINUE
+        event = event.with_callback(lambda _epoch, _state: (None, action))
+    elif terminal:
+        event = event.set_terminal()
+    prop.add_event_detector(event)
+    prop.propagate_to(epoch + 3600.0)
+    epoch_event = prop.event_log()[0].window_open
+
+    # Reference: propagate to the event epoch with no event detectors
+    reference = create_event_variational_propagator(epoch, state, True, True)
+    reference.propagate_to(epoch_event)
+
+    assert_matrix_rel_eq(prop.stm_at(epoch_event), reference.stm(), 1e-6)
+    assert_matrix_rel_eq(
+        prop.sensitivity_at(epoch_event), reference.sensitivity(), 1e-4
+    )
+    assert_matrix_rel_eq(
+        prop.covariance(epoch_event),
+        reference.covariance(reference.current_epoch()),
+        1e-6,
+    )
+
+
 def test_numericalorbitpropagator_event_detection_multiple_no_callbacks():
     """Test multiple events without callbacks (mirrors Rust test)"""
     from brahe import TimeEvent

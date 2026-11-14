@@ -10,7 +10,7 @@ This module provides:
 - Operator functions for query filters
 
 Example:
-    ```python
+    ```python {.no_run}
     import brahe as bh
     from brahe.spacetrack import operators as op
 

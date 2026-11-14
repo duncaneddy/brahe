@@ -112,8 +112,10 @@ impl PyHorizonsSPKResponse {
 ///     base_url (str, optional): Override the Horizons base URL (for testing).
 ///
 /// Example:
-///     ```python
+///     ```python {.no_run}
 ///     import brahe as bh
+///     t0 = bh.Epoch.from_date(2015, 12, 1, bh.TimeSystem.TDB)
+///     t1 = bh.Epoch.from_date(2016, 3, 1, bh.TimeSystem.TDB)
 ///     client = bh.datasets.horizons.HorizonsClient()
 ///     req = bh.datasets.horizons.HorizonsSPKRequest.for_spkid(20000001, t0, t1)
 ///     resp = client.get_spk(req)

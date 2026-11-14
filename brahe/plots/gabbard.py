@@ -60,8 +60,7 @@ def plot_gabbard_diagram(
         import numpy as np
 
         # Set up EOP
-        eop = bh.FileEOPProvider.from_default_standard(bh.EarthOrientationFileType.STANDARD, True)
-        bh.set_global_eop_provider(eop)
+        bh.initialize_eop()
 
         # Create propagators for debris cloud
         epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)

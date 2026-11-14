@@ -29,7 +29,7 @@ use brahe::datasets::star_catalogs::StarRecord;
 ///     gc_id (str | None): Groombridge Catalogue (GC) identifier
 ///
 /// Example:
-///     ```python
+///     ```python {.no_run}
 ///     import brahe.datasets as datasets
 ///
 ///     fk5 = datasets.star_catalogs.get_fk5()
@@ -144,10 +144,12 @@ impl PyFK5Record {
     ///     tuple[float, float]: Right ascension and declination at `epoch`. Units: (*angle*, *angle*)
     ///
     /// Example:
-    ///     ```python
+    ///     ```python {.no_run}
     ///     import brahe as bh
     ///
-    ///     epc = bh.Epoch.from_datetime(2030, 1, 1, 0, 0, 0.0, 0.0, "UTC")
+    ///     fk5 = bh.datasets.star_catalogs.get_fk5()
+    ///     record = fk5.get_by_id(699)
+    ///     epc = bh.Epoch.from_datetime(2030, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     ra, dec = record.radec_at_epoch(epc, bh.AngleFormat.DEGREES)
     ///     ```
     fn radec_at_epoch(&self, epoch: &PyEpoch, angle_format: &PyAngleFormat) -> (f64, f64) {
@@ -168,7 +170,7 @@ impl PyFK5Record {
 /// filtering. Filter methods return a new ``FK5Catalog`` instance.
 ///
 /// Example:
-///     ```python
+///     ```python {.no_run}
 ///     import brahe.datasets as datasets
 ///
 ///     fk5 = datasets.star_catalogs.get_fk5()
@@ -255,7 +257,10 @@ impl PyFK5Catalog {
     ///     polars.DataFrame: DataFrame with all catalog fields as columns
     ///
     /// Example:
-    ///     ```python
+    ///     ```python {.no_run}
+    ///     import brahe.datasets as datasets
+    ///
+    ///     fk5 = datasets.star_catalogs.get_fk5()
     ///     df = fk5.to_dataframe()
     ///     print(df.head())
     ///     ```
@@ -359,7 +364,7 @@ impl PyFK5Catalog {
 ///     spectral_type (str | None): Spectral type
 ///
 /// Example:
-///     ```python
+///     ```python {.no_run}
 ///     import brahe.datasets as datasets
 ///
 ///     hip = datasets.star_catalogs.get_hipparcos()
@@ -510,10 +515,12 @@ impl PyHipparcosRecord {
     ///     tuple[float, float]: Right ascension and declination at `epoch`. Units: (*angle*, *angle*)
     ///
     /// Example:
-    ///     ```python
+    ///     ```python {.no_run}
     ///     import brahe as bh
     ///
-    ///     epc = bh.Epoch.from_datetime(2030, 1, 1, 0, 0, 0.0, 0.0, "UTC")
+    ///     hip = bh.datasets.star_catalogs.get_hipparcos()
+    ///     record = hip.get_by_id(32349)
+    ///     epc = bh.Epoch.from_datetime(2030, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     ra, dec = record.radec_at_epoch(epc, bh.AngleFormat.DEGREES)
     ///     ```
     fn radec_at_epoch(&self, epoch: &PyEpoch, angle_format: &PyAngleFormat) -> (f64, f64) {
@@ -535,7 +542,7 @@ impl PyHipparcosRecord {
 /// instance.
 ///
 /// Example:
-///     ```python
+///     ```python {.no_run}
 ///     import brahe.datasets as datasets
 ///
 ///     hip = datasets.star_catalogs.get_hipparcos()
@@ -622,7 +629,10 @@ impl PyHipparcosCatalog {
     ///     polars.DataFrame: DataFrame with all catalog fields as columns
     ///
     /// Example:
-    ///     ```python
+    ///     ```python {.no_run}
+    ///     import brahe.datasets as datasets
+    ///
+    ///     hip = datasets.star_catalogs.get_hipparcos()
     ///     df = hip.to_dataframe()
     ///     print(df.head())
     ///     ```
@@ -744,7 +754,7 @@ impl PyHipparcosCatalog {
 ///     dec_observed (float): Observed declination, epoch ~1991.5. Always present. Units: *deg*
 ///
 /// Example:
-///     ```python
+///     ```python {.no_run}
 ///     import brahe.datasets as datasets
 ///
 ///     tyc = datasets.star_catalogs.get_tycho2()
@@ -866,10 +876,12 @@ impl PyTycho2Record {
     ///     tuple[float, float]: Right ascension and declination at `epoch`. Units: (*angle*, *angle*)
     ///
     /// Example:
-    ///     ```python
+    ///     ```python {.no_run}
     ///     import brahe as bh
     ///
-    ///     epc = bh.Epoch.from_datetime(2030, 1, 1, 0, 0, 0.0, 0.0, "UTC")
+    ///     tyc = bh.datasets.star_catalogs.get_tycho2()
+    ///     record = tyc.get_by_id(1, 8, 1)
+    ///     epc = bh.Epoch.from_datetime(2030, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     ra, dec = record.radec_at_epoch(epc, bh.AngleFormat.DEGREES)
     ///     ```
     fn radec_at_epoch(&self, epoch: &PyEpoch, angle_format: &PyAngleFormat) -> (f64, f64) {
@@ -891,7 +903,7 @@ impl PyTycho2Record {
 /// instance.
 ///
 /// Example:
-///     ```python
+///     ```python {.no_run}
 ///     import brahe.datasets as datasets
 ///
 ///     tyc = datasets.star_catalogs.get_tycho2()
@@ -979,7 +991,10 @@ impl PyTycho2Catalog {
     ///     polars.DataFrame: DataFrame with all catalog fields as columns
     ///
     /// Example:
-    ///     ```python
+    ///     ```python {.no_run}
+    ///     import brahe.datasets as datasets
+    ///
+    ///     tyc = datasets.star_catalogs.get_tycho2()
     ///     df = tyc.to_dataframe()
     ///     print(df.head())
     ///     ```
@@ -1086,7 +1101,7 @@ impl PyTycho2Catalog {
 ///     BraheError: If download or parsing fails.
 ///
 /// Example:
-///     ```python
+///     ```python {.no_run}
 ///     import brahe.datasets as datasets
 ///
 ///     fk5 = datasets.star_catalogs.get_fk5()
@@ -1119,7 +1134,7 @@ fn py_star_catalogs_get_fk5(py: Python<'_>, cache_max_age: Option<f64>) -> PyRes
 ///     BraheError: If download or parsing fails.
 ///
 /// Example:
-///     ```python
+///     ```python {.no_run}
 ///     import brahe.datasets as datasets
 ///
 ///     hip = datasets.star_catalogs.get_hipparcos()
@@ -1160,7 +1175,7 @@ fn py_star_catalogs_get_hipparcos(
 ///     BraheError: If download or parsing fails.
 ///
 /// Example:
-///     ```python
+///     ```python {.no_run}
 ///     import brahe.datasets as datasets
 ///
 ///     tyc = datasets.star_catalogs.get_tycho2()

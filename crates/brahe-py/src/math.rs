@@ -159,12 +159,16 @@ fn py_is_symmetric<'py>(m: PyReadonlyArray2<'py, f64>, rtol: f64) -> bool {
 /// Example:
 ///     ```python
 ///     import brahe as bh
+///     import numpy as np
+///
+///     def dynamics_fn(t, state):
+///         return np.array([state[1], -state[0]])
 ///
 ///     # Use central differences (most accurate)
 ///     jacobian = bh.NumericalJacobian.central(dynamics_fn)
 ///
 ///     # Or explicitly set the method
-///     jacobian = bh.NumericalJacobian.new(dynamics_fn).with_method(bh.DifferenceMethod.CENTRAL)
+///     jacobian = bh.NumericalJacobian(dynamics_fn).with_method(bh.DifferenceMethod.CENTRAL)
 ///     ```
 #[pyclass(module = "brahe._brahe", from_py_object)]
 #[pyo3(name = "DifferenceMethod")]
@@ -237,15 +241,19 @@ impl PyDifferenceMethod {
 /// Example:
 ///     ```python
 ///     import brahe as bh
+///     import numpy as np
+///
+///     def dynamics_fn(t, state):
+///         return np.array([state[1], -state[0]])
 ///
 ///     # Adaptive perturbation (recommended for most cases)
-///     jacobian = bh.NumericalJacobian.new(dynamics_fn).with_adaptive(1.0, 1.0)
+///     jacobian = bh.NumericalJacobian(dynamics_fn).with_adaptive(1.0, 1.0)
 ///
 ///     # Fixed absolute perturbation for all components
-///     jacobian = bh.NumericalJacobian.new(dynamics_fn).with_fixed_offset(1e-6)
+///     jacobian = bh.NumericalJacobian(dynamics_fn).with_fixed_offset(1e-6)
 ///
 ///     # Percentage-based perturbation
-///     jacobian = bh.NumericalJacobian.new(dynamics_fn).with_percentage(1e-6)
+///     jacobian = bh.NumericalJacobian(dynamics_fn).with_percentage(1e-6)
 ///     ```
 #[pyclass(module = "brahe._brahe", from_py_object)]
 #[pyo3(name = "PerturbationStrategy")]
@@ -343,7 +351,7 @@ impl PyPerturbationStrategy {
 ///         return np.array([state[1], -state[0]])
 ///
 ///     # Default: central differences with adaptive perturbations
-///     jacobian = bh.NumericalJacobian.new(dynamics)
+///     jacobian = bh.NumericalJacobian(dynamics)
 ///
 ///     # Or with custom settings:
 ///     jacobian = bh.NumericalJacobian.forward(dynamics).with_fixed_offset(1e-6)
@@ -381,7 +389,7 @@ impl PyDNumericalJacobian {
     ///     def dynamics(t, state):
     ///         return np.array([state[1], -state[0]])
     ///
-    ///     jacobian = bh.NumericalJacobian.new(dynamics)
+    ///     jacobian = bh.NumericalJacobian(dynamics)
     ///     ```
     #[new]
     pub fn new(dynamics_fn: Py<PyAny>) -> Self {
@@ -521,7 +529,7 @@ impl PyDNumericalJacobian {
     ///     def dynamics(t, state):
     ///         return np.array([state[1], -state[0]])
     ///
-    ///     jacobian = bh.NumericalJacobian.new(dynamics)
+    ///     jacobian = bh.NumericalJacobian(dynamics)
     ///     state = np.array([1.0, 0.5])
     ///     jac = jacobian.compute(0.0, state)
     ///     # Expected: [[0, 1], [-1, 0]] approximately
@@ -631,7 +639,7 @@ impl PyDNumericalJacobian {
 ///     def jacobian_fn(t, state):
 ///         return np.array([[0.0, 1.0], [-1.0, 0.0]])
 ///
-///     jacobian = bh.AnalyticJacobian.new(jacobian_fn)
+///     jacobian = bh.AnalyticJacobian(jacobian_fn)
 ///     state = np.array([1.0, 0.0])
 ///     jac = jacobian.compute(0.0, state)
 ///     print(jac)  # [[0, 1], [-1, 0]]
@@ -663,7 +671,7 @@ impl PyDAnalyticJacobian {
     ///         # For harmonic oscillator
     ///         return np.array([[0.0, 1.0], [-1.0, 0.0]])
     ///
-    ///     jacobian = bh.AnalyticJacobian.new(jacobian_fn)
+    ///     jacobian = bh.AnalyticJacobian(jacobian_fn)
     ///     ```
     #[new]
     pub fn new(jacobian_fn: Py<PyAny>) -> Self {
@@ -687,7 +695,7 @@ impl PyDAnalyticJacobian {
     ///     def jacobian_fn(t, state):
     ///         return np.array([[0.0, 1.0], [-1.0, 0.0]])
     ///
-    ///     jacobian = bh.AnalyticJacobian.new(jacobian_fn)
+    ///     jacobian = bh.AnalyticJacobian(jacobian_fn)
     ///     state = np.array([1.0, 0.5])
     ///     jac = jacobian.compute(0.0, state)
     ///     ```
@@ -734,8 +742,10 @@ use brahe::math::sensitivity;
 ///     # Dynamics with consider parameters
 ///     def dynamics(t, state, params):
 ///         cd_area_m = params[0]
-///         # ... compute derivatives using cd_area_m
-///         return np.array([...])
+///         r, v = state[:3], state[3:]
+///         a_grav = -bh.GM_EARTH * r / np.linalg.norm(r) ** 3
+///         a_drag = -0.5 * 1e-12 * cd_area_m * np.linalg.norm(v) * v
+///         return np.concatenate((v, a_grav + a_drag))
 ///
 ///     sensitivity = bh.NumericalSensitivity(dynamics)
 ///     state = np.array([7000e3, 0, 0, 0, 7.5e3, 0])

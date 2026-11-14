@@ -31,7 +31,7 @@
 ///
 ///     # You can also override with environment variable
 ///     import os
-///     os.environ['BRAHE_CACHE'] = '/custom/cache/path'
+///     os.environ['BRAHE_CACHE'] = os.path.abspath('custom_cache')
 ///     cache_dir = bh.get_brahe_cache_dir()
 ///     ```
 ///

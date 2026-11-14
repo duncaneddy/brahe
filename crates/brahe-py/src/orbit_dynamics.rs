@@ -685,7 +685,7 @@ fn py_mars_state_spice<'py>(
 ///     Exception: If the DE kernel cannot be loaded or ephemeris query fails
 ///
 /// Example:
-///     ```python
+///     ```python {.no_run}
 ///     import brahe as bh
 ///
 ///     # Optional: Pre-initialize for better error handling
@@ -727,7 +727,7 @@ fn py_jupiter_position_spice<'py>(
 ///     Exception: If the DE kernel cannot be loaded or ephemeris query fails
 ///
 /// Example:
-///     ```python
+///     ```python {.no_run}
 ///     import brahe as bh
 ///
 ///     epc = bh.Epoch.from_date(2024, 2, 25, bh.TimeSystem.UTC)
@@ -766,7 +766,7 @@ fn py_jupiter_velocity_spice<'py>(
 ///     Exception: If the DE kernel cannot be loaded or ephemeris query fails
 ///
 /// Example:
-///     ```python
+///     ```python {.no_run}
 ///     import brahe as bh
 ///
 ///     epc = bh.Epoch.from_date(2024, 2, 25, bh.TimeSystem.UTC)
@@ -810,7 +810,7 @@ fn py_jupiter_state_spice<'py>(
 ///     Exception: If the DE kernel cannot be loaded or ephemeris query fails
 ///
 /// Example:
-///     ```python
+///     ```python {.no_run}
 ///     import brahe as bh
 ///
 ///     # Optional: Pre-initialize for better error handling
@@ -852,7 +852,7 @@ fn py_saturn_position_spice<'py>(
 ///     Exception: If the DE kernel cannot be loaded or ephemeris query fails
 ///
 /// Example:
-///     ```python
+///     ```python {.no_run}
 ///     import brahe as bh
 ///
 ///     epc = bh.Epoch.from_date(2024, 2, 25, bh.TimeSystem.UTC)
@@ -891,7 +891,7 @@ fn py_saturn_velocity_spice<'py>(
 ///     Exception: If the DE kernel cannot be loaded or ephemeris query fails
 ///
 /// Example:
-///     ```python
+///     ```python {.no_run}
 ///     import brahe as bh
 ///
 ///     epc = bh.Epoch.from_date(2024, 2, 25, bh.TimeSystem.UTC)
@@ -935,7 +935,7 @@ fn py_saturn_state_spice<'py>(
 ///     Exception: If the DE kernel cannot be loaded or ephemeris query fails
 ///
 /// Example:
-///     ```python
+///     ```python {.no_run}
 ///     import brahe as bh
 ///
 ///     # Optional: Pre-initialize for better error handling
@@ -977,7 +977,7 @@ fn py_uranus_position_spice<'py>(
 ///     Exception: If the DE kernel cannot be loaded or ephemeris query fails
 ///
 /// Example:
-///     ```python
+///     ```python {.no_run}
 ///     import brahe as bh
 ///
 ///     epc = bh.Epoch.from_date(2024, 2, 25, bh.TimeSystem.UTC)
@@ -1016,7 +1016,7 @@ fn py_uranus_velocity_spice<'py>(
 ///     Exception: If the DE kernel cannot be loaded or ephemeris query fails
 ///
 /// Example:
-///     ```python
+///     ```python {.no_run}
 ///     import brahe as bh
 ///
 ///     epc = bh.Epoch.from_date(2024, 2, 25, bh.TimeSystem.UTC)
@@ -1060,7 +1060,7 @@ fn py_uranus_state_spice<'py>(
 ///     Exception: If the DE kernel cannot be loaded or ephemeris query fails
 ///
 /// Example:
-///     ```python
+///     ```python {.no_run}
 ///     import brahe as bh
 ///
 ///     # Optional: Pre-initialize for better error handling
@@ -1102,7 +1102,7 @@ fn py_neptune_position_spice<'py>(
 ///     Exception: If the DE kernel cannot be loaded or ephemeris query fails
 ///
 /// Example:
-///     ```python
+///     ```python {.no_run}
 ///     import brahe as bh
 ///
 ///     epc = bh.Epoch.from_date(2024, 2, 25, bh.TimeSystem.UTC)
@@ -1141,7 +1141,7 @@ fn py_neptune_velocity_spice<'py>(
 ///     Exception: If the DE kernel cannot be loaded or ephemeris query fails
 ///
 /// Example:
-///     ```python
+///     ```python {.no_run}
 ///     import brahe as bh
 ///
 ///     epc = bh.Epoch.from_date(2024, 2, 25, bh.TimeSystem.UTC)
@@ -2672,7 +2672,7 @@ impl PyGravityModelType {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     model_type = bh.GravityModelType.from_file("path/to/custom_model.gfc")
+    ///     model_type = bh.GravityModelType.from_file("data/gravity_models/GGM05S.gfc")
     ///     model = bh.GravityModel.from_model_type(model_type)
     ///     ```
     #[staticmethod]
@@ -2705,7 +2705,7 @@ impl PyGravityModelType {
     ///     GravityModelType: A new GravityModelType referencing the ICGEM model.
     ///
     /// Example:
-    ///     ```python
+    ///     ```python {.no_run}
     ///     import brahe as bh
     ///
     ///     model_type = bh.GravityModelType.icgem("earth", "JGM3")
@@ -3116,7 +3116,7 @@ impl PyGravityModel {
     ///     import brahe as bh
     ///
     ///     # Load custom gravity model from file
-    ///     model = bh.GravityModel.from_file("path/to/model.gfc")
+    ///     model = bh.GravityModel.from_file("data/gravity_models/GGM05S.gfc")
     ///     print(f"Model: {model.model_name}, {model.n_max}x{model.m_max}")
     ///     ```
     #[classmethod]
@@ -3145,7 +3145,7 @@ impl PyGravityModel {
     ///     import brahe as bh
     ///
     ///     model = bh.GravityModel.from_file_with_coefficients(
-    ///         "path/to/model.gfc", bh.GravityModelCoefficients.Both)
+    ///         "data/gravity_models/GGM05S.gfc", bh.GravityModelCoefficients.Both)
     ///     ```
     #[classmethod]
     fn from_file_with_coefficients(
@@ -3187,7 +3187,7 @@ impl PyGravityModel {
     ///     model_hifi = bh.GravityModel.from_model_type(bh.GravityModelType.EGM2008_120)
     ///
     ///     # Load from custom file
-    ///     custom_type = bh.GravityModelType.from_file("/path/to/model.gfc")
+    ///     custom_type = bh.GravityModelType.from_file("data/gravity_models/GGM05S.gfc")
     ///     model_custom = bh.GravityModel.from_model_type(custom_type)
     ///     ```
     #[classmethod]

@@ -2779,6 +2779,7 @@ impl PySP3Satellite {
     /// Example:
     ///     ```python
     ///     import brahe as bh
+    ///     bh.initialize_eop()
     ///
     ///     sat = bh.SP3.from_file("test_assets/sp3/COD0OPSFIN_20243150000_01D_05M_ORB_subset.SP3").satellite("G05")
     ///     trajectory = sat.to_trajectory()

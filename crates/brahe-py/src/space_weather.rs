@@ -672,7 +672,7 @@ impl PyStaticSpaceWeatherProvider {
 ///
 ///     # Create from file
 ///     sw = bh.FileSpaceWeatherProvider.from_file(
-///         "./sw_data/sw19571001.txt",
+///         "data/space_weather/sw19571001.txt",
 ///         extrapolate="Hold"
 ///     )
 ///
@@ -736,7 +736,7 @@ impl PyFileSpaceWeatherProvider {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     sw = bh.FileSpaceWeatherProvider.from_file("./sw19571001.txt", "Hold")
+    ///     sw = bh.FileSpaceWeatherProvider.from_file("data/space_weather/sw19571001.txt", "Hold")
     ///     bh.set_global_space_weather_provider(sw)
     ///     ```
     #[classmethod]

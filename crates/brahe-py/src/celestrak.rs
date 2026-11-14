@@ -678,7 +678,7 @@ impl PyCelestrakQuery {
     ///     from brahe.spacetrack import operators as op
     ///
     ///     query = (
-    ///         bh.celestrak.CelestrakQuery.gp()
+    ///         bh.celestrak.CelestrakQuery.gp
     ///         .group("active")
     ///         .filter("OBJECT_TYPE", op.not_equal("DEBRIS"))
     ///         .filter("INCLINATION", op.greater_than("50"))
@@ -767,7 +767,7 @@ impl PyCelestrakQuery {
 ///     orbit_type (str | None): Orbit type
 ///
 /// Example:
-///     ```python
+///     ```python {.no_run}
 ///     import brahe as bh
 ///
 ///     client = bh.celestrak.CelestrakClient()
@@ -846,8 +846,9 @@ impl PyCelestrakSATCATRecord {
 ///     max_retries (int, optional): Maximum retries for transient HTTP errors. Default: 3.
 ///
 /// Example:
-///     ```python
+///     ```python {.no_run}
 ///     import brahe as bh
+///     bh.initialize_eop()
 ///
 ///     client = bh.celestrak.CelestrakClient()
 ///
@@ -924,12 +925,12 @@ impl PyCelestrakClient {
     ///     BraheError: On network, cache, or parse errors.
     ///
     /// Example:
-    ///     ```python
+    ///     ```python {.no_run}
     ///     import brahe as bh
     ///
     ///     client = bh.celestrak.CelestrakClient()
     ///     records = client.get_gp(catnr=25544)
-    ///     records = client.get_gp(group="stations")
+    ///     records = client.get_gp(group="gps-ops")
     ///     records = client.get_gp(name="ISS")
     ///     records = client.get_gp(intdes="1998-067A")
     ///     ```
@@ -988,7 +989,7 @@ impl PyCelestrakClient {
     ///     BraheError: On network, cache, or parse errors.
     ///
     /// Example:
-    ///     ```python
+    ///     ```python {.no_run}
     ///     import brahe as bh
     ///
     ///     client = bh.celestrak.CelestrakClient()
@@ -1024,7 +1025,7 @@ impl PyCelestrakClient {
     ///     BraheError: On network, cache, or parse errors.
     ///
     /// Example:
-    ///     ```python
+    ///     ```python {.no_run}
     ///     import brahe as bh
     ///
     ///     client = bh.celestrak.CelestrakClient()
@@ -1087,8 +1088,9 @@ impl PyCelestrakClient {
     ///     BraheError: If no records found or propagator creation fails.
     ///
     /// Example:
-    ///     ```python
+    ///     ```python {.no_run}
     ///     import brahe as bh
+    ///     bh.initialize_eop()
     ///
     ///     client = bh.celestrak.CelestrakClient()
     ///     propagator = client.get_sgp_propagator(catnr=25544, step_size=60.0)
@@ -1129,7 +1131,7 @@ impl PyCelestrakClient {
     ///     BraheError: On network, cache, or parse errors.
     ///
     /// Example:
-    ///     ```python
+    ///     ```python {.no_run}
     ///     import brahe as bh
     ///
     ///     client = bh.celestrak.CelestrakClient()
@@ -1196,7 +1198,7 @@ impl PyCelestrakClient {
     ///     BraheError: On network or cache errors.
     ///
     /// Example:
-    ///     ```python
+    ///     ```python {.no_run}
     ///     import brahe as bh
     ///
     ///     client = bh.celestrak.CelestrakClient()
@@ -1223,7 +1225,7 @@ impl PyCelestrakClient {
     ///     BraheError: On network, cache, or I/O errors.
     ///
     /// Example:
-    ///     ```python
+    ///     ```python {.no_run}
     ///     import brahe as bh
     ///
     ///     client = bh.celestrak.CelestrakClient()

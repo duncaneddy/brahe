@@ -19,9 +19,10 @@
 /// Example:
 ///     ```python
 ///     import brahe as bh
+///     bh.initialize_eop()
 ///
 ///     # ISS TLE data (example)
-///     line1 = "1 25544U 98067A   24001.50000000  .00016717  00000-0  30000-3 0  9005"
+///     line1 = "1 25544U 98067A   24001.50000000  .00016717  00000-0  30000-3 0  9002"
 ///     line2 = "2 25544  51.6400 150.0000 0003000 100.0000 260.0000 15.50000000300000"
 ///
 ///     # Create propagator
@@ -136,6 +137,7 @@ impl PySGPPropagator {
     /// Example:
     ///     ```python
     ///     import brahe as bh
+    ///     bh.initialize_eop()
     ///
     ///     # ISS OMM data
     ///     epoch = bh.Epoch.from_datetime(2025, 11, 29, 20, 1, 44.058144, 0.0, bh.TimeSystem.UTC)
@@ -315,10 +317,11 @@ impl PySGPPropagator {
     /// Example:
     ///     ```python
     ///     import brahe as bh
+    ///     bh.initialize_eop()
     ///
     ///     name = "ISS (ZARYA)"
-    ///     line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9990"
-    ///     line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267689"
+    ///     line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9991"
+    ///     line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267680"
     ///     propagator = bh.SGPPropagator.from_3le(name, line1, line2)
     ///     print(f"Satellite: {propagator.satellite_name}")
     ///     ```
@@ -335,9 +338,10 @@ impl PySGPPropagator {
     /// Example:
     ///     ```python
     ///     import brahe as bh
+    ///     bh.initialize_eop()
     ///
-    ///     line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9990"
-    ///     line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267689"
+    ///     line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9991"
+    ///     line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267680"
     ///     propagator = bh.SGPPropagator.from_tle(line1, line2)
     ///     print(propagator.line1)
     ///     ```
@@ -354,9 +358,10 @@ impl PySGPPropagator {
     /// Example:
     ///     ```python
     ///     import brahe as bh
+    ///     bh.initialize_eop()
     ///
-    ///     line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9990"
-    ///     line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267689"
+    ///     line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9991"
+    ///     line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267680"
     ///     propagator = bh.SGPPropagator.from_tle(line1, line2)
     ///     print(propagator.line2)
     ///     ```
@@ -384,9 +389,10 @@ impl PySGPPropagator {
     /// Example:
     ///     ```python
     ///     import brahe as bh
+    ///     bh.initialize_eop()
     ///
-    ///     line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9990"
-    ///     line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267689"
+    ///     line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9991"
+    ///     line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267680"
     ///     propagator = bh.SGPPropagator.from_tle(line1, line2)
     ///     propagator.step()
     ///     print(f"Current epoch: {propagator.current_epoch()}")
@@ -406,9 +412,10 @@ impl PySGPPropagator {
     /// Example:
     ///     ```python
     ///     import brahe as bh
+    ///     bh.initialize_eop()
     ///
-    ///     line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9990"
-    ///     line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267689"
+    ///     line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9991"
+    ///     line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267680"
     ///     propagator = bh.SGPPropagator.from_tle(line1, line2)
     ///     print(f"Step size: {propagator.step_size} seconds")
     ///     ```
@@ -434,9 +441,10 @@ impl PySGPPropagator {
     /// Example:
     ///     ```python
     ///     import brahe as bh
+    ///     bh.initialize_eop()
     ///
-    ///     line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9990"
-    ///     line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267689"
+    ///     line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9991"
+    ///     line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267680"
     ///     propagator = bh.SGPPropagator.from_tle(line1, line2)
     ///     propagator.set_step_size(120.0)  # Can use explicit method
     ///     # or propagator.step_size = 120.0  # Can use property
@@ -875,9 +883,10 @@ impl PySGPPropagator {
     /// Example:
     ///     ```python
     ///     import brahe as bh
+    ///     bh.initialize_eop()
     ///
-    ///     line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9990"
-    ///     line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267689"
+    ///     line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9991"
+    ///     line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267680"
     ///     prop = bh.SGPPropagator.from_tle(line1, line2)
     ///     prop.step()  # Advance by default step_size
     ///     print(f"Advanced to: {prop.current_epoch()}")
@@ -898,9 +907,10 @@ impl PySGPPropagator {
     /// Example:
     ///     ```python
     ///     import brahe as bh
+    ///     bh.initialize_eop()
     ///
-    ///     line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9990"
-    ///     line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267689"
+    ///     line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9991"
+    ///     line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267680"
     ///     prop = bh.SGPPropagator.from_tle(line1, line2)
     ///     prop.step_by(120.0)  # Advance by 2 minutes
     ///     print(f"Advanced to: {prop.current_epoch()}")
@@ -921,9 +931,10 @@ impl PySGPPropagator {
     /// Example:
     ///     ```python
     ///     import brahe as bh
+    ///     bh.initialize_eop()
     ///
-    ///     line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9990"
-    ///     line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267689"
+    ///     line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9991"
+    ///     line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267680"
     ///     prop = bh.SGPPropagator.from_tle(line1, line2)
     ///     target = prop.epoch + 3600.0  # 1 hour later
     ///     prop.step_past(target)
@@ -945,9 +956,10 @@ impl PySGPPropagator {
     /// Example:
     ///     ```python
     ///     import brahe as bh
+    ///     bh.initialize_eop()
     ///
-    ///     line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9990"
-    ///     line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267689"
+    ///     line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9991"
+    ///     line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267680"
     ///     prop = bh.SGPPropagator.from_tle(line1, line2, step_size=60.0)
     ///     prop.propagate_steps(10)  # Advance by 10 steps (600 seconds)
     ///     print(f"After 10 steps: {prop.current_epoch()}")
@@ -968,9 +980,10 @@ impl PySGPPropagator {
     /// Example:
     ///     ```python
     ///     import brahe as bh
+    ///     bh.initialize_eop()
     ///
-    ///     line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9990"
-    ///     line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267689"
+    ///     line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9991"
+    ///     line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267680"
     ///     prop = bh.SGPPropagator.from_tle(line1, line2)
     ///     target = prop.epoch + 7200.0  # 2 hours later
     ///     prop.propagate_to(target)
@@ -989,9 +1002,10 @@ impl PySGPPropagator {
     /// Example:
     ///     ```python
     ///     import brahe as bh
+    ///     bh.initialize_eop()
     ///
-    ///     line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9990"
-    ///     line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267689"
+    ///     line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9991"
+    ///     line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267680"
     ///     prop = bh.SGPPropagator.from_tle(line1, line2)
     ///     initial_epoch = prop.epoch
     ///     prop.propagate_steps(100)
@@ -1015,9 +1029,10 @@ impl PySGPPropagator {
     /// Example:
     ///     ```python
     ///     import brahe as bh
+    ///     bh.initialize_eop()
     ///
-    ///     line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9990"
-    ///     line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267689"
+    ///     line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9991"
+    ///     line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267680"
     ///     prop = bh.SGPPropagator.from_tle(line1, line2)
     ///     prop.set_trajectory_mode(bh.TrajectoryMode.DISABLED)
     ///     ```
@@ -1034,9 +1049,10 @@ impl PySGPPropagator {
     /// Example:
     ///     ```python
     ///     import brahe as bh
+    ///     bh.initialize_eop()
     ///
-    ///     line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9990"
-    ///     line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267689"
+    ///     line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9991"
+    ///     line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267680"
     ///     prop = bh.SGPPropagator.from_tle(line1, line2)
     ///     mode = prop.trajectory_mode
     ///     ```
@@ -1055,9 +1071,10 @@ impl PySGPPropagator {
     /// Example:
     ///     ```python
     ///     import brahe as bh
+    ///     bh.initialize_eop()
     ///
-    ///     line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9990"
-    ///     line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267689"
+    ///     line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9991"
+    ///     line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267680"
     ///     prop = bh.SGPPropagator.from_tle(line1, line2)
     ///     prop.set_eviction_policy_max_size(1000)
     ///     print("Trajectory limited to 1000 states")
@@ -1077,9 +1094,10 @@ impl PySGPPropagator {
     /// Example:
     ///     ```python
     ///     import brahe as bh
+    ///     bh.initialize_eop()
     ///
-    ///     line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9990"
-    ///     line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267689"
+    ///     line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9991"
+    ///     line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267680"
     ///     prop = bh.SGPPropagator.from_tle(line1, line2)
     ///     prop.set_eviction_policy_max_age(86400.0)  # Keep 1 day of history
     ///     print("Trajectory limited to 24 hours of states")
@@ -1099,9 +1117,10 @@ impl PySGPPropagator {
     /// Example:
     ///     ```python
     ///     import brahe as bh
+    ///     bh.initialize_eop()
     ///
-    ///     line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9990"
-    ///     line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267689"
+    ///     line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9991"
+    ///     line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267680"
     ///     prop = bh.SGPPropagator.from_tle(line1, line2)
     ///     prop.propagate_steps(100)
     ///     traj = prop.trajectory
@@ -1134,6 +1153,7 @@ impl PySGPPropagator {
     /// Example:
     ///     ```python
     ///     import brahe as bh
+    ///     bh.initialize_eop()
     ///
     ///     line1 = "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927"
     ///     line2 = "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537"
@@ -1167,6 +1187,7 @@ impl PySGPPropagator {
     /// Example:
     ///     ```python
     ///     import brahe as bh
+    ///     bh.initialize_eop()
     ///
     ///     line1 = "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927"
     ///     line2 = "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537"
@@ -1188,6 +1209,7 @@ impl PySGPPropagator {
     /// Example:
     ///     ```python
     ///     import brahe as bh
+    ///     bh.initialize_eop()
     ///
     ///     line1 = "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927"
     ///     line2 = "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537"
@@ -1209,6 +1231,7 @@ impl PySGPPropagator {
     /// Example:
     ///     ```python
     ///     import brahe as bh
+    ///     bh.initialize_eop()
     ///
     ///     line1 = "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927"
     ///     line2 = "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537"
@@ -1230,6 +1253,7 @@ impl PySGPPropagator {
     /// Example:
     ///     ```python
     ///     import brahe as bh
+    ///     bh.initialize_eop()
     ///
     ///     line1 = "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927"
     ///     line2 = "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537"
@@ -1251,6 +1275,7 @@ impl PySGPPropagator {
     /// Example:
     ///     ```python
     ///     import brahe as bh
+    ///     bh.initialize_eop()
     ///
     ///     line1 = "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927"
     ///     line2 = "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537"
@@ -1272,6 +1297,7 @@ impl PySGPPropagator {
     /// Example:
     ///     ```python
     ///     import brahe as bh
+    ///     bh.initialize_eop()
     ///
     ///     line1 = "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927"
     ///     line2 = "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537"
@@ -1293,6 +1319,7 @@ impl PySGPPropagator {
     /// Example:
     ///     ```python
     ///     import brahe as bh
+    ///     bh.initialize_eop()
     ///
     ///     line1 = "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927"
     ///     line2 = "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537"
@@ -1319,11 +1346,12 @@ impl PySGPPropagator {
     /// Example:
     ///     ```python
     ///     import brahe as bh
+    ///     bh.initialize_eop()
     ///
-    ///     line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9990"
-    ///     line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267689"
+    ///     line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9991"
+    ///     line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267680"
     ///     prop = bh.SGPPropagator.from_tle(line1, line2).with_name("My Satellite")
-    ///     print(f"Name: {prop.name}")
+    ///     print(f"Name: {prop.get_name()}")
     ///     ```
     pub fn with_name(mut slf: PyRefMut<'_, Self>, name: String) -> PyRefMut<'_, Self> {
         slf.propagator = slf.propagator.clone().with_name(&name);
@@ -1381,13 +1409,14 @@ impl PySGPPropagator {
     /// Example:
     ///     ```python
     ///     import brahe as bh
+    ///     bh.initialize_eop()
     ///     import uuid
     ///
-    ///     line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9990"
-    ///     line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267689"
+    ///     line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9991"
+    ///     line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267680"
     ///     my_uuid = str(uuid.uuid4())
     ///     prop = bh.SGPPropagator.from_tle(line1, line2).with_identity("ISS", my_uuid, 25544)
-    ///     print(f"Name: {prop.name}, ID: {prop.id}, UUID: {prop.uuid}")
+    ///     print(f"Name: {prop.get_name()}, ID: {prop.get_id()}, UUID: {prop.get_uuid()}")
     ///     ```
     pub fn with_identity(
         mut slf: PyRefMut<'_, Self>,
@@ -1461,9 +1490,10 @@ impl PySGPPropagator {
     /// Example:
     ///     ```python
     ///     import brahe as bh
+    ///     bh.initialize_eop()
     ///
-    ///     line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9990"
-    ///     line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267689"
+    ///     line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9991"
+    ///     line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267680"
     ///     prop = bh.SGPPropagator.from_tle(line1, line2).with_id(25544)
     ///     print(f"ID: {prop.get_id()}")
     ///     ```
@@ -1479,10 +1509,11 @@ impl PySGPPropagator {
     /// Example:
     ///     ```python
     ///     import brahe as bh
+    ///     bh.initialize_eop()
     ///
     ///     name = "ISS (ZARYA)"
-    ///     line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9990"
-    ///     line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267689"
+    ///     line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9991"
+    ///     line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267680"
     ///     prop = bh.SGPPropagator.from_3le(name, line1, line2)
     ///     print(f"Name: {prop.get_name()}")
     ///     ```
@@ -1498,9 +1529,10 @@ impl PySGPPropagator {
     /// Example:
     ///     ```python
     ///     import brahe as bh
+    ///     bh.initialize_eop()
     ///
-    ///     line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9990"
-    ///     line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267689"
+    ///     line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9991"
+    ///     line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267680"
     ///     prop = bh.SGPPropagator.from_tle(line1, line2).with_new_uuid()
     ///     print(f"UUID: {prop.get_uuid()}")
     ///     ```
@@ -1520,6 +1552,7 @@ impl PySGPPropagator {
     /// Example:
     ///     ```python
     ///     import brahe as bh
+    ///     bh.initialize_eop()
     ///
     ///     line1 = "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927"
     ///     line2 = "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537"
@@ -1559,6 +1592,7 @@ impl PySGPPropagator {
     /// Example:
     ///     ```python
     ///     import brahe as bh
+    ///     bh.initialize_eop()
     ///
     ///     line1 = "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927"
     ///     line2 = "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537"
@@ -1603,6 +1637,7 @@ impl PySGPPropagator {
     /// Example:
     ///     ```python
     ///     import brahe as bh
+    ///     bh.initialize_eop()
     ///
     ///     line1 = "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927"
     ///     line2 = "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537"
@@ -1642,6 +1677,7 @@ impl PySGPPropagator {
     /// Example:
     ///     ```python
     ///     import brahe as bh
+    ///     bh.initialize_eop()
     ///
     ///     line1 = "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927"
     ///     line2 = "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537"
@@ -1694,7 +1730,10 @@ impl PySGPPropagator {
     /// Example:
     ///     ```python
     ///     import brahe as bh
+    ///     bh.initialize_eop()
     ///
+    ///     line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9991"
+    ///     line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267680"
     ///     prop = bh.SGPPropagator.from_tle(line1, line2)
     ///
     ///     # Add time event
@@ -1866,7 +1905,10 @@ impl PySGPPropagator {
     /// Example:
     ///     ```python
     ///     import brahe as bh
+    ///     bh.initialize_eop()
     ///
+    ///     line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9991"
+    ///     line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267680"
     ///     prop = bh.SGPPropagator.from_tle(line1, line2)
     ///     event = bh.AscendingNodeEvent("Asc Node")
     ///     prop.add_event_detector(event)
@@ -2265,7 +2307,7 @@ impl PySGPPropagatorBuilder {
 ///     prop2 = bh.KeplerianPropagator(
 ///         epc0, x_cart, bh.CelestialFrame.ECI,
 ///         bh.OrbitRepresentation.CARTESIAN,
-///         bh.AngleFormat.RADIANS, 60.0
+///         None, 60.0
 ///     )
 ///     ```
 #[pyclass(module = "brahe._brahe")]
@@ -2688,7 +2730,7 @@ impl PyKeplerianPropagator {
     ///     new_oe = np.array([bh.R_EARTH + 800e3, 0.02, 1.2, 0.5, 0.3, 0.0])
     ///     new_state = bh.state_koe_to_eci(new_oe, bh.AngleFormat.RADIANS)
     ///     new_epc = bh.Epoch.from_datetime(2024, 1, 2, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
-    ///     prop.set_initial_conditions(new_epc, new_state, bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, bh.AngleFormat.RADIANS)
+    ///     prop.set_initial_conditions(new_epc, new_state, bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
     ///     print(f"New initial epoch: {prop.initial_epoch}")
     ///     ```
     #[pyo3(signature = (epoch, state, frame, representation, angle_format), text_signature = "(epoch, state, frame, representation, angle_format)")]
@@ -3301,7 +3343,7 @@ impl PyKeplerianPropagator {
     ///     prop = bh.KeplerianPropagator.from_keplerian(
     ///         epc, oe, bh.AngleFormat.RADIANS, 60.0
     ///     ).with_name("My Orbit")
-    ///     print(f"Name: {prop.name}")
+    ///     print(f"Name: {prop.get_name()}")
     ///     ```
     pub fn with_name(mut slf: PyRefMut<'_, Self>, name: String) -> PyRefMut<'_, Self> {
         slf.propagator = slf.propagator.clone().with_name(&name);
@@ -6856,6 +6898,7 @@ fn wrap_state_dynamics(
 ///     import numpy as np
 ///
 ///     bh.initialize_eop()
+///     bh.initialize_sw()
 ///
 ///     # Create initial state (ECI Cartesian)
 ///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
@@ -6907,10 +6950,12 @@ impl PyNumericalOrbitPropagator {
     ///         Must be square with dimension matching the state size.
     ///     additional_dynamics (callable or None): Optional function for extended state dynamics beyond 6D.
     ///                                            Signature: f(t, state, params) -> derivative.
-    ///                                            Should return derivatives for extended state elements only.
+    ///                                            Returns a vector the length of the full state that is added
+    ///                                            to the orbital dynamics; entries for the orbital six are typically zero.
     ///     control_input (callable or None): Optional control input function for continuous control accelerations.
-    ///                                      Signature: f(t, state, params) -> acceleration.
-    ///                                      Should return 3D acceleration vector to add to orbital dynamics.
+    ///                                      Signature: f(t, state, params) -> perturbation.
+    ///                                      Returns a vector the length of the full state that is added to the
+    ///                                      state derivative; accelerations go in entries 3-5.
     ///
     /// Returns:
     ///     NumericalOrbitPropagator: New propagator instance.
@@ -6926,21 +6971,35 @@ impl PyNumericalOrbitPropagator {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     # Extended state with additional dynamics
+    ///     bh.initialize_eop()
+    ///
+    ///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     oe = np.array([bh.R_EARTH + 500e3, 0.01, 97.8, 15.0, 30.0, 45.0])
+    ///     state = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
+    ///
+    ///     # Orbit state plus one extra element that decays exponentially
+    ///     extended_state = np.concatenate([state, [1.0]])
+    ///     prop_config = bh.NumericalPropagationConfig.default()
+    ///     force_config = bh.ForceModelConfig.two_body()
+    ///
+    ///     # Derivative of the full state; only the extended element is non-zero
     ///     def additional_dyn(t, state, params):
-    ///         # state[6:] contains extended state
-    ///         return np.array([state[6] * 0.1])  # Simple decay
+    ///         dx = np.zeros(len(state))
+    ///         dx[6] = -0.1 * state[6]
+    ///         return dx
     ///
     ///     # Control input (thrust acceleration)
     ///     def control(t, state, params):
-    ///         return np.array([0.0, 0.0, 1e-6])  # Small z-acceleration
+    ///         dx = np.zeros(len(state))
+    ///         dx[5] = 1e-6  # Small z-acceleration
+    ///         return dx
     ///
     ///     prop = bh.NumericalOrbitPropagator(
     ///         epoch, extended_state, prop_config, force_config,
-    ///         params=params,
     ///         additional_dynamics=additional_dyn,
     ///         control_input=control
     ///     )
+    ///     prop.propagate_to(epoch + 60.0)
     ///     ```
     #[new]
     #[pyo3(signature = (epoch, state, propagation_config, force_config, params=None, initial_covariance=None, additional_dynamics=None, control_input=None))]
@@ -7928,8 +7987,15 @@ impl PyNumericalOrbitPropagator {
     /// Example:
     ///     ```python
     ///     import brahe as bh
+    ///     import numpy as np
     ///
-    ///     prop = bh.NumericalOrbitPropagator.from_eci(epoch, state)
+    ///     bh.initialize_eop()
+    ///
+    ///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     oe = np.array([bh.R_EARTH + 500e3, 0.01, 97.8, 15.0, 30.0, 45.0])
+    ///     state = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
+    ///
+    ///     prop = bh.NumericalOrbitPropagator.from_eci(epoch, state, force_config=bh.ForceModelConfig.two_body())
     ///     event = bh.TimeEvent(epoch + 1800.0, "30 min mark")
     ///     prop.add_event_detector(event)
     ///     ```
@@ -8156,6 +8222,16 @@ impl PyNumericalOrbitPropagator {
     /// Example:
     ///     ```python
     ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     bh.initialize_eop()
+    ///
+    ///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     oe = np.array([bh.R_EARTH + 500e3, 0.01, 97.8, 15.0, 30.0, 45.0])
+    ///     state = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
+    ///
+    ///     prop = bh.NumericalOrbitPropagator.from_eci(epoch, state, force_config=bh.ForceModelConfig.two_body())
+    ///     prop.add_event_detector(bh.TimeEvent(epoch + 1800.0, "30 min mark"))
     ///
     ///     prop.propagate_to(epoch + 3600.0)
     ///     events = prop.event_log()
@@ -8182,6 +8258,19 @@ impl PyNumericalOrbitPropagator {
     /// Example:
     ///     ```python
     ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     bh.initialize_eop()
+    ///
+    ///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     oe = np.array([bh.R_EARTH + 500e3, 0.01, 97.8, 15.0, 30.0, 45.0])
+    ///     state = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
+    ///
+    ///     prop = bh.NumericalOrbitPropagator.from_eci(epoch, state, force_config=bh.ForceModelConfig.two_body())
+    ///     prop.add_event_detector(bh.TimeEvent(epoch + 1800.0, "30 min mark"))
+    ///     prop.add_event_detector(bh.AltitudeEvent(505e3, "Altitude Event", bh.EventDirection.ANY))
+    ///     prop.propagate_to(epoch + 6000.0)
+    ///     start, end = epoch, epoch + 3600.0
     ///
     ///     # Get events from detector 0 within a time range
     ///     events = prop.query_events() \
@@ -8807,6 +8896,14 @@ impl PyNumericalOrbitPropagatorBuilder {
 ///     import brahe as bh
 ///     import numpy as np
 ///
+///     # Harmonic oscillator: x'' = -x
+///     def dynamics(t, state, params):
+///         return np.array([state[1], -state[0]])
+///
+///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+///     state = np.array([1.0, 0.0])
+///     config = bh.NumericalPropagationConfig.default()
+///
 ///     # Create propagator
 ///     prop = bh.NumericalPropagator(epoch, state, dynamics, config)
 ///
@@ -9347,6 +9444,15 @@ impl PyNumericalPropagator {
     /// Example:
     ///     ```python
     ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     # Harmonic oscillator: x'' = -x
+    ///     def dynamics(t, state, params):
+    ///         return np.array([state[1], -state[0]])
+    ///
+    ///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     state = np.array([1.0, 0.0])
+    ///     config = bh.NumericalPropagationConfig.default()
     ///
     ///     prop = bh.NumericalPropagator(epoch, state, dynamics, config)
     ///     prop.set_trajectory_mode(bh.TrajectoryMode.DISABLED)
@@ -9364,6 +9470,15 @@ impl PyNumericalPropagator {
     /// Example:
     ///     ```python
     ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     # Harmonic oscillator: x'' = -x
+    ///     def dynamics(t, state, params):
+    ///         return np.array([state[1], -state[0]])
+    ///
+    ///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     state = np.array([1.0, 0.0])
+    ///     config = bh.NumericalPropagationConfig.default()
     ///
     ///     prop = bh.NumericalPropagator(epoch, state, dynamics, config)
     ///     mode = prop.trajectory_mode()
@@ -9448,6 +9563,15 @@ impl PyNumericalPropagator {
     /// Example:
     ///     ```python
     ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     # Harmonic oscillator: x'' = -x
+    ///     def dynamics(t, state, params):
+    ///         return np.array([state[1], -state[0]])
+    ///
+    ///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     state = np.array([1.0, 0.0])
+    ///     config = bh.NumericalPropagationConfig.default()
     ///
     ///     prop = bh.NumericalPropagator(epoch, state, dynamics, config)
     ///     event = bh.TimeEvent(epoch + 5.0, "5 second mark")
@@ -9517,6 +9641,21 @@ impl PyNumericalPropagator {
     /// Example:
     ///     ```python
     ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     # Harmonic oscillator: x'' = -x
+    ///     def dynamics(t, state, params):
+    ///         return np.array([state[1], -state[0]])
+    ///
+    ///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     state = np.array([1.0, 0.0])
+    ///     config = bh.NumericalPropagationConfig.default()
+    ///
+    ///     prop = bh.NumericalPropagator(epoch, state, dynamics, config)
+    ///     prop.add_event_detector(bh.TimeEvent(epoch + 5.0, "5 second mark"))
+    ///     prop.add_event_detector(bh.TimeEvent(epoch + 15.0, "15 second mark"))
+    ///     prop.propagate_to(epoch + 20.0)
+    ///     start, end = epoch, epoch + 10.0
     ///
     ///     # Get events from detector 0 within a time range
     ///     events = prop.query_events() \
@@ -9526,7 +9665,7 @@ impl PyNumericalPropagator {
     ///
     ///     # Count events by name pattern
     ///     count = prop.query_events() \
-    ///         .by_name_contains("Altitude") \
+    ///         .by_name_contains("mark") \
     ///         .count()
     ///
     ///     # Combined filters

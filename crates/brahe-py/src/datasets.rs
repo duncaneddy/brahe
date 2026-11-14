@@ -31,10 +31,10 @@
 ///     ksat_stations = bh.datasets.groundstations.load("ksat")
 ///
 ///     for station in ksat_stations:
-///         print(f"{station.name}: ({station.lon():.2f}, {station.lat():.2f})")
+///         print(f"{station.get_name()}: ({station.lon:.2f}, {station.lat:.2f})")
 ///
 ///     # Check properties
-///     props = ksat_stations[0].properties()
+///     props = ksat_stations[0].properties
 ///     print(f"Frequency bands: {props['frequency_bands']}")
 ///     ```
 #[pyfunction]
@@ -69,7 +69,7 @@ fn py_groundstations_load(provider: &str) -> PyResult<Vec<PyPointLocation>> {
 ///     import brahe as bh
 ///
 ///     # Load custom groundstations
-///     stations = bh.datasets.groundstations.load_from_file("my_stations.geojson")
+///     stations = bh.datasets.groundstations.load_from_file("data/groundstations/ksat.json")
 ///     ```
 #[pyfunction]
 #[pyo3(name = "groundstations_load_from_file")]
@@ -161,7 +161,7 @@ fn py_groundstations_list_providers() -> Vec<String> {
 ///     print(f"Kernel cached at: {kernel_path}")
 ///
 ///     # Download and copy to specific location
-///     kernel_path = bh.datasets.naif.download_spice_kernel("de440s", "/path/to/my_kernel.bsp")
+///     kernel_path = bh.datasets.naif.download_spice_kernel("de440s", "my_kernel.bsp")
 ///     print(f"Kernel saved to: {kernel_path}")
 ///     ```
 ///

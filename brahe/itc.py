@@ -12,7 +12,7 @@ Example:
     ```python
     import brahe as bh
 
-    itc = bh.ITC.from_file("MEME_100001_STARLINK-38128_2540142_Operational_1473385380_UNCLASSIFIED.txt")
+    itc = bh.ITC.from_file("test_assets/starlink/MEME_100001_STARLINK-38128_2540142_Operational_1473385380_UNCLASSIFIED.txt")
     print(len(itc), itc.header.state_frame, itc.has_covariance)
     ```
 """

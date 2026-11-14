@@ -12,7 +12,7 @@ This module provides:
 - RateLimitConfig: Per-minute and per-hour request caps for the client
 
 Example:
-    ```python
+    ```python {.no_run}
     import brahe as bh
 
     client = bh.starlink.StarlinkClient()

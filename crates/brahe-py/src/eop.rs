@@ -58,7 +58,7 @@ fn eop_type_to_string(eop_type: eop::EOPType) -> String {
 ///     filepath (str): Path of desired output file
 ///
 /// Example:
-///     ```python
+///     ```python {.no_run}
 ///     import brahe as bh
 ///
 ///     # Download latest C04 EOP data
@@ -82,7 +82,7 @@ fn py_download_c04_eop_file(filepath: &str) -> PyResult<()> {
 ///     filepath (str): Path of desired output file
 ///
 /// Example:
-///     ```python
+///     ```python {.no_run}
 ///     import brahe as bh
 ///
 ///     # Download latest standard EOP data
@@ -459,7 +459,7 @@ impl PyStaticEOPProvider {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     eop = bh.StaticEOPProvider()
+    ///     eop = bh.StaticEOPProvider.from_zero()
     ///     ut1_utc, pm_x, pm_y, dx, dy, lod = eop.get_eop(58849.0)
     ///     print(f"EOP: UT1-UTC={ut1_utc}s, PM=({pm_x},{pm_y})rad")
     ///     ```
@@ -480,14 +480,14 @@ impl PyStaticEOPProvider {
 ///
 ///     # Create from C04 file with interpolation
 ///     eop = bh.FileEOPProvider.from_c04_file(
-///         "./eop_data/finals2000A.all.csv",
+///         "data/eop/EOP_C04_one_file_1962-now.txt",
 ///         interpolate=True,
 ///         extrapolate="Hold"
 ///     )
 ///
 ///     # Create from standard file
 ///     eop = bh.FileEOPProvider.from_standard_file(
-///         "./eop_data/finals.all",
+///         "data/eop/finals.all.iau2000.txt",
 ///         interpolate=True,
 ///         extrapolate="Zero"
 ///     )
@@ -550,7 +550,7 @@ impl PyFileEOPProvider {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     eop = bh.FileEOPProvider.from_c04_file("./eop_data/finals2000A.all.csv", True, "Hold")
+    ///     eop = bh.FileEOPProvider.from_c04_file("data/eop/EOP_C04_one_file_1962-now.txt", True, "Hold")
     ///     bh.set_global_eop_provider_from_file_provider(eop)
     ///     ```
     #[classmethod]
@@ -574,7 +574,7 @@ impl PyFileEOPProvider {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     eop = bh.FileEOPProvider.from_standard_file("./eop_data/standard_eop.txt", True, "Hold")
+    ///     eop = bh.FileEOPProvider.from_standard_file("data/eop/finals.all.iau2000.txt", True, "Hold")
     ///     bh.set_global_eop_provider_from_file_provider(eop)
     ///     ```
     #[classmethod]
@@ -598,7 +598,7 @@ impl PyFileEOPProvider {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     eop = bh.FileEOPProvider.from_file("./eop_data/eop.txt", True, "Hold")
+    ///     eop = bh.FileEOPProvider.from_file("data/eop/finals.all.iau2000.txt", True, "Hold")
     ///     bh.set_global_eop_provider_from_file_provider(eop)
     ///     ```
     #[classmethod]
@@ -1093,9 +1093,9 @@ impl PyCachingEOPProvider {
     ///     bh.set_global_eop_provider_from_caching_provider(provider)
     ///
     ///     # Service runs continuously with always-current EOP data
-    ///     while True:
+    ///     for mjd in [60310.0, 60311.0, 60312.0]:
     ///         # EOP data automatically refreshed if stale
-    ///         perform_calculations()
+    ///         print(bh.get_global_ut1_utc(mjd))
     ///     ```
     #[new]
     #[pyo3(signature = (eop_type, max_age_seconds, auto_refresh, interpolate, extrapolate, filepath=None))]

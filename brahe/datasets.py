@@ -18,7 +18,7 @@ This module provides a source-specific API organized by data provider:
 For CelestrakClient satellite catalog data, use the `brahe.celestrak` module instead.
 
 Example:
-    ```python
+    ```python {.no_run}
     import brahe.datasets as datasets
 
     # Load groundstations

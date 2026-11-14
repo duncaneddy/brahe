@@ -118,7 +118,7 @@ impl PyStarlinkManifestEntry {
 /// Starlink's manifest as a table of entries.
 ///
 /// Example:
-///     ```python
+///     ```python {.no_run}
 ///     import brahe as bh
 ///
 ///     client = bh.StarlinkClient()
@@ -285,7 +285,7 @@ impl PyStarlinkManifest {
     ///     BraheError: If polars is not installed or the DataFrame cannot be built.
     ///
     /// Example:
-    ///     ```python
+    ///     ```python {.no_run}
     ///     import brahe as bh
     ///
     ///     client = bh.StarlinkClient()
@@ -362,7 +362,7 @@ impl PyStarlinkManifest {
 ///     rate_limit (RateLimitConfig, optional): Custom per-minute and per-hour request caps.
 ///
 /// Example:
-///     ```python
+///     ```python {.no_run}
 ///     import brahe as bh
 ///
 ///     client = bh.StarlinkClient()
@@ -455,7 +455,7 @@ impl PyStarlinkClient {
     ///     BraheError: If the cached copy cannot be served under the current mode and no refresh succeeds.
     ///
     /// Example:
-    ///     ```python
+    ///     ```python {.no_run}
     ///     import brahe as bh
     ///
     ///     manifest = bh.StarlinkClient().get_manifest()
@@ -562,7 +562,7 @@ impl PyStarlinkClient {
     ///     BraheError: See ``download_ephemeris``.
     ///
     /// Example:
-    ///     ```python
+    ///     ```python {.no_run}
     ///     import brahe as bh
     ///
     ///     traj = bh.StarlinkClient().get_trajectory(100001)

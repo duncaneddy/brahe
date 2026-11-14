@@ -426,7 +426,9 @@ impl PyAdaptiveStepDResult {
 /// Args:
 ///     dimension (int): State vector dimension
 ///     dynamics_fn (callable): Dynamics function with signature (t: float, state: ndarray) -> ndarray
-///     jacobian (DAnalyticJacobian or DNumericalJacobian, optional): Jacobian provider for variational matrix propagation
+///     jacobian (AnalyticJacobian or NumericalJacobian, optional): Jacobian provider for variational matrix propagation
+///     sensitivity (AnalyticSensitivity or NumericalSensitivity, optional): Sensitivity provider for sensitivity matrix propagation
+///     control_fn (callable, optional): Control input function with signature (t: float, state: ndarray) -> ndarray whose output is added to the dynamics
 ///     config (IntegratorConfig, optional): Integration configuration
 ///
 /// If the dynamics, control, Jacobian, or sensitivity callback raises a Python
@@ -453,7 +455,7 @@ impl PyAdaptiveStepDResult {
 ///     def jacobian_fn(t, state):
 ///         return np.array([[0.0, 1.0], [-1.0, 0.0]])
 ///
-///     jacobian = bh.DAnalyticJacobian(jacobian_fn)
+///     jacobian = bh.AnalyticJacobian(jacobian_fn)
 ///     integrator_varmat = bh.RK4Integrator(2, dynamics, jacobian)
 ///
 ///     phi = np.eye(2)
@@ -655,6 +657,15 @@ impl PyRK4DIntegrator {
     ///
     /// Example:
     ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     def dynamics(t, state):
+    ///         return np.array([state[1], -state[0]])
+    ///
+    ///     integrator = bh.RK4Integrator(2, dynamics)
+    ///     state = np.array([1.0, 0.0])
+    ///
     ///     # Using explicit dt
     ///     new_state = integrator.step(0.0, state, 0.01)
     ///
@@ -695,6 +706,17 @@ impl PyRK4DIntegrator {
     ///
     /// Example:
     ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     def dynamics(t, state):
+    ///         return np.array([state[1], -state[0]])
+    ///
+    ///     jacobian = bh.NumericalJacobian(dynamics)
+    ///     config = bh.IntegratorConfig.fixed_step(0.01)
+    ///     integrator = bh.RK4Integrator(2, dynamics, jacobian, config=config)
+    ///     state = np.array([1.0, 0.0])
+    ///
     ///     phi = np.eye(2)
     ///     # Using explicit dt
     ///     new_state, new_phi = integrator.step_with_varmat(0.0, state, phi, 0.01)
@@ -767,11 +789,23 @@ impl PyRK4DIntegrator {
     ///     import brahe as bh
     ///     import numpy as np
     ///
+    ///     def dynamics(t, state):
+    ///         r = state[:3]
+    ///         return np.concatenate((state[3:], -bh.GM_EARTH * r / np.linalg.norm(r) ** 3))
+    ///
+    ///     def dynamics_with_params(t, state, params):
+    ///         dx = dynamics(t, state)
+    ///         dx[3:5] += params
+    ///         return dx
+    ///
+    ///     jacobian = bh.NumericalJacobian(dynamics)
+    ///     sensitivity = bh.NumericalSensitivity(dynamics_with_params)
+    ///
     ///     # Setup integrator with Jacobian and sensitivity providers
     ///     integrator = bh.RK4Integrator(6, dynamics, jacobian, sensitivity)
-    ///     state = np.array([...])
+    ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7.6e3, 0.0])
     ///     sens = np.zeros((6, 2))  # 6 state dims, 2 params
-    ///     params = np.array([1.0, 2.0])
+    ///     params = np.array([1e-6, 2e-6])
     ///
     ///     new_state, new_sens = integrator.step_with_sensmat(0.0, state, sens, params, 1.0)
     ///     ```
@@ -851,12 +885,24 @@ impl PyRK4DIntegrator {
     ///     import brahe as bh
     ///     import numpy as np
     ///
+    ///     def dynamics(t, state):
+    ///         r = state[:3]
+    ///         return np.concatenate((state[3:], -bh.GM_EARTH * r / np.linalg.norm(r) ** 3))
+    ///
+    ///     def dynamics_with_params(t, state, params):
+    ///         dx = dynamics(t, state)
+    ///         dx[3:5] += params
+    ///         return dx
+    ///
+    ///     jacobian = bh.NumericalJacobian(dynamics)
+    ///     sensitivity = bh.NumericalSensitivity(dynamics_with_params)
+    ///
     ///     # Setup integrator with Jacobian and sensitivity providers
     ///     integrator = bh.RK4Integrator(6, dynamics, jacobian, sensitivity)
-    ///     state = np.array([...])
+    ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7.6e3, 0.0])
     ///     phi = np.eye(6)
     ///     sens = np.zeros((6, 2))  # 6 state dims, 2 params
-    ///     params = np.array([1.0, 2.0])
+    ///     params = np.array([1e-6, 2e-6])
     ///
     ///     new_state, new_phi, new_sens = integrator.step_with_varmat_sensmat(
     ///         0.0, state, phi, sens, params, 1.0
@@ -967,7 +1013,9 @@ impl PyRK4DIntegrator {
 /// Args:
 ///     dimension (int): State vector dimension
 ///     dynamics_fn (callable): Dynamics function with signature (t: float, state: ndarray) -> ndarray
-///     jacobian (DAnalyticJacobian or DNumericalJacobian, optional): Jacobian provider for variational matrix propagation
+///     jacobian (AnalyticJacobian or NumericalJacobian, optional): Jacobian provider for variational matrix propagation
+///     sensitivity (AnalyticSensitivity or NumericalSensitivity, optional): Sensitivity provider for sensitivity matrix propagation
+///     control_fn (callable, optional): Control input function with signature (t: float, state: ndarray) -> ndarray whose output is added to the dynamics
 ///     config (IntegratorConfig, optional): Integration configuration
 ///
 /// If the dynamics, control, Jacobian, or sensitivity callback raises a Python
@@ -1293,12 +1341,24 @@ impl PyRKF45DIntegrator {
     ///     import brahe as bh
     ///     import numpy as np
     ///
+    ///     def dynamics(t, state):
+    ///         r = state[:3]
+    ///         return np.concatenate((state[3:], -bh.GM_EARTH * r / np.linalg.norm(r) ** 3))
+    ///
+    ///     def dynamics_with_params(t, state, params):
+    ///         dx = dynamics(t, state)
+    ///         dx[3:5] += params
+    ///         return dx
+    ///
+    ///     jacobian = bh.NumericalJacobian(dynamics)
+    ///     sensitivity = bh.NumericalSensitivity(dynamics_with_params)
+    ///
     ///     # Setup integrator with Jacobian and sensitivity providers
     ///     config = bh.IntegratorConfig.adaptive(abs_tol=1e-9, rel_tol=1e-6)
-    ///     integrator = bh.RKF45Integrator(6, dynamics, jacobian, sensitivity, config)
-    ///     state = np.array([...])
+    ///     integrator = bh.RKF45Integrator(6, dynamics, jacobian, sensitivity, config=config)
+    ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7.6e3, 0.0])
     ///     sens = np.zeros((6, 2))  # 6 state dims, 2 params
-    ///     params = np.array([1.0, 2.0])
+    ///     params = np.array([1e-6, 2e-6])
     ///
     ///     new_state, new_sens, dt_used, error, dt_next = integrator.step_with_sensmat(
     ///         0.0, state, sens, params, 1.0
@@ -1390,13 +1450,25 @@ impl PyRKF45DIntegrator {
     ///     import brahe as bh
     ///     import numpy as np
     ///
+    ///     def dynamics(t, state):
+    ///         r = state[:3]
+    ///         return np.concatenate((state[3:], -bh.GM_EARTH * r / np.linalg.norm(r) ** 3))
+    ///
+    ///     def dynamics_with_params(t, state, params):
+    ///         dx = dynamics(t, state)
+    ///         dx[3:5] += params
+    ///         return dx
+    ///
+    ///     jacobian = bh.NumericalJacobian(dynamics)
+    ///     sensitivity = bh.NumericalSensitivity(dynamics_with_params)
+    ///
     ///     # Setup integrator with Jacobian and sensitivity providers
     ///     config = bh.IntegratorConfig.adaptive(abs_tol=1e-9, rel_tol=1e-6)
-    ///     integrator = bh.RKF45Integrator(6, dynamics, jacobian, sensitivity, config)
-    ///     state = np.array([...])
+    ///     integrator = bh.RKF45Integrator(6, dynamics, jacobian, sensitivity, config=config)
+    ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7.6e3, 0.0])
     ///     phi = np.eye(6)
     ///     sens = np.zeros((6, 2))  # 6 state dims, 2 params
-    ///     params = np.array([1.0, 2.0])
+    ///     params = np.array([1e-6, 2e-6])
     ///
     ///     new_state, new_phi, new_sens, dt_used, error, dt_next = integrator.step_with_varmat_sensmat(
     ///         0.0, state, phi, sens, params, 1.0
@@ -1511,7 +1583,9 @@ impl PyRKF45DIntegrator {
 /// Args:
 ///     dimension (int): State vector dimension
 ///     dynamics_fn (callable): Dynamics function with signature (t: float, state: ndarray) -> ndarray
-///     jacobian (DAnalyticJacobian or DNumericalJacobian, optional): Jacobian provider for variational matrix propagation
+///     jacobian (AnalyticJacobian or NumericalJacobian, optional): Jacobian provider for variational matrix propagation
+///     sensitivity (AnalyticSensitivity or NumericalSensitivity, optional): Sensitivity provider for sensitivity matrix propagation
+///     control_fn (callable, optional): Control input function with signature (t: float, state: ndarray) -> ndarray whose output is added to the dynamics
 ///     config (IntegratorConfig, optional): Integration configuration
 ///
 /// If the dynamics, control, Jacobian, or sensitivity callback raises a Python
@@ -1837,12 +1911,24 @@ impl PyRKF78DIntegrator {
     ///     import brahe as bh
     ///     import numpy as np
     ///
+    ///     def dynamics(t, state):
+    ///         r = state[:3]
+    ///         return np.concatenate((state[3:], -bh.GM_EARTH * r / np.linalg.norm(r) ** 3))
+    ///
+    ///     def dynamics_with_params(t, state, params):
+    ///         dx = dynamics(t, state)
+    ///         dx[3:5] += params
+    ///         return dx
+    ///
+    ///     jacobian = bh.NumericalJacobian(dynamics)
+    ///     sensitivity = bh.NumericalSensitivity(dynamics_with_params)
+    ///
     ///     # Setup integrator with Jacobian and sensitivity providers
     ///     config = bh.IntegratorConfig.adaptive(abs_tol=1e-9, rel_tol=1e-6)
-    ///     integrator = bh.RKF78Integrator(6, dynamics, jacobian, sensitivity, config)
-    ///     state = np.array([...])
+    ///     integrator = bh.RKF78Integrator(6, dynamics, jacobian, sensitivity, config=config)
+    ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7.6e3, 0.0])
     ///     sens = np.zeros((6, 2))  # 6 state dims, 2 params
-    ///     params = np.array([1.0, 2.0])
+    ///     params = np.array([1e-6, 2e-6])
     ///
     ///     new_state, new_sens, dt_used, error, dt_next = integrator.step_with_sensmat(
     ///         0.0, state, sens, params, 1.0
@@ -1934,13 +2020,25 @@ impl PyRKF78DIntegrator {
     ///     import brahe as bh
     ///     import numpy as np
     ///
+    ///     def dynamics(t, state):
+    ///         r = state[:3]
+    ///         return np.concatenate((state[3:], -bh.GM_EARTH * r / np.linalg.norm(r) ** 3))
+    ///
+    ///     def dynamics_with_params(t, state, params):
+    ///         dx = dynamics(t, state)
+    ///         dx[3:5] += params
+    ///         return dx
+    ///
+    ///     jacobian = bh.NumericalJacobian(dynamics)
+    ///     sensitivity = bh.NumericalSensitivity(dynamics_with_params)
+    ///
     ///     # Setup integrator with Jacobian and sensitivity providers
     ///     config = bh.IntegratorConfig.adaptive(abs_tol=1e-9, rel_tol=1e-6)
-    ///     integrator = bh.RKF78Integrator(6, dynamics, jacobian, sensitivity, config)
-    ///     state = np.array([...])
+    ///     integrator = bh.RKF78Integrator(6, dynamics, jacobian, sensitivity, config=config)
+    ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7.6e3, 0.0])
     ///     phi = np.eye(6)
     ///     sens = np.zeros((6, 2))  # 6 state dims, 2 params
-    ///     params = np.array([1.0, 2.0])
+    ///     params = np.array([1e-6, 2e-6])
     ///
     ///     new_state, new_phi, new_sens, dt_used, error, dt_next = integrator.step_with_varmat_sensmat(
     ///         0.0, state, phi, sens, params, 1.0
@@ -2054,7 +2152,9 @@ impl PyRKF78DIntegrator {
 /// Args:
 ///     dimension (int): State vector dimension
 ///     dynamics_fn (callable): Dynamics function with signature (t: float, state: ndarray) -> ndarray
-///     jacobian (DAnalyticJacobian or DNumericalJacobian, optional): Jacobian provider for variational matrix propagation
+///     jacobian (AnalyticJacobian or NumericalJacobian, optional): Jacobian provider for variational matrix propagation
+///     sensitivity (AnalyticSensitivity or NumericalSensitivity, optional): Sensitivity provider for sensitivity matrix propagation
+///     control_fn (callable, optional): Control input function with signature (t: float, state: ndarray) -> ndarray whose output is added to the dynamics
 ///     config (IntegratorConfig, optional): Integration configuration
 ///
 /// If the dynamics, control, Jacobian, or sensitivity callback raises a Python
@@ -2370,12 +2470,24 @@ impl PyDP54DIntegrator {
     ///     import brahe as bh
     ///     import numpy as np
     ///
+    ///     def dynamics(t, state):
+    ///         r = state[:3]
+    ///         return np.concatenate((state[3:], -bh.GM_EARTH * r / np.linalg.norm(r) ** 3))
+    ///
+    ///     def dynamics_with_params(t, state, params):
+    ///         dx = dynamics(t, state)
+    ///         dx[3:5] += params
+    ///         return dx
+    ///
+    ///     jacobian = bh.NumericalJacobian(dynamics)
+    ///     sensitivity = bh.NumericalSensitivity(dynamics_with_params)
+    ///
     ///     # Setup integrator with Jacobian and sensitivity providers
     ///     config = bh.IntegratorConfig.adaptive(abs_tol=1e-9, rel_tol=1e-6)
-    ///     integrator = bh.DP54Integrator(6, dynamics, jacobian, sensitivity, config)
-    ///     state = np.array([...])
+    ///     integrator = bh.DP54Integrator(6, dynamics, jacobian, sensitivity, config=config)
+    ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7.6e3, 0.0])
     ///     sens = np.zeros((6, 2))  # 6 state dims, 2 params
-    ///     params = np.array([1.0, 2.0])
+    ///     params = np.array([1e-6, 2e-6])
     ///
     ///     new_state, new_sens, dt_used, error, dt_next = integrator.step_with_sensmat(
     ///         0.0, state, sens, params, 1.0
@@ -2467,13 +2579,25 @@ impl PyDP54DIntegrator {
     ///     import brahe as bh
     ///     import numpy as np
     ///
+    ///     def dynamics(t, state):
+    ///         r = state[:3]
+    ///         return np.concatenate((state[3:], -bh.GM_EARTH * r / np.linalg.norm(r) ** 3))
+    ///
+    ///     def dynamics_with_params(t, state, params):
+    ///         dx = dynamics(t, state)
+    ///         dx[3:5] += params
+    ///         return dx
+    ///
+    ///     jacobian = bh.NumericalJacobian(dynamics)
+    ///     sensitivity = bh.NumericalSensitivity(dynamics_with_params)
+    ///
     ///     # Setup integrator with Jacobian and sensitivity providers
     ///     config = bh.IntegratorConfig.adaptive(abs_tol=1e-9, rel_tol=1e-6)
-    ///     integrator = bh.DP54Integrator(6, dynamics, jacobian, sensitivity, config)
-    ///     state = np.array([...])
+    ///     integrator = bh.DP54Integrator(6, dynamics, jacobian, sensitivity, config=config)
+    ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7.6e3, 0.0])
     ///     phi = np.eye(6)
     ///     sens = np.zeros((6, 2))  # 6 state dims, 2 params
-    ///     params = np.array([1.0, 2.0])
+    ///     params = np.array([1e-6, 2e-6])
     ///
     ///     new_state, new_phi, new_sens, dt_used, error, dt_next = integrator.step_with_varmat_sensmat(
     ///         0.0, state, phi, sens, params, 1.0
@@ -2588,7 +2712,8 @@ impl PyDP54DIntegrator {
 /// Args:
 ///     dimension (int): State vector dimension (must be even: position + velocity)
 ///     dynamics_fn (callable): Dynamics function with signature (t: float, state: ndarray) -> ndarray
-///     jacobian (DAnalyticJacobian or DNumericalJacobian, optional): Jacobian provider for variational matrix propagation
+///     jacobian (AnalyticJacobian or NumericalJacobian, optional): Jacobian provider for variational matrix propagation
+///     sensitivity (AnalyticSensitivity or NumericalSensitivity, optional): Sensitivity provider for sensitivity matrix propagation
 ///     config (IntegratorConfig, optional): Integration configuration
 ///
 /// Raises:
@@ -2615,6 +2740,7 @@ impl PyDP54DIntegrator {
 ///     integrator = bh.RKN1210Integrator(dimension=6, dynamics_fn=dynamics, config=config)
 ///
 ///     # Adaptive step (tolerances from config)
+///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7.6e3, 0.0])
 ///     result = integrator.step(0.0, state, 1.0)
 ///     ```
 #[pyclass(module = "brahe._brahe", unsendable)]
@@ -2906,12 +3032,24 @@ impl PyRKN1210DIntegrator {
     ///     import brahe as bh
     ///     import numpy as np
     ///
+    ///     def dynamics(t, state):
+    ///         r = state[:3]
+    ///         return np.concatenate((state[3:], -bh.GM_EARTH * r / np.linalg.norm(r) ** 3))
+    ///
+    ///     def dynamics_with_params(t, state, params):
+    ///         dx = dynamics(t, state)
+    ///         dx[3:5] += params
+    ///         return dx
+    ///
+    ///     jacobian = bh.NumericalJacobian(dynamics)
+    ///     sensitivity = bh.NumericalSensitivity(dynamics_with_params)
+    ///
     ///     # Setup integrator with Jacobian and sensitivity providers
     ///     config = bh.IntegratorConfig.adaptive(abs_tol=1e-9, rel_tol=1e-6)
-    ///     integrator = bh.RKN1210Integrator(6, dynamics, jacobian, sensitivity, config)
-    ///     state = np.array([...])
+    ///     integrator = bh.RKN1210Integrator(6, dynamics, jacobian, sensitivity, config=config)
+    ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7.6e3, 0.0])
     ///     sens = np.zeros((6, 2))  # 6 state dims, 2 params
-    ///     params = np.array([1.0, 2.0])
+    ///     params = np.array([1e-6, 2e-6])
     ///
     ///     new_state, new_sens, dt_used, error, dt_next = integrator.step_with_sensmat(
     ///         0.0, state, sens, params, 1.0
@@ -3003,13 +3141,25 @@ impl PyRKN1210DIntegrator {
     ///     import brahe as bh
     ///     import numpy as np
     ///
+    ///     def dynamics(t, state):
+    ///         r = state[:3]
+    ///         return np.concatenate((state[3:], -bh.GM_EARTH * r / np.linalg.norm(r) ** 3))
+    ///
+    ///     def dynamics_with_params(t, state, params):
+    ///         dx = dynamics(t, state)
+    ///         dx[3:5] += params
+    ///         return dx
+    ///
+    ///     jacobian = bh.NumericalJacobian(dynamics)
+    ///     sensitivity = bh.NumericalSensitivity(dynamics_with_params)
+    ///
     ///     # Setup integrator with Jacobian and sensitivity providers
     ///     config = bh.IntegratorConfig.adaptive(abs_tol=1e-9, rel_tol=1e-6)
-    ///     integrator = bh.RKN1210Integrator(6, dynamics, jacobian, sensitivity, config)
-    ///     state = np.array([...])
+    ///     integrator = bh.RKN1210Integrator(6, dynamics, jacobian, sensitivity, config=config)
+    ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7.6e3, 0.0])
     ///     phi = np.eye(6)
     ///     sens = np.zeros((6, 2))  # 6 state dims, 2 params
-    ///     params = np.array([1.0, 2.0])
+    ///     params = np.array([1e-6, 2e-6])
     ///
     ///     new_state, new_phi, new_sens, dt_used, error, dt_next = integrator.step_with_varmat_sensmat(
     ///         0.0, state, phi, sens, params, 1.0

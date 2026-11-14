@@ -110,8 +110,7 @@ def plot_trajectory_3d(
         import numpy as np
 
         # Create trajectory
-        eop = bh.FileEOPProvider.from_default_standard(bh.EarthOrientationFileType.STANDARD, True)
-        bh.set_global_eop_provider(eop)
+        bh.initialize_eop()
 
         epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
         oe = np.array([bh.R_EARTH + 500e3, 0.01, np.radians(97.8), 0.0, 0.0, 0.0])
@@ -135,6 +134,14 @@ def plot_trajectory_3d(
             texture='blue_marble',
             backend='plotly'
         )
+        ```
+
+        A Moon-centered plot uses the Moon's registry texture, which is
+        downloaded on first use:
+
+        ```python {.no_run}
+        import brahe as bh
+        import numpy as np
 
         # Create a small lunar orbit
         epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)

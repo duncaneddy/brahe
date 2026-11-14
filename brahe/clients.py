@@ -8,7 +8,7 @@ Groups the network data clients under one namespace, mirroring the Rust
 them so both spellings resolve, as they do in Rust.
 
 Example:
-    ```python
+    ```python {.no_run}
     import brahe as bh
 
     client = bh.clients.celestrak.CelestrakClient()

@@ -370,6 +370,7 @@ impl PyITCStateVector {
 /// Example:
 ///     ```python
 ///     import brahe as bh
+///     bh.initialize_eop()
 ///
 ///     itc = bh.ITC.from_file(
 ///         "test_assets/starlink/MEME_100002_STARLINK-37711_2540149_Operational_1473385800_UNCLASSIFIED.txt"

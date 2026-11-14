@@ -203,7 +203,7 @@ fn py_load_common_kernels() -> PyResult<()> {
 ///     RuntimeError: If a kernel cannot be downloaded, read, or parsed
 ///
 /// Example:
-///     ```python
+///     ```python {.no_run}
 ///     import brahe as bh
 ///
 ///     bh.load_all_spice_kernels()

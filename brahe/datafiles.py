@@ -12,6 +12,7 @@ This module provides:
 Example:
     ```python
     import brahe as bh
+    bh.initialize_eop()
 
     sp3 = bh.SP3.from_file("test_assets/sp3/example-d-2.sp3")
     print(sp3.num_satellites, sp3.num_epochs, sp3.header.agency)

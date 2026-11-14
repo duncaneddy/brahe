@@ -201,29 +201,29 @@ def plot_groundtrack(
         Generated figure object
 
     Example:
-        ```python
+        ```python {.no_run}
         import brahe as bh
         import numpy as np
 
         # Create a simple LEO trajectory
-        eop = bh.FileEOPProvider.from_default_standard(bh.EarthOrientationFileType.STANDARD, True)
-        bh.set_global_eop_provider(eop)
+        bh.initialize_eop()
 
         epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
         oe = np.array([bh.R_EARTH + 500e3, 0.01, np.radians(97.8), 0.0, 0.0, 0.0])
         state = bh.state_koe_to_eci(oe, bh.AngleFormat.RADIANS)
 
         prop = bh.KeplerianPropagator.from_eci(epoch, state, 60.0)
-        traj = prop.propagate(epoch, epoch + 2*bh.orbital_period(oe[0]), 60.0)
+        prop.propagate_to(epoch + 2 * bh.orbital_period(oe[0]))
+        traj = prop.trajectory
 
         # Define ground stations
         stations_aws = [
-            bh.PointLocation(np.radians(40.7128), np.radians(-74.0060), 0.0),  # NYC
-            bh.PointLocation(np.radians(37.7749), np.radians(-122.4194), 0.0),  # SF
+            bh.PointLocation(-74.0060, 40.7128, 0.0),  # NYC
+            bh.PointLocation(-122.4194, 37.7749, 0.0),  # SF
         ]
 
         stations_ksat = [
-            bh.PointLocation(np.radians(78.2232), np.radians(15.6267), 0.0),  # Svalbard
+            bh.PointLocation(15.6267, 78.2232, 0.0),  # Svalbard
         ]
 
         # Plot with per-group configuration

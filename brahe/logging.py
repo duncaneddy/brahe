@@ -53,7 +53,7 @@ def configure(level: str = "WARNING") -> None:
         brahe.logging.configure(level="DEBUG")
 
         # Now use brahe - you'll see debug logs
-        epoch = brahe.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0)
+        epoch = brahe.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, brahe.TimeSystem.UTC)
         ```
 
     Note:

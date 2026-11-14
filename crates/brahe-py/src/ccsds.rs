@@ -71,10 +71,10 @@ enum StateVectorMode {
 ///
 /// Example:
 ///     ```python
-///     from brahe import Epoch
+///     from brahe import Epoch, TimeSystem
 ///     from brahe.ccsds import OEMStateVector
 ///     sv = OEMStateVector(
-///         epoch=Epoch.from_datetime(2024, 1, 1, 0, 0, 0),
+///         epoch=Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem.UTC),
 ///         position=[7000e3, 0.0, 0.0],
 ///         velocity=[0.0, 7500.0, 0.0],
 ///     )
@@ -261,6 +261,8 @@ impl PyOEMStateVector {
     ///
     /// Example:
     ///     ```python
+    ///     from brahe.ccsds import OEM
+    ///     oem = OEM.from_file("test_assets/ccsds/oem/OEMExample5.txt")
     ///     sv = oem.segments[0].states[0]
     ///     state = sv.state  # numpy array [x, y, z, vx, vy, vz]
     ///     ```
@@ -288,6 +290,9 @@ impl PyOEMStateVector {
     /// Example:
     ///     ```python
     ///     import numpy as np
+    ///     from brahe.ccsds import OEM
+    ///     oem = OEM.from_file("test_assets/ccsds/oem/OEMExample5.txt")
+    ///     sv = oem.segments[0].states[0]
     ///     sv.state = np.array([7000e3, 0, 0, 0, 7500, 0])
     ///     ```
     #[setter]
@@ -335,6 +340,9 @@ impl PyOEMStateVector {
 ///
 /// Example:
 ///     ```python
+///     from brahe.ccsds import OEM
+///     oem = OEM.from_file("test_assets/ccsds/oem/OEMExample5.txt")
+///     seg = oem.segments[0]
 ///     states = seg.states
 ///     print(len(states))
 ///     sv = states[0]
@@ -497,10 +505,10 @@ enum SegmentMode {
 ///
 /// Example:
 ///     ```python
-///     from brahe import Epoch
+///     from brahe import Epoch, TimeSystem
 ///     from brahe.ccsds import OEMSegment
-///     start = Epoch.from_datetime(2024, 1, 1, 0, 0, 0)
-///     stop = Epoch.from_datetime(2024, 1, 1, 1, 0, 0)
+///     start = Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem.UTC)
+///     stop = Epoch.from_datetime(2024, 1, 1, 1, 0, 0.0, 0.0, TimeSystem.UTC)
 ///     seg = OEMSegment(
 ///         object_name="SAT1", object_id="2024-001A",
 ///         center_name="EARTH", ref_frame="GCRF", time_system="UTC",
@@ -1042,7 +1050,14 @@ impl PyOEMSegment {
     /// Example:
     ///     ```python
     ///     import brahe as bh
+    ///     import numpy as np
     ///     from brahe.ccsds import OEMSegment
+    ///     bh.initialize_eop()
+    ///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     stop_epoch = epoch + 600.0
+    ///     oe = np.array([bh.R_EARTH + 500e3, 0.01, 97.8, 15.0, 30.0, 45.0])
+    ///     prop = bh.KeplerianPropagator.from_eci(epoch, bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES), 60.0)
+    ///     prop.propagate_to(stop_epoch)
     ///     seg = OEMSegment(
     ///         object_name="SAT", object_id="2024-001A",
     ///         center_name="EARTH", ref_frame="EME2000", time_system="UTC",
@@ -1119,6 +1134,8 @@ impl PyOEMSegment {
 ///
 /// Example:
 ///     ```python
+///     from brahe.ccsds import OEM
+///     oem = OEM.from_file("test_assets/ccsds/oem/OEMExample1.txt")
 ///     segments = oem.segments
 ///     print(len(segments))
 ///     seg = segments[0]
@@ -1253,18 +1270,18 @@ impl PyOEMSegmentIterator {
 /// Example:
 ///     ```python
 ///     from brahe.ccsds import OEM
-///     from brahe import Epoch
+///     from brahe import Epoch, TimeSystem
 ///
 ///     # Parse existing
-///     oem = OEM.from_file("ephemeris.oem")
+///     oem = OEM.from_file("test_assets/ccsds/oem/OEMExample5.txt")
 ///     print(oem.originator)
 ///     seg = oem.segments[0]
 ///     sv = seg.states[0]
 ///     print(sv.position)
 ///
 ///     # Construct from scratch
-///     start = Epoch.from_datetime(2024, 1, 1, 0, 0, 0)
-///     stop = Epoch.from_datetime(2024, 1, 1, 1, 0, 0)
+///     start = Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem.UTC)
+///     stop = Epoch.from_datetime(2024, 1, 1, 1, 0, 0.0, 0.0, TimeSystem.UTC)
 ///     oem = OEM(originator="MY_ORG")
 ///     oem.add_segment(
 ///         object_name="SAT1", object_id="2024-001A",
@@ -1664,7 +1681,7 @@ impl PyOEM {
     /// Example:
     ///     ```python
     ///     from brahe.ccsds import OEM
-    ///     oem = OEM.from_file("ephemeris.oem")
+    ///     oem = OEM.from_file("test_assets/ccsds/oem/OEMExample5.txt")
     ///     traj = oem.segment_to_trajectory(0)
     ///     print(f"States: {len(traj)}")
     ///     ```
@@ -1687,10 +1704,10 @@ impl PyOEM {
     /// Example:
     ///     ```python
     ///     from brahe.ccsds import OEM
-    ///     oem = OEM.from_file("multi_segment.oem")
+    ///     oem = OEM.from_file("test_assets/ccsds/oem/OEMExample1.txt")
     ///     trajs = oem.to_trajectories()
     ///     for t in trajs:
-    ///         print(f"{t.name}: {len(t)} states")
+    ///         print(f"{t.get_name()}: {len(t)} states")
     ///     ```
     fn to_trajectories(&self) -> PyResult<Vec<PyOrbitalTrajectory>> {
         let n = self.inner.segments.len();
@@ -1721,11 +1738,16 @@ impl PyOEM {
     ///
     /// Example:
     ///     ```python
-    ///     from brahe import Epoch
+    ///     import brahe as bh
+    ///     import numpy as np
     ///     from brahe.ccsds import OEM
+    ///     bh.initialize_eop()
     ///     oem = OEM(originator="MY_ORG")
-    ///     start = Epoch.from_datetime(2024, 1, 1, 0, 0, 0)
-    ///     stop = Epoch.from_datetime(2024, 1, 1, 1, 0, 0)
+    ///     start = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     stop = bh.Epoch.from_datetime(2024, 1, 1, 1, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     oe = np.array([bh.R_EARTH + 500e3, 0.01, 97.8, 15.0, 30.0, 45.0])
+    ///     prop = bh.KeplerianPropagator.from_eci(start, bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES), 60.0)
+    ///     prop.propagate_to(stop)
     ///     idx = oem.add_segment(
     ///         object_name="SAT1", object_id="2024-001A",
     ///         center_name="EARTH", ref_frame="GCRF", time_system="UTC",
@@ -2103,10 +2125,10 @@ enum ManeuverMode {
 ///
 /// Example:
 ///     ```python
-///     from brahe import Epoch
+///     from brahe import Epoch, TimeSystem
 ///     from brahe.ccsds import OPMManeuver
 ///     m = OPMManeuver(
-///         epoch_ignition=Epoch.from_datetime(2024, 1, 1, 0, 0, 0),
+///         epoch_ignition=Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem.UTC),
 ///         duration=300.0, ref_frame="RTN", dv=[1.0, 0.0, 0.0],
 ///     )
 ///     print(m.ref_frame)
@@ -2362,6 +2384,8 @@ impl PyOPMManeuver {
 ///
 /// Example:
 ///     ```python
+///     from brahe.ccsds import OPM
+///     opm = OPM.from_file("test_assets/ccsds/opm/OPMExample2.txt")
 ///     maneuvers = opm.maneuvers
 ///     print(len(maneuvers))
 ///     m = maneuvers[0]
@@ -2494,7 +2518,7 @@ impl PyOPMManeuverIterator {
 ///     ```python
 ///     from brahe.ccsds import OMM
 ///
-///     omm = OMM.from_file("gp_data.omm")
+///     omm = OMM.from_file("test_assets/ccsds/omm/OMMExample1.txt")
 ///     print(omm.object_name)
 ///     omm.object_name = "ISS"
 ///     print(omm.eccentricity)
@@ -3337,7 +3361,7 @@ impl PyOMM {
 ///     ```python
 ///     from brahe.ccsds import OPM
 ///
-///     opm = OPM.from_file("state.opm")
+///     opm = OPM.from_file("test_assets/ccsds/opm/OPMExample2.txt")
 ///     print(opm.position)
 ///     opm.object_name = "NEW_SAT"
 ///     print(len(opm.maneuvers))
@@ -3798,7 +3822,8 @@ impl PyOPM {
     ///
     /// Example:
     ///     ```python
-    ///     opm = OPM.from_file("state.opm")
+    ///     from brahe.ccsds import OPM
+    ///     opm = OPM.from_file("test_assets/ccsds/opm/OPMExample1.txt")
     ///     state = opm.state  # numpy array [x, y, z, vx, vy, vz]
     ///     ```
     #[getter]
@@ -3816,6 +3841,8 @@ impl PyOPM {
     /// Example:
     ///     ```python
     ///     import numpy as np
+    ///     from brahe.ccsds import OPM
+    ///     opm = OPM.from_file("test_assets/ccsds/opm/OPMExample1.txt")
     ///     opm.state = np.array([7000e3, 0, 0, 0, 7500, 0])
     ///     ```
     #[setter]
@@ -4477,6 +4504,7 @@ impl PyCDMObject {
 ///
 /// Example:
 ///     ```python
+///     from brahe import Epoch, TimeSystem
 ///     from brahe.ccsds import CDM, CDMObject, CDMStateVector, CDMRTNCovariance
 ///     import numpy as np
 ///
@@ -7273,7 +7301,9 @@ impl PyAEM {
     ///     import brahe as bh
     ///     from brahe.ccsds import AEM
     ///
-    ///     aem = AEM.from_file("test_assets/ccsds/aem/AEMExampleG5.txt")
+    ///     parsed = AEM.from_file("test_assets/ccsds/aem/AEMExampleG4.txt")
+    ///     aem = AEM("BRAHE")
+    ///     aem.add_segment(parsed.segments[1])
     ///     bh.clear_frame_registry()
     ///     aem.register_for("SC")
     ///     bh.clear_frame_registry()

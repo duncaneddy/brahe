@@ -16,6 +16,7 @@ Example:
     import numpy as np
 
     # Simple time event
+    target_epoch = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     event = bh.TimeEvent(target_epoch, "Maneuver Start")
 
     # Custom value event with value function

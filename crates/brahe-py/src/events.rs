@@ -160,6 +160,9 @@ impl PyEdgeType {
 ///     ```python
 ///     import brahe as bh
 ///
+///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+///     target_epoch = epoch + 3600.0
+///
 ///     # Terminal event (stops propagation)
 ///     event = bh.TimeEvent(target_epoch, "Maneuver").set_terminal()
 ///
@@ -221,7 +224,22 @@ impl PyEventAction {
 ///
 /// Example:
 ///     ```python
+///     import numpy as np
 ///     import brahe as bh
+///
+///     bh.initialize_eop()
+///
+///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+///     oe = np.array([bh.R_EARTH + 500e3, 0.01, 97.8, 0.0, 0.0, 0.0])
+///     state = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
+///     prop = bh.NumericalOrbitPropagator(
+///         epoch, state,
+///         bh.NumericalPropagationConfig.default(),
+///         bh.ForceModelConfig.two_body(),
+///     )
+///     prop.add_event_detector(bh.AltitudeEvent(505e3, "Altitude Event", bh.EventDirection.ANY))
+///     prop.propagate_to(epoch + 6000.0)
+///     detected_event = prop.query_events().first()
 ///
 ///     # Check event type from a detected event
 ///     if detected_event.event_type == bh.EventType.INSTANTANEOUS:
@@ -291,7 +309,7 @@ impl PyEventType {
 ///     value (float): Event function value at detection
 ///     name (str): Event detector name
 ///     action (EventAction): Action taken (STOP or CONTINUE)
-///     event_type (EventType): Event type (INSTANTANEOUS or PERIOD)
+///     event_type (EventType): Event type (INSTANTANEOUS or WINDOW)
 ///
 /// Example:
 ///     ```python
@@ -382,7 +400,7 @@ impl PyDetectedEvent {
         }
     }
 
-    /// Event type (INSTANTANEOUS or PERIOD).
+    /// Event type (INSTANTANEOUS or WINDOW).
     ///
     /// Returns:
     ///     EventType: Type of event
@@ -1406,9 +1424,25 @@ impl PyBinaryEvent {
 ///
 /// Example:
 ///     ```python
+///     import numpy as np
 ///     import brahe as bh
 ///
-///     # After propagation with events
+///     bh.initialize_eop()
+///
+///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+///     oe = np.array([bh.R_EARTH + 500e3, 0.01, 97.8, 0.0, 0.0, 0.0])
+///     state = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
+///     prop = bh.NumericalOrbitPropagator(
+///         epoch, state,
+///         bh.NumericalPropagationConfig.default(),
+///         bh.ForceModelConfig.two_body(),
+///     )
+///     prop.add_event_detector(bh.AltitudeEvent(505e3, "Altitude Event", bh.EventDirection.ANY))
+///     prop.add_event_detector(bh.TimeEvent(epoch + 3000.0, "Stop").set_terminal())
+///     prop.propagate_to(epoch + 6000.0)
+///     start = epoch
+///     end = epoch + 3600.0
+///
 ///     # Get events from detector 0 within a time range
 ///     events = prop.query_events() \
 ///         .by_detector_index(0) \
@@ -1446,6 +1480,21 @@ impl PyEventQuery {
     ///
     /// Example:
     ///     ```python
+    ///     import numpy as np
+    ///     import brahe as bh
+    ///
+    ///     bh.initialize_eop()
+    ///
+    ///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     oe = np.array([bh.R_EARTH + 500e3, 0.01, 97.8, 0.0, 0.0, 0.0])
+    ///     state = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
+    ///     prop = bh.NumericalOrbitPropagator(
+    ///         epoch, state,
+    ///         bh.NumericalPropagationConfig.default(),
+    ///         bh.ForceModelConfig.two_body(),
+    ///     )
+    ///     prop.add_event_detector(bh.AltitudeEvent(505e3, "Altitude Event", bh.EventDirection.ANY))
+    ///     prop.propagate_to(epoch + 6000.0)
     ///     events = prop.query_events().by_detector_index(0).collect()
     ///     ```
     #[pyo3(text_signature = "(index)")]
@@ -1472,6 +1521,21 @@ impl PyEventQuery {
     ///
     /// Example:
     ///     ```python
+    ///     import numpy as np
+    ///     import brahe as bh
+    ///
+    ///     bh.initialize_eop()
+    ///
+    ///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     oe = np.array([bh.R_EARTH + 500e3, 0.01, 97.8, 0.0, 0.0, 0.0])
+    ///     state = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
+    ///     prop = bh.NumericalOrbitPropagator(
+    ///         epoch, state,
+    ///         bh.NumericalPropagationConfig.default(),
+    ///         bh.ForceModelConfig.two_body(),
+    ///     )
+    ///     prop.add_event_detector(bh.AltitudeEvent(505e3, "Altitude Event", bh.EventDirection.ANY))
+    ///     prop.propagate_to(epoch + 6000.0)
     ///     events = prop.query_events().by_name_exact("Altitude Event").collect()
     ///     ```
     #[pyo3(text_signature = "(name)")]
@@ -1498,6 +1562,21 @@ impl PyEventQuery {
     ///
     /// Example:
     ///     ```python
+    ///     import numpy as np
+    ///     import brahe as bh
+    ///
+    ///     bh.initialize_eop()
+    ///
+    ///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     oe = np.array([bh.R_EARTH + 500e3, 0.01, 97.8, 0.0, 0.0, 0.0])
+    ///     state = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
+    ///     prop = bh.NumericalOrbitPropagator(
+    ///         epoch, state,
+    ///         bh.NumericalPropagationConfig.default(),
+    ///         bh.ForceModelConfig.two_body(),
+    ///     )
+    ///     prop.add_event_detector(bh.AltitudeEvent(505e3, "Altitude Event", bh.EventDirection.ANY))
+    ///     prop.propagate_to(epoch + 6000.0)
     ///     events = prop.query_events().by_name_contains("Altitude").collect()
     ///     ```
     #[pyo3(text_signature = "(substring)")]
@@ -1525,6 +1604,23 @@ impl PyEventQuery {
     ///
     /// Example:
     ///     ```python
+    ///     import numpy as np
+    ///     import brahe as bh
+    ///
+    ///     bh.initialize_eop()
+    ///
+    ///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     oe = np.array([bh.R_EARTH + 500e3, 0.01, 97.8, 0.0, 0.0, 0.0])
+    ///     state = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
+    ///     prop = bh.NumericalOrbitPropagator(
+    ///         epoch, state,
+    ///         bh.NumericalPropagationConfig.default(),
+    ///         bh.ForceModelConfig.two_body(),
+    ///     )
+    ///     prop.add_event_detector(bh.AltitudeEvent(505e3, "Altitude Event", bh.EventDirection.ANY))
+    ///     prop.propagate_to(epoch + 6000.0)
+    ///     start_epoch = epoch
+    ///     end_epoch = epoch + 3600.0
     ///     events = prop.query_events().in_time_range(start_epoch, end_epoch).collect()
     ///     ```
     #[pyo3(text_signature = "(start, end)")]
@@ -1551,6 +1647,22 @@ impl PyEventQuery {
     ///
     /// Example:
     ///     ```python
+    ///     import numpy as np
+    ///     import brahe as bh
+    ///
+    ///     bh.initialize_eop()
+    ///
+    ///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     oe = np.array([bh.R_EARTH + 500e3, 0.01, 97.8, 0.0, 0.0, 0.0])
+    ///     state = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
+    ///     prop = bh.NumericalOrbitPropagator(
+    ///         epoch, state,
+    ///         bh.NumericalPropagationConfig.default(),
+    ///         bh.ForceModelConfig.two_body(),
+    ///     )
+    ///     prop.add_event_detector(bh.AltitudeEvent(505e3, "Altitude Event", bh.EventDirection.ANY))
+    ///     prop.propagate_to(epoch + 6000.0)
+    ///     cutoff_epoch = epoch + 3000.0
     ///     events = prop.query_events().after(cutoff_epoch).collect()
     ///     ```
     #[pyo3(text_signature = "(epoch)")]
@@ -1577,6 +1689,22 @@ impl PyEventQuery {
     ///
     /// Example:
     ///     ```python
+    ///     import numpy as np
+    ///     import brahe as bh
+    ///
+    ///     bh.initialize_eop()
+    ///
+    ///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     oe = np.array([bh.R_EARTH + 500e3, 0.01, 97.8, 0.0, 0.0, 0.0])
+    ///     state = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
+    ///     prop = bh.NumericalOrbitPropagator(
+    ///         epoch, state,
+    ///         bh.NumericalPropagationConfig.default(),
+    ///         bh.ForceModelConfig.two_body(),
+    ///     )
+    ///     prop.add_event_detector(bh.AltitudeEvent(505e3, "Altitude Event", bh.EventDirection.ANY))
+    ///     prop.propagate_to(epoch + 6000.0)
+    ///     cutoff_epoch = epoch + 3000.0
     ///     events = prop.query_events().before(cutoff_epoch).collect()
     ///     ```
     #[pyo3(text_signature = "(epoch)")]
@@ -1596,13 +1724,28 @@ impl PyEventQuery {
     /// Returns events of the specified type.
     ///
     /// Args:
-    ///     event_type (EventType): Event type to filter by (INSTANTANEOUS or PERIOD)
+    ///     event_type (EventType): Event type to filter by (INSTANTANEOUS or WINDOW)
     ///
     /// Returns:
     ///     EventQuery: New query with filter applied (for chaining)
     ///
     /// Example:
     ///     ```python
+    ///     import numpy as np
+    ///     import brahe as bh
+    ///
+    ///     bh.initialize_eop()
+    ///
+    ///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     oe = np.array([bh.R_EARTH + 500e3, 0.01, 97.8, 0.0, 0.0, 0.0])
+    ///     state = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
+    ///     prop = bh.NumericalOrbitPropagator(
+    ///         epoch, state,
+    ///         bh.NumericalPropagationConfig.default(),
+    ///         bh.ForceModelConfig.two_body(),
+    ///     )
+    ///     prop.add_event_detector(bh.AltitudeEvent(505e3, "Altitude Event", bh.EventDirection.ANY))
+    ///     prop.propagate_to(epoch + 6000.0)
     ///     events = prop.query_events().by_event_type(bh.EventType.WINDOW).collect()
     ///     ```
     #[pyo3(text_signature = "(event_type)")]
@@ -1629,6 +1772,22 @@ impl PyEventQuery {
     ///
     /// Example:
     ///     ```python
+    ///     import numpy as np
+    ///     import brahe as bh
+    ///
+    ///     bh.initialize_eop()
+    ///
+    ///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     oe = np.array([bh.R_EARTH + 500e3, 0.01, 97.8, 0.0, 0.0, 0.0])
+    ///     state = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
+    ///     prop = bh.NumericalOrbitPropagator(
+    ///         epoch, state,
+    ///         bh.NumericalPropagationConfig.default(),
+    ///         bh.ForceModelConfig.two_body(),
+    ///     )
+    ///     prop.add_event_detector(bh.AltitudeEvent(505e3, "Altitude Event", bh.EventDirection.ANY))
+    ///     prop.add_event_detector(bh.TimeEvent(epoch + 3000.0, "Stop").set_terminal())
+    ///     prop.propagate_to(epoch + 6000.0)
     ///     events = prop.query_events().by_action(bh.EventAction.STOP).collect()
     ///     ```
     #[pyo3(text_signature = "(action)")]
@@ -1650,6 +1809,21 @@ impl PyEventQuery {
     ///
     /// Example:
     ///     ```python
+    ///     import numpy as np
+    ///     import brahe as bh
+    ///
+    ///     bh.initialize_eop()
+    ///
+    ///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     oe = np.array([bh.R_EARTH + 500e3, 0.01, 97.8, 0.0, 0.0, 0.0])
+    ///     state = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
+    ///     prop = bh.NumericalOrbitPropagator(
+    ///         epoch, state,
+    ///         bh.NumericalPropagationConfig.default(),
+    ///         bh.ForceModelConfig.two_body(),
+    ///     )
+    ///     prop.add_event_detector(bh.AltitudeEvent(505e3, "Altitude Event", bh.EventDirection.ANY))
+    ///     prop.propagate_to(epoch + 6000.0)
     ///     events = prop.query_events().by_detector_index(0).collect()
     ///     for event in events:
     ///         print(f"Event: {event.name}")
@@ -1669,6 +1843,21 @@ impl PyEventQuery {
     ///
     /// Example:
     ///     ```python
+    ///     import numpy as np
+    ///     import brahe as bh
+    ///
+    ///     bh.initialize_eop()
+    ///
+    ///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     oe = np.array([bh.R_EARTH + 500e3, 0.01, 97.8, 0.0, 0.0, 0.0])
+    ///     state = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
+    ///     prop = bh.NumericalOrbitPropagator(
+    ///         epoch, state,
+    ///         bh.NumericalPropagationConfig.default(),
+    ///         bh.ForceModelConfig.two_body(),
+    ///     )
+    ///     prop.add_event_detector(bh.AltitudeEvent(505e3, "Altitude Event", bh.EventDirection.ANY))
+    ///     prop.propagate_to(epoch + 6000.0)
     ///     count = prop.query_events().by_name_contains("Altitude").count()
     ///     ```
     #[pyo3(text_signature = "()")]
@@ -1683,6 +1872,22 @@ impl PyEventQuery {
     ///
     /// Example:
     ///     ```python
+    ///     import numpy as np
+    ///     import brahe as bh
+    ///
+    ///     bh.initialize_eop()
+    ///
+    ///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     oe = np.array([bh.R_EARTH + 500e3, 0.01, 97.8, 0.0, 0.0, 0.0])
+    ///     state = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
+    ///     prop = bh.NumericalOrbitPropagator(
+    ///         epoch, state,
+    ///         bh.NumericalPropagationConfig.default(),
+    ///         bh.ForceModelConfig.two_body(),
+    ///     )
+    ///     prop.add_event_detector(bh.AltitudeEvent(505e3, "Altitude Event", bh.EventDirection.ANY))
+    ///     prop.add_event_detector(bh.TimeEvent(epoch + 3000.0, "Stop").set_terminal())
+    ///     prop.propagate_to(epoch + 6000.0)
     ///     event = prop.query_events().by_action(bh.EventAction.STOP).first()
     ///     if event:
     ///         print(f"First terminal event: {event.name}")
@@ -1699,6 +1904,21 @@ impl PyEventQuery {
     ///
     /// Example:
     ///     ```python
+    ///     import numpy as np
+    ///     import brahe as bh
+    ///
+    ///     bh.initialize_eop()
+    ///
+    ///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     oe = np.array([bh.R_EARTH + 500e3, 0.01, 97.8, 0.0, 0.0, 0.0])
+    ///     state = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
+    ///     prop = bh.NumericalOrbitPropagator(
+    ///         epoch, state,
+    ///         bh.NumericalPropagationConfig.default(),
+    ///         bh.ForceModelConfig.two_body(),
+    ///     )
+    ///     prop.add_event_detector(bh.AltitudeEvent(505e3, "Altitude Event", bh.EventDirection.ANY))
+    ///     prop.propagate_to(epoch + 6000.0)
     ///     event = prop.query_events().by_detector_index(0).last()
     ///     ```
     #[pyo3(text_signature = "()")]
@@ -1713,6 +1933,22 @@ impl PyEventQuery {
     ///
     /// Example:
     ///     ```python
+    ///     import numpy as np
+    ///     import brahe as bh
+    ///
+    ///     bh.initialize_eop()
+    ///
+    ///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     oe = np.array([bh.R_EARTH + 500e3, 0.01, 97.8, 0.0, 0.0, 0.0])
+    ///     state = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
+    ///     prop = bh.NumericalOrbitPropagator(
+    ///         epoch, state,
+    ///         bh.NumericalPropagationConfig.default(),
+    ///         bh.ForceModelConfig.two_body(),
+    ///     )
+    ///     prop.add_event_detector(bh.AltitudeEvent(505e3, "Altitude Event", bh.EventDirection.ANY))
+    ///     prop.add_event_detector(bh.TimeEvent(epoch + 3000.0, "Stop").set_terminal())
+    ///     prop.propagate_to(epoch + 6000.0)
     ///     if prop.query_events().by_action(bh.EventAction.STOP).any():
     ///         print("Found terminal events")
     ///     ```

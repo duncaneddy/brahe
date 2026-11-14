@@ -592,7 +592,7 @@ impl PyQuaternion {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     euler = bh.EulerAngle("XYZ", 0.1, 0.2, 0.3, bh.AngleFormat.RADIANS)
+    ///     euler = bh.EulerAngle(bh.EulerAngleOrder.XYZ, 0.1, 0.2, 0.3, bh.AngleFormat.RADIANS)
     ///     q = bh.Quaternion.from_euler_angle(euler)
     ///     ```
     pub fn from_euler_angle(_cls: &Bound<'_, PyType>, e: &PyEulerAngle) -> PyQuaternion {
@@ -652,7 +652,7 @@ impl PyQuaternion {
     /// Convert to Euler angle representation.
     ///
     /// Args:
-    ///     order (str): Rotation sequence (e.g., "XYZ", "ZYX")
+    ///     order (EulerAngleOrder): Rotation sequence (e.g., `EulerAngleOrder.XYZ`)
     ///
     /// Returns:
     ///     EulerAngle: Equivalent Euler angles
@@ -662,7 +662,7 @@ impl PyQuaternion {
     ///     import brahe as bh
     ///
     ///     q = bh.Quaternion(1.0, 0.0, 0.0, 0.0)
-    ///     euler = q.to_euler_angle("XYZ")
+    ///     euler = q.to_euler_angle(bh.EulerAngleOrder.XYZ)
     ///     ```
     pub fn to_euler_angle(&self, order: &PyEulerAngleOrder) -> PyEulerAngle {
         PyEulerAngle {
@@ -686,10 +686,10 @@ impl PyQuaternion {
 ///
 /// Euler angles describe rotations as a sequence of three rotations about
 /// specified axes. The rotation sequence is specified by the order parameter
-/// (e.g., "XYZ", "ZYX").
+/// (e.g., `EulerAngleOrder.XYZ`).
 ///
 /// Args:
-///     order (str): Rotation sequence (e.g., "XYZ", "ZYX", "ZXZ")
+///     order (EulerAngleOrder): Rotation sequence (e.g., `EulerAngleOrder.XYZ`)
 ///     phi (float): First rotation angle in radians or degrees
 ///     theta (float): Second rotation angle in radians or degrees
 ///     psi (float): Third rotation angle in radians or degrees
@@ -700,7 +700,7 @@ impl PyQuaternion {
 ///     import brahe as bh
 ///
 ///     # Create Euler angle rotation (roll, pitch, yaw in ZYX order)
-///     e = bh.EulerAngle("ZYX", 0.1, 0.2, 0.3, bh.AngleFormat.RADIANS)
+///     e = bh.EulerAngle(bh.EulerAngleOrder.ZYX, 0.1, 0.2, 0.3, bh.AngleFormat.RADIANS)
 ///     print(f"Roll={e.phi}, Pitch={e.theta}, Yaw={e.psi}")
 ///
 ///     # Convert to quaternion
@@ -744,7 +744,7 @@ impl PyEulerAngle {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     e = bh.EulerAngle("XYZ", 0.1, 0.2, 0.3, bh.AngleFormat.RADIANS)
+    ///     e = bh.EulerAngle(bh.EulerAngleOrder.XYZ, 0.1, 0.2, 0.3, bh.AngleFormat.RADIANS)
     ///     print(f"Phi: {e.phi}")
     ///     ```
     pub fn phi(&self) -> f64 {
@@ -761,7 +761,7 @@ impl PyEulerAngle {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     e = bh.EulerAngle("XYZ", 0.1, 0.2, 0.3, bh.AngleFormat.RADIANS)
+    ///     e = bh.EulerAngle(bh.EulerAngleOrder.XYZ, 0.1, 0.2, 0.3, bh.AngleFormat.RADIANS)
     ///     print(f"Theta: {e.theta}")
     ///     ```
     pub fn theta(&self) -> f64 {
@@ -778,7 +778,7 @@ impl PyEulerAngle {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     e = bh.EulerAngle("XYZ", 0.1, 0.2, 0.3, bh.AngleFormat.RADIANS)
+    ///     e = bh.EulerAngle(bh.EulerAngleOrder.XYZ, 0.1, 0.2, 0.3, bh.AngleFormat.RADIANS)
     ///     print(f"Psi: {e.psi}")
     ///     ```
     pub fn psi(&self) -> f64 {
@@ -818,7 +818,7 @@ impl PyEulerAngle {
     ///
     /// Args:
     ///     v (numpy.ndarray): 3-element array [phi, theta, psi]
-    ///     order (str): Rotation sequence (e.g., "XYZ", "ZYX")
+    ///     order (EulerAngleOrder): Rotation sequence (e.g., `EulerAngleOrder.XYZ`)
     ///     angle_format (AngleFormat): Units of input angles (RADIANS or DEGREES)
     ///
     /// Returns:
@@ -830,7 +830,7 @@ impl PyEulerAngle {
     ///     import numpy as np
     ///
     ///     v = np.array([0.1, 0.2, 0.3])
-    ///     euler = bh.EulerAngle.from_vector(v, "XYZ", bh.AngleFormat.RADIANS)
+    ///     euler = bh.EulerAngle.from_vector(v, bh.EulerAngleOrder.XYZ, bh.AngleFormat.RADIANS)
     ///     ```
     pub fn from_vector(_cls: &Bound<'_, PyType>, v: &Bound<'_, PyAny>, order: &PyEulerAngleOrder, angle_format: &PyAngleFormat) -> PyResult<PyEulerAngle> {
         let vec = pyany_to_f64_array1(v, Some(3))?;
@@ -845,7 +845,7 @@ impl PyEulerAngle {
     ///
     /// Args:
     ///     q (Quaternion): Source quaternion
-    ///     order (str): Desired rotation sequence (e.g., "XYZ", "ZYX")
+    ///     order (EulerAngleOrder): Desired rotation sequence (e.g., `EulerAngleOrder.XYZ`)
     ///
     /// Returns:
     ///     EulerAngle: Equivalent Euler angles
@@ -855,7 +855,7 @@ impl PyEulerAngle {
     ///     import brahe as bh
     ///
     ///     q = bh.Quaternion(1.0, 0.0, 0.0, 0.0)
-    ///     e = bh.EulerAngle.from_quaternion(q, "XYZ")
+    ///     e = bh.EulerAngle.from_quaternion(q, bh.EulerAngleOrder.XYZ)
     ///     ```
     pub fn from_quaternion(_cls: &Bound<'_, PyType>, q: &PyQuaternion, order: &PyEulerAngleOrder) -> PyEulerAngle {
         PyEulerAngle {
@@ -869,7 +869,7 @@ impl PyEulerAngle {
     ///
     /// Args:
     ///     e (EulerAxis): Euler axis representation
-    ///     order (str): Desired rotation sequence (e.g., "XYZ", "ZYX")
+    ///     order (EulerAngleOrder): Desired rotation sequence (e.g., `EulerAngleOrder.XYZ`)
     ///
     /// Returns:
     ///     EulerAngle: Equivalent Euler angles
@@ -881,7 +881,7 @@ impl PyEulerAngle {
     ///
     ///     axis = np.array([0.0, 0.0, 1.0])
     ///     ea = bh.EulerAxis(axis, 1.5708, bh.AngleFormat.RADIANS)
-    ///     e = bh.EulerAngle.from_euler_axis(ea, "XYZ")
+    ///     e = bh.EulerAngle.from_euler_axis(ea, bh.EulerAngleOrder.XYZ)
     ///     ```
     pub fn from_euler_axis(_cls: &Bound<'_, PyType>, e: &PyEulerAxis, order: &PyEulerAngleOrder) -> PyEulerAngle {
         PyEulerAngle {
@@ -895,7 +895,7 @@ impl PyEulerAngle {
     ///
     /// Args:
     ///     e (EulerAngle): Source Euler angles
-    ///     order (str): Desired rotation sequence (e.g., "XYZ", "ZYX")
+    ///     order (EulerAngleOrder): Desired rotation sequence (e.g., `EulerAngleOrder.XYZ`)
     ///
     /// Returns:
     ///     EulerAngle: Equivalent Euler angles with new order
@@ -904,8 +904,8 @@ impl PyEulerAngle {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     e1 = bh.EulerAngle("XYZ", 0.1, 0.2, 0.3, bh.AngleFormat.RADIANS)
-    ///     e2 = bh.EulerAngle.from_euler_angle(e1, "ZYX")
+    ///     e1 = bh.EulerAngle(bh.EulerAngleOrder.XYZ, 0.1, 0.2, 0.3, bh.AngleFormat.RADIANS)
+    ///     e2 = bh.EulerAngle.from_euler_angle(e1, bh.EulerAngleOrder.ZYX)
     ///     ```
     pub fn from_euler_angle(_cls: &Bound<'_, PyType>, e: &PyEulerAngle, order: &PyEulerAngleOrder) -> PyEulerAngle {
         PyEulerAngle {
@@ -919,7 +919,7 @@ impl PyEulerAngle {
     ///
     /// Args:
     ///     r (RotationMatrix): Rotation matrix
-    ///     order (str): Desired rotation sequence (e.g., "XYZ", "ZYX")
+    ///     order (EulerAngleOrder): Desired rotation sequence (e.g., `EulerAngleOrder.XYZ`)
     ///
     /// Returns:
     ///     EulerAngle: Equivalent Euler angles
@@ -929,8 +929,8 @@ impl PyEulerAngle {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     r = bh.RotationMatrix.from_array(np.eye(3))
-    ///     e = bh.EulerAngle.from_rotation_matrix(r, "XYZ")
+    ///     r = bh.RotationMatrix.from_matrix(np.eye(3))
+    ///     e = bh.EulerAngle.from_rotation_matrix(r, bh.EulerAngleOrder.XYZ)
     ///     ```
     pub fn from_rotation_matrix(_cls: &Bound<'_, PyType>, r: &PyRotationMatrix, order: &PyEulerAngleOrder) -> PyEulerAngle {
         PyEulerAngle {
@@ -948,7 +948,7 @@ impl PyEulerAngle {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     e = bh.EulerAngle("XYZ", 0.1, 0.2, 0.3, bh.AngleFormat.RADIANS)
+    ///     e = bh.EulerAngle(bh.EulerAngleOrder.XYZ, 0.1, 0.2, 0.3, bh.AngleFormat.RADIANS)
     ///     q = e.to_quaternion()
     ///     ```
     pub fn to_quaternion(&self) -> PyQuaternion {
@@ -967,7 +967,7 @@ impl PyEulerAngle {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     e = bh.EulerAngle("XYZ", 0.1, 0.2, 0.3, bh.AngleFormat.RADIANS)
+    ///     e = bh.EulerAngle(bh.EulerAngleOrder.XYZ, 0.1, 0.2, 0.3, bh.AngleFormat.RADIANS)
     ///     ea = e.to_euler_axis()
     ///     ```
     pub fn to_euler_axis(&self) -> PyEulerAxis {
@@ -980,7 +980,7 @@ impl PyEulerAngle {
     /// Convert to Euler angles with different rotation sequence.
     ///
     /// Args:
-    ///     order (str): Desired rotation sequence (e.g., "XYZ", "ZYX")
+    ///     order (EulerAngleOrder): Desired rotation sequence (e.g., `EulerAngleOrder.XYZ`)
     ///
     /// Returns:
     ///     EulerAngle: Equivalent Euler angles with new order
@@ -989,8 +989,8 @@ impl PyEulerAngle {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     e1 = bh.EulerAngle("XYZ", 0.1, 0.2, 0.3, bh.AngleFormat.RADIANS)
-    ///     e2 = e1.to_euler_angle("ZYX")
+    ///     e1 = bh.EulerAngle(bh.EulerAngleOrder.XYZ, 0.1, 0.2, 0.3, bh.AngleFormat.RADIANS)
+    ///     e2 = e1.to_euler_angle(bh.EulerAngleOrder.ZYX)
     ///     ```
     pub fn to_euler_angle(&self, order: &PyEulerAngleOrder) -> PyEulerAngle {
         PyEulerAngle {
@@ -1008,7 +1008,7 @@ impl PyEulerAngle {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     e = bh.EulerAngle("XYZ", 0.1, 0.2, 0.3, bh.AngleFormat.RADIANS)
+    ///     e = bh.EulerAngle(bh.EulerAngleOrder.XYZ, 0.1, 0.2, 0.3, bh.AngleFormat.RADIANS)
     ///     r = e.to_rotation_matrix()
     ///     ```
     pub fn to_rotation_matrix(&self) -> PyRotationMatrix {
@@ -1246,7 +1246,7 @@ impl PyEulerAxis {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     euler = bh.EulerAngle("XYZ", 0.1, 0.2, 0.3, bh.AngleFormat.RADIANS)
+    ///     euler = bh.EulerAngle(bh.EulerAngleOrder.XYZ, 0.1, 0.2, 0.3, bh.AngleFormat.RADIANS)
     ///     e = bh.EulerAxis.from_euler_angle(euler)
     ///     ```
     pub fn from_euler_angle(_cls: &Bound<'_, PyType>, e: &PyEulerAngle) -> PyEulerAxis {
@@ -1270,7 +1270,7 @@ impl PyEulerAxis {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     r = bh.RotationMatrix.from_array(np.eye(3))
+    ///     r = bh.RotationMatrix.from_matrix(np.eye(3))
     ///     e = bh.EulerAxis.from_rotation_matrix(r)
     ///     ```
     pub fn from_rotation_matrix(_cls: &Bound<'_, PyType>, r: &PyRotationMatrix) -> PyEulerAxis {
@@ -1325,7 +1325,7 @@ impl PyEulerAxis {
     /// Convert to Euler angle representation.
     ///
     /// Args:
-    ///     order (str): Desired rotation sequence (e.g., "XYZ", "ZYX")
+    ///     order (EulerAngleOrder): Desired rotation sequence (e.g., `EulerAngleOrder.XYZ`)
     ///
     /// Returns:
     ///     EulerAngle: Equivalent Euler angles
@@ -1337,7 +1337,7 @@ impl PyEulerAxis {
     ///
     ///     axis = np.array([0.0, 0.0, 1.0])
     ///     ea = bh.EulerAxis(axis, 1.5708, bh.AngleFormat.RADIANS)
-    ///     e = ea.to_euler_angle("XYZ")
+    ///     e = ea.to_euler_angle(bh.EulerAngleOrder.XYZ)
     ///     ```
     pub fn to_euler_angle(&self, order: &PyEulerAngleOrder) -> PyEulerAngle {
         PyEulerAngle {
@@ -1406,7 +1406,7 @@ impl PyEulerAxis {
 ///
 ///     # Rotate a vector
 ///     v = np.array([1.0, 0.0, 0.0])
-///     v_rot = dcm.rotate_vector(v)
+///     v_rot = dcm.to_matrix() @ v
 ///     ```
 pub struct PyRotationMatrix {
     obj: attitude::RotationMatrix,
@@ -1699,7 +1699,7 @@ impl PyRotationMatrix {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     euler = bh.EulerAngle("XYZ", 0.1, 0.2, 0.3, bh.AngleFormat.RADIANS)
+    ///     euler = bh.EulerAngle(bh.EulerAngleOrder.XYZ, 0.1, 0.2, 0.3, bh.AngleFormat.RADIANS)
     ///     r = bh.RotationMatrix.from_euler_angle(euler)
     ///     ```
     pub fn from_euler_angle(_cls: &Bound<'_, PyType>, e: &PyEulerAngle) -> PyRotationMatrix {
@@ -1723,7 +1723,7 @@ impl PyRotationMatrix {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     r1 = bh.RotationMatrix.from_array(np.eye(3))
+    ///     r1 = bh.RotationMatrix.from_matrix(np.eye(3))
     ///     r2 = bh.RotationMatrix.from_rotation_matrix(r1)
     ///     ```
     pub fn from_rotation_matrix(_cls: &Bound<'_, PyType>, r: &PyRotationMatrix) -> PyRotationMatrix {
@@ -1743,7 +1743,7 @@ impl PyRotationMatrix {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     r = bh.RotationMatrix.from_array(np.eye(3))
+    ///     r = bh.RotationMatrix.from_matrix(np.eye(3))
     ///     q = r.to_quaternion()
     ///     ```
     pub fn to_quaternion(&self) -> PyQuaternion {
@@ -1763,7 +1763,7 @@ impl PyRotationMatrix {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     r = bh.RotationMatrix.from_array(np.eye(3))
+    ///     r = bh.RotationMatrix.from_matrix(np.eye(3))
     ///     e = r.to_euler_axis()
     ///     ```
     pub fn to_euler_axis(&self) -> PyEulerAxis {
@@ -1776,7 +1776,7 @@ impl PyRotationMatrix {
     /// Convert to Euler angle representation.
     ///
     /// Args:
-    ///     order (str): Desired rotation sequence (e.g., "XYZ", "ZYX")
+    ///     order (EulerAngleOrder): Desired rotation sequence (e.g., `EulerAngleOrder.XYZ`)
     ///
     /// Returns:
     ///     EulerAngle: Equivalent Euler angles
@@ -1786,8 +1786,8 @@ impl PyRotationMatrix {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     r = bh.RotationMatrix.from_array(np.eye(3))
-    ///     euler = r.to_euler_angle("XYZ")
+    ///     r = bh.RotationMatrix.from_matrix(np.eye(3))
+    ///     euler = r.to_euler_angle(bh.EulerAngleOrder.XYZ)
     ///     ```
     pub fn to_euler_angle(&self, order: &PyEulerAngleOrder) -> PyEulerAngle {
         PyEulerAngle {
@@ -1806,7 +1806,7 @@ impl PyRotationMatrix {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     r1 = bh.RotationMatrix.from_array(np.eye(3))
+    ///     r1 = bh.RotationMatrix.from_matrix(np.eye(3))
     ///     r2 = r1.to_rotation_matrix()
     ///     ```
     pub fn to_rotation_matrix(&self) -> PyRotationMatrix {

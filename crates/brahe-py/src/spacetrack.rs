@@ -658,7 +658,7 @@ impl PySpaceTrackQuery {
 ///     tle_line2 (str | None): TLE line 2
 ///
 /// Example:
-///     ```python
+///     ```python {.no_run}
 ///     import brahe as bh
 ///
 ///     client = bh.SpaceTrackClient("user@example.com", "password")
@@ -763,8 +763,13 @@ impl PyGPRecord {
     /// Example:
     ///     ```python
     ///     import brahe as bh
+    ///     bh.initialize_eop()
     ///
-    ///     record = bh.GPRecord.from_json('{"OBJECT_NAME": "ISS", "NORAD_CAT_ID": 25544, ...}')
+    ///     record = bh.GPRecord.from_json(
+    ///         '{"OBJECT_NAME": "ISS (ZARYA)", "NORAD_CAT_ID": "25544", "EPOCH": "2024-01-15T12:00:00.000", '
+    ///         '"MEAN_MOTION": "15.50", "ECCENTRICITY": "0.0005", "INCLINATION": "51.64", "RA_OF_ASC_NODE": "200.0", '
+    ///         '"ARG_OF_PERICENTER": "100.0", "MEAN_ANOMALY": "260.0", "BSTAR": "0.0001"}'
+    ///     )
     ///     prop = record.to_sgp_propagator()
     ///     state = prop.state_eci(prop.epoch)
     ///     ```
@@ -800,11 +805,15 @@ impl PyGPRecord {
     /// Example:
     ///     ```python
     ///     import brahe as bh
-    ///     import numpy as np
+    ///     bh.initialize_eop()
     ///
-    ///     record = bh.GPRecord.from_json('{"OBJECT_NAME": "ISS", "NORAD_CAT_ID": 25544, ...}')
+    ///     record = bh.GPRecord.from_json(
+    ///         '{"OBJECT_NAME": "ISS (ZARYA)", "NORAD_CAT_ID": "25544", "EPOCH": "2024-01-15T12:00:00.000", '
+    ///         '"MEAN_MOTION": "15.50", "ECCENTRICITY": "0.0005", "INCLINATION": "51.64", "RA_OF_ASC_NODE": "200.0", '
+    ///         '"ARG_OF_PERICENTER": "100.0", "MEAN_ANOMALY": "260.0", "BSTAR": "0.0001"}'
+    ///     )
     ///     prop = record.to_numerical_orbit_propagator(
-    ///         force_config=bh.ForceModelConfig.two_body_gravity(),
+    ///         force_config=bh.ForceModelConfig.two_body(),
     ///     )
     ///     ```
     #[pyo3(signature = (force_config, propagation_config=None, params=None))]
@@ -1005,7 +1014,7 @@ impl PyGPRecord {
 ///     object_number (str | None): Object number
 ///
 /// Example:
-///     ```python
+///     ```python {.no_run}
 ///     import brahe as bh
 ///
 ///     client = bh.SpaceTrackClient("user@example.com", "password")
@@ -1075,7 +1084,7 @@ impl PySATCATRecord {
 ///     created (str | None): Creation date
 ///
 /// Example:
-///     ```python
+///     ```python {.no_run}
 ///     import brahe as bh
 ///
 ///     client = bh.SpaceTrackClient("user@example.com", "password")
@@ -1124,7 +1133,7 @@ impl PyFileShareFileRecord {
 ///     created (str | None): Creation date
 ///
 /// Example:
-///     ```python
+///     ```python {.no_run}
 ///     import brahe as bh
 ///
 ///     client = bh.SpaceTrackClient("user@example.com", "password")
@@ -1174,7 +1183,7 @@ impl PyFolderRecord {
 ///     epoch_stop (str | None): Epoch stop
 ///
 /// Example:
-///     ```python
+///     ```python {.no_run}
 ///     import brahe as bh
 ///
 ///     client = bh.SpaceTrackClient("user@example.com", "password")
@@ -1329,7 +1338,7 @@ impl PyRateLimitConfig {
 ///         Defaults to 25 requests/minute, 250 requests/hour.
 ///
 /// Example:
-///     ```python
+///     ```python {.no_run}
 ///     import brahe as bh
 ///
 ///     client = bh.SpaceTrackClient("user@example.com", "password")
@@ -1412,7 +1421,7 @@ impl PySpaceTrackClient {
     ///     BraheError: On network, auth, parse, or format errors.
     ///
     /// Example:
-    ///     ```python
+    ///     ```python {.no_run}
     ///     import brahe as bh
     ///
     ///     client = bh.SpaceTrackClient("user@example.com", "password")
@@ -1447,7 +1456,7 @@ impl PySpaceTrackClient {
     ///     BraheError: On network, auth, parse, or format errors.
     ///
     /// Example:
-    ///     ```python
+    ///     ```python {.no_run}
     ///     import brahe as bh
     ///
     ///     client = bh.SpaceTrackClient("user@example.com", "password")
@@ -1475,7 +1484,7 @@ impl PySpaceTrackClient {
     ///     BraheError: On network, auth, parse, or format errors.
     ///
     /// Example:
-    ///     ```python
+    ///     ```python {.no_run}
     ///     import brahe as bh
     ///
     ///     client = bh.SpaceTrackClient("user@example.com", "password")
@@ -1512,7 +1521,7 @@ impl PySpaceTrackClient {
     ///     BraheError: On network, auth, or upload errors.
     ///
     /// Example:
-    ///     ```python
+    ///     ```python {.no_run}
     ///     import brahe as bh
     ///
     ///     client = bh.SpaceTrackClient("user@example.com", "password")
@@ -1541,7 +1550,7 @@ impl PySpaceTrackClient {
     ///     BraheError: On network, auth, or download errors.
     ///
     /// Example:
-    ///     ```python
+    ///     ```python {.no_run}
     ///     import brahe as bh
     ///
     ///     client = bh.SpaceTrackClient("user@example.com", "password")
@@ -1588,7 +1597,7 @@ impl PySpaceTrackClient {
     ///     BraheError: On network, auth, or parse errors.
     ///
     /// Example:
-    ///     ```python
+    ///     ```python {.no_run}
     ///     import brahe as bh
     ///
     ///     client = bh.SpaceTrackClient("user@example.com", "password")
@@ -1654,7 +1663,7 @@ impl PySpaceTrackClient {
     ///     BraheError: On network, auth, or download errors.
     ///
     /// Example:
-    ///     ```python
+    ///     ```python {.no_run}
     ///     import brahe as bh
     ///
     ///     client = bh.SpaceTrackClient("user@example.com", "password")
@@ -1680,7 +1689,7 @@ impl PySpaceTrackClient {
     ///     BraheError: On network, auth, or parse errors.
     ///
     /// Example:
-    ///     ```python
+    ///     ```python {.no_run}
     ///     import brahe as bh
     ///
     ///     client = bh.SpaceTrackClient("user@example.com", "password")
@@ -1735,7 +1744,7 @@ impl PySpaceTrackClient {
     ///     BraheError: On network or download errors.
     ///
     /// Example:
-    ///     ```python
+    ///     ```python {.no_run}
     ///     import brahe as bh
     ///
     ///     client = bh.SpaceTrackClient("user@example.com", "password")

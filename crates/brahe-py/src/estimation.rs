@@ -208,6 +208,7 @@ impl PyEKFConfig {
 ///     import brahe as bh
 ///     import numpy as np
 ///
+///     epoch = bh.Epoch(2024, 1, 1, 0, 0, 0.0)
 ///     obs = bh.Observation(epoch, np.array([6878e3, 0.0, 0.0]), model_index=0)
 ///     ```
 #[pyclass(module = "brahe._brahe", from_py_object)]
@@ -2530,7 +2531,7 @@ fn process_measurement_models(
 ///     ekf = bh.ExtendedKalmanFilter(
 ///         epoch, state, p0,
 ///         propagation_config=bh.NumericalPropagationConfig.default(),
-///         force_config=bh.ForceModelConfig.two_body_gravity(),
+///         force_config=bh.ForceModelConfig.two_body(),
 ///         measurement_models=[bh.InertialPositionMeasurementModel(10.0)],
 ///     )
 ///     ```
@@ -2870,6 +2871,13 @@ impl PyExtendedKalmanFilter {
     /// Example:
     ///     ```python
     ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     bh.initialize_eop()
+    ///
+    ///     epoch = bh.Epoch(2024, 1, 1, 0, 0, 0.0)
+    ///     state = np.array([6878e3, 0.0, 0.0, 0.0, 7612.0, 0.0])
+    ///     p0 = np.diag([1e6, 1e6, 1e6, 1e2, 1e2, 1e2])
     ///
     ///     ekf = (
     ///         bh.ExtendedKalmanFilter.builder(
@@ -2930,6 +2938,13 @@ impl PyExtendedKalmanFilter {
 /// Example:
 ///     ```python
 ///     import brahe as bh
+///     import numpy as np
+///
+///     bh.initialize_eop()
+///
+///     epoch = bh.Epoch(2024, 1, 1, 0, 0, 0.0)
+///     state = np.array([6878e3, 0.0, 0.0, 0.0, 7612.0, 0.0])
+///     p0 = np.diag([1e6, 1e6, 1e6, 1e2, 1e2, 1e2])
 ///
 ///     ekf = (
 ///         bh.ExtendedKalmanFilter.builder(
@@ -2995,7 +3010,8 @@ impl PyExtendedKalmanFilterBuilder {
     ///
     /// Args:
     ///     dynamics (callable): Function computing derivatives for extra state elements.
-    ///         Signature: f(t, state, params) -> derivative.
+    ///         Signature: f(t, state, params) -> derivative, a vector the length of the full
+    ///         state that is added to the orbital dynamics.
     ///
     /// Returns:
     ///     ExtendedKalmanFilterBuilder: The builder, for method chaining.
@@ -3013,7 +3029,8 @@ impl PyExtendedKalmanFilterBuilder {
     ///
     /// Args:
     ///     control (callable): Control function returning an acceleration perturbation vector.
-    ///         Signature: f(t, state, params) -> acceleration.
+    ///         Signature: f(t, state, params) -> perturbation, a vector the length of the full
+    ///         state that is added to the state derivative; accelerations go in entries 3-5.
     ///
     /// Returns:
     ///     ExtendedKalmanFilterBuilder: The builder, for method chaining.
@@ -3550,6 +3567,13 @@ impl PyUnscentedKalmanFilter {
     /// Example:
     ///     ```python
     ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     bh.initialize_eop()
+    ///
+    ///     epoch = bh.Epoch(2024, 1, 1, 0, 0, 0.0)
+    ///     state = np.array([6878e3, 0.0, 0.0, 0.0, 7612.0, 0.0])
+    ///     p0 = np.diag([1e6, 1e6, 1e6, 1e2, 1e2, 1e2])
     ///
     ///     ukf = (
     ///         bh.UnscentedKalmanFilter.builder(
@@ -3610,6 +3634,13 @@ impl PyUnscentedKalmanFilter {
 /// Example:
 ///     ```python
 ///     import brahe as bh
+///     import numpy as np
+///
+///     bh.initialize_eop()
+///
+///     epoch = bh.Epoch(2024, 1, 1, 0, 0, 0.0)
+///     state = np.array([6878e3, 0.0, 0.0, 0.0, 7612.0, 0.0])
+///     p0 = np.diag([1e6, 1e6, 1e6, 1e2, 1e2, 1e2])
 ///
 ///     ukf = (
 ///         bh.UnscentedKalmanFilter.builder(
@@ -3673,7 +3704,8 @@ impl PyUnscentedKalmanFilterBuilder {
     ///
     /// Args:
     ///     dynamics (callable): Function computing derivatives for extra state elements.
-    ///         Signature: f(t, state, params) -> derivative.
+    ///         Signature: f(t, state, params) -> derivative, a vector the length of the full
+    ///         state that is added to the orbital dynamics.
     ///
     /// Returns:
     ///     UnscentedKalmanFilterBuilder: The builder, for method chaining.
@@ -3691,7 +3723,8 @@ impl PyUnscentedKalmanFilterBuilder {
     ///
     /// Args:
     ///     control (callable): Control function returning an acceleration perturbation vector.
-    ///         Signature: f(t, state, params) -> acceleration.
+    ///         Signature: f(t, state, params) -> perturbation, a vector the length of the full
+    ///         state that is added to the state derivative; accelerations go in entries 3-5.
     ///
     /// Returns:
     ///     UnscentedKalmanFilterBuilder: The builder, for method chaining.
@@ -4268,7 +4301,7 @@ impl PyBLSObservationResidual {
 ///     bls = bh.BatchLeastSquares(
 ///         epoch, state, p0,
 ///         propagation_config=bh.NumericalPropagationConfig.default(),
-///         force_config=bh.ForceModelConfig.two_body_gravity(),
+///         force_config=bh.ForceModelConfig.two_body(),
 ///         measurement_models=[bh.InertialPositionMeasurementModel(10.0)],
 ///     )
 ///     ```
@@ -4470,6 +4503,28 @@ impl PyBatchLeastSquares {
     ///
     /// Example:
     ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     bh.initialize_eop()
+    ///
+    ///     epoch = bh.Epoch(2024, 1, 1, 0, 0, 0.0)
+    ///     oe = np.array([bh.R_EARTH + 500e3, 0.001, 51.6, 0.0, 0.0, 0.0])
+    ///     state = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
+    ///     p0 = np.diag([1e6, 1e6, 1e6, 1e2, 1e2, 1e2])
+    ///
+    ///     truth = bh.KeplerianPropagator.from_keplerian(epoch, oe, bh.AngleFormat.DEGREES, 60.0)
+    ///     observations = [
+    ///         bh.Observation(epoch + t, truth.state_eci(epoch + t)[:3])
+    ///         for t in range(60, 1260, 60)
+    ///     ]
+    ///
+    ///     bls = bh.BatchLeastSquares(
+    ///         epoch, state + np.array([100.0, 0.0, 0.0, 0.0, 0.1, 0.0]), p0,
+    ///         propagation_config=bh.NumericalPropagationConfig.default(),
+    ///         force_config=bh.ForceModelConfig.two_body(),
+    ///         measurement_models=[bh.InertialPositionMeasurementModel(10.0)],
+    ///     )
     ///     bls.solve(observations)
     ///     print(f"Converged: {bls.converged()}")
     ///     print(f"Iterations: {bls.iterations_completed()}")
@@ -4659,6 +4714,13 @@ impl PyBatchLeastSquares {
     /// Example:
     ///     ```python
     ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     bh.initialize_eop()
+    ///
+    ///     epoch = bh.Epoch(2024, 1, 1, 0, 0, 0.0)
+    ///     state = np.array([6878e3, 0.0, 0.0, 0.0, 7612.0, 0.0])
+    ///     p0 = np.diag([1e6, 1e6, 1e6, 1e2, 1e2, 1e2])
     ///
     ///     bls = (
     ///         bh.BatchLeastSquares.builder(
@@ -4719,6 +4781,13 @@ impl PyBatchLeastSquares {
 /// Example:
 ///     ```python
 ///     import brahe as bh
+///     import numpy as np
+///
+///     bh.initialize_eop()
+///
+///     epoch = bh.Epoch(2024, 1, 1, 0, 0, 0.0)
+///     state = np.array([6878e3, 0.0, 0.0, 0.0, 7612.0, 0.0])
+///     p0 = np.diag([1e6, 1e6, 1e6, 1e2, 1e2, 1e2])
 ///
 ///     bls = (
 ///         bh.BatchLeastSquares.builder(
@@ -4784,7 +4853,8 @@ impl PyBatchLeastSquaresBuilder {
     ///
     /// Args:
     ///     dynamics (callable): Function computing derivatives for extra state elements.
-    ///         Signature: f(t, state, params) -> derivative.
+    ///         Signature: f(t, state, params) -> derivative, a vector the length of the full
+    ///         state that is added to the orbital dynamics.
     ///
     /// Returns:
     ///     BatchLeastSquaresBuilder: The builder, for method chaining.
@@ -4802,7 +4872,8 @@ impl PyBatchLeastSquaresBuilder {
     ///
     /// Args:
     ///     control (callable): Control function returning an acceleration perturbation vector.
-    ///         Signature: f(t, state, params) -> acceleration.
+    ///         Signature: f(t, state, params) -> perturbation, a vector the length of the full
+    ///         state that is added to the state derivative; accelerations go in entries 3-5.
     ///
     /// Returns:
     ///     BatchLeastSquaresBuilder: The builder, for method chaining.

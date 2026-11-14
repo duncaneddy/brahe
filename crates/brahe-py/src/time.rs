@@ -874,7 +874,7 @@ impl PyEpoch {
     /// Create an Epoch from an ISO 8601 formatted string.
     ///
     /// Args:
-    ///     datestr (str): ISO 8601 formatted date string (e.g., "2024-01-01T12:00:00.000000000 UTC")
+    ///     datestr (str): ISO 8601 formatted date string (e.g., "2024-01-01T12:00:00Z" or "2024-01-01 12:00:00.000 UTC")
     ///
     /// Returns:
     ///     Epoch: The epoch representing the parsed date and time
@@ -884,14 +884,14 @@ impl PyEpoch {
     ///     import brahe as bh
     ///
     ///     # Parse ISO 8601 string with full precision
-    ///     epc = bh.Epoch.from_string("2024-01-01T12:00:00.000000000 UTC")
+    ///     epc = bh.Epoch.from_string("2024-01-01T12:00:00.000000000Z")
     ///     print(epc)
-    ///     # Output: 2024-01-01T12:00:00.000000000 UTC
+    ///     # Output: 2024-01-01 12:00:00.000 UTC
     ///
     ///     # Parse different time systems
-    ///     epc_tai = bh.Epoch.from_string("2024-06-15T14:30:45.123456789 TAI")
+    ///     epc_tai = bh.Epoch.from_string("2024-06-15 14:30:45.123456789 TAI")
     ///     print(epc_tai.time_system)
-    ///     # Output: TimeSystem.TAI
+    ///     # Output: TAI
     ///     ```
     #[classmethod]
     pub fn from_string(_cls: &Bound<'_, PyType>, datestr: &str) -> PyResult<PyEpoch> {
@@ -1498,6 +1498,7 @@ impl PyEpoch {
     /// Example:
     ///     ```python
     ///     import brahe as bh
+    ///     bh.initialize_eop()
     ///
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     gast_rad = epc.gast(bh.AngleFormat.RADIANS)
@@ -1519,6 +1520,7 @@ impl PyEpoch {
     /// Example:
     ///     ```python
     ///     import brahe as bh
+    ///     bh.initialize_eop()
     ///
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     gmst_rad = epc.gmst(bh.AngleFormat.RADIANS)
@@ -1542,6 +1544,7 @@ impl PyEpoch {
     /// Example:
     ///     ```python
     ///     import brahe as bh
+    ///     bh.initialize_eop()
     ///
     ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     gmst82_rad = epc.gmst82(bh.AngleFormat.RADIANS)
@@ -1618,7 +1621,9 @@ impl PyEpoch {
     ///
     /// Example:
     ///     ```python
-    ///     epoch = brahe.Epoch.from_datetime(2023, 4, 10, 12, 0, 0.0, 0.0, "UTC")
+    ///     import brahe as bh
+    ///
+    ///     epoch = bh.Epoch.from_datetime(2023, 4, 10, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     ///     doy = epoch.day_of_year()
     ///     print(f"Day of year: {doy}")
     ///     ```
@@ -1639,8 +1644,10 @@ impl PyEpoch {
     ///
     /// Example:
     ///     ```python
-    ///     epoch = brahe.Epoch.from_datetime(2023, 4, 10, 12, 0, 0.0, 0.0, brahe.TimeSystem.UTC)
-    ///     doy_tai = epoch.day_of_year_as_time_system(brahe.TimeSystem.TAI)
+    ///     import brahe as bh
+    ///
+    ///     epoch = bh.Epoch.from_datetime(2023, 4, 10, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     doy_tai = epoch.day_of_year_as_time_system(bh.TimeSystem.TAI)
     ///     print(f"Day of year in TAI: {doy_tai}")
     ///     ```
     pub fn day_of_year_as_time_system(&self, time_system: PyRef<PyTimeSystem>) -> f64 {

@@ -1302,13 +1302,13 @@ impl PyConstraintNot {
 ///     svalbard = bh.PointLocation(lon=15.4, lat=78.2, alt=0.0)
 ///
 ///     # With identity
-///     svalbard = bh.PointLocation(lon=15.4, lat=78.2, alt=0.0) \\
-///         .with_name("Svalbard Ground Station") \\
+///     svalbard = bh.PointLocation(lon=15.4, lat=78.2, alt=0.0) \
+///         .with_name("Svalbard Ground Station") \
 ///         .with_id(1)
 ///
 ///     # With custom properties
-///     svalbard = bh.PointLocation(lon=15.4, lat=78.2, alt=0.0) \\
-///         .add_property("country", "Norway") \\
+///     svalbard = bh.PointLocation(lon=15.4, lat=78.2, alt=0.0) \
+///         .add_property("country", "Norway") \
 ///         .add_property("min_elevation_deg", 5.0)
 ///
 ///     # Access coordinates as properties
@@ -1530,7 +1530,7 @@ impl PyPointLocation {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     location = bh.PointLocation(lon=15.4, lat=78.2, alt=0.0) \\
+    ///     location = bh.PointLocation(lon=15.4, lat=78.2, alt=0.0) \
     ///         .with_name("Svalbard")
     ///
     ///     geojson = location.to_geojson()
@@ -1570,8 +1570,8 @@ impl PyPointLocation {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     location = bh.PointLocation(lon=15.4, lat=78.2, alt=0.0) \\
-    ///         .add_property("country", "Norway") \\
+    ///     location = bh.PointLocation(lon=15.4, lat=78.2, alt=0.0) \
+    ///         .add_property("country", "Norway") \
     ///         .add_property("elevation_mask_deg", 5.0)
     ///     ```
     fn add_property<'py>(mut slf: PyRefMut<'py, Self>, key: String, value: &Bound<'py, PyAny>) -> PyResult<PyRefMut<'py, Self>> {
@@ -1730,8 +1730,8 @@ impl PyPointLocation {
 ///     polygon = bh.PolygonLocation(vertices)
 ///
 ///     # With identity
-///     polygon = bh.PolygonLocation(vertices) \\
-///         .with_name("AOI-1") \\
+///     polygon = bh.PolygonLocation(vertices) \
+///         .with_name("AOI-1") \
 ///         .add_property("region", "Europe")
 ///     ```
 #[pyclass(module = "brahe._brahe")]
@@ -2147,17 +2147,37 @@ impl PyPolygonLocation {
 ///     ```python
 ///     import brahe as bh
 ///
+///     props = (
+///         bh.AccessProperties.builder()
+///         .azimuth_open(45.0)
+///         .azimuth_close(135.0)
+///         .elevation_min(10.0)
+///         .elevation_max(85.0)
+///         .elevation_open(12.0)
+///         .elevation_close(10.5)
+///         .off_nadir_min(5.0)
+///         .off_nadir_max(80.0)
+///         .local_time(43200.0)
+///         .look_direction(bh.LookDirection.RIGHT)
+///         .asc_dsc(bh.AscDsc.ASCENDING)
+///         .center_lon(0.0)
+///         .center_lat(45.0)
+///         .center_alt(0.0)
+///         .center_ecef([4517.59e3, 4517.59e3, 0.0])
+///         .build()
+///     )
+///
 ///     # Scalar value
-///     prop1 = bh.PropertyValue(42.5)
+///     props.additional["doppler_shift"] = 42.5
 ///
 ///     # Vector value
-///     prop2 = bh.PropertyValue([1.0, 2.0, 3.0])
+///     props.additional["snr_values"] = [1.0, 2.0, 3.0]
 ///
 ///     # Boolean value
-///     prop3 = bh.PropertyValue(True)
+///     props.additional["has_eclipse"] = True
 ///
 ///     # String value
-///     prop4 = bh.PropertyValue("visible")
+///     props.additional["status"] = "visible"
 ///     ```
 #[pyclass(module = "brahe._brahe")]
 #[pyo3(name = "PropertyValue")]
@@ -2261,8 +2281,8 @@ impl PyPropertyValue {
 ///     window = bh.AccessWindow(t_open, t_close)
 ///
 ///     # Access window properties
-///     print(f"Duration: {window.duration()} seconds")
-///     print(f"Midpoint: {window.midtime()}")
+///     print(f"Duration: {window.duration} seconds")
+///     print(f"Midpoint: {window.midtime}")
 ///     ```
 #[pyclass(module = "brahe._brahe")]
 #[pyo3(name = "AccessWindow")]
@@ -2977,7 +2997,26 @@ impl PyAccessPropertiesView {
 ///
 ///     # Access properties are typically computed by the access computation system
 ///     # This example shows accessing the properties
-///     props = ...  # From access computation
+///     props = (
+///         bh.AccessProperties.builder()
+///         .azimuth_open(45.0)
+///         .azimuth_close(135.0)
+///         .elevation_min(10.0)
+///         .elevation_max(85.0)
+///         .elevation_open(12.0)
+///         .elevation_close(10.5)
+///         .off_nadir_min(5.0)
+///         .off_nadir_max(80.0)
+///         .local_time(43200.0)
+///         .look_direction(bh.LookDirection.RIGHT)
+///         .asc_dsc(bh.AscDsc.ASCENDING)
+///         .center_lon(0.0)
+///         .center_lat(45.0)
+///         .center_alt(0.0)
+///         .center_ecef([4517.59e3, 4517.59e3, 0.0])
+///         .additional("signal_strength", -95.0)
+///         .build()
+///     )
 ///
 ///     print(f"Azimuth at open: {props.azimuth_open}°")
 ///     print(f"Max elevation: {props.elevation_max}°")
@@ -3137,6 +3176,28 @@ impl PyAccessProperties {
     ///
     /// Example:
     ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     props = (
+    ///         bh.AccessProperties.builder()
+    ///         .azimuth_open(45.0)
+    ///         .azimuth_close(135.0)
+    ///         .elevation_min(10.0)
+    ///         .elevation_max(85.0)
+    ///         .elevation_open(12.0)
+    ///         .elevation_close(10.5)
+    ///         .off_nadir_min(5.0)
+    ///         .off_nadir_max(80.0)
+    ///         .local_time(43200.0)
+    ///         .look_direction(bh.LookDirection.RIGHT)
+    ///         .asc_dsc(bh.AscDsc.ASCENDING)
+    ///         .center_lon(0.0)
+    ///         .center_lat(45.0)
+    ///         .center_alt(0.0)
+    ///         .center_ecef([4517.59e3, 4517.59e3, 0.0])
+    ///         .build()
+    ///     )
+    ///
     ///     # Dict-style assignment
     ///     props.additional["doppler_shift"] = 2500.0
     ///     props.additional["snr_values"] = [10.5, 12.3, 15.1]
@@ -4941,7 +5002,18 @@ impl PySubdivisionConfig {
 ///
 /// Example:
 ///     ```python
+///     import numpy as np
 ///     import brahe as bh
+///
+///     bh.initialize_eop()
+///
+///     station = bh.PointLocation(-75.0, 40.0, 0.0)
+///     search_start = bh.Epoch(2024, 1, 1, 0, 0, 0.0)
+///     search_end = search_start + 86400.0
+///     oe = np.array([bh.R_EARTH + 500e3, 0.01, 97.8, 15.0, 30.0, 45.0])
+///     state = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
+///     prop = bh.KeplerianPropagator.from_eci(search_start, state, 60.0)
+///     constraint = bh.ElevationConstraint(10.0)
 ///
 ///     # Create a config with custom parameters
 ///     config = bh.AccessSearchConfig(
@@ -5230,6 +5302,8 @@ fn sequence_as_list<'py>(obj: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>>
 ///     import brahe as bh
 ///     import numpy as np
 ///
+///     bh.initialize_eop()
+///
 ///     # Create a ground station
 ///     station = bh.PointLocation(-75.0, 40.0, 0.0)  # Philadelphia
 ///
@@ -5237,7 +5311,7 @@ fn sequence_as_list<'py>(obj: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>>
 ///     epoch = bh.Epoch(2024, 1, 1, 0, 0, 0.0)
 ///     oe = np.array([bh.R_EARTH + 500e3, 0.01, 97.8, 15.0, 30.0, 45.0])
 ///     state = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
-///     prop1 = bh.KeplerianPropagator(epoch, state)
+///     prop1 = bh.KeplerianPropagator.from_eci(epoch, state, 60.0)
 ///
 ///     # Define access constraints
 ///     constraint = bh.ElevationConstraint(10.0)  # 10 degree minimum elevation
@@ -5247,7 +5321,7 @@ fn sequence_as_list<'py>(obj: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>>
 ///     windows = bh.location_accesses(station, prop1, epoch, search_end, constraint)
 ///
 ///     # Single location, multiple propagators
-///     prop2 = bh.KeplerianPropagator(epoch, state)  # Different satellite
+///     prop2 = bh.KeplerianPropagator.from_eci(epoch, state, 60.0)  # Different satellite
 ///     windows = bh.location_accesses(station, [prop1, prop2], epoch, search_end, constraint)
 ///
 ///     # Multiple locations, single propagator
@@ -5867,7 +5941,11 @@ impl PyOrbitGeometryTessellatorConfig {
 ///     ```python
 ///     import brahe as bh
 ///
-///     prop = bh.SGPPropagator(line1, line2)
+///     bh.initialize_eop()
+///
+///     line1 = "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927"
+///     line2 = "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537"
+///     prop = bh.SGPPropagator.from_tle(line1, line2)
 ///     config = bh.OrbitGeometryTessellatorConfig(
 ///         image_width=5000, image_length=5000
 ///     )
@@ -5934,6 +6012,13 @@ impl PyOrbitGeometryTessellator {
     ///     ```python
     ///     import brahe as bh
     ///
+    ///     bh.initialize_eop()
+    ///
+    ///     line1 = "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927"
+    ///     line2 = "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537"
+    ///     prop = bh.SGPPropagator.from_tle(line1, line2)
+    ///     tessellator = bh.OrbitGeometryTessellator(prop, prop.epoch)
+    ///
     ///     point = bh.PointLocation(10.0, 30.0, 0.0)
     ///     tiles = tessellator.tessellate_point(point)
     ///     for tile in tiles:
@@ -5965,8 +6050,15 @@ impl PyOrbitGeometryTessellator {
     ///
     /// Example:
     ///     ```python
-    ///     import brahe as bh
     ///     import numpy as np
+    ///     import brahe as bh
+    ///
+    ///     bh.initialize_eop()
+    ///
+    ///     line1 = "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927"
+    ///     line2 = "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537"
+    ///     prop = bh.SGPPropagator.from_tle(line1, line2)
+    ///     tessellator = bh.OrbitGeometryTessellator(prop, prop.epoch)
     ///
     ///     vertices = np.array([
     ///         [10.0, 30.0, 0.0],
@@ -6070,6 +6162,17 @@ impl PyOrbitGeometryTessellator {
 /// Example:
 ///     ```python
 ///     import brahe as bh
+///
+///     bh.initialize_eop()
+///
+///     line1 = "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927"
+///     line2_sc1 = "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537"
+///     line2_sc2 = "2 25544  53.0000 247.4627 0006703 130.5360 325.0288 15.72125391563532"
+///     prop1 = bh.SGPPropagator.from_tle(line1, line2_sc1)
+///     prop2 = bh.SGPPropagator.from_tle(line1, line2_sc2)
+///     tess1 = bh.OrbitGeometryTessellator(prop1, prop1.epoch, spacecraft_id="SC-1")
+///     tess2 = bh.OrbitGeometryTessellator(prop2, prop2.epoch, spacecraft_id="SC-2")
+///     point = bh.PointLocation(10.0, 30.0, 0.0)
 ///
 ///     # Tessellate with two spacecraft
 ///     tiles_sc1 = tess1.tessellate_point(point)

@@ -72,15 +72,15 @@ def plot_cartesian_trajectory(
         import numpy as np
 
         # Create trajectory
-        eop = bh.FileEOPProvider.from_default_standard(bh.EarthOrientationFileType.STANDARD, True)
-        bh.set_global_eop_provider(eop)
+        bh.initialize_eop()
 
         epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
         oe = np.array([bh.R_EARTH + 500e3, 0.01, np.radians(97.8), 0.0, 0.0, 0.0])
         state = bh.state_koe_to_eci(oe, bh.AngleFormat.RADIANS)
 
         prop = bh.KeplerianPropagator.from_eci(epoch, state, 60.0)
-        traj = prop.propagate(epoch, epoch + 2*bh.orbital_period(oe[0]), 60.0)
+        prop.propagate_to(epoch + 2 * bh.orbital_period(oe[0]))
+        traj = prop.trajectory
 
         # Plot Cartesian elements with legend in upper right of Z position subplot
         fig = bh.plot_cartesian_trajectory(
@@ -206,14 +206,14 @@ def plot_keplerian_trajectory(
         import numpy as np
 
         # Create trajectory
-        eop = bh.FileEOPProvider.from_default_standard(bh.EarthOrientationFileType.STANDARD, True)
-        bh.set_global_eop_provider(eop)
+        bh.initialize_eop()
 
         epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
         oe = np.array([bh.R_EARTH + 500e3, 0.01, 97.8, 0.0, 0.0, 0.0])
 
-        prop = bh.KeplerianPropagator.from_eci(epoch, oe, bh.AngleFormat.DEGREES, 60.0)
-        traj = prop.propagate(epoch, epoch + 2*bh.orbital_period(oe[0]), 60.0)
+        prop = bh.KeplerianPropagator.from_keplerian(epoch, oe, bh.AngleFormat.DEGREES, 60.0)
+        prop.propagate_to(epoch + 2 * bh.orbital_period(oe[0]))
+        traj = prop.trajectory
 
         # Plot Keplerian elements
         fig = bh.plot_keplerian_trajectory(

@@ -17,7 +17,7 @@ This module provides:
 - IGSAnalysisCenter: Analysis centers that publish the products
 
 Example:
-    ```python
+    ```python {.no_run}
     import brahe as bh
 
     name = bh.igs.IGSProductFileName.parse("COD0OPSFIN_20243150000_01D_05M_ORB.SP3.gz")

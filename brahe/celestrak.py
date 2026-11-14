@@ -15,8 +15,9 @@ GP queries return the same GPRecord type as the SpaceTrack module,
 enabling interoperability between both data sources.
 
 Example:
-    ```python
+    ```python {.no_run}
     import brahe as bh
+    bh.initialize_eop()
 
     client = bh.celestrak.CelestrakClient()
 

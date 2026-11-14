@@ -1092,7 +1092,7 @@ impl PyIGSProductSource {
 /// its download methods. All properties are read-only.
 ///
 /// Example:
-///     ```python
+///     ```python {.no_run}
 ///     import brahe as bh
 ///
 ///     client = bh.IGSProductsClient(source=bh.IGSProductSource.GARNER)
@@ -1198,7 +1198,7 @@ impl PyIGSProduct {
 ///     ValueError: If only one credential is given, credentials are given with a non-CDDIS source or with ``base_url``, or ``source`` is not a known source name.
 ///
 /// Example:
-///     ```python
+///     ```python {.no_run}
 ///     import brahe as bh
 ///
 ///     client = bh.IGSProductsClient("GARNER")
@@ -1319,7 +1319,7 @@ impl PyIGSProductsClient {
     ///     BraheError: If the listing cannot be served from the cache or fetched.
     ///
     /// Example:
-    ///     ```python
+    ///     ```python {.no_run}
     ///     import brahe as bh
     ///
     ///     client = bh.IGSProductsClient("GARNER")
@@ -1346,7 +1346,7 @@ impl PyIGSProductsClient {
     ///     BraheError: If the week directory does not exist on the source, or the listing cannot be served from the cache or fetched.
     ///
     /// Example:
-    ///     ```python
+    ///     ```python {.no_run}
     ///     import brahe as bh
     ///
     ///     client = bh.IGSProductsClient("GARNER")
@@ -1380,7 +1380,7 @@ impl PyIGSProductsClient {
     ///     BraheError: If the week directory does not exist on the source, or the listing cannot be served from the cache or fetched.
     ///
     /// Example:
-    ///     ```python
+    ///     ```python {.no_run}
     ///     import brahe as bh
     ///
     ///     client = bh.IGSProductsClient("GARNER")
@@ -1441,7 +1441,7 @@ impl PyIGSProductsClient {
     ///     BraheError: If ``end`` is before ``start``, a week directory containing part of the range does not exist on the source, or a listing cannot be served from the cache or fetched.
     ///
     /// Example:
-    ///     ```python
+    ///     ```python {.no_run}
     ///     import brahe as bh
     ///
     ///     client = bh.IGSProductsClient("GARNER")
@@ -1492,7 +1492,7 @@ impl PyIGSProductsClient {
     ///     BraheError: If the file does not exist on the source, the network mode forbids the request, the Earthdata login fails, the body does not match the name's compression, or the cache cannot be written.
     ///
     /// Example:
-    ///     ```python
+    ///     ```python {.no_run}
     ///     import brahe as bh
     ///
     ///     client = bh.IGSProductsClient("GARNER")
@@ -1529,7 +1529,7 @@ impl PyIGSProductsClient {
     ///     BraheError: If ``destination`` resolves inside the cache directory, which is checked before anything is downloaded, the download fails, the compressed data is invalid, or the file cannot be written.
     ///
     /// Example:
-    ///     ```python
+    ///     ```python {.no_run}
     ///     import tempfile
     ///
     ///     import brahe as bh
@@ -1574,7 +1574,7 @@ impl PyIGSProductsClient {
     ///     BraheError: If the product is not an SP3 file, which is checked before anything is downloaded, or if the download or parse fails.
     ///
     /// Example:
-    ///     ```python
+    ///     ```python {.no_run}
     ///     import brahe as bh
     ///
     ///     client = bh.IGSProductsClient("GARNER")
@@ -1637,7 +1637,7 @@ impl PyIGSProductsClient {
     ///     BraheError: If ``solution`` is ultra-rapid, ``end`` is before ``start``, ``concurrency`` is 0, a week listing containing part of the span cannot be obtained, a day inside the span has no file on the source (including when its week directory answers 404), or a download or parse fails other than a 404 for a padding file; a parse error names the product.
     ///
     /// Example:
-    ///     ```python
+    ///     ```python {.no_run}
     ///     import brahe as bh
     ///
     ///     client = bh.IGSProductsClient("GARNER")

@@ -54,7 +54,7 @@ use brahe::gcat;
 ///     alt_names (str | None): Alternative names
 ///
 /// Example:
-///     ```python
+///     ```python {.no_run}
 ///     import brahe.datasets as datasets
 ///
 ///     satcat = datasets.gcat.get_satcat()
@@ -294,7 +294,7 @@ impl PyGCATSatcatRecord {
 ///     comment (str | None): Comments
 ///
 /// Example:
-///     ```python
+///     ```python {.no_run}
 ///     import brahe.datasets as datasets
 ///
 ///     psatcat = datasets.gcat.get_psatcat()
@@ -446,7 +446,7 @@ impl PyGCATPsatcatRecord {
 /// filters. All filter methods return a new ``GCATSatcat`` instance.
 ///
 /// Example:
-///     ```python
+///     ```python {.no_run}
 ///     import brahe.datasets as datasets
 ///
 ///     satcat = datasets.gcat.get_satcat()
@@ -487,7 +487,10 @@ impl PyGCATSatcat {
     ///     GCATSatcatRecord | None: The matching record, or None if not found
     ///
     /// Example:
-    ///     ```python
+    ///     ```python {.no_run}
+    ///     import brahe.datasets as datasets
+    ///
+    ///     satcat = datasets.gcat.get_satcat()
     ///     record = satcat.get_by_jcat("S049652")
     ///     ```
     fn get_by_jcat(&self, jcat: &str) -> Option<PyGCATSatcatRecord> {
@@ -505,7 +508,10 @@ impl PyGCATSatcat {
     ///     GCATSatcatRecord | None: The matching record, or None if not found
     ///
     /// Example:
-    ///     ```python
+    ///     ```python {.no_run}
+    ///     import brahe.datasets as datasets
+    ///
+    ///     satcat = datasets.gcat.get_satcat()
     ///     iss = satcat.get_by_satcat("25544")
     ///     ```
     fn get_by_satcat(&self, satcat_num: &str) -> Option<PyGCATSatcatRecord> {
@@ -525,7 +531,10 @@ impl PyGCATSatcat {
     ///     GCATSatcat: New catalog containing matching records
     ///
     /// Example:
-    ///     ```python
+    ///     ```python {.no_run}
+    ///     import brahe.datasets as datasets
+    ///
+    ///     satcat = datasets.gcat.get_satcat()
     ///     starlinks = satcat.search_by_name("starlink")
     ///     ```
     fn search_by_name(&self, pattern: &str) -> PyGCATSatcat {
@@ -543,7 +552,10 @@ impl PyGCATSatcat {
     ///     GCATSatcat: New catalog containing matching records
     ///
     /// Example:
-    ///     ```python
+    ///     ```python {.no_run}
+    ///     import brahe.datasets as datasets
+    ///
+    ///     satcat = datasets.gcat.get_satcat()
     ///     payloads = satcat.filter_by_type("P")
     ///     ```
     fn filter_by_type(&self, object_type: &str) -> PyGCATSatcat {
@@ -561,7 +573,10 @@ impl PyGCATSatcat {
     ///     GCATSatcat: New catalog containing matching records
     ///
     /// Example:
-    ///     ```python
+    ///     ```python {.no_run}
+    ///     import brahe.datasets as datasets
+    ///
+    ///     satcat = datasets.gcat.get_satcat()
     ///     nasa_objects = satcat.filter_by_owner("NASA")
     ///     ```
     fn filter_by_owner(&self, owner: &str) -> PyGCATSatcat {
@@ -579,7 +594,10 @@ impl PyGCATSatcat {
     ///     GCATSatcat: New catalog containing matching records
     ///
     /// Example:
-    ///     ```python
+    ///     ```python {.no_run}
+    ///     import brahe.datasets as datasets
+    ///
+    ///     satcat = datasets.gcat.get_satcat()
     ///     us_objects = satcat.filter_by_state("US")
     ///     ```
     fn filter_by_state(&self, state: &str) -> PyGCATSatcat {
@@ -597,7 +615,10 @@ impl PyGCATSatcat {
     ///     GCATSatcat: New catalog containing matching records
     ///
     /// Example:
-    ///     ```python
+    ///     ```python {.no_run}
+    ///     import brahe.datasets as datasets
+    ///
+    ///     satcat = datasets.gcat.get_satcat()
     ///     operational = satcat.filter_by_status("O")
     ///     ```
     fn filter_by_status(&self, status: &str) -> PyGCATSatcat {
@@ -616,7 +637,10 @@ impl PyGCATSatcat {
     ///     GCATSatcat: New catalog containing matching records
     ///
     /// Example:
-    ///     ```python
+    ///     ```python {.no_run}
+    ///     import brahe.datasets as datasets
+    ///
+    ///     satcat = datasets.gcat.get_satcat()
     ///     leo = satcat.filter_by_perigee_range(200.0, 2000.0)
     ///     ```
     fn filter_by_perigee_range(&self, min_km: f64, max_km: f64) -> PyGCATSatcat {
@@ -635,7 +659,10 @@ impl PyGCATSatcat {
     ///     GCATSatcat: New catalog containing matching records
     ///
     /// Example:
-    ///     ```python
+    ///     ```python {.no_run}
+    ///     import brahe.datasets as datasets
+    ///
+    ///     satcat = datasets.gcat.get_satcat()
     ///     leo = satcat.filter_by_apogee_range(200.0, 2000.0)
     ///     ```
     fn filter_by_apogee_range(&self, min_km: f64, max_km: f64) -> PyGCATSatcat {
@@ -654,7 +681,10 @@ impl PyGCATSatcat {
     ///     GCATSatcat: New catalog containing matching records
     ///
     /// Example:
-    ///     ```python
+    ///     ```python {.no_run}
+    ///     import brahe.datasets as datasets
+    ///
+    ///     satcat = datasets.gcat.get_satcat()
     ///     polar = satcat.filter_by_inc_range(85.0, 100.0)
     ///     ```
     fn filter_by_inc_range(&self, min_deg: f64, max_deg: f64) -> PyGCATSatcat {
@@ -672,7 +702,11 @@ impl PyGCATSatcat {
     ///     polars.DataFrame: DataFrame with all catalog fields as columns
     ///
     /// Example:
-    ///     ```python
+    ///     ```python {.no_run}
+    ///     import polars as pl
+    ///     import brahe.datasets as datasets
+    ///
+    ///     satcat = datasets.gcat.get_satcat()
     ///     df = satcat.to_dataframe()
     ///     print(df.head())
     ///     print(df.filter(pl.col("status") == "O").shape)
@@ -780,7 +814,7 @@ impl PyGCATSatcat {
 /// All filter methods return a new ``GCATPsatcat`` instance.
 ///
 /// Example:
-///     ```python
+///     ```python {.no_run}
 ///     import brahe.datasets as datasets
 ///
 ///     psatcat = datasets.gcat.get_psatcat()
@@ -892,7 +926,10 @@ impl PyGCATPsatcat {
     ///     polars.DataFrame: DataFrame with all catalog fields as columns
     ///
     /// Example:
-    ///     ```python
+    ///     ```python {.no_run}
+    ///     import brahe.datasets as datasets
+    ///
+    ///     psatcat = datasets.gcat.get_psatcat()
     ///     df = psatcat.to_dataframe()
     ///     print(df.head())
     ///     ```
@@ -992,7 +1029,7 @@ impl PyGCATPsatcat {
 ///     BraheError: If download or parsing fails.
 ///
 /// Example:
-///     ```python
+///     ```python {.no_run}
 ///     import brahe.datasets as datasets
 ///
 ///     # Default 24h cache
@@ -1030,7 +1067,7 @@ fn py_gcat_get_satcat(cache_max_age: Option<f64>) -> PyResult<PyGCATSatcat> {
 ///     BraheError: If download or parsing fails.
 ///
 /// Example:
-///     ```python
+///     ```python {.no_run}
 ///     import brahe.datasets as datasets
 ///
 ///     psatcat = datasets.gcat.get_psatcat()

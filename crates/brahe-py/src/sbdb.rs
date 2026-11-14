@@ -77,7 +77,7 @@ impl PySBDBObject {
 ///     cache_max_age (int, optional): Cache max age in seconds (0 = always refetch).
 ///
 /// Example:
-///     ```python
+///     ```python {.no_run}
 ///     import brahe as bh
 ///     client = bh.datasets.sbdb.SBDBClient()
 ///     ceres = client.lookup("Ceres")

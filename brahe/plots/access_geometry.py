@@ -74,15 +74,14 @@ def plot_access_polar(
         import numpy as np
 
         # Setup
-        eop = bh.FileEOPProvider.from_default_standard(bh.EarthOrientationFileType.STANDARD, True)
-        bh.set_global_eop_provider(eop)
+        bh.initialize_eop()
 
         epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
         oe = np.array([bh.R_EARTH + 500e3, 0.01, np.radians(97.8), 0.0, 0.0, 0.0])
         state = bh.state_koe_to_eci(oe, bh.AngleFormat.RADIANS)
 
         prop = bh.KeplerianPropagator.from_eci(epoch, state, 60.0).with_name("Satellite")
-        location = bh.PointLocation(np.radians(40.7128), np.radians(-74.0060), 0.0).with_name("NYC")
+        location = bh.PointLocation(-74.0060, 40.7128, 0.0).with_name("NYC")
         constraint = bh.ElevationConstraint(min_elevation_deg=10.0)
 
         # Compute access
@@ -91,6 +90,7 @@ def plot_access_polar(
         # Plot first access window
         fig = bh.plot_access_polar(
             [{"access_window": windows[0], "propagator": prop, "label": "Pass 1"}],
+            prop,
             min_elevation=10.0,
             backend='matplotlib'
         )
@@ -175,15 +175,14 @@ def plot_access_elevation(
         import numpy as np
 
         # Setup (same as polar plot example)
-        eop = bh.FileEOPProvider.from_default_standard(bh.EarthOrientationFileType.STANDARD, True)
-        bh.set_global_eop_provider(eop)
+        bh.initialize_eop()
 
         epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
         oe = np.array([bh.R_EARTH + 500e3, 0.01, np.radians(97.8), 0.0, 0.0, 0.0])
         state = bh.state_koe_to_eci(oe, bh.AngleFormat.RADIANS)
 
         prop = bh.KeplerianPropagator.from_eci(epoch, state, 60.0).with_name("Satellite")
-        location = bh.PointLocation(np.radians(40.7128), np.radians(-74.0060), 0.0).with_name("NYC")
+        location = bh.PointLocation(-74.0060, 40.7128, 0.0).with_name("NYC")
         constraint = bh.ElevationConstraint(min_elevation_deg=10.0)
 
         windows = bh.location_accesses([location], [prop], epoch, epoch + 86400.0, constraint)
@@ -191,6 +190,7 @@ def plot_access_elevation(
         # Plot elevation profile
         fig = bh.plot_access_elevation(
             [{"access_window": w, "propagator": prop, "label": f"Pass {i+1}"} for i, w in enumerate(windows[:3])],
+            prop,
             backend='matplotlib'
         )
         ```
@@ -263,15 +263,14 @@ def plot_access_elevation_azimuth(
         import numpy as np
 
         # Setup
-        eop = bh.FileEOPProvider.from_default_standard(bh.EarthOrientationFileType.STANDARD, True)
-        bh.set_global_eop_provider(eop)
+        bh.initialize_eop()
 
         epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
         oe = np.array([bh.R_EARTH + 500e3, 0.01, np.radians(97.8), 0.0, 0.0, 0.0])
         state = bh.state_koe_to_eci(oe, bh.AngleFormat.RADIANS)
 
         prop = bh.KeplerianPropagator.from_eci(epoch, state, 60.0).with_name("Satellite")
-        location = bh.PointLocation(np.radians(40.7128), np.radians(-74.0060), 0.0).with_name("NYC")
+        location = bh.PointLocation(-74.0060, 40.7128, 0.0).with_name("NYC")
         constraint = bh.ElevationConstraint(min_elevation_deg=10.0)
 
         windows = bh.location_accesses([location], [prop], epoch, epoch + 86400.0, constraint)
@@ -282,6 +281,7 @@ def plot_access_elevation_azimuth(
         # Plot elevation vs azimuth
         fig = bh.plot_access_elevation_azimuth(
             [{"access_window": w, "propagator": prop, "label": f"Pass {i+1}"} for i, w in enumerate(windows[:3])],
+            prop,
             elevation_mask=mask_fn,
             backend='matplotlib'
         )

@@ -35,6 +35,7 @@ fn sw_type_to_string(sw_type: space_weather::SpaceWeatherType) -> String {
 ///
 /// Provides space weather data using fixed values that don't change with time.
 /// Useful for testing or scenarios where time-varying space weather data is not needed.
+/// The constructor takes no arguments and creates an uninitialized provider.
 ///
 /// Example:
 ///     ```python
@@ -42,6 +43,7 @@ fn sw_type_to_string(sw_type: space_weather::SpaceWeatherType) -> String {
 ///
 ///     # Create static provider with default (uninitialized) values
 ///     sw = bh.StaticSpaceWeatherProvider()
+///     print(f"Is initialized: {sw.is_initialized()}")  # False
 ///
 ///     # Create static provider with zero values
 ///     sw_zero = bh.StaticSpaceWeatherProvider.from_zero()
@@ -70,18 +72,6 @@ impl PyStaticSpaceWeatherProvider {
         self.obj.to_string()
     }
 
-    /// Create a new uninitialized static space weather provider.
-    ///
-    /// Returns:
-    ///     StaticSpaceWeatherProvider: New uninitialized provider
-    ///
-    /// Example:
-    ///     ```python
-    ///     import brahe as bh
-    ///
-    ///     sw = bh.StaticSpaceWeatherProvider()
-    ///     print(f"Is initialized: {sw.is_initialized()}")  # False
-    ///     ```
     #[new]
     pub fn new() -> Self {
         PyStaticSpaceWeatherProvider {
@@ -664,11 +654,17 @@ impl PyStaticSpaceWeatherProvider {
 /// File-based Space Weather provider.
 ///
 /// Loads space weather data from CSSI format files and provides
-/// extrapolation capabilities.
+/// extrapolation capabilities. The constructor takes no arguments and creates
+/// an uninitialized provider; use the ``from_*`` class methods to create a
+/// provider loaded with data.
 ///
 /// Example:
 ///     ```python
 ///     import brahe as bh
+///
+///     # Uninitialized provider
+///     sw = bh.FileSpaceWeatherProvider()
+///     print(f"Is initialized: {sw.is_initialized()}")  # False
 ///
 ///     # Create from file
 ///     sw = bh.FileSpaceWeatherProvider.from_file(
@@ -704,18 +700,6 @@ impl PyFileSpaceWeatherProvider {
         self.obj.to_string()
     }
 
-    /// Create a new uninitialized file space weather provider.
-    ///
-    /// Returns:
-    ///     FileSpaceWeatherProvider: New uninitialized provider
-    ///
-    /// Example:
-    ///     ```python
-    ///     import brahe as bh
-    ///
-    ///     sw = bh.FileSpaceWeatherProvider()
-    ///     print(f"Is initialized: {sw.is_initialized()}")  # False
-    ///     ```
     #[new]
     pub fn new() -> Self {
         PyFileSpaceWeatherProvider {
@@ -1347,28 +1331,6 @@ impl PyCachingSpaceWeatherProvider {
         )
     }
 
-    /// Initialize a new caching space weather provider with automatic file management.
-    ///
-    /// Args:
-    ///     max_age_seconds (int): Maximum age of file in seconds before triggering a refresh
-    ///     auto_refresh (bool): If True, automatically checks file age and refreshes on every access
-    ///     extrapolate (str): Behavior for dates outside data range: "Hold", "Zero", or "Error"
-    ///     cache_dir (str, optional): Custom cache directory. If None, uses ~/.cache/brahe/
-    ///
-    /// Returns:
-    ///     CachingSpaceWeatherProvider: Provider with automatic cache management
-    ///
-    /// Example:
-    ///     ```python
-    ///     import brahe as bh
-    ///
-    ///     provider = bh.CachingSpaceWeatherProvider(
-    ///         max_age_seconds=7 * 86400,  # 7 days
-    ///         auto_refresh=False,
-    ///         extrapolate="Hold"
-    ///     )
-    ///     bh.set_global_space_weather_provider(provider)
-    ///     ```
     #[new]
     #[pyo3(signature = (max_age_seconds, auto_refresh, extrapolate, cache_dir=None))]
     pub fn new(

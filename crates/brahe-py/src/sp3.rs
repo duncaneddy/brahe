@@ -800,6 +800,13 @@ fn sp3_vector_to_numpy<'py>(py: Python<'py>, v: [f64; 3]) -> Bound<'py, PyArray<
 /// Identifiers print as the system code followed by a two-digit number
 /// (``G05``) and order by system, then number.
 ///
+/// Args:
+///     system (GNSSSystem | str): Satellite system, or its one-letter code or name.
+///     number (int): Satellite number within the system, 1 to 99 inclusive.
+///
+/// Raises:
+///     BraheError: If the system is unknown or the number is outside 1 to 99.
+///
 /// Example:
 ///     ```python
 ///     import brahe as bh
@@ -825,17 +832,6 @@ pub struct PySP3SatelliteId {
 
 #[pymethods]
 impl PySP3SatelliteId {
-    /// Create a satellite identifier.
-    ///
-    /// Args:
-    ///     system (GNSSSystem | str): Satellite system, or its one-letter code or name.
-    ///     number (int): Satellite number within the system, 1 to 99 inclusive.
-    ///
-    /// Returns:
-    ///     SP3SatelliteId: The identifier.
-    ///
-    /// Raises:
-    ///     BraheError: If the system is unknown or the number is outside 1 to 99.
     #[new]
     fn new(system: &Bound<'_, PyAny>, number: i64) -> PyResult<Self> {
         let system = extract_sp3_gnss_system(system)?;
@@ -940,6 +936,16 @@ impl PySP3SatelliteId {
 /// distinct from an explicit 0. Properties return copies; assign the object
 /// back to its owner to change it.
 ///
+/// Args:
+///     std (Sequence[float | None], optional): Standard deviations of x, y, z; defaults to all unknown.
+///     clock_std (float, optional): Standard deviation of the clock.
+///     xy (float, optional): Correlation between x and y; defaults to None (unknown).
+///     xz (float, optional): Correlation between x and z; defaults to None (unknown).
+///     xc (float, optional): Correlation between x and the clock; defaults to None (unknown).
+///     yz (float, optional): Correlation between y and z; defaults to None (unknown).
+///     yc (float, optional): Correlation between y and the clock; defaults to None (unknown).
+///     zc (float, optional): Correlation between z and the clock; defaults to None (unknown).
+///
 /// Example:
 ///     ```python
 ///     import brahe as bh
@@ -958,20 +964,6 @@ pub struct PySP3Correlation {
 
 #[pymethods]
 impl PySP3Correlation {
-    /// Create a correlation record.
-    ///
-    /// Args:
-    ///     std (Sequence[float | None], optional): Standard deviations of x, y, z; defaults to all unknown.
-    ///     clock_std (float, optional): Standard deviation of the clock.
-    ///     xy (float, optional): Correlation between x and y; defaults to None (unknown).
-    ///     xz (float, optional): Correlation between x and z; defaults to None (unknown).
-    ///     xc (float, optional): Correlation between x and the clock; defaults to None (unknown).
-    ///     yz (float, optional): Correlation between y and z; defaults to None (unknown).
-    ///     yc (float, optional): Correlation between y and the clock; defaults to None (unknown).
-    ///     zc (float, optional): Correlation between z and the clock; defaults to None (unknown).
-    ///
-    /// Returns:
-    ///     SP3Correlation: The correlation record.
     #[new]
     #[pyo3(signature = (std=None, clock_std=None, xy=None, xz=None, xc=None, yz=None, yc=None, zc=None))]
     #[allow(clippy::too_many_arguments)]
@@ -1124,6 +1116,25 @@ impl PySP3Correlation {
 /// not carry them. Properties return copies; to change a record held by an
 /// ``SP3``, modify a copy and pass it to ``SP3.set_record``.
 ///
+/// Args:
+///     position (numpy.ndarray): Position in the file's coordinate system, meters, shape (3,).
+///     clock (float, optional): Clock offset, seconds.
+///     velocity (numpy.ndarray, optional): Velocity, meters per second, shape (3,).
+///     clock_rate (float, optional): Clock rate of change, seconds per second.
+///     position_std (Sequence[float | None], optional): Standard deviations of the position, meters.
+///     clock_std (float, optional): Standard deviation of the clock, seconds.
+///     velocity_std (Sequence[float | None], optional): Standard deviations of the velocity, meters per second.
+///     clock_rate_std (float, optional): Standard deviation of the clock rate, seconds per second.
+///     clock_event (bool, optional): Whether a clock discontinuity occurred; defaults to False.
+///     clock_predicted (bool, optional): Whether the clock is predicted; defaults to False.
+///     maneuver (bool, optional): Whether a maneuver occurred; defaults to False.
+///     orbit_predicted (bool, optional): Whether the orbit is predicted; defaults to False.
+///     position_correlation (SP3Correlation, optional): Position and clock correlation record.
+///     velocity_correlation (SP3Correlation, optional): Velocity and clock rate correlation record.
+///
+/// Raises:
+///     ValueError: If a vector argument does not have three components.
+///
 /// Example:
 ///     ```python
 ///     import brahe as bh
@@ -1146,29 +1157,6 @@ pub struct PySP3Record {
 
 #[pymethods]
 impl PySP3Record {
-    /// Create a record.
-    ///
-    /// Args:
-    ///     position (numpy.ndarray): Position in the file's coordinate system, meters, shape (3,).
-    ///     clock (float, optional): Clock offset, seconds.
-    ///     velocity (numpy.ndarray, optional): Velocity, meters per second, shape (3,).
-    ///     clock_rate (float, optional): Clock rate of change, seconds per second.
-    ///     position_std (Sequence[float | None], optional): Standard deviations of the position, meters.
-    ///     clock_std (float, optional): Standard deviation of the clock, seconds.
-    ///     velocity_std (Sequence[float | None], optional): Standard deviations of the velocity, meters per second.
-    ///     clock_rate_std (float, optional): Standard deviation of the clock rate, seconds per second.
-    ///     clock_event (bool, optional): Whether a clock discontinuity occurred; defaults to False.
-    ///     clock_predicted (bool, optional): Whether the clock is predicted; defaults to False.
-    ///     maneuver (bool, optional): Whether a maneuver occurred; defaults to False.
-    ///     orbit_predicted (bool, optional): Whether the orbit is predicted; defaults to False.
-    ///     position_correlation (SP3Correlation, optional): Position and clock correlation record.
-    ///     velocity_correlation (SP3Correlation, optional): Velocity and clock rate correlation record.
-    ///
-    /// Returns:
-    ///     SP3Record: The record.
-    ///
-    /// Raises:
-    ///     ValueError: If a vector argument does not have three components.
     #[new]
     #[pyo3(signature = (
         position, *,
@@ -1447,6 +1435,22 @@ impl PySP3Record {
 /// day of the header lines follow from the epochs of the file and are
 /// properties of ``SP3``.
 ///
+/// An argument left as None keeps the default: SP3-d with velocity
+/// records, data used ``ORBIT``, coordinate system ``IGS20``, orbit type
+/// ``EXT``, agency ``BRHE``, GPS time, a 900 s epoch interval, no
+/// standard deviation bases, and no comments.
+///
+/// Args:
+///     agency (str, optional): Producing agency; at most 4 characters to be written.
+///     time_system (SP3TimeSystem | str, optional): Time system of the epochs.
+///     coordinate_system (str, optional): Coordinate system label; at most 5 characters to be written.
+///     orbit_type (SP3OrbitType | str, optional): Orbit type; at most 3 characters to be written.
+///     data_used (str, optional): Data used descriptor; at most 5 characters to be written.
+///     has_velocity (bool, optional): Whether the file carries velocity records.
+///     comments (list[str], optional): Comment lines, at most 77 characters each to be written.
+///     position_base (float, optional): Base of the position standard deviation exponents, millimeters.
+///     clock_base (float, optional): Base of the clock standard deviation exponents, picoseconds.
+///
 /// Example:
 ///     ```python
 ///     import brahe as bh
@@ -1467,26 +1471,6 @@ pub struct PySP3Header {
 
 #[pymethods]
 impl PySP3Header {
-    /// Create a header.
-    ///
-    /// An argument left as None keeps the default: SP3-d with velocity
-    /// records, data used ``ORBIT``, coordinate system ``IGS20``, orbit type
-    /// ``EXT``, agency ``BRHE``, GPS time, a 900 s epoch interval, no
-    /// standard deviation bases, and no comments.
-    ///
-    /// Args:
-    ///     agency (str, optional): Producing agency; at most 4 characters to be written.
-    ///     time_system (SP3TimeSystem | str, optional): Time system of the epochs.
-    ///     coordinate_system (str, optional): Coordinate system label; at most 5 characters to be written.
-    ///     orbit_type (SP3OrbitType | str, optional): Orbit type; at most 3 characters to be written.
-    ///     data_used (str, optional): Data used descriptor; at most 5 characters to be written.
-    ///     has_velocity (bool, optional): Whether the file carries velocity records.
-    ///     comments (list[str], optional): Comment lines, at most 77 characters each to be written.
-    ///     position_base (float, optional): Base of the position standard deviation exponents, millimeters.
-    ///     clock_base (float, optional): Base of the clock standard deviation exponents, picoseconds.
-    ///
-    /// Returns:
-    ///     SP3Header: The header.
     #[new]
     #[pyo3(signature = (
         *, agency=None, time_system=None, coordinate_system=None, orbit_type=None,
@@ -1738,6 +1722,21 @@ impl PySP3Header {
 /// copies; to change the header or a record, modify the copy and assign it
 /// back with ``sp3.header = header`` or ``sp3.set_record(...)``.
 ///
+/// The constructor creates an empty file with a fixed epoch grid. It keeps
+/// ``header`` with three fields set from the other arguments:
+/// ``epoch_interval``, ``file_type`` (the common system when all satellites
+/// share one, ``M`` otherwise), and ``accuracies``, which is filled with one
+/// unknown accuracy per satellite when it is empty. Header labels and the
+/// time system are checked when the file is written.
+///
+/// Args:
+///     satellites (list[str | SP3SatelliteId]): Satellites in header order, at most 999, no duplicates.
+///     epoch_interval (float): Spacing of the epoch grid, seconds.
+///     header (SP3Header, optional): Header of the file; defaults to ``SP3Header()``.
+///
+/// Raises:
+///     BraheError: If a satellite is invalid or duplicated, there are more than 999 satellites, or the interval is not positive and finite.
+///
 /// Example:
 ///     ```python
 ///     import brahe as bh
@@ -1760,25 +1759,6 @@ pub struct PySP3 {
 
 #[pymethods]
 impl PySP3 {
-    /// Create an empty file with a fixed epoch grid.
-    ///
-    /// The file keeps ``header`` with three fields set from the other
-    /// arguments: ``epoch_interval``, ``file_type`` (the common system when
-    /// all satellites share one, ``M`` otherwise), and ``accuracies``, which
-    /// is filled with one unknown accuracy per satellite when it is empty.
-    /// Header labels and the time system are checked when the file is
-    /// written.
-    ///
-    /// Args:
-    ///     satellites (list[str | SP3SatelliteId]): Satellites in header order, at most 999, no duplicates.
-    ///     epoch_interval (float): Spacing of the epoch grid, seconds.
-    ///     header (SP3Header, optional): Header of the file; defaults to ``SP3Header()``.
-    ///
-    /// Returns:
-    ///     SP3: The empty file.
-    ///
-    /// Raises:
-    ///     BraheError: If a satellite is invalid or duplicated, there are more than 999 satellites, or the interval is not positive and finite.
     #[new]
     #[pyo3(signature = (satellites, epoch_interval, header=None))]
     fn new(

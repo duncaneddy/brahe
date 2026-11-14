@@ -504,14 +504,6 @@ pub struct PyTimeEvent {
 
 #[pymethods]
 impl PyTimeEvent {
-    /// Create a new time event.
-    ///
-    /// Args:
-    ///     target_epoch (Epoch): Target time for event detection
-    ///     name (str): Event name for identification
-    ///
-    /// Returns:
-    ///     TimeEvent: New time event detector
     #[new]
     #[pyo3(signature = (target_epoch, name))]
     fn new(target_epoch: PyRef<PyEpoch>, name: String) -> PyResult<Self> {
@@ -813,16 +805,6 @@ pub struct PyValueEvent {
 
 #[pymethods]
 impl PyValueEvent {
-    /// Create a new value event detector.
-    ///
-    /// Args:
-    ///     name (str): Event name for identification
-    ///     value_fn (callable): Function (epoch, state) -> float that computes monitored value
-    ///     target_value (float): Target value for crossing detection
-    ///     direction (EventDirection): Detection direction
-    ///
-    /// Returns:
-    ///     ValueEvent: New value event detector
     #[new]
     #[pyo3(signature = (name, value_fn, target_value, direction))]
     #[allow(deprecated)]
@@ -1146,15 +1128,6 @@ pub struct PyBinaryEvent {
 
 #[pymethods]
 impl PyBinaryEvent {
-    /// Create a new binary event detector.
-    ///
-    /// Args:
-    ///     name (str): Event name for identification
-    ///     condition_fn (callable): Function (epoch, state) -> bool that returns the condition
-    ///     edge (EdgeType): Which edge to detect
-    ///
-    /// Returns:
-    ///     BinaryEvent: New binary event detector
     #[new]
     #[pyo3(signature = (name, condition_fn, edge))]
     #[allow(deprecated)]
@@ -2064,15 +2037,6 @@ pub struct PyAltitudeEvent {
 
 #[pymethods]
 impl PyAltitudeEvent {
-    /// Create a new altitude event detector.
-    ///
-    /// Args:
-    ///     value_altitude (float): Geodetic altitude value in meters above WGS84
-    ///     name (str): Event name for identification
-    ///     direction (EventDirection): Detection direction
-    ///
-    /// Returns:
-    ///     AltitudeEvent: New altitude event detector
     #[new]
     #[pyo3(signature = (value_altitude, name, direction))]
     fn new(
@@ -2328,15 +2292,6 @@ pub struct PySemiMajorAxisEvent {
 
 #[pymethods]
 impl PySemiMajorAxisEvent {
-    /// Create a new semi-major axis event detector.
-    ///
-    /// Args:
-    ///     value (float): Semi-major axis value in meters
-    ///     name (str): Event name for identification
-    ///     direction (EventDirection): Detection direction
-    ///
-    /// Returns:
-    ///     SemiMajorAxisEvent: New semi-major axis event detector
     #[new]
     #[pyo3(signature = (value, name, direction))]
     fn new(value: f64, name: String, direction: PyRef<PyEventDirection>) -> PyResult<Self> {
@@ -2397,15 +2352,6 @@ pub struct PyEccentricityEvent {
 
 #[pymethods]
 impl PyEccentricityEvent {
-    /// Create a new eccentricity event detector.
-    ///
-    /// Args:
-    ///     value (float): Eccentricity value (dimensionless)
-    ///     name (str): Event name for identification
-    ///     direction (EventDirection): Detection direction
-    ///
-    /// Returns:
-    ///     EccentricityEvent: New eccentricity event detector
     #[new]
     #[pyo3(signature = (value, name, direction))]
     fn new(value: f64, name: String, direction: PyRef<PyEventDirection>) -> PyResult<Self> {
@@ -2468,16 +2414,6 @@ pub struct PyInclinationEvent {
 
 #[pymethods]
 impl PyInclinationEvent {
-    /// Create a new inclination event detector.
-    ///
-    /// Args:
-    ///     value (float): Inclination value
-    ///     name (str): Event name for identification
-    ///     direction (EventDirection): Detection direction
-    ///     angle_format (AngleFormat): Whether value is in degrees or radians
-    ///
-    /// Returns:
-    ///     InclinationEvent: New inclination event detector
     #[new]
     #[pyo3(signature = (value, name, direction, angle_format))]
     fn new(
@@ -2533,16 +2469,6 @@ pub struct PyArgumentOfPerigeeEvent {
 
 #[pymethods]
 impl PyArgumentOfPerigeeEvent {
-    /// Create a new argument of perigee event detector.
-    ///
-    /// Args:
-    ///     value (float): Argument of perigee value
-    ///     name (str): Event name for identification
-    ///     direction (EventDirection): Detection direction
-    ///     angle_format (AngleFormat): Whether value is in degrees or radians
-    ///
-    /// Returns:
-    ///     ArgumentOfPerigeeEvent: New argument of perigee event detector
     #[new]
     #[pyo3(signature = (value, name, direction, angle_format))]
     fn new(
@@ -2602,16 +2528,6 @@ pub struct PyMeanAnomalyEvent {
 
 #[pymethods]
 impl PyMeanAnomalyEvent {
-    /// Create a new mean anomaly event detector.
-    ///
-    /// Args:
-    ///     value (float): Mean anomaly value
-    ///     name (str): Event name for identification
-    ///     direction (EventDirection): Detection direction
-    ///     angle_format (AngleFormat): Whether value is in degrees or radians
-    ///
-    /// Returns:
-    ///     MeanAnomalyEvent: New mean anomaly event detector
     #[new]
     #[pyo3(signature = (value, name, direction, angle_format))]
     fn new(
@@ -2674,16 +2590,6 @@ pub struct PyEccentricAnomalyEvent {
 
 #[pymethods]
 impl PyEccentricAnomalyEvent {
-    /// Create a new eccentric anomaly event detector.
-    ///
-    /// Args:
-    ///     value (float): Eccentric anomaly value
-    ///     name (str): Event name for identification
-    ///     direction (EventDirection): Detection direction
-    ///     angle_format (AngleFormat): Whether value is in degrees or radians
-    ///
-    /// Returns:
-    ///     EccentricAnomalyEvent: New eccentric anomaly event detector
     #[new]
     #[pyo3(signature = (value, name, direction, angle_format))]
     fn new(
@@ -2750,16 +2656,6 @@ pub struct PyTrueAnomalyEvent {
 
 #[pymethods]
 impl PyTrueAnomalyEvent {
-    /// Create a new true anomaly event detector.
-    ///
-    /// Args:
-    ///     value (float): True anomaly value
-    ///     name (str): Event name for identification
-    ///     direction (EventDirection): Detection direction
-    ///     angle_format (AngleFormat): Whether value is in degrees or radians
-    ///
-    /// Returns:
-    ///     TrueAnomalyEvent: New true anomaly event detector
     #[new]
     #[pyo3(signature = (value, name, direction, angle_format))]
     fn new(
@@ -2826,16 +2722,6 @@ pub struct PyArgumentOfLatitudeEvent {
 
 #[pymethods]
 impl PyArgumentOfLatitudeEvent {
-    /// Create a new argument of latitude event detector.
-    ///
-    /// Args:
-    ///     value (float): Argument of latitude value
-    ///     name (str): Event name for identification
-    ///     direction (EventDirection): Detection direction
-    ///     angle_format (AngleFormat): Whether value is in degrees or radians
-    ///
-    /// Returns:
-    ///     ArgumentOfLatitudeEvent: New argument of latitude event detector
     #[new]
     #[pyo3(signature = (value, name, direction, angle_format))]
     fn new(
@@ -2911,13 +2797,6 @@ pub struct PyAscendingNodeEvent {
 
 #[pymethods]
 impl PyAscendingNodeEvent {
-    /// Create a new ascending node event detector.
-    ///
-    /// Args:
-    ///     name (str): Event name for identification
-    ///
-    /// Returns:
-    ///     AscendingNodeEvent: New ascending node event detector
     #[new]
     #[pyo3(signature = (name))]
     fn new(name: String) -> PyResult<Self> {
@@ -2979,13 +2858,6 @@ pub struct PyDescendingNodeEvent {
 
 #[pymethods]
 impl PyDescendingNodeEvent {
-    /// Create a new descending node event detector.
-    ///
-    /// Args:
-    ///     name (str): Event name for identification
-    ///
-    /// Returns:
-    ///     DescendingNodeEvent: New descending node event detector
     #[new]
     #[pyo3(signature = (name))]
     fn new(name: String) -> PyResult<Self> {
@@ -3057,15 +2929,6 @@ pub struct PySpeedEvent {
 
 #[pymethods]
 impl PySpeedEvent {
-    /// Create a new speed event detector.
-    ///
-    /// Args:
-    ///     value (float): Speed value in m/s
-    ///     name (str): Event name for identification
-    ///     direction (EventDirection): Detection direction
-    ///
-    /// Returns:
-    ///     SpeedEvent: New speed event detector
     #[new]
     #[pyo3(signature = (value, name, direction))]
     fn new(value: f64, name: String, direction: PyRef<PyEventDirection>) -> PyResult<Self> {
@@ -3129,16 +2992,6 @@ pub struct PyLongitudeEvent {
 
 #[pymethods]
 impl PyLongitudeEvent {
-    /// Create a new longitude event detector.
-    ///
-    /// Args:
-    ///     value (float): Longitude value
-    ///     name (str): Event name for identification
-    ///     direction (EventDirection): Detection direction
-    ///     angle_format (AngleFormat): Whether value is in degrees or radians
-    ///
-    /// Returns:
-    ///     LongitudeEvent: New longitude event detector
     #[new]
     #[pyo3(signature = (value, name, direction, angle_format))]
     fn new(
@@ -3208,16 +3061,6 @@ pub struct PyLatitudeEvent {
 
 #[pymethods]
 impl PyLatitudeEvent {
-    /// Create a new latitude event detector.
-    ///
-    /// Args:
-    ///     value (float): Latitude value
-    ///     name (str): Event name for identification
-    ///     direction (EventDirection): Detection direction
-    ///     angle_format (AngleFormat): Whether value is in degrees or radians
-    ///
-    /// Returns:
-    ///     LatitudeEvent: New latitude event detector
     #[new]
     #[pyo3(signature = (value, name, direction, angle_format))]
     fn new(
@@ -3288,15 +3131,6 @@ pub struct PyUmbraEvent {
 
 #[pymethods]
 impl PyUmbraEvent {
-    /// Create a new umbra event detector.
-    ///
-    /// Args:
-    ///     name (str): Event name for identification
-    ///     edge (EdgeType): Edge type (RISING_EDGE = entering, FALLING_EDGE = exiting)
-    ///     ephemeris_source (EphemerisSource | None): Source for sun position (None for low-precision)
-    ///
-    /// Returns:
-    ///     UmbraEvent: New umbra event detector
     #[new]
     #[pyo3(signature = (name, edge, ephemeris_source))]
     fn new(
@@ -3359,15 +3193,6 @@ pub struct PyPenumbraEvent {
 
 #[pymethods]
 impl PyPenumbraEvent {
-    /// Create a new penumbra event detector.
-    ///
-    /// Args:
-    ///     name (str): Event name for identification
-    ///     edge (EdgeType): Edge type (RISING_EDGE = entering, FALLING_EDGE = exiting)
-    ///     ephemeris_source (EphemerisSource | None): Source for sun position (None for low-precision)
-    ///
-    /// Returns:
-    ///     PenumbraEvent: New penumbra event detector
     #[new]
     #[pyo3(signature = (name, edge, ephemeris_source))]
     fn new(
@@ -3433,15 +3258,6 @@ pub struct PyEclipseEvent {
 
 #[pymethods]
 impl PyEclipseEvent {
-    /// Create a new eclipse event detector.
-    ///
-    /// Args:
-    ///     name (str): Event name for identification
-    ///     edge (EdgeType): Edge type (RISING_EDGE = entering, FALLING_EDGE = exiting)
-    ///     ephemeris_source (EphemerisSource | None): Source for sun position (None for low-precision)
-    ///
-    /// Returns:
-    ///     EclipseEvent: New eclipse event detector
     #[new]
     #[pyo3(signature = (name, edge, ephemeris_source))]
     fn new(
@@ -3507,15 +3323,6 @@ pub struct PySunlitEvent {
 
 #[pymethods]
 impl PySunlitEvent {
-    /// Create a new sunlit event detector.
-    ///
-    /// Args:
-    ///     name (str): Event name for identification
-    ///     edge (EdgeType): Edge type (RISING_EDGE = entering, FALLING_EDGE = leaving)
-    ///     ephemeris_source (EphemerisSource | None): Source for sun position (None for low-precision)
-    ///
-    /// Returns:
-    ///     SunlitEvent: New sunlit event detector
     #[new]
     #[pyo3(signature = (name, edge, ephemeris_source))]
     fn new(
@@ -3609,14 +3416,6 @@ pub struct PyAOIEntryEvent {
 
 #[pymethods]
 impl PyAOIEntryEvent {
-    /// Create a new AOI entry event detector from a PolygonLocation.
-    ///
-    /// Args:
-    ///     polygon (PolygonLocation): Polygon defining the Area of Interest
-    ///     name (str): Event name for identification
-    ///
-    /// Returns:
-    ///     AOIEntryEvent: New AOI entry event detector
     #[new]
     #[pyo3(signature = (polygon, name))]
     fn new(polygon: PyRef<PyPolygonLocation>, name: String) -> PyResult<Self> {
@@ -3797,14 +3596,6 @@ pub struct PyAOIExitEvent {
 
 #[pymethods]
 impl PyAOIExitEvent {
-    /// Create a new AOI exit event detector from a PolygonLocation.
-    ///
-    /// Args:
-    ///     polygon (PolygonLocation): Polygon defining the Area of Interest
-    ///     name (str): Event name for identification
-    ///
-    /// Returns:
-    ///     AOIExitEvent: New AOI exit event detector
     #[new]
     #[pyo3(signature = (polygon, name))]
     fn new(polygon: PyRef<PyPolygonLocation>, name: String) -> PyResult<Self> {

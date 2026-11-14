@@ -99,6 +99,15 @@ impl PyITCCovarianceFrame {
 /// frame is not written in the file body; ``ITC.from_file`` infers it from
 /// the file name's DataType and it defaults to ``CelestialFrame.EME2000``.
 ///
+/// Args:
+///     created (Epoch, optional): File creation time.
+///     ephemeris_start (Epoch, optional): Declared first epoch.
+///     ephemeris_stop (Epoch, optional): Declared last epoch.
+///     step_size (float, optional): Declared step between records, seconds.
+///     ephemeris_source (str, optional): Free-text source label.
+///     state_frame (CelestialFrame, optional): Frame of the states; defaults to EME2000.
+///     covariance_frame (ITCCovarianceFrame, optional): Frame of the covariance; defaults to RTN.
+///
 /// Example:
 ///     ```python
 ///     import brahe as bh
@@ -116,19 +125,6 @@ pub struct PyITCHeader {
 
 #[pymethods]
 impl PyITCHeader {
-    /// Create a header.
-    ///
-    /// Args:
-    ///     created (Epoch, optional): File creation time.
-    ///     ephemeris_start (Epoch, optional): Declared first epoch.
-    ///     ephemeris_stop (Epoch, optional): Declared last epoch.
-    ///     step_size (float, optional): Declared step between records, seconds.
-    ///     ephemeris_source (str, optional): Free-text source label.
-    ///     state_frame (CelestialFrame, optional): Frame of the states; defaults to EME2000.
-    ///     covariance_frame (ITCCovarianceFrame, optional): Frame of the covariance; defaults to RTN.
-    ///
-    /// Returns:
-    ///     ITCHeader: The header.
     #[new]
     #[pyo3(signature = (created=None, ephemeris_start=None, ephemeris_stop=None, step_size=None, ephemeris_source=None, state_frame=None, covariance_frame=None))]
     #[allow(clippy::too_many_arguments)]
@@ -272,6 +268,14 @@ impl PyITCHeader {
 
 /// One Modified ITC record: epoch, position and velocity in SI units.
 ///
+/// Args:
+///     epoch (Epoch): Record epoch.
+///     position (numpy.ndarray): Position, meters, shape (3,).
+///     velocity (numpy.ndarray): Velocity, meters per second, shape (3,).
+///
+/// Raises:
+///     ValueError: If position or velocity does not have three components.
+///
 /// Example:
 ///     ```python
 ///     import brahe as bh
@@ -290,15 +294,6 @@ pub struct PyITCStateVector {
 
 #[pymethods]
 impl PyITCStateVector {
-    /// Create a record.
-    ///
-    /// Args:
-    ///     epoch (Epoch): Record epoch.
-    ///     position (numpy.ndarray): Position, meters, shape (3,).
-    ///     velocity (numpy.ndarray): Velocity, meters per second, shape (3,).
-    ///
-    /// Returns:
-    ///     ITCStateVector: The record.
     #[new]
     fn new(epoch: PyEpoch, position: PyReadonlyArray1<f64>, velocity: PyReadonlyArray1<f64>) -> PyResult<Self> {
         let p = position.as_slice()?;
@@ -365,7 +360,11 @@ impl PyITCStateVector {
 /// record by record, and write them back in the same text layout. All
 /// values are SI: meters, meters per second, and m², m²/s, m²/s² for the
 /// covariance in the header's covariance frame. Properties return copies;
-/// to change the header, modify a copy and assign it back.
+/// to change the header, modify a copy and assign it back. The constructor
+/// creates an empty message with no records.
+///
+/// Args:
+///     header (ITCHeader): Header fields.
 ///
 /// Example:
 ///     ```python
@@ -393,13 +392,6 @@ pub struct PyITC {
 
 #[pymethods]
 impl PyITC {
-    /// Create an empty message with the given header.
-    ///
-    /// Args:
-    ///     header (ITCHeader): Header fields.
-    ///
-    /// Returns:
-    ///     ITC: A message with no records.
     #[new]
     fn new(header: PyITCHeader) -> Self {
         Self { inner: itc::ITC::new(header.inner) }

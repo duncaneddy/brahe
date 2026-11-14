@@ -285,7 +285,13 @@ impl PyOrbitRepresentation {
 ///     frame (CelestialFrame or ReferenceFrame): Reference frame for the trajectory
 ///     representation (OrbitRepresentation): State representation format
 ///     angle_format (AngleFormat or None): Angle format for Keplerian states,
-///         must be None for Cartesian representation
+///         must be None for Cartesian representation (default None)
+///
+/// Raises:
+///     ValueError: If dimension is less than 6, or if angle_format is given
+///         for a Cartesian representation or missing for a Keplerian one.
+///     BraheError: If the trajectory configuration is invalid (e.g. an
+///         unsupported dimension or representation).
 ///
 /// Attributes:
 ///     dimension (int): State vector dimension
@@ -297,9 +303,23 @@ impl PyOrbitRepresentation {
 /// Example:
 ///     ```python
 ///     import brahe as bh
+///     import numpy as np
 ///
 ///     # Create trajectory in ECI Cartesian frame
 ///     traj = bh.OrbitTrajectory(6, bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+///
+///     # Define Keplerian elements for a near-circular orbit at 500 km
+///     oe = np.array([bh.R_EARTH + 500e3, 0.01, 0.9, 1.0, 0.5, 0.0])  # a, e, i, raan, argp, M
+///     state_cart = bh.state_koe_to_eci(oe, bh.AngleFormat.RADIANS)
+///
+///     # Add states to trajectory
+///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+///     traj.add(epc, state_cart)
+///     traj.add(epc + 60.0, state_cart)  # Add another state 60 seconds later
+///     print(f"Trajectory has {traj.len()} states")
+///
+///     # Extended 9D trajectory (6D orbit + 3 additional states)
+///     traj_extended = bh.OrbitTrajectory(9, bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
 ///     ```
 #[pyclass(module = "brahe._brahe")]
 #[pyo3(name = "OrbitTrajectory")]
@@ -309,42 +329,6 @@ pub struct PyOrbitalTrajectory {
 
 #[pymethods]
 impl PyOrbitalTrajectory {
-    /// Create a new empty orbital trajectory.
-    ///
-    /// Args:
-    ///     frame (CelestialFrame or ReferenceFrame): Reference frame for the trajectory
-    ///     representation (OrbitRepresentation): State representation format
-    ///     angle_format (AngleFormat or None): Angle format for Keplerian states,
-    ///         must be None for Cartesian representation
-    ///
-    /// Returns:
-    ///     OrbitTrajectory: New empty trajectory instance
-    ///
-    /// Raises:
-    ///     BraheError: If the trajectory configuration is invalid (e.g. an
-    ///         unsupported dimension or representation).
-    ///
-    /// Example:
-    ///     ```python
-    ///     import brahe as bh
-    ///     import numpy as np
-    ///
-    ///     # Create trajectory in ECI Cartesian frame
-    ///     traj = bh.OrbitTrajectory(6, bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
-    ///
-    ///     # Define Keplerian elements for a 500 km circular orbit
-    ///     oe = np.array([bh.R_EARTH + 500e3, 0.01, 0.9, 1.0, 0.5, 0.0])  # a, e, i, raan, argp, M
-    ///     state_cart = bh.state_koe_to_eci(oe, bh.AngleFormat.RADIANS)
-    ///
-    ///     # Add states to trajectory
-    ///     epc = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
-    ///     traj.add(epc, state_cart)
-    ///     traj.add(epc + 60.0, state_cart)  # Add another state 60 seconds later
-    ///     print(f"Trajectory has {traj.len()} states")
-    ///
-    ///     # Extended 9D trajectory (6D orbit + 3 additional states)
-    ///     traj_extended = bh.OrbitTrajectory(9, bh.CelestialFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
-    ///     ```
     #[new]
     #[pyo3(signature = (dimension, frame, representation, angle_format=None), text_signature = "(dimension, frame, representation, angle_format=None)")]
     pub fn new(
@@ -3019,10 +3003,13 @@ impl PyOrbitalTrajectoryIterator {
 ///
 /// Stores a sequence of N-dimensional states at specific epochs with support
 /// for interpolation and automatic state eviction policies. Dimension is
-/// determined at runtime.
+/// determined at runtime. New trajectories use linear interpolation.
 ///
 /// Args:
 ///     dimension (int): Trajectory dimension (default 6, must be greater than 0)
+///
+/// Raises:
+///     ValueError: If the trajectory dimension is 0.
 ///
 /// Attributes:
 ///     dimension (int): State vector dimension
@@ -3032,8 +3019,9 @@ impl PyOrbitalTrajectoryIterator {
 ///     ```python
 ///     import brahe as bh
 ///
-///     traj = bh.Trajectory(6)  # 6D trajectory
+///     traj = bh.Trajectory()  # 6D trajectory (default)
 ///     traj = bh.Trajectory(3)  # 3D trajectory
+///     traj = bh.Trajectory(12)  # 12D trajectory
 ///     ```
 #[pyclass(module = "brahe._brahe")]
 #[pyo3(name = "Trajectory")]
@@ -3043,21 +3031,6 @@ pub struct PyTrajectory {
 
 #[pymethods]
 impl PyTrajectory {
-    /// Create a new empty trajectory with specified dimension.
-    ///
-    /// Args:
-    ///     dimension (int): Trajectory dimension (default 6, must be greater than 0)
-    ///
-    /// Returns:
-    ///     Trajectory: New empty trajectory instance with linear interpolation
-    ///
-    /// Raises:
-    ///     ValueError: If the trajectory dimension is 0.
-    ///
-    /// Examples:
-    ///     Trajectory()    # 6D trajectory (default)
-    ///     Trajectory(3)   # 3D trajectory
-    ///     Trajectory(12)  # 12D trajectory
     #[new]
     #[pyo3(signature = (dimension=6))]
     pub fn new(dimension: usize) -> PyResult<Self> {

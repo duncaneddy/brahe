@@ -191,7 +191,6 @@ pub struct PyIntegratorConfig {
 
 #[pymethods]
 impl PyIntegratorConfig {
-    /// Create a new integrator configuration with custom parameters.
     #[new]
     #[pyo3(signature = (
         abs_tol=1e-8,
@@ -471,7 +470,6 @@ pub struct PyRK4DIntegrator {
 
 #[pymethods]
 impl PyRK4DIntegrator {
-    /// Create a new RK4 integrator.
     #[allow(deprecated)]
     #[new]
     #[pyo3(signature = (dimension, dynamics_fn, jacobian=None, sensitivity=None, control_fn=None, config=None))]
@@ -1050,7 +1048,6 @@ pub struct PyRKF45DIntegrator {
 
 #[pymethods]
 impl PyRKF45DIntegrator {
-    /// Create a new RKF45 integrator.
     #[allow(deprecated)]
     #[new]
     #[pyo3(signature = (dimension, dynamics_fn, jacobian=None, sensitivity=None, control_fn=None, config=None))]
@@ -1620,7 +1617,6 @@ pub struct PyRKF78DIntegrator {
 
 #[pymethods]
 impl PyRKF78DIntegrator {
-    /// Create a new RKF78 integrator.
     #[allow(deprecated)]
     #[new]
     #[pyo3(signature = (dimension, dynamics_fn, jacobian=None, sensitivity=None, control_fn=None, config=None))]
@@ -2185,7 +2181,6 @@ pub struct PyDP54DIntegrator {
 
 #[pymethods]
 impl PyDP54DIntegrator {
-    /// Create a new DP54 integrator.
     #[allow(deprecated)]
     #[new]
     #[pyo3(signature = (dimension, dynamics_fn, jacobian=None, sensitivity=None, control_fn=None, config=None))]
@@ -2753,7 +2748,6 @@ pub struct PyRKN1210DIntegrator {
 
 #[pymethods]
 impl PyRKN1210DIntegrator {
-    /// Create a new RKN1210 integrator.
     #[allow(deprecated)]
     #[new]
     #[pyo3(signature = (dimension, dynamics_fn, jacobian=None, sensitivity=None, config=None))]

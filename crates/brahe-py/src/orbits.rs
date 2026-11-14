@@ -1862,16 +1862,6 @@ pub struct PyMeanElementNumericalMethodConfig {
 
 #[pymethods]
 impl PyMeanElementNumericalMethodConfig {
-    /// Create a numerical windowed-averaging configuration.
-    ///
-    /// Args:
-    ///     window_seconds (float): Averaging window length in seconds.
-    ///     alignment (WindowAlignment): Placement of the averaging window relative to the output epoch.
-    ///     edge (WindowEdgeHandling): Handling of output epochs whose window runs past the data bounds.
-    ///     inverse (MeanElementInverseConfig, optional): Dynamics for the iterative mean-to-osculating inverse.
-    ///
-    /// Returns:
-    ///     MeanElementNumericalMethodConfig: A new numerical averaging configuration.
     #[new]
     #[pyo3(signature = (window_seconds, alignment, edge, inverse=None))]
     fn new(
@@ -1980,19 +1970,6 @@ pub struct PyMeanElementInverseConfig {
 
 #[pymethods]
 impl PyMeanElementInverseConfig {
-    /// Create an iterative differential-correction configuration.
-    ///
-    /// Args:
-    ///     force_model (ForceModelConfig): Force model used to propagate the trial osculating state.
-    ///     propagation (NumericalPropagationConfig): Integrator settings for the trial propagation.
-    ///     tolerance (float): Convergence tolerance on the mean-element residual, compared
-///         against the mixed norm ``|Δa| (m) + 1e6·|Δe| + 1e6·‖Δ(i, Ω, ω, M)‖ (rad)``.
-///         For example, ``tolerance=1.0`` demands roughly 1 m in a, 1e-6 in e, and
-///         1e-6 rad (~0.2 arcsec) in the angles combined.
-    ///     max_iterations (int): Maximum number of differential-correction iterations.
-    ///
-    /// Returns:
-    ///     MeanElementInverseConfig: A new inverse-dynamics configuration.
     #[new]
     fn new(
         force_model: &PyForceModelConfig,

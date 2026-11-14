@@ -1265,7 +1265,13 @@ impl PyOEMSegmentIterator {
 ///
 /// Header-level fields are properties with getters and setters. Segment data
 /// is accessed via the ``segments`` property which supports indexing,
-/// iteration, and mutation.
+/// iteration, and mutation. The constructor creates an empty message with no
+/// segments.
+///
+/// Args:
+///     originator (str): Originator of the message
+///     format_version (float, optional): CCSDS format version. Defaults to 3.0.
+///     classification (str | None, optional): Classification string. Defaults to None.
 ///
 /// Example:
 ///     ```python
@@ -1302,21 +1308,6 @@ pub struct PyOEM {
 impl PyOEM {
     // --- constructor ---
 
-    /// Create a new empty OEM message.
-    ///
-    /// Args:
-    ///     originator (str): Originator of the message
-    ///     format_version (float): CCSDS format version (default 3.0)
-    ///     classification (str | None): Optional classification string
-    ///
-    /// Returns:
-    ///     OEM: New empty OEM message
-    ///
-    /// Example:
-    ///     ```python
-    ///     from brahe.ccsds import OEM
-    ///     oem = OEM(originator="MY_ORG")
-    ///     ```
     #[new]
     #[pyo3(signature = (originator, format_version=3.0, classification=None))]
     fn new(originator: String, format_version: f64, classification: Option<String>) -> Self {
@@ -2514,6 +2505,26 @@ impl PyOPMManeuverIterator {
 /// OMM is flat (no segments), so all fields are exposed as properties
 /// with getters and setters.
 ///
+/// Args:
+///     originator (str): Originator of the message
+///     object_name (str): Spacecraft name
+///     object_id (str): International designator
+///     center_name (str): Center body name (e.g., "EARTH")
+///     ref_frame (str): Reference frame (e.g., "TEME")
+///     time_system (str): Time system (e.g., "UTC")
+///     mean_element_theory (str): Mean element theory (e.g., "SGP/SGP4")
+///     epoch (Epoch): Epoch of the mean elements
+///     eccentricity (float): Eccentricity (dimensionless)
+///     inclination (float): Inclination in degrees
+///     ra_of_asc_node (float): Right ascension of ascending node in degrees
+///     arg_of_pericenter (float): Argument of pericenter in degrees
+///     mean_anomaly (float): Mean anomaly in degrees
+///     mean_motion (float, optional): Mean motion in rev/day. Defaults to None.
+///     gm (float, optional): Gravitational parameter in m³/s². Defaults to None.
+///
+/// Raises:
+///     ValueError: If `time_system` is not a valid CCSDS time system.
+///
 /// Example:
 ///     ```python
 ///     from brahe.ccsds import OMM
@@ -2522,6 +2533,15 @@ impl PyOPMManeuverIterator {
 ///     print(omm.object_name)
 ///     omm.object_name = "ISS"
 ///     print(omm.eccentricity)
+///     ```
+///
+///     ```python
+///     import brahe as bh
+///     from brahe.ccsds import OMM
+///
+///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+///     omm = OMM("NOAA", "ISS", "1998-067A", "EARTH", "TEME", "UTC", "SGP/SGP4",
+///               epoch, 0.0001, 51.64, 200.0, 100.0, 260.0, mean_motion=15.5)
 ///     ```
 #[pyclass(module = "brahe._brahe")]
 #[pyo3(name = "OMM")]
@@ -2533,37 +2553,6 @@ pub struct PyOMM {
 impl PyOMM {
     // --- constructors ---
 
-    /// Create a new OMM message programmatically.
-    ///
-    /// Args:
-    ///     originator (str): Originator of the message
-    ///     object_name (str): Spacecraft name
-    ///     object_id (str): International designator
-    ///     center_name (str): Center body name (e.g., "EARTH")
-    ///     ref_frame (str): Reference frame (e.g., "TEME")
-    ///     time_system (str): Time system (e.g., "UTC")
-    ///     mean_element_theory (str): Mean element theory (e.g., "SGP/SGP4")
-    ///     epoch (Epoch): Epoch of the mean elements
-    ///     eccentricity (float): Eccentricity (dimensionless)
-    ///     inclination (float): Inclination in degrees
-    ///     ra_of_asc_node (float): Right ascension of ascending node in degrees
-    ///     arg_of_pericenter (float): Argument of pericenter in degrees
-    ///     mean_anomaly (float): Mean anomaly in degrees
-    ///     mean_motion (float, optional): Mean motion in rev/day
-    ///     gm (float, optional): Gravitational parameter in m³/s²
-    ///
-    /// Returns:
-    ///     OMM: New OMM message
-    ///
-    /// Example:
-    ///     ```python
-    ///     import brahe as bh
-    ///     from brahe.ccsds import OMM
-    ///
-    ///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
-    ///     omm = OMM("NOAA", "ISS", "1998-067A", "EARTH", "TEME", "UTC", "SGP/SGP4",
-    ///               epoch, 0.0001, 51.64, 200.0, 100.0, 260.0, mean_motion=15.5)
-    ///     ```
     #[new]
     #[pyo3(signature = (originator, object_name, object_id, center_name, ref_frame, time_system, mean_element_theory, epoch, eccentricity, inclination, ra_of_asc_node, arg_of_pericenter, mean_anomaly, mean_motion=None, gm=None))]
     #[allow(clippy::too_many_arguments)]
@@ -3357,6 +3346,21 @@ impl PyOMM {
 /// Maneuvers are accessed via the ``maneuvers`` property which supports
 /// indexing, iteration, and mutation.
 ///
+/// Args:
+///     originator (str): Originator of the message
+///     object_name (str): Spacecraft name
+///     object_id (str): International designator
+///     center_name (str): Center body name (e.g., "EARTH")
+///     ref_frame (str): Reference frame (e.g., "GCRF", "ITRF2000")
+///     time_system (str): Time system (e.g., "UTC")
+///     epoch (Epoch): Epoch of the state vector
+///     position (numpy.ndarray): Position [x, y, z] in meters
+///     velocity (numpy.ndarray): Velocity [vx, vy, vz] in m/s
+///
+/// Raises:
+///     ValueError: If `time_system` is not a valid CCSDS time system, or `position` or
+///         `velocity` is not a 3-element vector.
+///
 /// Example:
 ///     ```python
 ///     from brahe.ccsds import OPM
@@ -3369,6 +3373,16 @@ impl PyOMM {
 ///     print(m.ref_frame)
 ///     m.ref_frame = "RTN"
 ///     ```
+///
+///     ```python
+///     import numpy as np
+///     import brahe as bh
+///     from brahe.ccsds import OPM
+///
+///     epoch = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+///     opm = OPM("MY_ORG", "SAT1", "2024-001A", "EARTH", "GCRF", "UTC",
+///               epoch, np.array([7000e3, 0.0, 0.0]), np.array([0.0, 7500.0, 0.0]))
+///     ```
 #[pyclass(module = "brahe._brahe")]
 #[pyo3(name = "OPM")]
 pub struct PyOPM {
@@ -3379,32 +3393,6 @@ pub struct PyOPM {
 impl PyOPM {
     // --- constructors ---
 
-    /// Create a new OPM message programmatically.
-    ///
-    /// Args:
-    ///     originator (str): Originator of the message
-    ///     object_name (str): Spacecraft name
-    ///     object_id (str): International designator
-    ///     center_name (str): Center body name (e.g., "EARTH")
-    ///     ref_frame (str): Reference frame (e.g., "GCRF", "ITRF2000")
-    ///     time_system (str): Time system (e.g., "UTC")
-    ///     epoch (Epoch): Epoch of the state vector
-    ///     position (numpy.ndarray): Position [x, y, z] in meters
-    ///     velocity (numpy.ndarray): Velocity [vx, vy, vz] in m/s
-    ///
-    /// Returns:
-    ///     OPM: New OPM message
-    ///
-    /// Example:
-    ///     ```python
-    ///     import numpy as np
-    ///     import brahe as bh
-    ///     from brahe.ccsds import OPM
-    ///
-    ///     epoch = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
-    ///     opm = OPM("MY_ORG", "SAT1", "2024-001A", "EARTH", "GCRF", "UTC",
-    ///               epoch, np.array([7000e3, 0.0, 0.0]), np.array([0.0, 7500.0, 0.0]))
-    ///     ```
     #[new]
     #[pyo3(signature = (originator, object_name, object_id, center_name, ref_frame, time_system, epoch, position, velocity))]
     #[allow(clippy::too_many_arguments)]
@@ -4531,18 +4519,6 @@ pub struct PyCDM {
 
 #[pymethods]
 impl PyCDM {
-    /// Create a new CDM message programmatically.
-    ///
-    /// Args:
-    ///     originator (str): Originator of the message
-    ///     message_id (str): Unique message identifier
-    ///     tca (Epoch): Time of Closest Approach
-    ///     miss_distance (float): Miss distance in meters
-    ///     object1 (CDMObject): First conjunction object
-    ///     object2 (CDMObject): Second conjunction object
-    ///
-    /// Returns:
-    ///     CDM: New CDM message
     #[new]
     #[pyo3(signature = (originator, message_id, tca, miss_distance, object1, object2))]
     fn new(
@@ -5495,13 +5471,26 @@ impl PyAPMManeuver {
 /// spin, inertia, maneuver). At least one logical block must be present for
 /// the message to be valid to write.
 ///
-/// Can be created programmatically or parsed from KVN/XML/JSON.
+/// Can be created programmatically or parsed from KVN/XML/JSON. The
+/// constructor creates a message with no logical blocks.
 ///
 /// Logical blocks are copied by value: `apm.quaternion_states`,
 /// `apm.spins`, etc. return independent copies of the underlying blocks, and
 /// `add_quaternion_state`/`add_spin`/etc. append a copy of the element
 /// passed in. Mutating a block returned from a list getter, or an element
 /// after it has been added, does not affect the parent APM.
+///
+/// Args:
+///     originator (str): Creating agency or operator identifier
+///     object_name (str): Spacecraft name
+///     object_id (str): International designator
+///     time_system (str): Time system for the epoch (e.g., "UTC")
+///     epoch (Epoch): Epoch of the attitude elements and all blocks except maneuvers
+///     center_name (str | None, optional): Celestial body the object is centered on (e.g., "EARTH").
+///         Defaults to None.
+///
+/// Raises:
+///     ValueError: If `time_system` is not a valid CCSDS time system.
 ///
 /// Example:
 ///     ```python
@@ -5525,20 +5514,6 @@ pub struct PyAPM {
 impl PyAPM {
     // --- constructors ---
 
-    /// Create a new APM message programmatically with no logical blocks. Per
-    /// CCSDS 504.0-B-2, at least one logical block must be added before the
-    /// message can be written.
-    ///
-    /// Args:
-    ///     originator (str): Creating agency or operator identifier
-    ///     object_name (str): Spacecraft name
-    ///     object_id (str): International designator
-    ///     time_system (str): Time system for the epoch (e.g., "UTC")
-    ///     epoch (Epoch): Epoch of the attitude elements and all blocks except maneuvers
-    ///     center_name (str | None): Celestial body the object is centered on (e.g., "EARTH")
-    ///
-    /// Returns:
-    ///     APM: New APM message with no logical blocks
     #[new]
     #[pyo3(signature = (originator, object_name, object_id, time_system, epoch, center_name=None))]
     fn new(
@@ -6911,6 +6886,10 @@ impl PyAEMSegment {
 
 /// A complete CCSDS Attitude Ephemeris Message.
 ///
+/// The constructor creates a message with no segments. Per CCSDS 504.0-B-2, at least one
+/// segment, each with at least one attitude state, must be added before the message can be
+/// written.
+///
 /// Args:
 ///     originator (str): Creating agency or operator identifier
 ///
@@ -6930,15 +6909,6 @@ pub struct PyAEM {
 impl PyAEM {
     // --- constructors ---
 
-    /// Create a new AEM message programmatically with no segments. Per CCSDS 504.0-B-2, at
-    /// least one segment, each with at least one attitude state, must be added before the
-    /// message can be written.
-    ///
-    /// Args:
-    ///     originator (str): Creating agency or operator identifier
-    ///
-    /// Returns:
-    ///     AEM: New AEM message with no segments
     #[new]
     fn new(originator: &str) -> Self {
         PyAEM { inner: RustAEM::new(originator) }

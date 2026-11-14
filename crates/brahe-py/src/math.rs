@@ -339,7 +339,11 @@ impl PyPerturbationStrategy {
 ///
 /// Computes the Jacobian numerically by perturbing the state and evaluating the dynamics.
 /// Supports forward, central, and backward finite difference methods with various
-/// perturbation strategies.
+/// perturbation strategies. The constructor uses central differences with adaptive
+/// perturbations.
+///
+/// Args:
+///     dynamics_fn (callable): Function with signature (t: float, state: ndarray) -> ndarray
 ///
 /// Example:
 ///     ```python
@@ -371,26 +375,6 @@ pub struct PyDNumericalJacobian {
 
 #[pymethods]
 impl PyDNumericalJacobian {
-    /// Create a numerical Jacobian provider with default settings.
-    ///
-    /// Default: central differences with adaptive perturbations.
-    ///
-    /// Args:
-    ///     dynamics_fn (callable): Function with signature (t: float, state: ndarray) -> ndarray
-    ///
-    /// Returns:
-    ///     NumericalJacobian: New numerical Jacobian provider
-    ///
-    /// Example:
-    ///     ```python
-    ///     import brahe as bh
-    ///     import numpy as np
-    ///
-    ///     def dynamics(t, state):
-    ///         return np.array([state[1], -state[0]])
-    ///
-    ///     jacobian = bh.NumericalJacobian(dynamics)
-    ///     ```
     #[new]
     pub fn new(dynamics_fn: Py<PyAny>) -> Self {
         Self {
@@ -629,6 +613,10 @@ impl PyDNumericalJacobian {
 /// Uses a user-provided function that directly computes the analytical Jacobian.
 /// This is the most accurate and efficient method when the analytical Jacobian is known.
 ///
+/// Args:
+///     jacobian_fn (callable): Function with signature (t: float, state: ndarray) -> ndarray
+///         Must return a 2D array (dimension × dimension)
+///
 /// Example:
 ///     ```python
 ///     import brahe as bh
@@ -653,26 +641,6 @@ pub struct PyDAnalyticJacobian {
 
 #[pymethods]
 impl PyDAnalyticJacobian {
-    /// Create a new analytical Jacobian provider.
-    ///
-    /// Args:
-    ///     jacobian_fn (callable): Function with signature (t: float, state: ndarray) -> ndarray
-    ///         Must return a 2D array (dimension × dimension)
-    ///
-    /// Returns:
-    ///     AnalyticJacobian: New analytical Jacobian provider
-    ///
-    /// Example:
-    ///     ```python
-    ///     import brahe as bh
-    ///     import numpy as np
-    ///
-    ///     def jacobian_fn(t, state):
-    ///         # For harmonic oscillator
-    ///         return np.array([[0.0, 1.0], [-1.0, 0.0]])
-    ///
-    ///     jacobian = bh.AnalyticJacobian(jacobian_fn)
-    ///     ```
     #[new]
     pub fn new(jacobian_fn: Py<PyAny>) -> Self {
         Self { jacobian_fn }
@@ -732,7 +700,11 @@ use brahe::math::sensitivity;
 /// Numerical sensitivity provider for dynamic-sized systems using finite differences.
 ///
 /// Computes the sensitivity matrix ∂f/∂p numerically by perturbing the parameters
-/// and evaluating the dynamics function.
+/// and evaluating the dynamics function. The constructor uses central differences
+/// with an adaptive perturbation strategy.
+///
+/// Args:
+///     dynamics_fn (callable): Function with signature (t: float, state: ndarray, params: ndarray) -> ndarray
 ///
 /// Example:
 ///     ```python
@@ -762,15 +734,6 @@ pub struct PyDNumericalSensitivity {
 
 #[pymethods]
 impl PyDNumericalSensitivity {
-    /// Create a numerical sensitivity provider with default settings.
-    ///
-    /// Uses central differences with adaptive perturbation strategy.
-    ///
-    /// Args:
-    ///     dynamics_fn (callable): Function with signature (t: float, state: ndarray, params: ndarray) -> ndarray
-    ///
-    /// Returns:
-    ///     NumericalSensitivity: New numerical sensitivity provider
     #[new]
     pub fn new(dynamics_fn: Py<PyAny>) -> Self {
         Self {
@@ -1000,6 +963,10 @@ impl PyDNumericalSensitivity {
 ///
 /// Uses a user-provided function that directly computes the analytical sensitivity matrix.
 ///
+/// Args:
+///     sensitivity_fn (callable): Function with signature (t: float, state: ndarray, params: ndarray) -> ndarray
+///         Must return a 2D array (state_dim × param_dim)
+///
 /// Example:
 ///     ```python
 ///     import brahe as bh
@@ -1024,14 +991,6 @@ pub struct PyDAnalyticSensitivity {
 
 #[pymethods]
 impl PyDAnalyticSensitivity {
-    /// Create a new analytical sensitivity provider.
-    ///
-    /// Args:
-    ///     sensitivity_fn (callable): Function with signature (t: float, state: ndarray, params: ndarray) -> ndarray
-    ///         Must return a 2D array (state_dim × param_dim)
-    ///
-    /// Returns:
-    ///     AnalyticSensitivity: New analytical sensitivity provider
     #[new]
     pub fn new(sensitivity_fn: Py<PyAny>) -> Self {
         Self { sensitivity_fn }

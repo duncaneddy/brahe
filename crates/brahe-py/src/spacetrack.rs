@@ -2016,7 +2016,18 @@ impl PySpaceTrackEphemerisFileCategory {
 /// Space-Track requires submissions to be named
 /// ``<DataType>_<Catalog#>_<CommonName>_<DayTimeGroup>_<Operational/Special>_<MetaData>_<Classification>.<Extension>``.
 /// ``str(name)`` renders the compliant name; the catalog number is
-/// zero-padded to five digits.
+/// zero-padded to five digits. The constructor builds a name with the
+/// ``MEME`` data type, ``UNCLASSIFIED`` classification and ``txt`` extension.
+///
+/// Args:
+///     norad_cat_id (int): NORAD catalog number or analyst number.
+///     object_name (str): Common name of the object.
+///     start_epoch (Epoch): Ephemeris start; the day-time group is taken in UTC.
+///     category (SpaceTrackEphemerisFileCategory): Operational or Special.
+///     metadata (str): Operator-defined metadata; may be empty.
+///
+/// Raises:
+///     BraheError: If ``object_name`` is empty, if ``metadata`` contains ``_``, or if either contains ``/``, a backslash or NUL or is ``.`` or ``..``.
 ///
 /// Example:
 ///     ```python
@@ -2038,21 +2049,6 @@ pub struct PySpaceTrackEphemerisFileName {
 
 #[pymethods]
 impl PySpaceTrackEphemerisFileName {
-    /// Build a file name with the ``MEME`` data type, ``UNCLASSIFIED``
-    /// classification and ``txt`` extension.
-    ///
-    /// Args:
-    ///     norad_cat_id (int): NORAD catalog number or analyst number.
-    ///     object_name (str): Common name of the object.
-    ///     start_epoch (Epoch): Ephemeris start; the day-time group is taken in UTC.
-    ///     category (SpaceTrackEphemerisFileCategory): Operational or Special.
-    ///     metadata (str): Operator-defined metadata; may be empty.
-    ///
-    /// Returns:
-    ///     SpaceTrackEphemerisFileName: The populated name.
-    ///
-    /// Raises:
-    ///     BraheError: If ``object_name`` is empty, if ``metadata`` contains ``_``, or if either contains ``/``, a backslash or NUL or is ``.`` or ``..``.
     #[new]
     fn new(
         norad_cat_id: u32,

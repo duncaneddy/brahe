@@ -2276,6 +2276,14 @@ impl PySGPPropagatorBuilder {
 /// perturbations. It's fast and accurate for short time spans but doesn't account
 /// for real-world effects like drag, J2, solar radiation pressure, etc.
 ///
+/// Args:
+///     epoch (Epoch): Initial epoch.
+///     state (numpy.ndarray): 6-element state vector.
+///     frame (CelestialFrame or ReferenceFrame): Reference frame.
+///     representation (OrbitRepresentation): State representation.
+///     angle_format (AngleFormat or None): Angle format for Keplerian elements; None for Cartesian.
+///     step_size (float): Step size in seconds for propagation.
+///
 /// Attributes:
 ///     current_epoch (Epoch): Current propagation time
 ///     initial_epoch (Epoch): Initial epoch from propagator creation
@@ -2318,18 +2326,6 @@ pub struct PyKeplerianPropagator {
 
 #[pymethods]
 impl PyKeplerianPropagator {
-    /// Create a new Keplerian propagator from state vector.
-    ///
-    /// Args:
-    ///     epoch (Epoch): Initial epoch.
-    ///     state (numpy.ndarray): 6-element state vector.
-    ///     frame (CelestialFrame or ReferenceFrame): Reference frame.
-    ///     representation (OrbitRepresentation): State representation.
-    ///     angle_format (AngleFormat or None): Angle format for Keplerian elements; None for Cartesian.
-    ///     step_size (float): Step size in seconds for propagation.
-    ///
-    /// Returns:
-    ///     KeplerianPropagator: New propagator instance.
     #[new]
     #[pyo3(signature = (epoch, state, frame, representation, angle_format, step_size))]
     pub fn new(
@@ -3878,10 +3874,10 @@ impl PyIntegrationMethod {
 /// (State Transition Matrix and Sensitivity Matrix) during propagation.
 ///
 /// Args:
-///     enable_stm (bool): Enable State Transition Matrix propagation. Defaults to False.
-///     enable_sensitivity (bool): Enable sensitivity matrix propagation. Defaults to False.
-///     store_stm_history (bool): Store STM at output times. Defaults to False.
-///     store_sensitivity_history (bool): Store sensitivity at output times. Defaults to False.
+///     enable_stm (bool, optional): Enable State Transition Matrix propagation. Defaults to False.
+///     enable_sensitivity (bool, optional): Enable sensitivity matrix propagation. Defaults to False.
+///     store_stm_history (bool, optional): Store STM at output times. Defaults to False.
+///     store_sensitivity_history (bool, optional): Store sensitivity at output times. Defaults to False.
 ///
 /// Attributes:
 ///     enable_stm (bool): Enable State Transition Matrix propagation
@@ -3893,6 +3889,13 @@ impl PyIntegrationMethod {
 ///     ```python
 ///     import brahe as bh
 ///
+///     # Default (all disabled)
+///     config = bh.VariationalConfig()
+///
+///     # Enable STM propagation
+///     config = bh.VariationalConfig(enable_stm=True)
+///
+///     # Enable STM with history storage
 ///     config = bh.VariationalConfig(enable_stm=True, store_stm_history=True)
 ///     ```
 #[pyclass(module = "brahe._brahe", from_py_object)]
@@ -3904,30 +3907,6 @@ pub struct PyVariationalConfig {
 
 #[pymethods]
 impl PyVariationalConfig {
-    /// Create a new variational configuration.
-    ///
-    /// Args:
-    ///     enable_stm (bool): Enable State Transition Matrix propagation. Defaults to False.
-    ///     enable_sensitivity (bool): Enable sensitivity matrix propagation. Defaults to False.
-    ///     store_stm_history (bool): Store STM at output times. Defaults to False.
-    ///     store_sensitivity_history (bool): Store sensitivity at output times. Defaults to False.
-    ///
-    /// Returns:
-    ///     VariationalConfig: A new configuration with the specified settings
-    ///
-    /// Example:
-    ///     ```python
-    ///     import brahe as bh
-    ///
-    ///     # Default (all disabled)
-    ///     config = bh.VariationalConfig()
-    ///
-    ///     # Enable STM propagation
-    ///     config = bh.VariationalConfig(enable_stm=True)
-    ///
-    ///     # Enable STM with history storage
-    ///     config = bh.VariationalConfig(enable_stm=True, store_stm_history=True)
-    ///     ```
     #[new]
     #[pyo3(signature = (enable_stm=false, enable_sensitivity=false, store_stm_history=false, store_sensitivity_history=false))]
     fn new(
@@ -4798,38 +4777,6 @@ pub struct PyGravityConfiguration {
 
 #[pymethods]
 impl PyGravityConfiguration {
-    /// Create a gravity configuration.
-    ///
-    /// Args:
-    ///     degree (int, optional): Maximum degree of spherical harmonic expansion.
-    ///         If None, uses point mass gravity.
-    ///     order (int, optional): Maximum order of spherical harmonic expansion.
-    ///         If None, uses point mass gravity.
-    ///     model_type (GravityModelType, optional): Gravity model to use.
-    ///         Defaults to EGM2008_120.
-    ///     use_global (bool, optional): If True, use global gravity model.
-    ///         Defaults to False.
-    ///     parallel (ParallelMode, optional): Parallelization mode for the
-    ///         spherical-harmonic acceleration computation. Defaults to Auto.
-    ///
-    /// Returns:
-    ///     GravityConfiguration: Gravity configuration (point mass or spherical harmonic).
-    ///
-    /// Example:
-    ///     ```python
-    ///     import brahe as bh
-    ///
-    ///     # Point mass (default)
-    ///     gravity = bh.GravityConfiguration()
-    ///
-    ///     # Spherical harmonic
-    ///     gravity = bh.GravityConfiguration(degree=20, order=20)
-    ///
-    ///     # Spherical harmonic with specific model
-    ///     gravity = bh.GravityConfiguration(
-    ///         degree=20, order=20, model_type=bh.GravityModelType.GGM05S
-    ///     )
-    ///     ```
     #[new]
     #[pyo3(signature = (degree=None, order=None, model_type=None, use_global=false, parallel=None))]
     fn new(
@@ -5126,14 +5073,6 @@ pub struct PyDragConfiguration {
 
 #[pymethods]
 impl PyDragConfiguration {
-    /// Create a new drag configuration.
-    ///
-    /// Args:
-    ///     model (AtmosphericModel): Atmospheric density model.
-    ///     area (ParameterSource): Drag cross-sectional area source [m²].
-    ///     cd (ParameterSource): Drag coefficient source (dimensionless).
-    ///     body (CentralBody, optional): Body whose atmosphere produces the
-    ///         drag. Defaults to None, meaning the propagation's central body.
     #[new]
     #[pyo3(signature = (model, area, cd, body=None))]
     fn new(
@@ -5573,14 +5512,6 @@ pub struct PySolarRadiationPressureConfiguration {
 
 #[pymethods]
 impl PySolarRadiationPressureConfiguration {
-    /// Create a new SRP configuration.
-    ///
-    /// Args:
-    ///     area (ParameterSource): SRP cross-sectional area source [m²].
-    ///     cr (ParameterSource): Coefficient of reflectivity source (dimensionless).
-    ///     eclipse_model (EclipseModel): Eclipse model for shadow effects.
-    ///     occulting_bodies (list[OccultingBody], optional): Bodies whose shadow may occult
-    ///         the sun. Defaults to `[OccultingBody.Earth]`.
     #[new]
     #[pyo3(signature = (area, cr, eclipse_model, occulting_bodies=None))]
     fn new(
@@ -5959,14 +5890,6 @@ pub struct PyThirdBodyConfiguration {
 
 #[pymethods]
 impl PyThirdBodyConfiguration {
-    /// Create a configuration for a single third-body perturber.
-    ///
-    /// Args:
-    ///     body (ThirdBody): The perturbing body.
-    ///     ephemeris_source (EphemerisSource, optional): Source for the body's
-    ///         position. Defaults to ``EphemerisSource.DE440s``.
-    ///     gravity (GravityConfiguration, optional): Gravity model for this
-    ///         perturber. Defaults to point-mass.
     #[new]
     #[pyo3(signature = (body, ephemeris_source=None, gravity=None))]
     fn new(
@@ -6084,11 +6007,16 @@ impl PyThirdBodiesInput {
 /// Controls the integrator settings, tolerances, and variational equation options.
 ///
 /// Note:
-///     This class is created via class methods or static methods:
+///     This class is created via the constructor or class methods:
 ///     - `NumericalPropagationConfig.default()` - DP54 with standard tolerances
 ///     - `NumericalPropagationConfig.high_precision()` - RKN1210 with tight tolerances
 ///     - `NumericalPropagationConfig.with_method(method)` - Custom method with default settings
-///     - `NumericalPropagationConfig.new(method, integrator, variational)` - Full customization
+///     - `NumericalPropagationConfig(method, integrator, variational)` - Full customization
+///
+/// Args:
+///     method (IntegrationMethod): Integration method to use
+///     integrator (IntegratorConfig): Integrator configuration (tolerances, step sizes)
+///     variational (VariationalConfig): Variational configuration (STM/sensitivity settings)
 ///
 /// Attributes:
 ///     method (IntegrationMethod): Integration method
@@ -6106,6 +6034,13 @@ impl PyThirdBodiesInput {
 ///
 ///     # High precision configuration
 ///     config = bh.NumericalPropagationConfig.high_precision()
+///
+///     # Full customization
+///     config = bh.NumericalPropagationConfig(
+///         bh.IntegrationMethod.DP54,
+///         bh.IntegratorConfig.adaptive(1e-10, 1e-8),
+///         bh.VariationalConfig(),
+///     )
 ///     ```
 #[pyclass(module = "brahe._brahe", from_py_object)]
 #[pyo3(name = "NumericalPropagationConfig")]
@@ -6143,26 +6078,6 @@ impl PyNumericalPropagationConfig {
         }
     }
 
-    /// Creates a new numerical propagation configuration with all components specified.
-    ///
-    /// Args:
-    ///     method (IntegrationMethod): Integration method to use
-    ///     integrator (IntegratorConfig): Integrator configuration (tolerances, step sizes)
-    ///     variational (VariationalConfig): Variational configuration (STM/sensitivity settings)
-    ///
-    /// Returns:
-    ///     NumericalPropagationConfig: A new configuration with the specified settings
-    ///
-    /// Example:
-    ///     ```python
-    ///     import brahe as bh
-    ///
-    ///     config = bh.NumericalPropagationConfig(
-    ///         bh.IntegrationMethod.DP54,
-    ///         bh.IntegratorConfig.adaptive(1e-10, 1e-8),
-    ///         bh.VariationalConfig(),
-    ///     )
-    ///     ```
     #[new]
     #[pyo3(signature = (method, integrator, variational))]
     fn new(
@@ -6393,6 +6308,8 @@ impl PyNumericalPropagationConfig {
 ///     mass (ParameterSource, optional): Spacecraft mass source. Default is None.
 ///     frame_transform (FrameTransformationModel, optional): ECI-to-body-fixed rotation
 ///         used by every body-fixed force term. Defaults to ``FULL_EARTH_ROTATION``.
+///     tides (TidesConfiguration, optional): Earth tides configuration.
+///         Default is None (disabled).
 ///
 /// Attributes:
 ///     gravity (GravityConfiguration): Gravity model configuration
@@ -6426,32 +6343,6 @@ pub struct PyForceModelConfig {
 
 #[pymethods]
 impl PyForceModelConfig {
-    /// Create a force model configuration.
-    ///
-    /// Args:
-    ///     gravity (GravityConfiguration, optional): Gravity model configuration.
-    ///         Default is point mass gravity.
-    ///     drag (DragConfiguration, optional): Atmospheric drag configuration.
-    ///     srp (SolarRadiationPressureConfiguration, optional): Solar radiation pressure configuration.
-    ///     third_body (ThirdBodyConfiguration | ThirdBody | list, optional): Third-body
-    ///         perturbation entries; a single entry or a list mixing ThirdBody and
-    ///         ThirdBodyConfiguration values.
-    ///     relativity (bool, optional): Enable relativistic corrections. Default is False.
-    ///     mass (ParameterSource, optional): Spacecraft mass source.
-    ///     tides (TidesConfiguration, optional): Solid Earth tides configuration.
-    ///
-    /// Returns:
-    ///     ForceModelConfig: A force model configuration.
-    ///
-    /// Example:
-    ///     ```python
-    ///     import brahe as bh
-    ///
-    ///     config = bh.ForceModelConfig(
-    ///         gravity=bh.GravityConfiguration(degree=20, order=20),
-    ///         relativity=True,
-    ///     )
-    ///     ```
     #[new]
     #[pyo3(signature = (gravity=None, drag=None, srp=None, third_body=None, relativity=false, mass=None, frame_transform=None, tides=None))]
     #[allow(clippy::too_many_arguments)]
@@ -6885,6 +6776,31 @@ fn wrap_state_dynamics(
 /// - Relativistic corrections
 /// - Solid Earth tides
 ///
+/// Args:
+///     epoch (Epoch): Initial epoch.
+///     state (numpy.ndarray): Initial state vector in ECI Cartesian [x, y, z, vx, vy, vz] (meters, m/s).
+///                           Can be 6D or 6+N dimensional for extended state.
+///     propagation_config (NumericalPropagationConfig): Propagation configuration.
+///     force_config (ForceModelConfig): Force model configuration.
+///     params (numpy.ndarray or None): Parameter vector [mass, drag_area, Cd, srp_area, Cr, ...].
+///                                    Required if force_config references parameter indices.
+///     initial_covariance (numpy.ndarray or None): Optional initial covariance matrix (enables STM).
+///         Must be square with dimension matching the state size.
+///     additional_dynamics (callable or None): Optional function for extended state dynamics beyond 6D.
+///                                            Signature: f(t, state, params) -> derivative.
+///                                            Returns a vector the length of the full state that is added
+///                                            to the orbital dynamics; entries for the orbital six are typically zero.
+///     control_input (callable or None): Optional control input function for continuous control accelerations.
+///                                      Signature: f(t, state, params) -> perturbation.
+///                                      Returns a vector the length of the full state that is added to the
+///                                      state derivative; accelerations go in entries 3-5.
+///
+/// Raises:
+///     RuntimeError: If configuration is invalid or params are missing when required.
+///     Exception: Propagates the original exception raised by a dynamics or
+///         control-input callback invoked during construction (e.g. computing the
+///         initial acceleration when `store_accelerations` is enabled).
+///
 /// Attributes:
 ///     current_epoch (Epoch): Current propagation time
 ///     initial_epoch (Epoch): Initial epoch from propagator creation
@@ -6920,6 +6836,43 @@ fn wrap_state_dynamics(
 ///     prop.propagate_to(epoch + 3600.0)  # 1 hour
 ///     print(f"Final state: {prop.current_state()}")
 ///     ```
+///
+///     Extended state with additional dynamics and a control input:
+///
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     bh.initialize_eop()
+///
+///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+///     oe = np.array([bh.R_EARTH + 500e3, 0.01, 97.8, 15.0, 30.0, 45.0])
+///     state = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
+///
+///     # Orbit state plus one extra element that decays exponentially
+///     extended_state = np.concatenate([state, [1.0]])
+///     prop_config = bh.NumericalPropagationConfig.default()
+///     force_config = bh.ForceModelConfig.two_body()
+///
+///     # Derivative of the full state; only the extended element is non-zero
+///     def additional_dyn(t, state, params):
+///         dx = np.zeros(len(state))
+///         dx[6] = -0.1 * state[6]
+///         return dx
+///
+///     # Control input (thrust acceleration)
+///     def control(t, state, params):
+///         dx = np.zeros(len(state))
+///         dx[5] = 1e-6  # Small z-acceleration
+///         return dx
+///
+///     prop = bh.NumericalOrbitPropagator(
+///         epoch, extended_state, prop_config, force_config,
+///         additional_dynamics=additional_dyn,
+///         control_input=control
+///     )
+///     prop.propagate_to(epoch + 60.0)
+///     ```
 #[pyclass(module = "brahe._brahe")]
 #[pyo3(name = "NumericalOrbitPropagator")]
 pub struct PyNumericalOrbitPropagator {
@@ -6936,71 +6889,6 @@ pub struct PyNumericalOrbitPropagator {
 
 #[pymethods]
 impl PyNumericalOrbitPropagator {
-    /// Create a new numerical orbit propagator.
-    ///
-    /// Args:
-    ///     epoch (Epoch): Initial epoch.
-    ///     state (numpy.ndarray): Initial state vector in ECI Cartesian [x, y, z, vx, vy, vz] (meters, m/s).
-    ///                           Can be 6D or 6+N dimensional for extended state.
-    ///     propagation_config (NumericalPropagationConfig): Propagation configuration.
-    ///     force_config (ForceModelConfig): Force model configuration.
-    ///     params (numpy.ndarray or None): Parameter vector [mass, drag_area, Cd, srp_area, Cr, ...].
-    ///                                    Required if force_config references parameter indices.
-    ///     initial_covariance (numpy.ndarray or None): Optional initial covariance matrix (enables STM).
-    ///         Must be square with dimension matching the state size.
-    ///     additional_dynamics (callable or None): Optional function for extended state dynamics beyond 6D.
-    ///                                            Signature: f(t, state, params) -> derivative.
-    ///                                            Returns a vector the length of the full state that is added
-    ///                                            to the orbital dynamics; entries for the orbital six are typically zero.
-    ///     control_input (callable or None): Optional control input function for continuous control accelerations.
-    ///                                      Signature: f(t, state, params) -> perturbation.
-    ///                                      Returns a vector the length of the full state that is added to the
-    ///                                      state derivative; accelerations go in entries 3-5.
-    ///
-    /// Returns:
-    ///     NumericalOrbitPropagator: New propagator instance.
-    ///
-    /// Raises:
-    ///     RuntimeError: If configuration is invalid or params are missing when required.
-    ///     Exception: Propagates the original exception raised by a dynamics or
-    ///         control-input callback invoked during construction (e.g. computing the
-    ///         initial acceleration when `store_accelerations` is enabled).
-    ///
-    /// Example:
-    ///     ```python
-    ///     import brahe as bh
-    ///     import numpy as np
-    ///
-    ///     bh.initialize_eop()
-    ///
-    ///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
-    ///     oe = np.array([bh.R_EARTH + 500e3, 0.01, 97.8, 15.0, 30.0, 45.0])
-    ///     state = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
-    ///
-    ///     # Orbit state plus one extra element that decays exponentially
-    ///     extended_state = np.concatenate([state, [1.0]])
-    ///     prop_config = bh.NumericalPropagationConfig.default()
-    ///     force_config = bh.ForceModelConfig.two_body()
-    ///
-    ///     # Derivative of the full state; only the extended element is non-zero
-    ///     def additional_dyn(t, state, params):
-    ///         dx = np.zeros(len(state))
-    ///         dx[6] = -0.1 * state[6]
-    ///         return dx
-    ///
-    ///     # Control input (thrust acceleration)
-    ///     def control(t, state, params):
-    ///         dx = np.zeros(len(state))
-    ///         dx[5] = 1e-6  # Small z-acceleration
-    ///         return dx
-    ///
-    ///     prop = bh.NumericalOrbitPropagator(
-    ///         epoch, extended_state, prop_config, force_config,
-    ///         additional_dynamics=additional_dyn,
-    ///         control_input=control
-    ///     )
-    ///     prop.propagate_to(epoch + 60.0)
-    ///     ```
     #[new]
     #[pyo3(signature = (epoch, state, propagation_config, force_config, params=None, initial_covariance=None, additional_dynamics=None, control_input=None))]
     #[allow(clippy::too_many_arguments)]
@@ -8996,6 +8884,18 @@ impl PyTrajectoryMode {
 /// applied to any system of ODEs: attitude dynamics, chemical kinetics, population
 /// models, control systems, etc.
 ///
+/// Args:
+///     epoch (Epoch): Initial epoch.
+///     state (numpy.ndarray): Initial state vector (N-dimensional).
+///     dynamics (callable): Dynamics function: f(t, state, params) -> derivative.
+///                         Should accept (float, np.ndarray, Optional[np.ndarray]) and return np.ndarray.
+///     propagation_config (NumericalPropagationConfig): Propagation configuration.
+///     params (numpy.ndarray or None): Optional parameter vector for the dynamics function.
+///     initial_covariance (numpy.ndarray or None): Optional initial covariance matrix (enables STM).
+///     control_input (callable or None): Optional control input function.
+///                                       Signature: f(t, state, params) -> control_perturbation.
+///                                       Should return an N-dimensional array matching state dimension.
+///
 /// Attributes:
 ///     current_epoch (Epoch): Current propagation time
 ///     initial_epoch (Epoch): Initial epoch from propagator creation
@@ -9039,22 +8939,6 @@ pub struct PyNumericalPropagator {
 
 #[pymethods]
 impl PyNumericalPropagator {
-    /// Create a new generic numerical propagator.
-    ///
-    /// Args:
-    ///     epoch (Epoch): Initial epoch.
-    ///     state (numpy.ndarray): Initial state vector (N-dimensional).
-    ///     dynamics (callable): Dynamics function: f(t, state, params) -> derivative.
-    ///                         Should accept (float, np.ndarray, Optional[np.ndarray]) and return np.ndarray.
-    ///     propagation_config (NumericalPropagationConfig): Propagation configuration.
-    ///     params (numpy.ndarray or None): Optional parameter vector for the dynamics function.
-    ///     initial_covariance (numpy.ndarray or None): Optional initial covariance matrix (enables STM).
-    ///     control_input (callable or None): Optional control input function.
-    ///                                       Signature: f(t, state, params) -> control_perturbation.
-    ///                                       Should return an N-dimensional array matching state dimension.
-    ///
-    /// Returns:
-    ///     NumericalPropagator: New propagator instance.
     #[new]
     #[pyo3(signature = (epoch, state, dynamics, propagation_config, params=None, initial_covariance=None, control_input=None))]
     #[allow(clippy::too_many_arguments)]

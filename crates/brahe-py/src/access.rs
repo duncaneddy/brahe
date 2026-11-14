@@ -2135,130 +2135,28 @@ impl PyPolygonLocation {
 // Access Properties
 // ================================
 
-/// A flexible value type for access properties.
-///
-/// PropertyValue can store different types of data associated with access windows,
-/// including scalars, vectors, time series, booleans, strings, and arbitrary JSON.
-///
-/// Args:
-///     value: The value to store (int, float, list, bool, str, or dict)
-///
-/// Example:
-///     ```python
-///     import brahe as bh
-///
-///     props = (
-///         bh.AccessProperties.builder()
-///         .azimuth_open(45.0)
-///         .azimuth_close(135.0)
-///         .elevation_min(10.0)
-///         .elevation_max(85.0)
-///         .elevation_open(12.0)
-///         .elevation_close(10.5)
-///         .off_nadir_min(5.0)
-///         .off_nadir_max(80.0)
-///         .local_time(43200.0)
-///         .look_direction(bh.LookDirection.RIGHT)
-///         .asc_dsc(bh.AscDsc.ASCENDING)
-///         .center_lon(0.0)
-///         .center_lat(45.0)
-///         .center_alt(0.0)
-///         .center_ecef([4517.59e3, 4517.59e3, 0.0])
-///         .build()
-///     )
-///
-///     # Scalar value
-///     props.additional["doppler_shift"] = 42.5
-///
-///     # Vector value
-///     props.additional["snr_values"] = [1.0, 2.0, 3.0]
-///
-///     # Boolean value
-///     props.additional["has_eclipse"] = True
-///
-///     # String value
-///     props.additional["status"] = "visible"
-///     ```
-#[pyclass(module = "brahe._brahe")]
-#[pyo3(name = "PropertyValue")]
-pub struct PyPropertyValue {
-    pub(crate) value: PropertyValue,
-}
-
-#[pymethods]
-impl PyPropertyValue {
-    #[new]
-    fn new(value: &Bound<'_, PyAny>) -> PyResult<Self> {
-        // Check bool BEFORE f64, since bool is a subclass of int in Python
-        let property_value = if let Ok(v) = value.extract::<bool>() {
-            PropertyValue::Boolean(v)
-        } else if let Ok(v) = value.extract::<f64>() {
-            PropertyValue::Scalar(v)
-        } else if let Ok(v) = value.extract::<Vec<f64>>() {
-            PropertyValue::Vector(v)
-        } else if let Ok(v) = value.extract::<String>() {
-            PropertyValue::String(v)
-        } else if let Ok(dict) = value.cast::<PyDict>() {
-            // Convert dict to JSON
-            let json_module = value.py().import("json")?;
-            let dumps = json_module.getattr("dumps")?;
-            let json_str: String = dumps.call1((dict,))?.extract()?;
-            let json_value: serde_json::Value = serde_json::from_str(&json_str)
-                .map_err(|e| PyErr::new::<exceptions::PyValueError, _>(format!("JSON error: {}", e)))?;
-            PropertyValue::Json(json_value)
-        } else {
-            return Err(PyErr::new::<exceptions::PyTypeError, _>(
-                "PropertyValue must be a number, list, bool, str, or dict"
-            ));
-        };
-
-        Ok(Self { value: property_value })
-    }
-
-    /// Convert the property value to a Python object.
-    ///
-    /// Returns:
-    ///     The value as a Python object (int, float, list, bool, or str)
-    fn to_python(&self, py: Python) -> PyResult<Py<PyAny>> {
-        match &self.value {
-            PropertyValue::Scalar(v) => {
-                let float_obj = PyFloat::new(py, *v);
-                Ok(float_obj.unbind().into())
-            }
-            PropertyValue::Vector(v) => {
-                let list = PyList::new(py, v.iter())?;
-                Ok(list.unbind().into())
-            }
-            PropertyValue::TimeSeries { times, values } => {
-                let dict = PyDict::new(py);
-                dict.set_item("times", times)?;
-                dict.set_item("values", values)?;
-                Ok(dict.into())
-            }
-            PropertyValue::Boolean(v) => {
-                // Use Python's builtin bool function
-                let builtins = py.import("builtins")?;
-                let bool_func = builtins.getattr("bool")?;
-                Ok(bool_func.call1((*v,))?.into())
-            }
-            PropertyValue::String(v) => {
-                let str_obj = PyString::new(py, v);
-                Ok(str_obj.unbind().into())
-            }
-            PropertyValue::Json(v) => {
-                // Convert JSON to Python via json module
-                let json_module = py.import("json")?;
-                let loads = json_module.getattr("loads")?;
-                let json_str = serde_json::to_string(v)
-                    .map_err(|e| PyErr::new::<exceptions::PyValueError, _>(format!("JSON error: {}", e)))?;
-                Ok(loads.call1((json_str,))?.into())
-            }
-        }
-    }
-
-    fn __repr__(&self, py: Python) -> PyResult<String> {
-        let value_str = self.to_python(py)?;
-        Ok(format!("PropertyValue({})", value_str))
+/// Convert a Python bool, number, list of floats, str, or dict to a `PropertyValue`.
+fn py_to_property_value(value: &Bound<'_, PyAny>) -> PyResult<PropertyValue> {
+    // Check bool BEFORE f64, since bool is a subclass of int in Python
+    if let Ok(v) = value.extract::<bool>() {
+        Ok(PropertyValue::Boolean(v))
+    } else if let Ok(v) = value.extract::<f64>() {
+        Ok(PropertyValue::Scalar(v))
+    } else if let Ok(v) = value.extract::<Vec<f64>>() {
+        Ok(PropertyValue::Vector(v))
+    } else if let Ok(v) = value.extract::<String>() {
+        Ok(PropertyValue::String(v))
+    } else if let Ok(dict) = value.cast::<PyDict>() {
+        let json_module = value.py().import("json")?;
+        let dumps = json_module.getattr("dumps")?;
+        let json_str: String = dumps.call1((dict,))?.extract()?;
+        let json_value: serde_json::Value = serde_json::from_str(&json_str)
+            .map_err(|e| PyErr::new::<exceptions::PyValueError, _>(format!("JSON error: {}", e)))?;
+        Ok(PropertyValue::Json(json_value))
+    } else {
+        Err(PyErr::new::<exceptions::PyTypeError, _>(
+            "Property value must be a number, list, bool, str, or dict"
+        ))
     }
 }
 
@@ -3605,7 +3503,7 @@ impl PyAccessPropertiesBuilder {
         key: String,
         value: &Bound<'_, PyAny>,
     ) -> PyResult<PyRefMut<'a, Self>> {
-        let property_value = PyPropertyValue::new(value)?.value;
+        let property_value = py_to_property_value(value)?;
         slf.inner = slf.inner.take().map(|b| b.additional(key, property_value));
         Ok(slf)
     }
@@ -3859,27 +3757,6 @@ pub struct PySamplingConfig {
 
 #[pymethods]
 impl PySamplingConfig {
-    /// Create a sampling configuration.
-    ///
-    /// Args:
-    ///     relative_times (list[float], optional): Relative times from 0.0 to 1.0.
-    ///     interval (float, optional): Time between samples (seconds).
-    ///     offset (float, optional): Time offset from window start (seconds).
-    ///     count (int, optional): Number of evenly-spaced sample points.
-    ///
-    /// Returns:
-    ///     SamplingConfig: Sampling configuration.
-    ///
-    /// Example:
-    ///     ```python
-    ///     import brahe as bh
-    ///
-    ///     # Midpoint (default)
-    ///     config = bh.SamplingConfig()
-    ///
-    ///     # Relative points
-    ///     config = bh.SamplingConfig(relative_times=[0.0, 0.5, 1.0])
-    ///     ```
     #[new]
     #[pyo3(signature = (relative_times=None, interval=None, offset=None, count=None))]
     fn new(
@@ -4009,6 +3886,14 @@ impl PySamplingConfig {
 /// Calculates uplink and/or downlink Doppler shifts based on satellite velocity
 /// and line-of-sight geometry.
 ///
+/// Args:
+///     uplink_frequency (float | None): Uplink frequency in Hz
+///     downlink_frequency (float | None): Downlink frequency in Hz
+///     sampling_config (SamplingConfig): Sampling configuration
+///
+/// Note:
+///     At least one frequency (uplink or downlink) must be specified.
+///
 /// Example:
 ///     ```python
 ///     import brahe as bh
@@ -4030,25 +3915,6 @@ pub struct PyDopplerComputer {
 
 #[pymethods]
 impl PyDopplerComputer {
-    /// Create a new Doppler computer.
-    ///
-    /// Args:
-    ///     uplink_frequency (float | None): Uplink frequency in Hz (optional)
-    ///     downlink_frequency (float | None): Downlink frequency in Hz (optional)
-    ///     sampling_config (SamplingConfig): Sampling configuration
-    ///
-    /// Returns:
-    ///     DopplerComputer: New Doppler computer instance
-    ///
-    /// Note:
-    ///     At least one frequency (uplink or downlink) must be specified.
-    ///
-    /// Example:
-    ///     ```python
-    ///     import brahe as bh
-    ///     config = bh.SamplingConfig.midpoint()
-    ///     computer = bh.DopplerComputer(None, 1.57542e9, config)
-    ///     ```
     #[new]
     fn new(
         uplink_frequency: Option<f64>,
@@ -4076,6 +3942,9 @@ impl PyDopplerComputer {
 ///
 /// Calculates the distance between satellite and ground location.
 ///
+/// Args:
+///     sampling_config (SamplingConfig): Sampling configuration
+///
 /// Example:
 ///     ```python
 ///     import brahe as bh
@@ -4092,20 +3961,6 @@ pub struct PyRangeComputer {
 
 #[pymethods]
 impl PyRangeComputer {
-    /// Create a new range computer.
-    ///
-    /// Args:
-    ///     sampling_config (SamplingConfig): Sampling configuration
-    ///
-    /// Returns:
-    ///     RangeComputer: New range computer instance
-    ///
-    /// Example:
-    ///     ```python
-    ///     import brahe as bh
-    ///     config = bh.SamplingConfig.midpoint()
-    ///     computer = bh.RangeComputer(config)
-    ///     ```
     #[new]
     fn new(sampling_config: &PySamplingConfig) -> Self {
         PyRangeComputer {
@@ -4121,6 +3976,9 @@ impl PyRangeComputer {
 /// Computes range rate (radial velocity) during access windows.
 ///
 /// Calculates the rate of change of distance between satellite and ground location.
+///
+/// Args:
+///     sampling_config (SamplingConfig): Sampling configuration
 ///
 /// Example:
 ///     ```python
@@ -4138,20 +3996,6 @@ pub struct PyRangeRateComputer {
 
 #[pymethods]
 impl PyRangeRateComputer {
-    /// Create a new range rate computer.
-    ///
-    /// Args:
-    ///     sampling_config (SamplingConfig): Sampling configuration
-    ///
-    /// Returns:
-    ///     RangeRateComputer: New range rate computer instance
-    ///
-    /// Example:
-    ///     ```python
-    ///     import brahe as bh
-    ///     config = bh.SamplingConfig.midpoint()
-    ///     computer = bh.RangeRateComputer(config)
-    ///     ```
     #[new]
     fn new(sampling_config: &PySamplingConfig) -> Self {
         PyRangeRateComputer {
@@ -4758,14 +4602,19 @@ impl AccessConstraintComputer for RustAccessConstraintComputerWrapper {
 /// Supports two modes: equal-count (split into N equal parts) and fixed-duration
 /// (generate sub-windows with a specific duration at regular intervals).
 ///
-/// Can be created using keyword constructor or named class methods:
+/// Can be created using keyword constructor or named class methods. The keyword
+/// constructor selects the mode from the arguments provided: pass exactly one of
+/// `count` (EqualCount mode) or `duration` (FixedDuration mode).
 ///
 /// Args:
-///     count (Optional[int]): Number of equal subdivisions (EqualCount mode)
-///     duration (Optional[float]): Duration of each sub-window in seconds (FixedDuration mode)
-///     offset (float): Offset from parent window start in seconds (default: 0.0)
-///     gap (float): Gap between sub-windows in seconds, negative for overlap (default: 0.0)
-///     truncate_partial (bool): If True, truncate partial sub-windows; if False, drop them (default: False)
+///     count (int | None, optional): Number of equal subdivisions (EqualCount mode)
+///     duration (float | None, optional): Duration of each sub-window in seconds (FixedDuration mode)
+///     offset (float, optional): Offset from parent window start in seconds (default: 0.0)
+///     gap (float, optional): Gap between sub-windows in seconds, negative for overlap (default: 0.0)
+///     truncate_partial (bool, optional): If True, truncate partial sub-windows; if False, drop them (default: False)
+///
+/// Raises:
+///     ValueError: If both or neither of `count` and `duration` are given.
 ///
 /// Example:
 ///     ```python
@@ -4794,29 +4643,6 @@ pub struct PySubdivisionConfig {
 
 #[pymethods]
 impl PySubdivisionConfig {
-    /// Create a SubdivisionConfig.
-    ///
-    /// Detects mode from which arguments are provided:
-    /// - Provide `count` for EqualCount mode
-    /// - Provide `duration` for FixedDuration mode
-    ///
-    /// Args:
-    ///     count (Optional[int]): Number of equal subdivisions
-    ///     duration (Optional[float]): Duration of each sub-window in seconds
-    ///     offset (float): Offset from parent window start in seconds (default: 0.0)
-    ///     gap (float): Gap between sub-windows in seconds (default: 0.0)
-    ///     truncate_partial (bool): Truncate partial sub-windows (default: False)
-    ///
-    /// Returns:
-    ///     SubdivisionConfig: The configured subdivision
-    ///
-    /// Example:
-    ///     ```python
-    ///     import brahe as bh
-    ///
-    ///     config = bh.SubdivisionConfig(count=4)
-    ///     config = bh.SubdivisionConfig(duration=30.0, gap=5.0)
-    ///     ```
     #[new]
     #[pyo3(signature = (count=None, duration=None, offset=0.0, gap=0.0, truncate_partial=false))]
     fn new(
@@ -5771,13 +5597,13 @@ fn py_location_accesses(
 /// Controls tile dimensions, overlaps, and ascending/descending pass selection.
 ///
 /// Args:
-///     image_width (float): Cross-track tile width in meters (default: 5000)
-///     image_length (float): Along-track tile length in meters (default: 5000)
-///     crosstrack_overlap (float): Cross-track overlap in meters (default: 200)
-///     alongtrack_overlap (float): Along-track overlap in meters (default: 200)
-///     asc_dsc (AscDsc): Ascending/descending pass selection (default: Either)
-///     min_image_length (float): Minimum tile length in meters (default: 5000)
-///     max_image_length (float): Maximum tile length in meters (default: 5000)
+///     image_width (float, optional): Cross-track tile width in meters (default: 5000)
+///     image_length (float, optional): Along-track tile length in meters (default: 5000)
+///     crosstrack_overlap (float, optional): Cross-track overlap in meters (default: 200)
+///     alongtrack_overlap (float, optional): Along-track overlap in meters (default: 200)
+///     asc_dsc (AscDsc, optional): Ascending/descending pass selection (default: Either)
+///     min_image_length (float, optional): Minimum tile length in meters (default: 5000)
+///     max_image_length (float, optional): Maximum tile length in meters (default: 5000)
 ///
 /// Example:
 ///     ```python
@@ -5798,19 +5624,6 @@ pub struct PyOrbitGeometryTessellatorConfig {
 
 #[pymethods]
 impl PyOrbitGeometryTessellatorConfig {
-    /// Create a new tessellation configuration.
-    ///
-    /// Args:
-    ///     image_width (float): Cross-track tile width in meters
-    ///     image_length (float): Along-track tile length in meters
-    ///     crosstrack_overlap (float): Cross-track overlap in meters
-    ///     alongtrack_overlap (float): Along-track overlap in meters
-    ///     asc_dsc (AscDsc): Ascending/descending pass selection
-    ///     min_image_length (float): Minimum tile length in meters
-    ///     max_image_length (float): Maximum tile length in meters
-    ///
-    /// Returns:
-    ///     OrbitGeometryTessellatorConfig: New configuration
     #[new]
     #[pyo3(signature = (
         image_width=5000.0,
@@ -5934,8 +5747,9 @@ impl PyOrbitGeometryTessellatorConfig {
 /// Args:
 ///     propagator (SGPPropagator): Orbit propagator
 ///     epoch (Epoch): Reference epoch for the propagator
-///     config (OrbitGeometryTessellatorConfig): Tessellation configuration
-///     spacecraft_id (str): Optional spacecraft identifier for tile metadata
+///     config (OrbitGeometryTessellatorConfig, optional): Tessellation configuration.
+///         Defaults to ``OrbitGeometryTessellatorConfig()``.
+///     spacecraft_id (str, optional): Spacecraft identifier for tile metadata. Defaults to None.
 ///
 /// Example:
 ///     ```python
@@ -5961,16 +5775,6 @@ pub struct PyOrbitGeometryTessellator {
 
 #[pymethods]
 impl PyOrbitGeometryTessellator {
-    /// Create a new orbit geometry tessellator.
-    ///
-    /// Args:
-    ///     propagator (SGPPropagator): Orbit propagator
-    ///     epoch (Epoch): Reference epoch for the propagator
-    ///     config (OrbitGeometryTessellatorConfig): Tessellation configuration
-    ///     spacecraft_id (str): Optional spacecraft identifier
-    ///
-    /// Returns:
-    ///     OrbitGeometryTessellator: New tessellator
     #[new]
     #[pyo3(signature = (propagator, epoch, config=None, spacecraft_id=None))]
     fn new(

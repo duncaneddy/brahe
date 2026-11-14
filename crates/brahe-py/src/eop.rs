@@ -140,19 +140,6 @@ impl PyStaticEOPProvider {
         self.obj.to_string()
     }
 
-    /// Create a new static EOP provider with default values.
-    ///
-    /// Returns:
-    ///     StaticEOPProvider: New provider with default EOP values
-    ///
-    /// Example:
-    ///     ```python
-    ///     import brahe as bh
-    ///
-    ///     # Create static EOP provider with defaults
-    ///     eop = bh.StaticEOPProvider()
-    ///     bh.set_global_eop_provider_from_static_provider(eop)
-    ///     ```
     #[new]
     pub fn new() -> Self {
         PyStaticEOPProvider {
@@ -472,7 +459,9 @@ impl PyStaticEOPProvider {
 /// File-based Earth Orientation Parameter provider.
 ///
 /// Loads EOP data from files in standard IERS formats and provides
-/// interpolation and extrapolation capabilities.
+/// interpolation and extrapolation capabilities. The constructor takes no
+/// arguments and creates an uninitialized provider; use the ``from_*`` class
+/// methods to create a provider loaded with data.
 ///
 /// Example:
 ///     ```python
@@ -525,10 +514,6 @@ impl PyFileEOPProvider {
         self.obj.to_string()
     }
 
-    /// Create a new uninitialized file EOP provider.
-    ///
-    /// Returns:
-    ///     FileEOPProvider: New uninitialized provider
     #[new]
     pub fn new() -> Self {
         PyFileEOPProvider {
@@ -976,6 +961,10 @@ impl PyFileEOPProvider {
 ///     # Check and refresh as needed
 ///     provider.refresh()
 ///
+///     # Check file status
+///     print(f"File loaded at: {provider.file_epoch()}")
+///     print(f"File age: {provider.file_age() / 86400:.1f} days")
+///
 ///     # With explicit filepath
 ///     provider = bh.CachingEOPProvider(
 ///         eop_type="StandardBulletinA",
@@ -994,6 +983,11 @@ impl PyFileEOPProvider {
 ///         interpolate=True,
 ///         extrapolate="Hold"
 ///     )
+///     bh.set_global_eop_provider_from_caching_provider(auto_provider)
+///
+///     # EOP data is refreshed automatically if stale
+///     for mjd in [60310.0, 60311.0, 60312.0]:
+///         print(bh.get_global_ut1_utc(mjd))
 ///     ```
 #[pyclass(module = "brahe._brahe")]
 #[pyo3(name = "CachingEOPProvider")]
@@ -1016,87 +1010,6 @@ impl PyCachingEOPProvider {
                 self.obj.auto_refresh)
     }
 
-    /// Initialize a new caching EOP provider with automatic file management.
-    ///
-    /// Creates an EOP provider that automatically monitors file age and downloads
-    /// updated data from IERS when the file exceeds the specified maximum age.
-    /// If the file doesn't exist, it will be downloaded on initialization.
-    ///
-    /// Args:
-    ///     eop_type (str): Type of EOP file - "C04" for IERS C04 format or
-    ///         "StandardBulletinA" for IERS finals2000A.all format
-    ///     max_age_seconds (int): Maximum age of file in seconds before triggering
-    ///         a refresh. Common values: 86400 (1 day), 604800 (7 days)
-    ///     auto_refresh (bool): If True, automatically checks file age and refreshes
-    ///         on every data access. If False, only checks on initialization and
-    ///         manual refresh() calls
-    ///     interpolate (bool): Enable linear interpolation between tabulated EOP
-    ///         values. Recommended: True for smoother data
-    ///     extrapolate (str): Behavior for dates outside EOP data range:
-    ///         - "Hold": Use last known value (recommended)
-    ///         - "Zero": Return 0.0 for all parameters
-    ///         - "Error": Raise an exception
-    ///     filepath (str, optional): Path to the EOP file (will be created if it doesn't exist).
-    ///         If None, uses default cache location:
-    ///         - StandardBulletinA: ~/.cache/brahe/finals.all.iau2000.txt
-    ///         - C04: ~/.cache/brahe/EOP_C04_one_file_1962-now.txt
-    ///
-    /// Returns:
-    ///     CachingEOPProvider: Provider with automatic cache management
-    ///
-    /// Raises:
-    ///     Exception: If file download fails or file format is invalid
-    ///
-    /// Example:
-    ///     ```python
-    ///     import brahe as bh
-    ///
-    ///     # Using default cache location (recommended)
-    ///     provider = bh.CachingEOPProvider(
-    ///         eop_type="StandardBulletinA",
-    ///         max_age_seconds=7 * 86400,  # 7 days in seconds
-    ///         auto_refresh=False,          # Manual refresh only
-    ///         interpolate=True,            # Smooth interpolation
-    ///         extrapolate="Hold"           # Hold last value
-    ///     )
-    ///
-    ///     # Set as global provider for frame transformations
-    ///     bh.set_global_eop_provider_from_caching_provider(provider)
-    ///
-    ///     # Check file status
-    ///     print(f"File loaded at: {provider.file_epoch()}")
-    ///     print(f"File age: {provider.file_age() / 86400:.1f} days")
-    ///     ```
-    ///
-    /// Example:
-    ///     ```python
-    ///     import brahe as bh
-    ///
-    ///     # With explicit filepath
-    ///     provider = bh.CachingEOPProvider(
-    ///         eop_type="StandardBulletinA",
-    ///         max_age_seconds=7 * 86400,
-    ///         auto_refresh=False,
-    ///         interpolate=True,
-    ///         extrapolate="Hold",
-    ///         filepath="./eop_data/finals.all.iau2000.txt"
-    ///     )
-    ///
-    ///     # Long-running service with auto-refresh
-    ///     provider = bh.CachingEOPProvider(
-    ///         eop_type="StandardBulletinA",
-    ///         max_age_seconds=24 * 3600,  # 24 hours
-    ///         auto_refresh=True,           # Check on every access
-    ///         interpolate=True,
-    ///         extrapolate="Hold"
-    ///     )
-    ///     bh.set_global_eop_provider_from_caching_provider(provider)
-    ///
-    ///     # Service runs continuously with always-current EOP data
-    ///     for mjd in [60310.0, 60311.0, 60312.0]:
-    ///         # EOP data automatically refreshed if stale
-    ///         print(bh.get_global_ut1_utc(mjd))
-    ///     ```
     #[new]
     #[pyo3(signature = (eop_type, max_age_seconds, auto_refresh, interpolate, extrapolate, filepath=None))]
     pub fn new(

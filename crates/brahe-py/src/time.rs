@@ -469,7 +469,19 @@ fn py_time_system_offset_for_datetime(
 /// - **ISO 8601 string**: `Epoch("2024-01-01T12:00:00Z")` - parse from string
 /// - **Python datetime**: `Epoch(datetime_obj)` - convert from Python datetime
 /// - **Copy constructor**: `Epoch(other_epoch)` - create a copy
+/// - **Julian Date**: `Epoch(60310.5)` or `Epoch(2460310.5)` - values below 1000000 are treated as
+///   Modified Julian Date, values at or above 1000000 as Julian Date
 /// - **Time system**: All constructors accept optional `time_system=` keyword argument (default: UTC)
+///
+/// Args:
+///     *args: Variable positional arguments supporting:
+///         - (str): Date/time string (e.g., "2024-01-01 12:00:00.000 UTC" or "2024-01-01T12:00:00Z")
+///         - (float/int): Julian Date or Modified Julian Date (auto-detected: < 1000000 is MJD, >= 1000000 is JD)
+///         - (datetime): Python datetime object
+///         - (Epoch): Another Epoch object (copy constructor)
+///         - (int, int, int): Year, month, day (midnight)
+///         - (int, int, int, int, int, float, float): Year, month, day, hour, minute, second, nanosecond
+///     time_system (TimeSystem, optional): Time system, defaults to UTC (can be specified as kwarg or in string)
 ///
 /// Example:
 ///     ```python
@@ -499,6 +511,19 @@ fn py_time_system_offset_for_datetime(
 ///     print(f"Time difference: {diff} seconds")
 ///     # Output: Time difference: 3600.0 seconds
 ///
+///     # Copy constructor
+///     epc6 = bh.Epoch(epc1)
+///
+///     # From Modified Julian Date (auto-detected, value < 1000000)
+///     epc7 = bh.Epoch(60310.5)
+///     print(epc7)
+///     # Output: 2024-01-01 12:00:00.000 UTC
+///
+///     # From Julian Date (auto-detected, value >= 1000000)
+///     epc8 = bh.Epoch(2460310.5)
+///     print(epc8)
+///     # Output: 2024-01-01 00:00:00.000 UTC
+///
 ///     # Legacy constructors still available
 ///     epc4 = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.UTC)
 ///     epc5 = bh.Epoch.from_jd(2460310.0, bh.UTC)
@@ -513,69 +538,6 @@ pub struct PyEpoch {
 
 #[pymethods]
 impl PyEpoch {
-    /// Create a new Epoch from various input formats.
-    ///
-    /// This flexible constructor supports multiple initialization patterns:
-    ///
-    /// Args:
-    ///     *args: Variable positional arguments supporting:
-    ///         - (str): Date/time string (e.g., "2024-01-01 12:00:00.000 UTC" or "2024-01-01T12:00:00Z")
-    ///         - (float/int): Julian Date or Modified Julian Date (auto-detected: < 1000000 is MJD, >= 1000000 is JD)
-    ///         - (datetime): Python datetime object
-    ///         - (Epoch): Another Epoch object (copy constructor)
-    ///         - (int, int, int): Year, month, day (midnight)
-    ///         - (int, int, int, int, int, float, float): Year, month, day, hour, minute, second, nanosecond
-    ///     time_system (TimeSystem): Time system, defaults to UTC (can be specified as kwarg or in string)
-    ///
-    /// Returns:
-    ///     Epoch: New epoch object
-    ///
-    /// Example:
-    ///     ```python
-    ///     import brahe as bh
-    ///     from datetime import datetime
-    ///
-    ///     # From date components (midnight)
-    ///     epc1 = bh.Epoch(2024, 1, 1)
-    ///     print(epc1)
-    ///     # Output: 2024-01-01 00:00:00.000 UTC
-    ///
-    ///     # From full datetime components
-    ///     epc2 = bh.Epoch(2024, 1, 1, 12, 30, 45.5, 0.0)
-    ///     print(epc2)
-    ///     # Output: 2024-01-01 12:30:45.500 UTC
-    ///
-    ///     # With explicit time system
-    ///     epc3 = bh.Epoch(2024, 1, 1, 12, 0, 0.0, 0.0, time_system=bh.GPS)
-    ///     print(epc3)
-    ///     # Output: 2024-01-01 12:00:00.000 GPS
-    ///
-    ///     # From string
-    ///     epc4 = bh.Epoch("2024-01-01 12:00:00.000 UTC")
-    ///     print(epc4)
-    ///     # Output: 2024-01-01 12:00:00.000 UTC
-    ///
-    ///     # From Python datetime
-    ///     dt = datetime(2024, 1, 1, 12, 0, 0)
-    ///     epc5 = bh.Epoch(dt)
-    ///     print(epc5)
-    ///     # Output: 2024-01-01T12:00:00.000000000 UTC
-    ///
-    ///     # Copy constructor
-    ///     epc6 = bh.Epoch(epc1)
-    ///     print(epc6)
-    ///     # Output: 2024-01-01T00:00:00.000000000 UTC
-    ///
-    ///     # From Modified Julian Date (auto-detected, value < 1000000)
-    ///     epc7 = bh.Epoch(60310.5)
-    ///     print(epc7)
-    ///     # Output: 2024-01-01 12:00:00.000 UTC
-    ///
-    ///     # From Julian Date (auto-detected, value >= 1000000)
-    ///     epc8 = bh.Epoch(2460310.5)
-    ///     print(epc8)
-    ///     # Output: 2024-01-01 12:00:00.000 UTC
-    ///     ```
     #[new]
     #[pyo3(signature = (*args, time_system=None))]
     fn __new__(
@@ -1730,15 +1692,6 @@ struct PyTimeRange {
 
 #[pymethods]
 impl PyTimeRange {
-    /// Create a new TimeRange iterator.
-    ///
-    /// Args:
-    ///     epoch_start (Epoch): Starting epoch for the range
-    ///     epoch_end (Epoch): Ending epoch for the range
-    ///     step (float): Time step in seconds between consecutive epochs
-    ///
-    /// Returns:
-    ///     TimeRange: Iterator over the time range
     #[new]
     fn new(epoch_start: &PyEpoch, epoch_end: &PyEpoch, step: f64) -> Self {
         Self {

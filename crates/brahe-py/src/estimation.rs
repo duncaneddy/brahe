@@ -23,6 +23,19 @@ use brahe::math::jacobian::{DifferenceMethod, PerturbationStrategy};
 ///
 /// Controls how process noise Q is applied to the predicted covariance.
 ///
+/// Args:
+///     q_matrix (numpy.ndarray): Process noise matrix Q (state_dim x state_dim).
+///     scale_with_dt (bool): If True, Q scales with time step (continuous-time model).
+///         Defaults to False.
+///     max_noise_dt (float or None): Maximum time step (seconds) over which
+///         continuous process noise is accumulated per chunk. None (default)
+///         keeps the single-shot behavior. A value h sub-steps predict
+///         intervals longer than h, adding Q * dt_chunk per chunk. Applies
+///         only when scale_with_dt is True.
+///
+/// Raises:
+///     ValueError: If q_matrix is not square, or max_noise_dt is not finite and positive.
+///
 /// Example:
 ///     ```python
 ///     import brahe as bh
@@ -40,24 +53,6 @@ pub struct PyProcessNoiseConfig {
 
 #[pymethods]
 impl PyProcessNoiseConfig {
-    /// Create a new ProcessNoiseConfig.
-    ///
-    /// Args:
-    ///     q_matrix (numpy.ndarray): Process noise matrix Q (state_dim x state_dim).
-    ///     scale_with_dt (bool): If True, Q scales with time step (continuous-time model).
-    ///         Defaults to False.
-    ///     max_noise_dt (float or None): Maximum time step (seconds) over which
-    ///         continuous process noise is accumulated per chunk. None (default)
-    ///         keeps the single-shot behavior. Some(h) sub-steps predict
-    ///         intervals longer than h, adding Q * dt_chunk per chunk. Applies
-    ///         only when scale_with_dt is True. See issue #408 for the exact
-    ///         continuous formulation.
-    ///
-    /// Returns:
-    ///     ProcessNoiseConfig: New process noise configuration.
-    ///
-    /// Raises:
-    ///     ValueError: If max_noise_dt is not finite and positive.
     #[new]
     #[pyo3(signature = (q_matrix, scale_with_dt=false, max_noise_dt=None))]
     fn new(
@@ -131,6 +126,10 @@ impl PyProcessNoiseConfig {
 
 /// Configuration for the Extended Kalman Filter.
 ///
+/// Args:
+///     process_noise (ProcessNoiseConfig or None): Optional process noise. Defaults to None.
+///     store_records (bool): Whether to store filter records. Defaults to True.
+///
 /// Example:
 ///     ```python
 ///     import brahe as bh
@@ -148,14 +147,6 @@ pub struct PyEKFConfig {
 
 #[pymethods]
 impl PyEKFConfig {
-    /// Create a new EKFConfig.
-    ///
-    /// Args:
-    ///     process_noise (ProcessNoiseConfig or None): Optional process noise. Defaults to None.
-    ///     store_records (bool): Whether to store filter records. Defaults to True.
-    ///
-    /// Returns:
-    ///     EKFConfig: New EKF configuration.
     #[new]
     #[pyo3(signature = (process_noise=None, store_records=true))]
     fn new(process_noise: Option<PyProcessNoiseConfig>, store_records: bool) -> Self {
@@ -203,6 +194,11 @@ impl PyEKFConfig {
 
 /// A single observation (measurement) at a specific epoch.
 ///
+/// Args:
+///     epoch (Epoch): Time of the observation.
+///     measurement (numpy.ndarray): Measurement vector z in SI units.
+///     model_index (int): Index into the estimator's measurement model list. Defaults to 0.
+///
 /// Example:
 ///     ```python
 ///     import brahe as bh
@@ -220,15 +216,6 @@ pub struct PyObservation {
 
 #[pymethods]
 impl PyObservation {
-    /// Create a new Observation.
-    ///
-    /// Args:
-    ///     epoch (Epoch): Time of the observation.
-    ///     measurement (numpy.ndarray): Measurement vector z in SI units.
-    ///     model_index (int): Index into the estimator's measurement model list.
-    ///
-    /// Returns:
-    ///     Observation: New observation instance.
     #[new]
     #[pyo3(signature = (epoch, measurement, model_index=0))]
     fn new(
@@ -568,19 +555,6 @@ impl_measurement_model_binding!(
     estimation::InertialPositionMeasurementModel,
     "InertialPositionMeasurementModel",
     constructors: [
-        /// Create an inertial position measurement model.
-        ///
-        /// Args:
-        ///     sigma (float): Position noise standard deviation (meters).
-        ///
-        /// Returns:
-        ///     InertialPositionMeasurementModel: New model instance.
-        ///
-        /// Example:
-        ///     ```python
-        ///     import brahe as bh
-        ///     model = bh.InertialPositionMeasurementModel(10.0)
-        ///     ```
         #[new]
         fn new(sigma: f64) -> Self {
             PyInertialPositionMeasurementModel {
@@ -652,7 +626,18 @@ impl_measurement_model_binding!(
             Ok(PyInertialPositionMeasurementModel { model })
         }
     ],
-    doc: "Inertial position measurement model (3D ECI position).\n\nDirectly observes [x, y, z] from the state vector with Gaussian noise."
+    doc: "Inertial position measurement model (3D ECI position).
+
+Directly observes [x, y, z] from the state vector with Gaussian noise.
+
+Args:
+    sigma (float): Position noise standard deviation (meters).
+
+Example:
+    ```python
+    import brahe as bh
+    model = bh.InertialPositionMeasurementModel(10.0)
+    ```"
 );
 
 impl_measurement_model_binding!(
@@ -660,19 +645,6 @@ impl_measurement_model_binding!(
     estimation::InertialVelocityMeasurementModel,
     "InertialVelocityMeasurementModel",
     constructors: [
-        /// Create an inertial velocity measurement model.
-        ///
-        /// Args:
-        ///     sigma (float): Velocity noise standard deviation (m/s).
-        ///
-        /// Returns:
-        ///     InertialVelocityMeasurementModel: New model instance.
-        ///
-        /// Example:
-        ///     ```python
-        ///     import brahe as bh
-        ///     model = bh.InertialVelocityMeasurementModel(0.1)
-        ///     ```
         #[new]
         fn new(sigma: f64) -> Self {
             PyInertialVelocityMeasurementModel {
@@ -732,7 +704,18 @@ impl_measurement_model_binding!(
             Ok(PyInertialVelocityMeasurementModel { model })
         }
     ],
-    doc: "Inertial velocity measurement model (3D ECI velocity).\n\nDirectly observes [vx, vy, vz] from the state vector with Gaussian noise."
+    doc: "Inertial velocity measurement model (3D ECI velocity).
+
+Directly observes [vx, vy, vz] from the state vector with Gaussian noise.
+
+Args:
+    sigma (float): Velocity noise standard deviation (m/s).
+
+Example:
+    ```python
+    import brahe as bh
+    model = bh.InertialVelocityMeasurementModel(0.1)
+    ```"
 );
 
 impl_measurement_model_binding!(
@@ -740,20 +723,6 @@ impl_measurement_model_binding!(
     estimation::InertialStateMeasurementModel,
     "InertialStateMeasurementModel",
     constructors: [
-        /// Create an inertial state measurement model.
-        ///
-        /// Args:
-        ///     pos_sigma (float): Position noise standard deviation (meters).
-        ///     vel_sigma (float): Velocity noise standard deviation (m/s).
-        ///
-        /// Returns:
-        ///     InertialStateMeasurementModel: New model instance.
-        ///
-        /// Example:
-        ///     ```python
-        ///     import brahe as bh
-        ///     model = bh.InertialStateMeasurementModel(10.0, 0.1)
-        ///     ```
         #[new]
         fn new(pos_sigma: f64, vel_sigma: f64) -> Self {
             PyInertialStateMeasurementModel {
@@ -825,7 +794,19 @@ impl_measurement_model_binding!(
             Ok(PyInertialStateMeasurementModel { model })
         }
     ],
-    doc: "Inertial state measurement model (6D ECI state).\n\nDirectly observes [x, y, z, vx, vy, vz] from the state vector with Gaussian noise."
+    doc: "Inertial state measurement model (6D ECI state).
+
+Directly observes [x, y, z, vx, vy, vz] from the state vector with Gaussian noise.
+
+Args:
+    pos_sigma (float): Position noise standard deviation (meters).
+    vel_sigma (float): Velocity noise standard deviation (m/s).
+
+Example:
+    ```python
+    import brahe as bh
+    model = bh.InertialStateMeasurementModel(10.0, 0.1)
+    ```"
 );
 
 impl_measurement_model_binding!(
@@ -833,19 +814,6 @@ impl_measurement_model_binding!(
     estimation::ECEFPositionMeasurementModel,
     "ECEFPositionMeasurementModel",
     constructors: [
-        /// Create an ECEF position measurement model.
-        ///
-        /// Args:
-        ///     sigma (float): Position noise standard deviation (meters).
-        ///
-        /// Returns:
-        ///     ECEFPositionMeasurementModel: New model instance.
-        ///
-        /// Example:
-        ///     ```python
-        ///     import brahe as bh
-        ///     model = bh.ECEFPositionMeasurementModel(5.0)
-        ///     ```
         #[new]
         fn new(sigma: f64) -> Self {
             PyECEFPositionMeasurementModel {
@@ -905,7 +873,18 @@ impl_measurement_model_binding!(
             Ok(PyECEFPositionMeasurementModel { model })
         }
     ],
-    doc: "ECEF position measurement model (3D ECEF position from GNSS).\n\nInternally converts ECI state to ECEF position."
+    doc: "ECEF position measurement model (3D ECEF position from GNSS).
+
+Internally converts ECI state to ECEF position.
+
+Args:
+    sigma (float): Position noise standard deviation (meters).
+
+Example:
+    ```python
+    import brahe as bh
+    model = bh.ECEFPositionMeasurementModel(5.0)
+    ```"
 );
 
 impl_measurement_model_binding!(
@@ -913,19 +892,6 @@ impl_measurement_model_binding!(
     estimation::ECEFVelocityMeasurementModel,
     "ECEFVelocityMeasurementModel",
     constructors: [
-        /// Create an ECEF velocity measurement model.
-        ///
-        /// Args:
-        ///     sigma (float): Velocity noise standard deviation (m/s).
-        ///
-        /// Returns:
-        ///     ECEFVelocityMeasurementModel: New model instance.
-        ///
-        /// Example:
-        ///     ```python
-        ///     import brahe as bh
-        ///     model = bh.ECEFVelocityMeasurementModel(0.05)
-        ///     ```
         #[new]
         fn new(sigma: f64) -> Self {
             PyECEFVelocityMeasurementModel {
@@ -985,7 +951,18 @@ impl_measurement_model_binding!(
             Ok(PyECEFVelocityMeasurementModel { model })
         }
     ],
-    doc: "ECEF velocity measurement model (3D ECEF velocity from GNSS).\n\nInternally converts ECI state to ECEF velocity."
+    doc: "ECEF velocity measurement model (3D ECEF velocity from GNSS).
+
+Internally converts ECI state to ECEF velocity.
+
+Args:
+    sigma (float): Velocity noise standard deviation (m/s).
+
+Example:
+    ```python
+    import brahe as bh
+    model = bh.ECEFVelocityMeasurementModel(0.05)
+    ```"
 );
 
 impl_measurement_model_binding!(
@@ -993,20 +970,6 @@ impl_measurement_model_binding!(
     estimation::ECEFStateMeasurementModel,
     "ECEFStateMeasurementModel",
     constructors: [
-        /// Create an ECEF state measurement model.
-        ///
-        /// Args:
-        ///     pos_sigma (float): Position noise standard deviation (meters).
-        ///     vel_sigma (float): Velocity noise standard deviation (m/s).
-        ///
-        /// Returns:
-        ///     ECEFStateMeasurementModel: New model instance.
-        ///
-        /// Example:
-        ///     ```python
-        ///     import brahe as bh
-        ///     model = bh.ECEFStateMeasurementModel(5.0, 0.05)
-        ///     ```
         #[new]
         fn new(pos_sigma: f64, vel_sigma: f64) -> Self {
             PyECEFStateMeasurementModel {
@@ -1075,7 +1038,19 @@ impl_measurement_model_binding!(
             Ok(PyECEFStateMeasurementModel { model })
         }
     ],
-    doc: "ECEF state measurement model (6D ECEF state from GNSS).\n\nInternally converts ECI state to ECEF state."
+    doc: "ECEF state measurement model (6D ECEF state from GNSS).
+
+Internally converts ECI state to ECEF state.
+
+Args:
+    pos_sigma (float): Position noise standard deviation (meters).
+    vel_sigma (float): Velocity noise standard deviation (m/s).
+
+Example:
+    ```python
+    import brahe as bh
+    model = bh.ECEFStateMeasurementModel(5.0, 0.05)
+    ```"
 );
 
 /// Validate that a target state array has at least 3 elements before it reaches
@@ -1096,31 +1071,6 @@ impl_measurement_model_binding!(
     estimation::AzElRangeMeasurementModel,
     "AzElRangeMeasurementModel",
     constructors: [
-        /// Create an az/el/range measurement model for a ground station.
-        ///
-        /// Args:
-        ///     station_lon (float): Station geodetic longitude (angle_format units).
-        ///     station_lat (float): Station geodetic latitude (angle_format units).
-        ///     station_alt (float): Station altitude above the WGS84 ellipsoid (meters).
-        ///     sigma_az (float): Azimuth noise standard deviation (angle_format units).
-        ///     sigma_el (float): Elevation noise standard deviation (angle_format units).
-        ///     sigma_range (float): Range noise standard deviation (meters).
-        ///     angle_format (AngleFormat, optional): Angle units. Defaults to degrees.
-        ///     bias_az (float, optional): Azimuth bias applied in predict(). Default 0.
-        ///     bias_el (float, optional): Elevation bias applied in predict(). Default 0.
-        ///     bias_range (float, optional): Range bias (meters). Default 0.
-        ///
-        /// Returns:
-        ///     AzElRangeMeasurementModel: New model instance.
-        ///
-        /// Example:
-        ///     ```python
-        ///     import brahe as bh
-        ///     model = bh.AzElRangeMeasurementModel(
-        ///         -71.49, 42.62, 123.1, 0.01, 0.01, 150.0,
-        ///         bias_range=150.0,
-        ///     )
-        ///     ```
         #[new]
         #[pyo3(signature = (station_lon, station_lat, station_alt, sigma_az, sigma_el, sigma_range, angle_format=None, bias_az=0.0, bias_el=0.0, bias_range=0.0))]
         #[allow(clippy::too_many_arguments)]
@@ -1219,7 +1169,30 @@ impl_measurement_model_binding!(
             Ok(PyAzElRangeMeasurementModel { model })
         }
     ],
-    doc: "Topocentric azimuth/elevation/range measurement model for ground sensors.\n\nMeasurement is [azimuth, elevation, range] with optional constant bias applied in predict(). Azimuth residuals wrap across 0/360."
+    doc: "Topocentric azimuth/elevation/range measurement model for ground sensors.
+
+Measurement is [azimuth, elevation, range] with optional constant bias applied in predict(). Azimuth residuals wrap across 0/360.
+
+Args:
+    station_lon (float): Station geodetic longitude (angle_format units).
+    station_lat (float): Station geodetic latitude (angle_format units).
+    station_alt (float): Station altitude above the WGS84 ellipsoid (meters).
+    sigma_az (float): Azimuth noise standard deviation (angle_format units).
+    sigma_el (float): Elevation noise standard deviation (angle_format units).
+    sigma_range (float): Range noise standard deviation (meters).
+    angle_format (AngleFormat, optional): Angle units. Defaults to degrees.
+    bias_az (float, optional): Azimuth bias applied in predict(). Default 0.
+    bias_el (float, optional): Elevation bias applied in predict(). Default 0.
+    bias_range (float, optional): Range bias (meters). Default 0.
+
+Example:
+    ```python
+    import brahe as bh
+    model = bh.AzElRangeMeasurementModel(
+        -71.49, 42.62, 123.1, 0.01, 0.01, 150.0,
+        bias_range=150.0,
+    )
+    ```"
 );
 
 impl_measurement_model_binding!(
@@ -1227,29 +1200,6 @@ impl_measurement_model_binding!(
     estimation::AzElMeasurementModel,
     "AzElMeasurementModel",
     constructors: [
-        /// Create an angles-only az/el measurement model for a ground station.
-        ///
-        /// Args:
-        ///     station_lon (float): Station geodetic longitude (angle_format units).
-        ///     station_lat (float): Station geodetic latitude (angle_format units).
-        ///     station_alt (float): Station altitude above the WGS84 ellipsoid (meters).
-        ///     sigma_az (float): Azimuth noise standard deviation (angle_format units).
-        ///     sigma_el (float): Elevation noise standard deviation (angle_format units).
-        ///     angle_format (AngleFormat, optional): Angle units. Defaults to degrees.
-        ///     bias_az (float, optional): Azimuth bias applied in predict(). Default 0.
-        ///     bias_el (float, optional): Elevation bias applied in predict(). Default 0.
-        ///
-        /// Returns:
-        ///     AzElMeasurementModel: New model instance.
-        ///
-        /// Example:
-        ///     ```python
-        ///     import brahe as bh
-        ///     model = bh.AzElMeasurementModel(
-        ///         -106.66, 33.82, 1510.2, 0.0033, 0.0027,
-        ///         bias_az=0.0017, bias_el=0.0010,
-        ///     )
-        ///     ```
         #[new]
         #[pyo3(signature = (station_lon, station_lat, station_alt, sigma_az, sigma_el, angle_format=None, bias_az=0.0, bias_el=0.0))]
         #[allow(clippy::too_many_arguments)]
@@ -1346,7 +1296,28 @@ impl_measurement_model_binding!(
             Ok(PyAzElMeasurementModel { model })
         }
     ],
-    doc: "Topocentric angles-only azimuth/elevation measurement model for optical ground sensors.\n\nMeasurement is [azimuth, elevation] with optional constant bias applied in predict(). Azimuth residuals wrap across 0/360."
+    doc: "Topocentric angles-only azimuth/elevation measurement model for optical ground sensors.
+
+Measurement is [azimuth, elevation] with optional constant bias applied in predict(). Azimuth residuals wrap across 0/360.
+
+Args:
+    station_lon (float): Station geodetic longitude (angle_format units).
+    station_lat (float): Station geodetic latitude (angle_format units).
+    station_alt (float): Station altitude above the WGS84 ellipsoid (meters).
+    sigma_az (float): Azimuth noise standard deviation (angle_format units).
+    sigma_el (float): Elevation noise standard deviation (angle_format units).
+    angle_format (AngleFormat, optional): Angle units. Defaults to degrees.
+    bias_az (float, optional): Azimuth bias applied in predict(). Default 0.
+    bias_el (float, optional): Elevation bias applied in predict(). Default 0.
+
+Example:
+    ```python
+    import brahe as bh
+    model = bh.AzElMeasurementModel(
+        -106.66, 33.82, 1510.2, 0.0033, 0.0027,
+        bias_az=0.0017, bias_el=0.0010,
+    )
+    ```"
 );
 
 // =============================================================================
@@ -1429,11 +1400,32 @@ impl PySensorType {
 /// `az_min > az_max` means the window crosses north (e.g. Cape Cod 347deg ->
 /// 227deg).
 ///
+/// Args:
+///     location (PointLocation): Sensor site (geodetic; name used for the sensor name).
+///     az_min (float, optional): Azimuth window start (degrees). Default 0.
+///     az_max (float, optional): Azimuth window end (degrees). Default 360.
+///         `az_min > az_max` means the window crosses north.
+///     el_min (float, optional): Minimum elevation (degrees). Default 0.
+///     el_max (float, optional): Maximum elevation (degrees). Default 90.
+///     range_max (float or None, optional): Maximum range (meters), or None for unlimited.
+///     bias (tuple[float, float, float], optional): Measurement bias
+///         (az_deg, el_deg, range_m). Default (0, 0, 0).
+///     noise (tuple[float, float, float], optional): Noise standard
+///         deviations (az_deg, el_deg, range_m). Default (0.01, 0.01, 100.0).
+///     seed (int or None, optional): RNG seed for reproducible measurements.
+///         Defaults to an OS-seeded RNG.
+///
 /// Example:
 ///     ```python
 ///     import brahe as bh
 ///     sites = bh.datasets.ssn_sensors.load()
 ///     sensors = bh.SimpleSSNSensor.from_locations(sites, seed=42)
+///     ```
+///
+///     ```python
+///     import brahe as bh
+///     loc = bh.PointLocation(-71.49, 42.62, 123.1).with_name("Millstone")
+///     sensor = bh.SimpleSSNSensor(loc, el_min=5.0, noise=(0.01, 0.01, 100.0), seed=1)
 ///     ```
 #[pyclass(module = "brahe._brahe")]
 #[pyo3(name = "SimpleSSNSensor")]
@@ -1443,32 +1435,6 @@ pub struct PySimpleSSNSensor {
 
 #[pymethods]
 impl PySimpleSSNSensor {
-    /// Create a sensor with explicit limits and calibration values.
-    ///
-    /// Args:
-    ///     location (PointLocation): Sensor site (geodetic; name used for the sensor name).
-    ///     az_min (float, optional): Azimuth window start (degrees). Default 0.
-    ///     az_max (float, optional): Azimuth window end (degrees). Default 360.
-    ///         `az_min > az_max` means the window crosses north.
-    ///     el_min (float, optional): Minimum elevation (degrees). Default 0.
-    ///     el_max (float, optional): Maximum elevation (degrees). Default 90.
-    ///     range_max (float or None, optional): Maximum range (meters), or None for unlimited.
-    ///     bias (tuple[float, float, float], optional): Measurement bias
-    ///         (az_deg, el_deg, range_m). Default (0, 0, 0).
-    ///     noise (tuple[float, float, float], optional): Noise standard
-    ///         deviations (az_deg, el_deg, range_m). Default (0.01, 0.01, 100.0).
-    ///     seed (int or None, optional): RNG seed for reproducible measurements.
-    ///         Defaults to an OS-seeded RNG.
-    ///
-    /// Returns:
-    ///     SimpleSSNSensor: New sensor instance.
-    ///
-    /// Example:
-    ///     ```python
-    ///     import brahe as bh
-    ///     loc = bh.PointLocation(-71.49, 42.62, 123.1).with_name("Millstone")
-    ///     sensor = bh.SimpleSSNSensor(loc, el_min=5.0, noise=(0.01, 0.01, 100.0), seed=1)
-    ///     ```
     #[new]
     #[pyo3(signature = (location, az_min=0.0, az_max=360.0, el_min=0.0, el_max=90.0, range_max=None, bias=(0.0, 0.0, 0.0), noise=(0.01, 0.01, 100.0), seed=None))]
     #[allow(clippy::too_many_arguments)]
@@ -2517,6 +2483,27 @@ fn process_measurement_models(
 /// between observation epochs using a numerical propagator. Supports both
 /// built-in and custom Python measurement models.
 ///
+/// Args:
+///     epoch (Epoch): Initial epoch.
+///     state (numpy.ndarray): Initial state vector in ECI [x,y,z,vx,vy,vz,...] (meters, m/s).
+///     initial_covariance (numpy.ndarray): Initial covariance matrix (n x n).
+///     propagation_config (NumericalPropagationConfig): Propagation configuration.
+///     force_config (ForceModelConfig): Force model configuration.
+///     measurement_models (list): List of measurement models (built-in or custom).
+///     config (EKFConfig or None): EKF configuration. Defaults to EKFConfig.default().
+///     params (numpy.ndarray or None): Parameter vector for force models. Defaults to None.
+///     additional_dynamics (callable or None): Additional dynamics function f(t, state, params) -> derivative.
+///         Defaults to None.
+///     control_input (callable or None): Control input function f(t, state, params) -> acceleration.
+///         Defaults to None.
+///
+/// Raises:
+///     ValueError: If initial_covariance is not n x n for an n-element state.
+///     RuntimeError: If the configuration is invalid.
+///     Exception: Propagates the original exception raised by a dynamics or
+///         control-input callback invoked during construction (e.g. computing the
+///         initial acceleration when `store_accelerations` is enabled).
+///
 /// Example:
 ///     ```python
 ///     import brahe as bh
@@ -2547,28 +2534,6 @@ pub struct PyExtendedKalmanFilter {
 
 #[pymethods]
 impl PyExtendedKalmanFilter {
-    /// Create a new ExtendedKalmanFilter.
-    ///
-    /// Args:
-    ///     epoch (Epoch): Initial epoch.
-    ///     state (numpy.ndarray): Initial state vector in ECI [x,y,z,vx,vy,vz,...] (meters, m/s).
-    ///     initial_covariance (numpy.ndarray): Initial covariance matrix (n x n).
-    ///     propagation_config (NumericalPropagationConfig): Propagation configuration.
-    ///     force_config (ForceModelConfig): Force model configuration.
-    ///     measurement_models (list): List of measurement models (built-in or custom).
-    ///     config (EKFConfig or None): EKF configuration. Defaults to EKFConfig.default().
-    ///     params (numpy.ndarray or None): Parameter vector for force models.
-    ///     additional_dynamics (callable or None): Additional dynamics function f(t, state, params) -> derivative.
-    ///     control_input (callable or None): Control input function f(t, state, params) -> acceleration.
-    ///
-    /// Returns:
-    ///     ExtendedKalmanFilter: New EKF instance.
-    ///
-    /// Raises:
-    ///     RuntimeError: If the configuration is invalid.
-    ///     Exception: Propagates the original exception raised by a dynamics or
-    ///         control-input callback invoked during construction (e.g. computing the
-    ///         initial acceleration when `store_accelerations` is enabled).
     #[new]
     #[pyo3(signature = (
         epoch, state, initial_covariance,
@@ -3119,6 +3084,15 @@ impl PyExtendedKalmanFilterBuilder {
 
 /// Configuration for the Unscented Kalman Filter.
 ///
+/// The state dimension is derived from the propagator at filter construction.
+///
+/// Args:
+///     alpha (float): Sigma point spread parameter (typically 1e-3). Defaults to 1e-3.
+///     beta (float): Distribution parameter (2.0 for Gaussian). Defaults to 2.0.
+///     kappa (float): Secondary scaling parameter (typically 0.0). Defaults to 0.0.
+///     process_noise (ProcessNoiseConfig or None): Optional process noise. Defaults to None.
+///     store_records (bool): Whether to store filter records. Defaults to True.
+///
 /// Example:
 ///     ```python
 ///     import brahe as bh
@@ -3133,19 +3107,6 @@ pub struct PyUKFConfig {
 
 #[pymethods]
 impl PyUKFConfig {
-    /// Create a new UKFConfig.
-    ///
-    /// The state dimension is derived from the propagator at filter construction.
-    ///
-    /// Args:
-    ///     alpha (float): Sigma point spread parameter (typically 1e-3). Defaults to 1e-3.
-    ///     beta (float): Distribution parameter (2.0 for Gaussian). Defaults to 2.0.
-    ///     kappa (float): Secondary scaling parameter (typically 0.0). Defaults to 0.0.
-    ///     process_noise (ProcessNoiseConfig or None): Optional process noise. Defaults to None.
-    ///     store_records (bool): Whether to store filter records. Defaults to True.
-    ///
-    /// Returns:
-    ///     UKFConfig: New UKF configuration.
     #[new]
     #[pyo3(signature = (alpha=1e-3, beta=2.0, kappa=0.0, process_noise=None, store_records=true))]
     fn new(
@@ -3216,6 +3177,25 @@ impl PyUKFConfig {
 /// and measurement models without linearization. Does not require Jacobians
 /// or STM propagation.
 ///
+/// Args:
+///     epoch (Epoch): Initial epoch.
+///     state (numpy.ndarray): Initial state vector in ECI [x,y,z,vx,vy,vz,...] (meters, m/s).
+///     initial_covariance (numpy.ndarray): Initial covariance matrix (n x n).
+///     propagation_config (NumericalPropagationConfig): Propagation configuration.
+///     force_config (ForceModelConfig): Force model configuration.
+///     measurement_models (list): List of measurement models (built-in or custom).
+///     config (UKFConfig or None): UKF configuration. Defaults to UKFConfig.default().
+///     params (numpy.ndarray or None): Parameter vector for force models. Defaults to None.
+///     additional_dynamics (callable or None): Additional dynamics function. Defaults to None.
+///     control_input (callable or None): Control input function. Defaults to None.
+///
+/// Raises:
+///     ValueError: If initial_covariance is not n x n for an n-element state.
+///     RuntimeError: If the configuration is invalid.
+///     Exception: Propagates the original exception raised by a dynamics or
+///         control-input callback invoked during construction (e.g. computing the
+///         initial acceleration when `store_accelerations` is enabled).
+///
 /// Example:
 ///     ```python
 ///     import brahe as bh
@@ -3246,28 +3226,6 @@ pub struct PyUnscentedKalmanFilter {
 
 #[pymethods]
 impl PyUnscentedKalmanFilter {
-    /// Create a new UnscentedKalmanFilter.
-    ///
-    /// Args:
-    ///     epoch (Epoch): Initial epoch.
-    ///     state (numpy.ndarray): Initial state vector in ECI [x,y,z,vx,vy,vz,...] (meters, m/s).
-    ///     initial_covariance (numpy.ndarray): Initial covariance matrix (n x n).
-    ///     propagation_config (NumericalPropagationConfig): Propagation configuration.
-    ///     force_config (ForceModelConfig): Force model configuration.
-    ///     measurement_models (list): List of measurement models (built-in or custom).
-    ///     config (UKFConfig or None): UKF configuration. Defaults to UKFConfig.default().
-    ///     params (numpy.ndarray or None): Parameter vector for force models.
-    ///     additional_dynamics (callable or None): Additional dynamics function.
-    ///     control_input (callable or None): Control input function.
-    ///
-    /// Returns:
-    ///     UnscentedKalmanFilter: New UKF instance.
-    ///
-    /// Raises:
-    ///     RuntimeError: If the configuration is invalid.
-    ///     Exception: Propagates the original exception raised by a dynamics or
-    ///         control-input callback invoked during construction (e.g. computing the
-    ///         initial acceleration when `store_accelerations` is enabled).
     #[new]
     #[pyo3(signature = (
         epoch, state, initial_covariance,
@@ -3865,6 +3823,14 @@ fn map_solver_method(value: u8) -> PyResult<estimation::BLSSolverMethod> {
 /// consider (remaining elements) parameters. The consider parameters are
 /// not estimated but their uncertainty is accounted for in the covariance.
 ///
+/// Args:
+///     n_solve (int): Number of solve-for parameters (first n elements of state).
+///     consider_covariance (numpy.ndarray): A priori covariance for the consider
+///         parameters (n_c x n_c), where n_c = state_dim - n_solve.
+///
+/// Raises:
+///     ValueError: If consider_covariance is not square.
+///
 /// Example:
 ///     ```python
 ///     import brahe as bh
@@ -3883,15 +3849,6 @@ pub struct PyConsiderParameterConfig {
 
 #[pymethods]
 impl PyConsiderParameterConfig {
-    /// Create a new ConsiderParameterConfig.
-    ///
-    /// Args:
-    ///     n_solve (int): Number of solve-for parameters (first n elements of state).
-    ///     consider_covariance (numpy.ndarray): A priori covariance for the consider
-    ///         parameters (n_c x n_c), where n_c = state_dim - n_solve.
-    ///
-    /// Returns:
-    ///     ConsiderParameterConfig: New consider parameter configuration.
     #[new]
     fn new(n_solve: usize, consider_covariance: PyReadonlyArray2<f64>) -> PyResult<Self> {
         let shape = consider_covariance.shape();
@@ -3946,6 +3903,22 @@ impl PyConsiderParameterConfig {
 
 /// Configuration for the Batch Least Squares estimator.
 ///
+/// Args:
+///     solver_method (int): Solver formulation. Use ``BLSSolverMethod.NORMAL_EQUATIONS`` (0)
+///         or ``BLSSolverMethod.STACKED_OBSERVATION_MATRIX`` (1). Defaults to 0.
+///     max_iterations (int): Maximum Gauss-Newton iterations. Defaults to 10.
+///     state_correction_threshold (float or None): Convergence threshold on ||delta_x||.
+///         Defaults to 1e-8.
+///     cost_convergence_threshold (float or None): Convergence threshold on relative cost change.
+///         Defaults to None.
+///     consider_params (ConsiderParameterConfig or None): Consider parameter configuration.
+///         Defaults to None.
+///     store_iteration_records (bool): Whether to store per-iteration diagnostics. Defaults to True.
+///     store_observation_residuals (bool): Whether to store per-observation residuals. Defaults to True.
+///
+/// Raises:
+///     ValueError: If solver_method is not 0 or 1.
+///
 /// Example:
 ///     ```python
 ///     import brahe as bh
@@ -3962,23 +3935,6 @@ pub struct PyBLSConfig {
 
 #[pymethods]
 impl PyBLSConfig {
-    /// Create a new BLSConfig.
-    ///
-    /// Args:
-    ///     solver_method (int): Solver formulation. Use ``BLSSolverMethod.NORMAL_EQUATIONS`` (0)
-    ///         or ``BLSSolverMethod.STACKED_OBSERVATION_MATRIX`` (1). Defaults to 0.
-    ///     max_iterations (int): Maximum Gauss-Newton iterations. Defaults to 10.
-    ///     state_correction_threshold (float or None): Convergence threshold on ||delta_x||.
-    ///         Defaults to 1e-8.
-    ///     cost_convergence_threshold (float or None): Convergence threshold on relative cost change.
-    ///         Defaults to None.
-    ///     consider_params (ConsiderParameterConfig or None): Consider parameter configuration.
-    ///         Defaults to None.
-    ///     store_iteration_records (bool): Whether to store per-iteration diagnostics. Defaults to True.
-    ///     store_observation_residuals (bool): Whether to store per-observation residuals. Defaults to True.
-    ///
-    /// Returns:
-    ///     BLSConfig: New BLS configuration.
     #[new]
     #[pyo3(signature = (
         solver_method=0,
@@ -4287,6 +4243,27 @@ impl PyBLSObservationResidual {
 /// Gauss-Newton algorithm. Supports both normal equations and stacked
 /// observation matrix solver formulations.
 ///
+/// Args:
+///     epoch (Epoch): Initial (reference) epoch.
+///     initial_state (numpy.ndarray): Initial state vector in ECI [x,y,z,vx,vy,vz,...] (meters, m/s).
+///     initial_covariance (numpy.ndarray): A priori covariance matrix (n x n).
+///     propagation_config (NumericalPropagationConfig): Propagation configuration.
+///     force_config (ForceModelConfig): Force model configuration.
+///     measurement_models (list): List of measurement models (built-in or custom).
+///     config (BLSConfig or None): BLS configuration. Defaults to BLSConfig.default().
+///     params (numpy.ndarray or None): Parameter vector for force models. Defaults to None.
+///     additional_dynamics (callable or None): Additional dynamics function f(t, state, params) -> derivative.
+///         Defaults to None.
+///     control_input (callable or None): Control input function f(t, state, params) -> acceleration.
+///         Defaults to None.
+///
+/// Raises:
+///     ValueError: If initial_covariance is not n x n for an n-element state.
+///     RuntimeError: If the configuration is invalid.
+///     Exception: Propagates the original exception raised by a dynamics or
+///         control-input callback invoked during construction (e.g. computing the
+///         initial acceleration when `store_accelerations` is enabled).
+///
 /// Example:
 ///     ```python
 ///     import brahe as bh
@@ -4317,28 +4294,6 @@ pub struct PyBatchLeastSquares {
 
 #[pymethods]
 impl PyBatchLeastSquares {
-    /// Create a new BatchLeastSquares estimator.
-    ///
-    /// Args:
-    ///     epoch (Epoch): Initial (reference) epoch.
-    ///     initial_state (numpy.ndarray): Initial state vector in ECI [x,y,z,vx,vy,vz,...] (meters, m/s).
-    ///     initial_covariance (numpy.ndarray): A priori covariance matrix (n x n).
-    ///     propagation_config (NumericalPropagationConfig): Propagation configuration.
-    ///     force_config (ForceModelConfig): Force model configuration.
-    ///     measurement_models (list): List of measurement models (built-in or custom).
-    ///     config (BLSConfig or None): BLS configuration. Defaults to BLSConfig.default().
-    ///     params (numpy.ndarray or None): Parameter vector for force models.
-    ///     additional_dynamics (callable or None): Additional dynamics function f(t, state, params) -> derivative.
-    ///     control_input (callable or None): Control input function f(t, state, params) -> acceleration.
-    ///
-    /// Returns:
-    ///     BatchLeastSquares: New BLS instance.
-    ///
-    /// Raises:
-    ///     RuntimeError: If the configuration is invalid.
-    ///     Exception: Propagates the original exception raised by a dynamics or
-    ///         control-input callback invoked during construction (e.g. computing the
-    ///         initial acceleration when `store_accelerations` is enabled).
     #[new]
     #[pyo3(signature = (
         epoch, initial_state, initial_covariance,

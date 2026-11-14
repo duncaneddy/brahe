@@ -797,10 +797,8 @@ impl<const R: usize> Trajectory for STrajectory<R> {
         }
 
         // Find the index at or after the epoch
-        for i in 0..self.epochs.len() {
-            if &self.epochs[i] >= epoch {
-                return Ok(i);
-            }
+        if let Some(i) = self.epochs.iter().position(|e| e >= epoch) {
+            return Ok(i);
         }
 
         // Should never reach here given the checks above

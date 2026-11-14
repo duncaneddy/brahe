@@ -51,7 +51,6 @@ name = "brahe"
 [dependencies]
 rsofa = "0.5"
 nalgebra = { version = ">=0.34, <0.36", features = ["serde-serialize"] }
-numpy = { version = "0.30", optional = true }
 once_cell = "1.21"
 num-traits = "0.2"
 regex = "1"
@@ -112,7 +111,7 @@ anise = { version = "0.10", default-features = false }
 [features]
 integration = []
 manual = []  # For tests requiring network downloads (run with: cargo test --features manual)
-python = ["dep:pyo3", "dep:numpy"]
+python = ["dep:pyo3"]
 dhat-heap = []    # if you are doing heap profiling
 dhat-ad-hoc = []  # if you are doing ad hoc profiling
 

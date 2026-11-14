@@ -1404,10 +1404,8 @@ impl Trajectory for SOrbitTrajectory {
         }
 
         // Find the index at or after the epoch
-        for i in 0..self.epochs.len() {
-            if &self.epochs[i] >= epoch {
-                return Ok(i);
-            }
+        if let Some(i) = self.epochs.iter().position(|e| e >= epoch) {
+            return Ok(i);
         }
 
         // Should never reach here given the checks above
@@ -8360,9 +8358,9 @@ mod tests {
         // The trajectory is its own chief, so both its RTN position and its
         // RTN velocity, which includes the angular-velocity transport term,
         // are zero.
-        for i in 0..traj.len() {
+        for state in &rtn.states[..traj.len()] {
             for k in 0..6 {
-                assert_abs_diff_eq!(rtn.states[i][k], 0.0, epsilon = 1e-6);
+                assert_abs_diff_eq!(state[k], 0.0, epsilon = 1e-6);
             }
         }
 

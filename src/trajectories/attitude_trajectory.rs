@@ -645,8 +645,8 @@ impl AttitudeTrajectory {
                     Vec::with_capacity(end_idx - start_idx + 1);
                 let mut previous = self.states[start_idx].quaternion.to_vector(true);
                 quaternion_values.push(previous);
-                for i in (start_idx + 1)..=end_idx {
-                    let mut v = self.states[i].quaternion.to_vector(true);
+                for state in &self.states[(start_idx + 1)..=end_idx] {
+                    let mut v = state.quaternion.to_vector(true);
                     if v.dot(&previous) < 0.0 {
                         v = -v;
                     }
@@ -661,8 +661,8 @@ impl AttitudeTrajectory {
                 let angular_velocity = if self.has_rates() {
                     let mut omega_values: Vec<Vector3<f64>> =
                         Vec::with_capacity(end_idx - start_idx + 1);
-                    for i in start_idx..=end_idx {
-                        omega_values.push(self.states[i].angular_velocity.ok_or_else(|| {
+                    for state in &self.states[start_idx..=end_idx] {
+                        omega_values.push(state.angular_velocity.ok_or_else(|| {
                             BraheError::Error(
                                 "AttitudeTrajectory::has_rates() reported true but a state in \
                                  the interpolation window has no angular_velocity; this \
@@ -962,10 +962,8 @@ impl Trajectory for AttitudeTrajectory {
             ));
         }
 
-        for i in 0..self.epochs.len() {
-            if &self.epochs[i] >= epoch {
-                return Ok(i);
-            }
+        if let Some(i) = self.epochs.iter().position(|e| e >= epoch) {
+            return Ok(i);
         }
 
         Err(BraheError::Error(

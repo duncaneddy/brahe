@@ -372,8 +372,8 @@ mod tests {
         assert_abs_diff_eq!(coeffs.h[25][idx_11], 4545.5, epsilon = 1.0);
 
         // h(n, 0) should always be 0
-        for epoch_idx in 0..coeffs.epochs.len() {
-            assert_abs_diff_eq!(coeffs.h[epoch_idx][idx_10], 0.0, epsilon = 1e-10);
+        for h in &coeffs.h[..coeffs.epochs.len()] {
+            assert_abs_diff_eq!(h[idx_10], 0.0, epsilon = 1e-10);
         }
     }
 

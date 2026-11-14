@@ -29,7 +29,8 @@ use pyo3::panic::PanicException;
 use pyo3::prelude::*;
 use pyo3::pyclass::CompareOp;
 use pyo3::types::{
-    PyDateAccess, PyDateTime, PyDict, PyFloat, PyList, PyString, PyTimeAccess, PyTuple, PyType,
+    PyBytes, PyDateAccess, PyDateTime, PyDict, PyFloat, PyList, PySequence, PyString, PyTimeAccess,
+    PyTuple, PyType,
 };
 use pyo3::{IntoPyObjectExt, PyRefMut, exceptions, wrap_pyfunction};
 

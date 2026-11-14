@@ -5185,6 +5185,24 @@ fn process_property_computers(
     }
 }
 
+/// Convert a non-list Python sequence (tuple, `UserList`, ...) to a list.
+///
+/// Lists and non-sequence objects are returned unchanged. Strings and bytes are
+/// also returned unchanged so they fail type validation instead of expanding
+/// into their characters.
+fn sequence_as_list<'py>(obj: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
+    match obj.cast::<PySequence>() {
+        Ok(seq)
+            if !obj.is_instance_of::<PyList>()
+                && !obj.is_instance_of::<PyString>()
+                && !obj.is_instance_of::<PyBytes>() =>
+        {
+            Ok(seq.to_list()?.into_any())
+        }
+        _ => Ok(obj.clone()),
+    }
+}
+
 /// Compute access windows for locations and satellites.
 ///
 /// This function accepts either single items or lists for both locations and propagators,
@@ -5192,11 +5210,12 @@ fn process_property_computers(
 /// and results are returned sorted by window start time.
 ///
 /// Args:
-///     locations (PointLocation | PolygonLocation | Sequence[PointLocation | PolygonLocation]):
-///         Single location or list of locations
-///     propagators (SGPPropagator | KeplerianPropagator | NumericalOrbitPropagator | OrbitTrajectory | SP3Satellite | Sequence[SGPPropagator | KeplerianPropagator | NumericalOrbitPropagator | OrbitTrajectory | SP3Satellite]):
-///         Single propagator or list of propagators. A list of NumericalOrbitPropagator,
-///         OrbitTrajectory, or SP3Satellite objects must hold only that type
+///     locations (PointLocation | PolygonLocation | Sequence[PointLocation] | Sequence[PolygonLocation]):
+///         Single location or list of locations. A list must hold a single location
+///         type; mixing types raises TypeError
+///     propagators (SGPPropagator | KeplerianPropagator | NumericalOrbitPropagator | OrbitTrajectory | SP3Satellite | Sequence[SGPPropagator] | Sequence[KeplerianPropagator] | Sequence[NumericalOrbitPropagator] | Sequence[OrbitTrajectory] | Sequence[SP3Satellite]):
+///         Single propagator, trajectory, or SP3 satellite, or a list of them. A list
+///         must hold a single type; mixing types raises TypeError
 ///     search_start (Epoch): Start of search window
 ///     search_end (Epoch): End of search window
 ///     constraint (AccessConstraint): Access constraints to evaluate
@@ -5237,6 +5256,10 @@ fn process_property_computers(
 ///
 ///     # Multiple locations, multiple propagators
 ///     windows = bh.location_accesses([station, station2], [prop1, prop2], epoch, search_end, constraint)
+///
+///     # Precomputed OrbitTrajectory (e.g. built from an ephemeris file)
+///     prop1.propagate_to(search_end)
+///     windows = bh.location_accesses(station, prop1.trajectory, epoch, search_end, constraint)
 ///
 ///     # Custom search configuration with time tolerance and subdivisions
 ///     config = bh.AccessSearchConfig(initial_time_step=30.0, adaptive_step=True, time_tolerance=0.01)
@@ -5294,6 +5317,11 @@ fn py_location_accesses(
         ));
     };
 
+    // Non-list sequences are converted to lists so every sequence type shares the
+    // list handling below
+    let locations = &sequence_as_list(locations)?;
+    let propagators = &sequence_as_list(propagators)?;
+
     // Process locations - check if it's a list or single item
     let loc_is_list = locations.is_instance_of::<PyList>();
 
@@ -5310,14 +5338,12 @@ fn py_location_accesses(
         let list = locations.cast::<PyList>()?;
         let mut point_locs = Vec::new();
         let mut polygon_locs = Vec::new();
-        let mut is_point = true;
 
         for item in list.iter() {
             if let Ok(loc) = item.cast::<PyPointLocation>() {
                 point_locs.push(loc.borrow().location.clone());
             } else if let Ok(loc) = item.cast::<PyPolygonLocation>() {
                 polygon_locs.push(loc.borrow().location.clone());
-                is_point = false;
             } else {
                 return Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
                     "locations list must contain only PointLocation or PolygonLocation objects"
@@ -5325,10 +5351,14 @@ fn py_location_accesses(
             }
         }
 
-        if is_point {
-            LocationVec::Point(point_locs)
-        } else {
-            LocationVec::Polygon(polygon_locs)
+        match (point_locs.is_empty(), polygon_locs.is_empty()) {
+            (false, false) => {
+                return Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
+                    "locations list must contain only PointLocation or only PolygonLocation objects (cannot mix types)"
+                ));
+            }
+            (true, false) => LocationVec::Polygon(polygon_locs),
+            _ => LocationVec::Point(point_locs),
         }
     } else if let Ok(loc) = locations.cast::<PyPointLocation>() {
         LocationVec::Point(vec![loc.borrow().location.clone()])
@@ -5557,14 +5587,12 @@ fn py_location_accesses(
         let list = propagators.cast::<PyList>()?;
         let mut sgp_props = Vec::new();
         let mut kep_props = Vec::new();
-        let mut is_sgp = true;
 
         for item in list.iter() {
             if let Ok(prop) = item.cast::<PySGPPropagator>() {
                 sgp_props.push(prop.borrow().propagator.clone());
             } else if let Ok(prop) = item.cast::<PyKeplerianPropagator>() {
                 kep_props.push(prop.borrow().propagator.clone());
-                is_sgp = false;
             } else {
                 return Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
                     "propagators list must contain only SGPPropagator or KeplerianPropagator objects"
@@ -5572,10 +5600,14 @@ fn py_location_accesses(
             }
         }
 
-        if is_sgp {
-            PropagatorVec::Sgp(sgp_props)
-        } else {
-            PropagatorVec::Keplerian(kep_props)
+        match (sgp_props.is_empty(), kep_props.is_empty()) {
+            (false, false) => {
+                return Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
+                    "propagators list must contain only SGPPropagator or only KeplerianPropagator objects (cannot mix types)"
+                ));
+            }
+            (true, false) => PropagatorVec::Keplerian(kep_props),
+            _ => PropagatorVec::Sgp(sgp_props),
         }
     } else if let Ok(prop) = propagators.cast::<PySGPPropagator>() {
         PropagatorVec::Sgp(vec![prop.borrow().propagator.clone()])

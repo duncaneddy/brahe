@@ -5,6 +5,8 @@ Tests for the unified location_accesses function that handles both single
 items and lists for locations and propagators.
 """
 
+from collections import UserList
+
 import numpy as np
 import pytest
 
@@ -597,6 +599,123 @@ def test_location_accesses_numerical_insufficient_propagation():
             constraint,
             config=config,
         )
+
+
+# =============================================================================
+# OrbitTrajectory and Mixed-Type Input Tests
+# =============================================================================
+
+
+def test_location_accesses_orbit_trajectory():
+    """Test that an OrbitTrajectory, single or in a list, matches its source propagator."""
+    location = bh.PointLocation(0.0, 45.0, 0.0)
+    epoch = bh.Epoch(2024, 1, 1, 0, 0, 0.0)
+    search_end = epoch + 5674.0 * 2.0
+    constraint = bh.ElevationConstraint(5.0)
+
+    oe = np.array([bh.R_EARTH + 500e3, 0.0, 45.0, 0.0, 0.0, 0.0])
+    state = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
+    propagator = bh.KeplerianPropagator.from_eci(epoch, state, 60.0)
+    propagator.propagate_to(search_end)
+    trajectory = propagator.trajectory
+
+    reference = bh.location_accesses(
+        location, propagator, epoch, search_end, constraint
+    )
+    single = bh.location_accesses(location, trajectory, epoch, search_end, constraint)
+    listed = bh.location_accesses(
+        [location], [trajectory, trajectory], epoch, search_end, constraint
+    )
+
+    assert len(reference) > 0
+    assert len(single) == len(reference)
+    assert len(listed) == 2 * len(reference)
+    for window, ref in zip(single, reference):
+        assert abs(window.start - ref.start) < 1e-3
+        assert abs(window.end - ref.end) < 1e-3
+
+
+def test_location_accesses_sequence_inputs():
+    """Test that tuples and other sequences are accepted like lists."""
+    location = bh.PointLocation(0.0, 45.0, 0.0)
+    epoch = bh.Epoch(2024, 1, 1, 0, 0, 0.0)
+    search_end = epoch + 5674.0 * 2.0
+    constraint = bh.ElevationConstraint(5.0)
+    propagator = create_test_propagator(epoch)
+
+    listed = bh.location_accesses(
+        [location], [propagator], epoch, search_end, constraint
+    )
+    assert len(listed) > 0
+
+    for locations, propagators in (
+        ((location,), (propagator,)),
+        (UserList([location]), UserList([propagator])),
+    ):
+        windows = bh.location_accesses(
+            locations, propagators, epoch, search_end, constraint
+        )
+        assert len(windows) == len(listed)
+        for window, ref in zip(windows, listed):
+            assert window.start == ref.start
+            assert window.end == ref.end
+
+
+@pytest.mark.parametrize("value", ["", "abc", b"", b"abc"])
+def test_location_accesses_string_inputs_raise(value):
+    """Test that str and bytes are rejected rather than treated as sequences."""
+    location = bh.PointLocation(0.0, 45.0, 0.0)
+    epoch = bh.Epoch(2024, 1, 1, 0, 0, 0.0)
+    propagator = create_test_propagator(epoch)
+    constraint = bh.ElevationConstraint(5.0)
+
+    with pytest.raises(TypeError):
+        bh.location_accesses(value, propagator, epoch, epoch + 3600.0, constraint)
+    with pytest.raises(TypeError):
+        bh.location_accesses(location, value, epoch, epoch + 3600.0, constraint)
+
+
+def test_location_accesses_mixed_propagator_list_raises():
+    """Test that a list mixing SGPPropagator and KeplerianPropagator raises TypeError."""
+    location = bh.PointLocation(0.0, 45.0, 0.0)
+    epoch = bh.Epoch(2024, 1, 1, 0, 0, 0.0)
+    keplerian = create_test_propagator(epoch)
+    sgp = bh.SGPPropagator.from_tle(
+        "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927",
+        "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537",
+    )
+
+    for propagators in ([sgp, keplerian], [keplerian, sgp]):
+        with pytest.raises(TypeError, match="cannot mix types"):
+            bh.location_accesses(
+                location,
+                propagators,
+                epoch,
+                epoch + 3600.0,
+                bh.ElevationConstraint(5.0),
+            )
+
+
+def test_location_accesses_mixed_location_list_raises():
+    """Test that a list mixing PointLocation and PolygonLocation raises TypeError."""
+    point = bh.PointLocation(0.0, 45.0, 0.0)
+    polygon = bh.PolygonLocation(
+        np.array(
+            [[-1.0, 44.0, 0.0], [1.0, 44.0, 0.0], [1.0, 46.0, 0.0], [-1.0, 46.0, 0.0]]
+        )
+    )
+    epoch = bh.Epoch(2024, 1, 1, 0, 0, 0.0)
+    propagator = create_test_propagator(epoch)
+
+    for locations in ([point, polygon], [polygon, point]):
+        with pytest.raises(TypeError, match="cannot mix types"):
+            bh.location_accesses(
+                locations,
+                propagator,
+                epoch,
+                epoch + 3600.0,
+                bh.ElevationConstraint(5.0),
+            )
 
 
 # =============================================================================

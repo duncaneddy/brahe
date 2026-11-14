@@ -31,7 +31,7 @@ The simplest access computation requires: a location, a propagator, time bounds,
 
 ## Multiple Locations and Satellites
 
-Compute access for multiple locations and satellites simultaneously:
+`location_accesses()` accepts a single location or a list of locations, and a single satellite source or a list of them. A satellite source is an `SGPPropagator`, `KeplerianPropagator`, `NumericalOrbitPropagator`, `OrbitTrajectory`, or `SP3Satellite`, so ephemeris loaded from a file and converted to an `OrbitTrajectory` can be searched directly. In Python, each list must hold a single type; a list that mixes types raises `TypeError`. Compute access for multiple locations and satellites simultaneously:
 
 === "Python"
 

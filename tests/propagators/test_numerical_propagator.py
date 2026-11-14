@@ -1050,6 +1050,46 @@ def test_numericalpropagator_event_multiple_events_in_step_refined_independently
         assert event.entry_state == pytest.approx([np.cos(t), -np.sin(t)], abs=1e-6)
 
 
+def test_numericalpropagator_event_before_callback_trajectory_entry_covariance():
+    """Event entry ahead of a callback in one step stores its covariance (mirrors Rust test)"""
+    epoch = create_test_epoch()
+
+    # Slow damped oscillator whose long steps place the events more than 10 s
+    # past the step start
+    def create_propagator():
+        config = NumericalPropagationConfig.default().with_stm().with_sensitivity()
+        config.interpolation_method = InterpolationMethod.LINEAR
+        return NumericalPropagator(
+            epoch,
+            np.array([1.0, 0.0]),
+            damped_oscillator_dynamics,
+            config,
+            params=np.array([0.01, 0.1]),
+            initial_covariance=np.diag([4.0, 0.25]),
+        )
+
+    # An event without a callback followed by a callback event, both within
+    # one integration step
+    prop = create_propagator()
+    prop.add_event_detector(TimeEvent(epoch + 615.0, "Plain"))
+    prop.add_event_detector(
+        TimeEvent(epoch + 615.5, "Callback").with_callback(
+            lambda _epoch, _state: (None, EventAction.CONTINUE)
+        )
+    )
+    prop.propagate_to(epoch + 2000.0)
+    events = prop.event_log()
+    assert len(events) == 2
+    epoch_plain = events[0].window_open
+
+    reference = create_propagator()
+    reference.propagate_to(epoch_plain)
+
+    assert prop.covariance(epoch_plain) == pytest.approx(
+        reference.covariance(reference.current_epoch()), abs=1e-6
+    )
+
+
 def test_numericalpropagator_event_trajectory_entries_store_covariance():
     """Trajectory entries at an event epoch store its covariance (mirrors Rust test)"""
     epoch = create_test_epoch()

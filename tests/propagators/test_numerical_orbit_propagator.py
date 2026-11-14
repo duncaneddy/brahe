@@ -1126,6 +1126,33 @@ def test_numericalorbitpropagator_multiple_events_in_step_refined_independently(
         assert position_error < 1e-2, f"{event.name}: {position_error} m"
 
 
+def test_numericalorbitpropagator_event_before_callback_trajectory_entry_variational():
+    """Event entry ahead of a callback in one step stores its matrices (mirrors Rust test)"""
+    epoch, state = event_variational_initial_conditions()
+
+    # An event without a callback followed half a second later by a callback
+    # event, both within one integration step
+    prop = create_event_variational_propagator(epoch, state, True, True)
+    prop.add_event_detector(TimeEvent(epoch + 1000.3, "Plain"))
+    prop.add_event_detector(
+        TimeEvent(epoch + 1000.8, "Callback").with_callback(
+            lambda _epoch, _state: (None, EventAction.CONTINUE)
+        )
+    )
+    prop.propagate_to(epoch + 3600.0)
+    events = prop.event_log()
+    assert len(events) == 2
+    epoch_plain = events[0].window_open
+
+    reference = create_event_variational_propagator(epoch, state, True, True)
+    reference.propagate_to(epoch_plain)
+
+    assert_matrix_rel_eq(prop.stm_at(epoch_plain), reference.stm(), 1e-6)
+    assert_matrix_rel_eq(
+        prop.sensitivity_at(epoch_plain), reference.sensitivity(), 1e-4
+    )
+
+
 @pytest.mark.parametrize(
     "with_callback,terminal",
     [(False, False), (True, False), (False, True), (True, True)],

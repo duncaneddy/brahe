@@ -4458,6 +4458,69 @@ mod tests {
         }
     }
 
+    /// Slow damped oscillator with STM, sensitivity, and both histories
+    /// enabled. Its long integration steps place events more than 10 s past
+    /// the step start.
+    fn create_slow_damped_sho_with_variational() -> DNumericalPropagator {
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let mut config = NumericalPropagationConfig::default();
+        config.variational.enable_stm = true;
+        config.variational.store_stm_history = true;
+        config.variational.enable_sensitivity = true;
+        config.variational.store_sensitivity_history = true;
+
+        DNumericalPropagator::new(
+            epoch,
+            DVector::from_vec(vec![1.0, 0.0]),
+            damped_sho_dynamics(),
+            config,
+            Some(DVector::from_vec(vec![0.01, 0.1])),
+            None,
+            None,
+        )
+        .unwrap()
+    }
+
+    #[test]
+    #[parallel]
+    fn test_event_before_callback_trajectory_entry_variational() {
+        let mut prop = create_slow_damped_sho_with_variational();
+        let epoch = prop.initial_epoch();
+
+        // An event without a callback followed by a callback event, both
+        // within one integration step
+        let callback: DEventCallback =
+            Box::new(|_epoch, _state, _params| (None, None, EventAction::Continue));
+        prop.add_event_detector(Box::new(DTimeEvent::new(
+            epoch + 615.0,
+            "Plain".to_string(),
+        )));
+        prop.add_event_detector(Box::new(
+            DTimeEvent::new(epoch + 615.5, "Callback".to_string()).with_callback(callback),
+        ));
+        prop.propagate_to(epoch + 2000.0).unwrap();
+        assert_eq!(prop.event_log().len(), 2);
+        let epoch_plain = prop.event_log()[0].window_open;
+
+        let mut reference = create_slow_damped_sho_with_variational();
+        reference.propagate_to(epoch_plain).unwrap();
+
+        let traj = prop.trajectory();
+        let idx = (0..traj.len())
+            .find(|&i| traj.epoch_at_idx(i).unwrap() == epoch_plain)
+            .unwrap();
+        assert_abs_diff_eq!(
+            *prop.stm_at_idx(idx).unwrap(),
+            *reference.stm().unwrap(),
+            epsilon = 1e-6
+        );
+        assert_abs_diff_eq!(
+            *prop.sensitivity_at_idx(idx).unwrap(),
+            *reference.sensitivity().unwrap(),
+            epsilon = 1e-4
+        );
+    }
+
     #[test]
     #[parallel]
     fn test_event_trajectory_entries_store_stm() {

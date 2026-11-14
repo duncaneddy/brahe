@@ -6774,6 +6774,44 @@ mod tests {
         assert_matrix_rel_eq(prop.current_covariance().unwrap(), &cov_expected, 1e-5);
     }
 
+    #[test]
+    #[parallel]
+    fn test_dnumericalorbitpropagator_event_before_callback_trajectory_entry_variational() {
+        setup_global_test_eop();
+        let (epoch, state) = event_variational_initial_conditions();
+
+        // An event without a callback followed half a second later by a
+        // callback event, both within one integration step
+        let mut prop = create_event_variational_propagator(epoch, state.clone(), true, true);
+        prop.add_event_detector(Box::new(DTimeEvent::new(epoch + 1000.3, "Plain")));
+        prop.add_event_detector(Box::new(
+            DTimeEvent::new(epoch + 1000.8, "Callback").with_callback(Box::new(
+                |_t, _x, _params| (None, None, EventAction::Continue),
+            )),
+        ));
+        prop.propagate_to(epoch + 3600.0).unwrap();
+        assert_eq!(prop.event_log().len(), 2);
+        let epoch_plain = prop.event_log()[0].window_open;
+
+        let mut reference = create_event_variational_propagator(epoch, state, true, true);
+        reference.propagate_to(epoch_plain).unwrap();
+
+        let traj = prop.trajectory();
+        let idx = (0..traj.len())
+            .find(|&i| traj.epoch_at_idx(i).unwrap() == epoch_plain)
+            .unwrap();
+        assert_matrix_rel_eq(
+            prop.stm_at_idx(idx).unwrap(),
+            reference.stm().unwrap(),
+            1e-6,
+        );
+        assert_matrix_rel_eq(
+            prop.sensitivity_at_idx(idx).unwrap(),
+            reference.sensitivity().unwrap(),
+            1e-4,
+        );
+    }
+
     /// Trajectory indices whose epoch equals `epoch`.
     fn trajectory_indices_at(prop: &DNumericalOrbitPropagator, epoch: Epoch) -> Vec<usize> {
         (0..prop.trajectory().len())

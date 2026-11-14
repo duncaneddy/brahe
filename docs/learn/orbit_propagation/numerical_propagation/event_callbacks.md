@@ -166,11 +166,9 @@ def multi_action_callback(epoch, state):
 
 ## Callback Execution Order
 
-When multiple events occur at the same epoch:
+Events are processed in the order propagation reaches them, and events detected at identical times are processed in the order their detectors were added. Events at the same epoch as a callback, to within the detectors' time tolerances, are processed together with it. Each callback receives the state and parameters returned by the callback before it, and integration then restarts from the event epoch with the final state. An event whose detector no longer reaches its target with the state or parameters returned by an earlier callback is skipped at that epoch, and is detected again if it occurs later in the propagation.
 
-1. Events are processed in the order their detectors were added
-2. State modifications from earlier callbacks are passed to later callbacks
-3. If any callback returns `STOP`, propagation halts after all callbacks execute
+Propagation halts at the first event that stops it, either a callback returning `STOP` or a detector marked terminal without a callback. Events after that one are not processed, including events at the same epoch whose detectors were added later.
 
 ---
 

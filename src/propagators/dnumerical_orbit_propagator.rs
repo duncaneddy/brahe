@@ -66,7 +66,9 @@ use super::TrajectoryMode;
 use super::traits::DStatePropagator;
 
 // Event detection imports
-use crate::events::{DDetectedEvent, DEventDetector, EventAction, EventType, dscan_for_event};
+use crate::events::{
+    DDetectedEvent, DEventDetector, EventAction, EventDirection, EventType, dscan_for_event,
+};
 
 // Import dynamics type from integrator traits
 use crate::integrators::traits::{DControlInput, DStateDynamics};
@@ -1420,13 +1422,18 @@ impl DNumericalOrbitPropagator {
         }
 
         if !events_to_process.is_empty() {
+            let candidates: Vec<usize> = events_to_process.iter().map(|(idx, _, _)| *idx).collect();
+            let result = self.process_events_smart(events_to_process, None)?;
+
             // Mark all initial-epoch events as processed so they won't re-trigger
             // on subsequent propagate_to()/step_by() calls (e.g., after reset_termination).
-            for (idx, _, _) in &events_to_process {
-                self.event_detectors[*idx].mark_processed();
+            // Marking happens after processing so that same-epoch events are still
+            // evaluated normally while the callbacks before them run.
+            for idx in candidates {
+                self.event_detectors[idx].mark_processed();
             }
 
-            match self.process_events_smart(events_to_process)? {
+            match result {
                 EventProcessingResult::NoEvents => {}
                 EventProcessingResult::Restart { epoch, state, .. } => {
                     self.t_rel = epoch - self.epoch_initial;
@@ -1679,25 +1686,86 @@ impl DNumericalOrbitPropagator {
         (cov, stm, sens)
     }
 
+    /// Whether a detector reaches its target at `epoch` with `state`.
+    ///
+    /// With a step start, the detector must cross its target, in its
+    /// detection direction, between the step start and `epoch`, or lie within
+    /// its value tolerance of the target at `epoch`. Without a step start, the
+    /// detector must lie within its value tolerance of the target at `epoch`.
+    ///
+    /// # Arguments
+    /// * `detector` - Event detector to evaluate
+    /// * `step_start` - Epoch and state at the start of the integration step
+    /// * `params_at_step_start` - Parameters in effect at the step start
+    /// * `epoch` - Epoch to evaluate the detector at
+    /// * `state` - State at `epoch`
+    /// * `params` - Parameters in effect at `epoch`
+    ///
+    /// # Returns
+    /// `true` if the event occurs at `epoch` for the given state
+    fn event_reached(
+        detector: &dyn DEventDetector,
+        step_start: Option<(Epoch, &DVector<f64>)>,
+        params_at_step_start: &DVector<f64>,
+        epoch: Epoch,
+        state: &DVector<f64>,
+        params: &DVector<f64>,
+    ) -> bool {
+        fn as_option(p: &DVector<f64>) -> Option<&DVector<f64>> {
+            if p.is_empty() { None } else { Some(p) }
+        }
+        let target = detector.target_value();
+        let current = detector.evaluate(epoch, state, as_option(params)) - target;
+        let near_target = current.abs() <= detector.value_tolerance();
+
+        let Some((epoch_start, state_start)) = step_start else {
+            return near_target;
+        };
+        let previous =
+            detector.evaluate(epoch_start, state_start, as_option(params_at_step_start)) - target;
+        match detector.direction() {
+            EventDirection::Increasing => {
+                previous < 0.0 && (current >= 0.0 || (near_target && current > previous))
+            }
+            EventDirection::Decreasing => {
+                previous > 0.0 && (current <= 0.0 || (near_target && current < previous))
+            }
+            EventDirection::Any => {
+                near_target
+                    || (previous < 0.0 && current >= 0.0)
+                    || (previous > 0.0 && current <= 0.0)
+            }
+        }
+    }
+
     /// Process detected events using smart sequential algorithm
     ///
     /// This implements the smart event processing strategy:
     /// 1. Sort events chronologically
     /// 2. Find first event with callback
     /// 3. Process all no-callback events before it (they're safe - don't modify state/params)
-    /// 4. Process first callback event, apply mutations, return Restart
-    /// 5. Discard events after callback (invalid with new state/params)
+    /// 4. Process first callback event and the remaining events at its epoch
+    ///    in order, passing each callback the state and parameters returned by
+    ///    the previous one, then return Restart
+    /// 5. Discard later events (they are detected again from the new state)
     ///
     /// A terminal or restart result carries the variational matrices of the
     /// event that produced it. A callback's state change is treated as
     /// independent of the state, so the matrices are continuous across it.
+    ///
+    /// # Arguments
+    /// * `detected_events` - Events with their variational matrices
+    /// * `step_start` - Epoch and state at the start of the integration step,
+    ///   or `None` for events evaluated at a single epoch before any step
     fn process_events_smart(
         &mut self,
         detected_events: Vec<(usize, DDetectedEvent, EventVariational)>,
+        step_start: Option<(Epoch, &DVector<f64>)>,
     ) -> Result<EventProcessingResult, BraheError> {
         if detected_events.is_empty() {
             return Ok(EventProcessingResult::NoEvents);
         }
+        let params_at_step_start = self.params.clone();
 
         // 1. Sort events in the order the propagation encounters them. Going
         // backward that is descending in time, so the first callback picked
@@ -1711,19 +1779,26 @@ impl DNumericalOrbitPropagator {
                 .sort_by(|(_, a, _), (_, b, _)| b.window_open.partial_cmp(&a.window_open).unwrap());
         }
 
-        // A terminal event without a callback stops propagation, so events
-        // after it are never reached.
-        if let Some(terminal_idx) = sorted_events.iter().position(|(det_idx, _, _)| {
-            let detector = &self.event_detectors[*det_idx];
-            detector.callback().is_none() && detector.action() == EventAction::Stop
-        }) {
-            sorted_events.truncate(terminal_idx + 1);
-        }
-
         // 2. Find first event with callback
         let first_callback_idx = sorted_events
             .iter()
             .position(|(det_idx, _, _)| self.event_detectors[*det_idx].callback().is_some());
+
+        // A terminal event without a callback reached before the first callback
+        // stops propagation, so events after it are never reached. A terminal
+        // event at or after the first callback is handled with the events at
+        // that epoch, where an earlier callback may invalidate it.
+        let terminal_idx = sorted_events.iter().position(|(det_idx, _, _)| {
+            let detector = &self.event_detectors[*det_idx];
+            detector.callback().is_none() && detector.action() == EventAction::Stop
+        });
+        let first_callback_idx = match (terminal_idx, first_callback_idx) {
+            (Some(terminal), Some(callback)) if terminal < callback => {
+                sorted_events.truncate(terminal + 1);
+                None
+            }
+            (_, callback) => callback,
+        };
 
         match first_callback_idx {
             None => {
@@ -1791,87 +1866,114 @@ impl DNumericalOrbitPropagator {
                     }
                 }
 
-                // 4. Process the first callback event
-                let (det_idx, callback_event, variational) =
-                    sorted_events.swap_remove(callback_idx);
-                let detector = &self.event_detectors[det_idx];
-
-                // Log pre-callback event
-                self.event_log.push(callback_event.clone());
+                // 4. Process the first callback event and every remaining event
+                // at its epoch. After the restart, integration begins at this
+                // epoch, so an event at the same epoch would not be detected
+                // again and is processed here instead, provided its detector
+                // still reaches its target with the state and parameters left
+                // by the callbacks before it.
+                let mut remaining: Vec<_> = sorted_events.drain(callback_idx..).collect();
+                let (first_det_idx, first_event, variational) = remaining.remove(0);
+                let epoch_event = first_event.window_open;
+                let first_tolerance = self.event_detectors[first_det_idx].time_tolerance();
+                // The run is contiguous so events keep their detected-time order.
+                let mut events_at_epoch = vec![(first_det_idx, first_event)];
+                events_at_epoch.extend(
+                    remaining
+                        .into_iter()
+                        .take_while(|(det_idx, event, _)| {
+                            let tolerance =
+                                first_tolerance + self.event_detectors[*det_idx].time_tolerance();
+                            (event.window_open - epoch_event).abs() <= tolerance
+                        })
+                        .map(|(det_idx, event, _)| (det_idx, event)),
+                );
 
                 // Add pre-callback state to trajectory
+                let mut state = events_at_epoch[0].1.entry_state.clone();
+                let mut state_changed = false;
                 if !matches!(self.trajectory_mode, TrajectoryMode::Disabled) {
-                    let acc = self.compute_acceleration(
-                        callback_event.window_open,
-                        &callback_event.entry_state,
-                    )?;
                     let (cov, stm, sens) = self.event_trajectory_matrices(&variational);
-                    self.trajectory.add_full(
-                        callback_event.window_open,
-                        callback_event.entry_state.clone(),
-                        cov,
-                        stm,
-                        sens,
-                        acc,
-                    )?;
+                    let acc = self.compute_acceleration(epoch_event, &state)?;
+                    self.trajectory
+                        .add_full(epoch_event, state.clone(), cov, stm, sens, acc)?;
                 }
 
-                // Execute callback
-                if let Some(callback) = detector.callback() {
-                    let (new_state, new_params, action) = callback(
-                        callback_event.window_open,
-                        &callback_event.entry_state,
-                        Some(&self.params),
-                    );
-
-                    // Apply state mutation
-                    let y_after = if let Some(y_new) = new_state {
-                        // Add post-callback state to trajectory (same time, different state)
-                        if !matches!(self.trajectory_mode, TrajectoryMode::Disabled) {
-                            let acc =
-                                self.compute_acceleration(callback_event.window_open, &y_new)?;
-                            let (cov, stm, sens) = self.event_trajectory_matrices(&variational);
-                            self.trajectory.add_full(
-                                callback_event.window_open,
-                                y_new.clone(),
-                                cov,
-                                stm,
-                                sens,
-                                acc,
-                            )?;
-                        }
-                        y_new
-                    } else {
-                        callback_event.entry_state.clone()
-                    };
-
-                    // Apply parameter mutation
-                    if let Some(p_new) = new_params {
-                        self.params = p_new;
+                for (det_idx, mut event) in events_at_epoch {
+                    let detector = &self.event_detectors[det_idx];
+                    if state_changed
+                        && !Self::event_reached(
+                            detector.as_ref(),
+                            step_start,
+                            &params_at_step_start,
+                            epoch_event,
+                            &state,
+                            &self.params,
+                        )
+                    {
+                        // The earlier callbacks moved the state away from this
+                        // event; it is detected again later if it still occurs.
+                        continue;
                     }
 
-                    // Mark this event as processed so it won't trigger again on restart
+                    // Each event acts on the state left by the events before it
+                    event.entry_state = state.clone();
+                    event.exit_state = state.clone();
+                    let epoch_detected = event.window_open;
+                    self.event_log.push(event);
                     detector.mark_processed();
 
-                    // Check terminal
+                    let action = match detector.callback() {
+                        Some(callback) => {
+                            let (new_state, new_params, action) =
+                                callback(epoch_detected, &state, Some(&self.params));
+
+                            // Apply state mutation and record the post-callback state
+                            if let Some(y_new) = new_state {
+                                state = y_new;
+                                state_changed = true;
+                                if !matches!(self.trajectory_mode, TrajectoryMode::Disabled) {
+                                    let (cov, stm, sens) =
+                                        self.event_trajectory_matrices(&variational);
+                                    let acc = self.compute_acceleration(epoch_event, &state)?;
+                                    self.trajectory.add_full(
+                                        epoch_event,
+                                        state.clone(),
+                                        cov,
+                                        stm,
+                                        sens,
+                                        acc,
+                                    )?;
+                                }
+                            }
+
+                            // Apply parameter mutation
+                            if let Some(p_new) = new_params {
+                                self.params = p_new;
+                                state_changed = true;
+                            }
+
+                            action
+                        }
+                        None => detector.action(),
+                    };
+
                     if action == EventAction::Stop {
                         self.terminated = true;
                         return Ok(EventProcessingResult::Terminal {
-                            epoch: callback_event.window_open,
-                            state: y_after,
+                            epoch: epoch_event,
+                            state,
                             variational,
                         });
                     }
-
-                    // Restart integration from event time with new state/params
-                    return Ok(EventProcessingResult::Restart {
-                        epoch: callback_event.window_open,
-                        state: y_after,
-                        variational,
-                    });
                 }
 
-                unreachable!("Callback event must have callback");
+                // Restart integration from event time with new state/params
+                Ok(EventProcessingResult::Restart {
+                    epoch: epoch_event,
+                    state,
+                    variational,
+                })
             }
         }
     }
@@ -3226,7 +3328,7 @@ impl DNumericalOrbitPropagator {
         )?;
 
         // Process events using smart sequential algorithm
-        match self.process_events_smart(detected_events)? {
+        match self.process_events_smart(detected_events, Some((epoch_prev, &x_prev)))? {
             EventProcessingResult::NoEvents => {
                 // No events or all events processed without callbacks
                 // Accept step and store in trajectory if needed
@@ -3991,7 +4093,7 @@ mod tests {
     use crate::constants::{GM_EARTH, R_EARTH};
     use crate::coordinates::position_ecef_to_geodetic;
     use crate::eop::{EOPExtrapolation, FileEOPProvider, set_global_eop_provider};
-    use crate::events::{DAltitudeEvent, DTimeEvent, EventDirection};
+    use crate::events::{DAltitudeEvent, DEventCallback, DTimeEvent, DValueEvent, EventDirection};
     use crate::frames::position_eci_to_ecef;
     use crate::integrators::IntegratorConfig;
     use crate::orbit_dynamics::gravity::{
@@ -6936,6 +7038,312 @@ mod tests {
         assert!(prop.terminated());
         let time_diff: f64 = prop.current_epoch() - (epoch + 1000.3);
         assert!(time_diff.abs() < 1e-3);
+        assert_eq!(prop.event_log().len(), 1);
+        assert_eq!(prop.event_log()[0].name, "Stop");
+    }
+
+    /// Callback that records the event name and the x-velocity it receives,
+    /// then adds 1 m/s to the x-velocity and returns `action`.
+    fn recording_callback(
+        name: &'static str,
+        action: EventAction,
+        calls: Arc<Mutex<Vec<(&'static str, f64)>>>,
+    ) -> DEventCallback {
+        Box::new(move |_t, x, _params| {
+            calls.lock().unwrap().push((name, x[3]));
+            let mut x_new = x.clone();
+            x_new[3] += 1.0;
+            (Some(x_new), None, action)
+        })
+    }
+
+    #[rstest]
+    #[case::continue_continue(EventAction::Continue, &["A", "B"], false)]
+    #[case::stop_continue(EventAction::Stop, &["A"], true)]
+    #[parallel]
+    fn test_dnumericalorbitpropagator_same_epoch_callback_order(
+        #[case] first_action: EventAction,
+        #[case] expected_names: &[&str],
+        #[case] expected_terminated: bool,
+    ) {
+        setup_global_test_eop();
+        let (epoch, state) = event_variational_initial_conditions();
+
+        // Several event times, so the detected epoch of the first event falls
+        // on both sides of the shared target time
+        for k in 0..10 {
+            let t_event = epoch + 1000.0 + 0.137 * k as f64;
+            let calls = Arc::new(Mutex::new(Vec::new()));
+
+            let mut prop = create_event_variational_propagator(epoch, state.clone(), false, false);
+            prop.add_event_detector(Box::new(
+                DTimeEvent::new(t_event, "A").with_callback(recording_callback(
+                    "A",
+                    first_action,
+                    calls.clone(),
+                )),
+            ));
+            prop.add_event_detector(Box::new(DTimeEvent::new(t_event, "B").with_callback(
+                recording_callback("B", EventAction::Continue, calls.clone()),
+            )));
+            prop.propagate_to(epoch + 3600.0).unwrap();
+
+            // Callbacks run in the order their detectors were added, each
+            // later callback receives the state returned by the earlier one,
+            // and a callback returning Stop prevents the later callback from
+            // running.
+            let calls = calls.lock().unwrap();
+            let names: Vec<&str> = calls.iter().map(|(name, _)| *name).collect();
+            assert_eq!(
+                names,
+                expected_names,
+                "event at t - t0 = {}",
+                t_event - epoch
+            );
+            if calls.len() == 2 {
+                assert!((calls[1].1 - (calls[0].1 + 1.0)).abs() < 1e-6);
+            }
+            assert_eq!(prop.terminated(), expected_terminated);
+        }
+    }
+
+    #[rstest]
+    #[case::plain(false)]
+    #[case::terminal(true)]
+    #[parallel]
+    fn test_dnumericalorbitpropagator_same_epoch_event_after_callback(#[case] terminal: bool) {
+        setup_global_test_eop();
+        let (epoch, state) = event_variational_initial_conditions();
+
+        for k in 0..10 {
+            let t_event = epoch + 1000.0 + 0.137 * k as f64;
+            let calls = Arc::new(Mutex::new(Vec::new()));
+
+            // A callback followed by an event without a callback at the same epoch
+            let mut prop = create_event_variational_propagator(epoch, state.clone(), false, false);
+            prop.add_event_detector(Box::new(DTimeEvent::new(t_event, "A").with_callback(
+                recording_callback("A", EventAction::Continue, calls.clone()),
+            )));
+            let mut plain = DTimeEvent::new(t_event, "B");
+            if terminal {
+                plain = plain.set_terminal();
+            }
+            prop.add_event_detector(Box::new(plain));
+            prop.propagate_to(epoch + 3600.0).unwrap();
+
+            // The later event is logged with the state returned by the callback
+            let log = prop.event_log();
+            assert_eq!(log.len(), 2, "event at t - t0 = {}", t_event - epoch);
+            assert_eq!(log[1].name, "B");
+            let vx_before = calls.lock().unwrap()[0].1;
+            assert!((log[1].entry_state[3] - (vx_before + 1.0)).abs() < 1e-6);
+            assert_eq!(prop.terminated(), terminal);
+        }
+    }
+
+    #[rstest]
+    #[case::increasing_crossed(EventDirection::Increasing, -1.0, 0.5, true)]
+    #[case::increasing_not_crossed(EventDirection::Increasing, -1.0, -0.5, false)]
+    #[case::increasing_near_target(EventDirection::Increasing, -1.0, -1e-10, true)]
+    #[case::increasing_wrong_side(EventDirection::Increasing, 1.0, 0.5, false)]
+    #[case::decreasing_crossed(EventDirection::Decreasing, 1.0, -0.5, true)]
+    #[case::decreasing_not_crossed(EventDirection::Decreasing, 1.0, 0.5, false)]
+    #[case::decreasing_near_target(EventDirection::Decreasing, 1.0, 1e-10, true)]
+    #[case::any_crossed_up(EventDirection::Any, -1.0, 0.5, true)]
+    #[case::any_crossed_down(EventDirection::Any, 1.0, -0.5, true)]
+    #[case::any_not_crossed(EventDirection::Any, 1.0, 0.5, false)]
+    #[parallel]
+    fn test_dnumericalorbitpropagator_event_reached_with_step_start(
+        #[case] direction: EventDirection,
+        #[case] value_start: f64,
+        #[case] value_end: f64,
+        #[case] expected: bool,
+    ) {
+        // The detector value is the first state component
+        let detector = DValueEvent::new("Value", |_t, x, _p| x[0], 0.0, direction);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let x_start = DVector::from_vec(vec![value_start]);
+        let x_end = DVector::from_vec(vec![value_end]);
+        let params = DVector::zeros(0);
+
+        assert_eq!(
+            DNumericalOrbitPropagator::event_reached(
+                &detector,
+                Some((epoch, &x_start)),
+                &params,
+                epoch + 1.0,
+                &x_end,
+                &params,
+            ),
+            expected
+        );
+    }
+
+    #[rstest]
+    #[case::near_target(1e-10, true)]
+    #[case::away_from_target(0.5, false)]
+    #[parallel]
+    fn test_dnumericalorbitpropagator_event_reached_without_step_start(
+        #[case] value: f64,
+        #[case] expected: bool,
+    ) {
+        let detector = DValueEvent::new("Value", |_t, x, _p| x[0], 0.0, EventDirection::Any);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let params = DVector::zeros(0);
+
+        assert_eq!(
+            DNumericalOrbitPropagator::event_reached(
+                &detector,
+                None,
+                &params,
+                epoch,
+                &DVector::from_vec(vec![value]),
+                &params,
+            ),
+            expected
+        );
+    }
+
+    #[test]
+    #[parallel]
+    fn test_dnumericalorbitpropagator_same_epoch_event_invalidated_by_callback() {
+        setup_global_test_eop();
+        let (epoch, state) = event_variational_initial_conditions();
+        let mut prop = create_event_variational_propagator(epoch, state, false, false);
+        let calls = Arc::new(Mutex::new(Vec::new()));
+
+        // At the initial epoch, a callback changes the velocity by 1 and a
+        // velocity event sits exactly on its target. The callback moves the
+        // state off the target, so the velocity event does not occur there.
+        let v0 = prop.current_state()[3];
+        prop.add_event_detector(Box::new(DTimeEvent::new(epoch, "A").with_callback(
+            recording_callback("A", EventAction::Continue, calls.clone()),
+        )));
+        prop.add_event_detector(Box::new(DValueEvent::new(
+            "Velocity",
+            move |_t, x, _p| x[3] - v0,
+            0.0,
+            EventDirection::Any,
+        )));
+        prop.propagate_to(epoch + 1.0).unwrap();
+
+        assert_eq!(calls.lock().unwrap().len(), 1);
+        assert!(
+            prop.event_log()
+                .iter()
+                .all(|event| event.name != "Velocity" || event.window_open != epoch)
+        );
+    }
+
+    #[rstest]
+    #[case::callback(false)]
+    #[case::terminal(true)]
+    #[parallel]
+    fn test_dnumericalorbitpropagator_initial_epoch_time_event_after_callback(
+        #[case] terminal: bool,
+    ) {
+        setup_global_test_eop();
+        let (epoch, state) = event_variational_initial_conditions();
+        let mut prop = create_event_variational_propagator(epoch, state, false, false);
+        let calls = Arc::new(Mutex::new(Vec::new()));
+
+        // Two time events at the initial epoch; the first callback changes
+        // the state
+        prop.add_event_detector(Box::new(DTimeEvent::new(epoch, "A").with_callback(
+            recording_callback("A", EventAction::Continue, calls.clone()),
+        )));
+        let follower = DTimeEvent::new(epoch, "B");
+        let follower = if terminal {
+            follower.set_terminal()
+        } else {
+            follower.with_callback(recording_callback(
+                "B",
+                EventAction::Continue,
+                calls.clone(),
+            ))
+        };
+        prop.add_event_detector(Box::new(follower));
+        prop.propagate_to(epoch + 1.0).unwrap();
+
+        let names: Vec<String> = prop.event_log().iter().map(|e| e.name.clone()).collect();
+        assert_eq!(names, vec!["A".to_string(), "B".to_string()]);
+        assert_eq!(prop.terminated(), terminal);
+        if !terminal {
+            let calls = calls.lock().unwrap();
+            assert!((calls[1].1 - (calls[0].1 + 1.0)).abs() < 1e-9);
+        }
+
+        // Resuming after the terminal event does not trigger either event again
+        if terminal {
+            prop.reset_termination();
+            prop.propagate_to(epoch + 2.0).unwrap();
+            assert_eq!(prop.event_log().len(), 2);
+            assert_eq!(calls.lock().unwrap().len(), 1);
+        }
+    }
+
+    #[test]
+    #[parallel]
+    fn test_dnumericalorbitpropagator_invalidated_terminal_event_keeps_later_callback() {
+        setup_global_test_eop();
+        let (epoch, state) = event_variational_initial_conditions();
+        let mut prop = create_event_variational_propagator(epoch, state, false, false);
+        let calls = Arc::new(Mutex::new(Vec::new()));
+
+        // At the initial epoch: a callback that changes the velocity, a
+        // terminal velocity event the change moves off its target, and a
+        // second callback
+        let v0 = prop.current_state()[3];
+        prop.add_event_detector(Box::new(DTimeEvent::new(epoch, "A").with_callback(
+            recording_callback("A", EventAction::Continue, calls.clone()),
+        )));
+        prop.add_event_detector(Box::new(
+            DValueEvent::new(
+                "Velocity",
+                move |_t, x, _p| x[3] - v0,
+                0.0,
+                EventDirection::Any,
+            )
+            .set_terminal(),
+        ));
+        prop.add_event_detector(Box::new(DTimeEvent::new(epoch, "C").with_callback(
+            recording_callback("C", EventAction::Continue, calls.clone()),
+        )));
+        prop.propagate_to(epoch + 1e-3).unwrap();
+
+        let names: Vec<&str> = calls
+            .lock()
+            .unwrap()
+            .iter()
+            .map(|(name, _)| *name)
+            .collect();
+        assert_eq!(names, vec!["A", "C"]);
+        assert!(!prop.terminated());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_dnumericalorbitpropagator_same_epoch_terminal_before_callback() {
+        setup_global_test_eop();
+        let (epoch, state) = event_variational_initial_conditions();
+        let calls = Arc::new(Mutex::new(Vec::new()));
+
+        // A terminal detector added before a callback detector at the same epoch
+        let mut prop = create_event_variational_propagator(epoch, state, false, false);
+        prop.add_event_detector(Box::new(
+            DTimeEvent::new(epoch + 1000.3, "Stop").set_terminal(),
+        ));
+        prop.add_event_detector(Box::new(
+            DTimeEvent::new(epoch + 1000.3, "B").with_callback(recording_callback(
+                "B",
+                EventAction::Continue,
+                calls.clone(),
+            )),
+        ));
+        prop.propagate_to(epoch + 3600.0).unwrap();
+
+        assert!(prop.terminated());
+        assert!(calls.lock().unwrap().is_empty());
         assert_eq!(prop.event_log().len(), 1);
         assert_eq!(prop.event_log()[0].name, "Stop");
     }

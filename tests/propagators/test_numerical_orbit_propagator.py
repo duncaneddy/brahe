@@ -20,6 +20,7 @@ from brahe import (
     DragConfiguration,
     Epoch,
     EventAction,
+    EventDirection,
     ForceModelConfig,
     GravityConfiguration,
     IntegrationMethod,
@@ -29,6 +30,7 @@ from brahe import (
     ParameterSource,
     TimeEvent,
     TimeSystem,
+    ValueEvent,
     VariationalConfig,
     orbital_period,
     periapsis_velocity,
@@ -1208,6 +1210,203 @@ def test_numericalorbitpropagator_terminal_event_before_callback_in_same_step():
     # Propagation stops at the terminal event and never reaches the callback
     assert prop.terminated()
     assert abs(prop.current_epoch() - (epoch + 1000.3)) < 1e-3
+    events = prop.event_log()
+    assert len(events) == 1
+    assert events[0].name == "Stop"
+
+
+def recording_callback(name, action, calls):
+    """Callback that records the event name and the velocity it receives
+
+    It then adds 1 to that velocity component and returns ``action``.
+    """
+
+    def callback(_epoch, state):
+        calls.append((name, state[3]))
+        new_state = state.copy()
+        new_state[3] += 1.0
+        return (new_state, action)
+
+    return callback
+
+
+@pytest.mark.parametrize(
+    "first_action,expected_names,expected_terminated",
+    [
+        (EventAction.CONTINUE, ["A", "B"], False),
+        (EventAction.STOP, ["A"], True),
+    ],
+    ids=["continue_continue", "stop_continue"],
+)
+def test_numericalorbitpropagator_same_epoch_callback_order(
+    first_action, expected_names, expected_terminated
+):
+    """Same-epoch callbacks run in detector order (mirrors Rust test)"""
+    epoch, state = event_variational_initial_conditions()
+    # Several event times, so the detected epoch of the first event falls on
+    # both sides of the shared target time
+    for k in range(10):
+        t_event = epoch + 1000.0 + 0.137 * k
+        prop = create_event_variational_propagator(epoch, state, False, False)
+        calls = []
+        prop.add_event_detector(
+            TimeEvent(t_event, "A").with_callback(
+                recording_callback("A", first_action, calls)
+            )
+        )
+        prop.add_event_detector(
+            TimeEvent(t_event, "B").with_callback(
+                recording_callback("B", EventAction.CONTINUE, calls)
+            )
+        )
+        prop.propagate_to(epoch + 3600.0)
+
+        # Callbacks run in the order their detectors were added, each later
+        # callback receives the state returned by the earlier one, and a
+        # callback returning STOP prevents the later callback from running.
+        assert [name for name, _ in calls] == expected_names, t_event - epoch
+        if len(calls) == 2:
+            assert calls[1][1] == pytest.approx(calls[0][1] + 1.0, abs=1e-6)
+        assert prop.terminated() == expected_terminated
+
+
+@pytest.mark.parametrize("terminal", [False, True], ids=["plain", "terminal"])
+def test_numericalorbitpropagator_same_epoch_event_after_callback(terminal):
+    """An event after a callback at the same epoch sees its state (mirrors Rust test)"""
+    epoch, state = event_variational_initial_conditions()
+    for k in range(10):
+        t_event = epoch + 1000.0 + 0.137 * k
+        prop = create_event_variational_propagator(epoch, state, False, False)
+        calls = []
+
+        # A callback followed by an event without a callback at the same epoch
+        prop.add_event_detector(
+            TimeEvent(t_event, "A").with_callback(
+                recording_callback("A", EventAction.CONTINUE, calls)
+            )
+        )
+        plain = TimeEvent(t_event, "B")
+        if terminal:
+            plain = plain.set_terminal()
+        prop.add_event_detector(plain)
+        prop.propagate_to(epoch + 3600.0)
+
+        # The later event is logged with the state returned by the callback
+        log = prop.event_log()
+        assert len(log) == 2, t_event - epoch
+        assert log[1].name == "B"
+        assert log[1].entry_state[3] == pytest.approx(calls[0][1] + 1.0, abs=1e-6)
+        assert prop.terminated() == terminal
+
+
+def test_numericalorbitpropagator_same_epoch_event_invalidated_by_callback():
+    """A callback that moves the state off a same-epoch event suppresses it (mirrors Rust test)"""
+    epoch, state = event_variational_initial_conditions()
+    prop = create_event_variational_propagator(epoch, state, False, False)
+    calls = []
+
+    # At the initial epoch, a callback changes the velocity by 1 and a velocity
+    # event sits exactly on its target. The callback moves the state off the
+    # target, so the velocity event does not occur there.
+    v0 = prop.current_state()[3]
+    prop.add_event_detector(
+        TimeEvent(epoch, "A").with_callback(
+            recording_callback("A", EventAction.CONTINUE, calls)
+        )
+    )
+    prop.add_event_detector(
+        ValueEvent("Velocity", lambda _t, x: x[3] - v0, 0.0, EventDirection.ANY)
+    )
+    prop.propagate_to(epoch + 1.0)
+
+    assert len(calls) == 1
+    assert all(
+        event.name != "Velocity" or event.window_open != epoch
+        for event in prop.event_log()
+    )
+
+
+@pytest.mark.parametrize("terminal", [False, True], ids=["callback", "terminal"])
+def test_numericalorbitpropagator_initial_epoch_time_event_after_callback(terminal):
+    """A time event follows a state-changing callback at the initial epoch (mirrors Rust test)"""
+    epoch, state = event_variational_initial_conditions()
+    prop = create_event_variational_propagator(epoch, state, False, False)
+    calls = []
+
+    # Two time events at the initial epoch; the first callback changes the state
+    prop.add_event_detector(
+        TimeEvent(epoch, "A").with_callback(
+            recording_callback("A", EventAction.CONTINUE, calls)
+        )
+    )
+    follower = TimeEvent(epoch, "B")
+    if terminal:
+        follower = follower.set_terminal()
+    else:
+        follower = follower.with_callback(
+            recording_callback("B", EventAction.CONTINUE, calls)
+        )
+    prop.add_event_detector(follower)
+    prop.propagate_to(epoch + 1.0)
+
+    assert [event.name for event in prop.event_log()] == ["A", "B"]
+    assert prop.terminated() == terminal
+    if not terminal:
+        assert calls[1][1] == pytest.approx(calls[0][1] + 1.0, abs=1e-9)
+
+    # Resuming after the terminal event does not trigger either event again
+    if terminal:
+        prop.reset_termination()
+        prop.propagate_to(epoch + 2.0)
+        assert len(prop.event_log()) == 2
+        assert len(calls) == 1
+
+
+def test_numericalorbitpropagator_invalidated_terminal_event_keeps_later_callback():
+    """An invalidated terminal event does not discard a later callback (mirrors Rust test)"""
+    epoch, state = event_variational_initial_conditions()
+    prop = create_event_variational_propagator(epoch, state, False, False)
+    calls = []
+
+    # At the initial epoch: a callback that changes the velocity, a terminal
+    # velocity event the change moves off its target, and a second callback
+    v0 = prop.current_state()[3]
+    prop.add_event_detector(
+        TimeEvent(epoch, "A").with_callback(
+            recording_callback("A", EventAction.CONTINUE, calls)
+        )
+    )
+    prop.add_event_detector(
+        ValueEvent(
+            "Velocity", lambda _t, x: x[3] - v0, 0.0, EventDirection.ANY
+        ).set_terminal()
+    )
+    prop.add_event_detector(
+        TimeEvent(epoch, "C").with_callback(
+            recording_callback("C", EventAction.CONTINUE, calls)
+        )
+    )
+    prop.propagate_to(epoch + 1e-3)
+
+    assert [name for name, _ in calls] == ["A", "C"]
+    assert not prop.terminated()
+
+
+def test_numericalorbitpropagator_same_epoch_terminal_before_callback():
+    """A terminal detector added first suppresses a same-epoch callback (mirrors Rust test)"""
+    epoch, state = event_variational_initial_conditions()
+    prop = create_event_variational_propagator(epoch, state, False, False)
+    calls = []
+    prop.add_event_detector(TimeEvent(epoch + 1000.3, "Stop").set_terminal())
+    prop.add_event_detector(
+        TimeEvent(epoch + 1000.3, "B").with_callback(
+            recording_callback("B", EventAction.CONTINUE, calls)
+        )
+    )
+    prop.propagate_to(epoch + 3600.0)
+
+    assert prop.terminated()
+    assert calls == []
     events = prop.event_log()
     assert len(events) == 1
     assert events[0].name == "Stop"

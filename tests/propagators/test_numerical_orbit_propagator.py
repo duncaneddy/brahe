@@ -14,15 +14,20 @@ from brahe import (
     R_EARTH,
     R_MOON,
     AngleFormat,
+    AtmosphericModel,
     CelestialFrame,
     CentralBody,
+    DragConfiguration,
     Epoch,
+    EventAction,
     ForceModelConfig,
     GravityConfiguration,
     IntegrationMethod,
     IntegratorConfig,
     NumericalOrbitPropagator,
     NumericalPropagationConfig,
+    ParameterSource,
+    TimeEvent,
     TimeSystem,
     VariationalConfig,
     orbital_period,
@@ -936,6 +941,153 @@ def test_numericalorbitpropagator_event_detection_terminal_event():
     assert abs(current - terminal_time) < 10.0, (
         f"Current epoch {current - epoch} not close to {terminal_time - epoch}"
     )
+
+
+EVENT_VARIATIONAL_P0 = np.diag([100.0, 100.0, 100.0, 0.01, 0.01, 0.01])
+
+
+def create_event_variational_propagator(epoch, state, enable_stm, enable_sensitivity):
+    """Drag-perturbed propagator with the requested variational matrices enabled
+
+    Mass is read from params[0] so the sensitivity matrix is non-zero. An
+    initial covariance is set when the STM is enabled.
+    """
+    config = NumericalPropagationConfig.default()
+    if enable_stm:
+        config = config.with_stm().with_stm_history()
+    if enable_sensitivity:
+        config = config.with_sensitivity().with_sensitivity_history()
+
+    force_config = ForceModelConfig.for_body(
+        CentralBody.Earth,
+        GravityConfiguration.point_mass(),
+        drag=DragConfiguration(
+            model=AtmosphericModel.HARRIS_PRIESTER,
+            area=ParameterSource.value(10.0),
+            cd=ParameterSource.value(2.2),
+        ),
+        mass=ParameterSource.parameter_index(0),
+    )
+
+    return NumericalOrbitPropagator(
+        epoch,
+        state,
+        config,
+        force_config,
+        np.array([1000.0, 10.0, 2.2, 10.0, 1.3]),
+        initial_covariance=EVENT_VARIATIONAL_P0 if enable_stm else None,
+    )
+
+
+def event_variational_initial_conditions():
+    """Epoch and ECI state for the event/variational consistency tests"""
+    epoch = Epoch.from_datetime(2025, 1, 1, 0, 0, 0.0, 0.0, TimeSystem.UTC)
+    oe = np.array([R_EARTH + 400e3, 0.01, 51.6, 30.0, 45.0, 60.0])
+    return epoch, state_koe_to_eci(oe, AngleFormat.DEGREES)
+
+
+def assert_matrix_rel_eq(actual, expected, rel_tol):
+    """Assert agreement to a tolerance relative to the largest expected entry"""
+    scale = np.abs(expected).max()
+    err = np.abs(actual - expected).max()
+    assert err <= rel_tol * scale, (
+        f"max abs error {err:e} exceeds {rel_tol:e} * {scale:e}"
+    )
+
+
+@pytest.mark.parametrize(
+    "enable_stm,enable_sensitivity",
+    [(True, False), (False, True), (True, True)],
+    ids=["stm", "sensitivity", "stm_and_sensitivity"],
+)
+def test_numericalorbitpropagator_terminal_event_variational_at_event_epoch(
+    enable_stm, enable_sensitivity
+):
+    """STM and sensitivity describe the terminal event epoch (mirrors Rust test)"""
+    epoch, state = event_variational_initial_conditions()
+
+    prop = create_event_variational_propagator(
+        epoch, state, enable_stm, enable_sensitivity
+    )
+    prop.add_event_detector(TimeEvent(epoch + 1000.3, "Stop").set_terminal())
+    prop.propagate_to(epoch + 3600.0)
+    assert prop.terminated()
+
+    # Reference: propagate to the event epoch with no event detectors
+    reference = create_event_variational_propagator(
+        epoch, state, enable_stm, enable_sensitivity
+    )
+    reference.propagate_to(prop.current_epoch())
+
+    if enable_stm:
+        assert_matrix_rel_eq(prop.stm(), reference.stm(), 1e-6)
+    if enable_sensitivity:
+        assert_matrix_rel_eq(prop.sensitivity(), reference.sensitivity(), 1e-4)
+
+
+def test_numericalorbitpropagator_terminal_event_resume_after_reset_termination():
+    """Propagation resumes from the terminal event epoch (mirrors Rust test)"""
+    epoch, state = event_variational_initial_conditions()
+    epoch_end = epoch + 3600.0
+
+    prop = create_event_variational_propagator(epoch, state, True, True)
+    prop.add_event_detector(TimeEvent(epoch + 1000.3, "Stop").set_terminal())
+    prop.propagate_to(epoch_end)
+    assert prop.terminated()
+
+    # Resuming continues from the event epoch
+    prop.reset_termination()
+    prop.propagate_to(epoch_end)
+    assert prop.current_epoch() == epoch_end
+
+    reference = create_event_variational_propagator(epoch, state, True, True)
+    reference.propagate_to(epoch_end)
+
+    position_error = np.linalg.norm(
+        prop.current_state()[:3] - reference.current_state()[:3]
+    )
+    assert position_error < 1.0
+    assert_matrix_rel_eq(prop.stm(), reference.stm(), 1e-6)
+    # The sensitivity is not part of the integrator error control, so it
+    # varies more than the STM between runs that take different steps.
+    assert_matrix_rel_eq(prop.sensitivity(), reference.sensitivity(), 5e-3)
+
+
+def test_numericalorbitpropagator_callback_event_variational_continuous():
+    """STM and sensitivity carry across a callback event (mirrors Rust test)"""
+    epoch, state = event_variational_initial_conditions()
+    epoch_end = epoch + 3600.0
+    dv = np.array([0.0, 0.0, 0.0, 1.0, -2.0, 0.5])
+
+    # Impulsive maneuver applied by an event callback mid-step
+    prop = create_event_variational_propagator(epoch, state, True, True)
+    prop.add_event_detector(
+        TimeEvent(epoch + 1000.3, "Burn").with_callback(
+            lambda _epoch, x: (x + dv, EventAction.CONTINUE)
+        )
+    )
+    prop.propagate_to(epoch_end)
+    epoch_event = prop.event_log()[0].window_open
+
+    # Reference: one propagation up to the event and a second from the
+    # post-maneuver state. The matrices compose across the maneuver as
+    #   Phi(t, t0) = Phi(t, te) * Phi(te, t0)
+    #   S(t)       = Phi(t, te) * S(te) + S_te(t)
+    # because the applied state change does not depend on the state.
+    leg1 = create_event_variational_propagator(epoch, state, True, True)
+    leg1.propagate_to(epoch_event)
+    leg2 = create_event_variational_propagator(
+        epoch_event, leg1.current_state() + dv, True, True
+    )
+    leg2.propagate_to(epoch_end)
+
+    stm_expected = leg2.stm() @ leg1.stm()
+    sens_expected = leg2.stm() @ leg1.sensitivity() + leg2.sensitivity()
+
+    position_error = np.linalg.norm(prop.current_state()[:3] - leg2.current_state()[:3])
+    assert position_error < 1.0
+    assert_matrix_rel_eq(prop.stm(), stm_expected, 1e-6)
+    assert_matrix_rel_eq(prop.sensitivity(), sens_expected, 5e-3)
 
 
 def test_numericalorbitpropagator_event_detection_multiple_no_callbacks():

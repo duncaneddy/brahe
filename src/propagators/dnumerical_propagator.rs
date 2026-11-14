@@ -70,15 +70,32 @@ enum PropagationMode {
 // Event Processing Result
 // =============================================================================
 
+/// State transition and sensitivity matrices evaluated at a detected event's epoch
+#[derive(Debug)]
+struct EventVariational {
+    /// State transition matrix from the initial epoch to the event epoch
+    stm: Option<DMatrix<f64>>,
+    /// Sensitivity matrix at the event epoch
+    sensitivity: Option<DMatrix<f64>>,
+}
+
 /// Result of processing detected events in an integration step
 #[derive(Debug)]
 enum EventProcessingResult {
     /// No events detected, or all events processed without callbacks
     NoEvents,
     /// Event callback requested state/param update - restart integration from event time
-    Restart { epoch: Epoch, state: DVector<f64> },
+    Restart {
+        epoch: Epoch,
+        state: DVector<f64>,
+        variational: EventVariational,
+    },
     /// Terminal event detected - stop propagation
-    Terminal { epoch: Epoch, state: DVector<f64> },
+    Terminal {
+        epoch: Epoch,
+        state: DVector<f64>,
+        variational: EventVariational,
+    },
 }
 
 // =============================================================================
@@ -815,20 +832,24 @@ impl DNumericalPropagator {
                     event_type: EventType::Instantaneous,
                     detector_index: idx,
                 };
-                events_to_process.push((idx, event));
+                let variational = EventVariational {
+                    stm: self.stm.clone(),
+                    sensitivity: self.sensitivity.clone(),
+                };
+                events_to_process.push((idx, event, variational));
             }
         }
 
         if !events_to_process.is_empty() {
             // Mark all initial-epoch events as processed so they won't re-trigger
             // on subsequent propagate_to()/step_by() calls (e.g., after reset_termination).
-            for &(idx, _) in &events_to_process {
-                self.event_detectors[idx].mark_processed();
+            for (idx, _, _) in &events_to_process {
+                self.event_detectors[*idx].mark_processed();
             }
 
             match self.process_events_smart(events_to_process)? {
                 EventProcessingResult::NoEvents => {}
-                EventProcessingResult::Restart { epoch, state } => {
+                EventProcessingResult::Restart { epoch, state, .. } => {
                     self.t_rel = epoch - self.epoch_initial;
                     self.epoch_current = epoch;
                     self.x_curr = state;
@@ -837,6 +858,7 @@ impl DNumericalPropagator {
                 EventProcessingResult::Terminal {
                     epoch: term_epoch,
                     state: term_state,
+                    ..
                 } => {
                     self.epoch_current = term_epoch;
                     self.x_curr = term_state;
@@ -900,20 +922,38 @@ impl DNumericalPropagator {
         events
     }
 
-    /// Replace interpolated event states with precisely-integrated states.
+    /// Replace interpolated event states with precisely-integrated states and
+    /// evaluate the variational matrices at each event epoch.
     ///
     /// After bisection finds the event time (to within tolerance), this method
     /// re-integrates from the step start to each event time using sub-steps
     /// no larger than 10 seconds. The resulting state error is bounded by
     /// integrator accuracy rather than interpolation error over the full step.
+    /// The STM and sensitivity matrix are integrated over the same sub-steps
+    /// when enabled, so each event carries matrices that describe its own
+    /// epoch rather than the end of the step that contained it.
+    ///
+    /// # Arguments
+    /// * `events` - Detected events as (detector index, event) pairs
+    /// * `epoch_prev` - Epoch at the start of the step
+    /// * `x_prev` - State at the start of the step
+    /// * `stm_prev` - STM at the start of the step, if STM propagation is enabled
+    /// * `sens_prev` - Sensitivity matrix at the start of the step, if
+    ///   sensitivity propagation is enabled
+    ///
+    /// # Returns
+    /// The events with refined states, each paired with the variational
+    /// matrices at its epoch
     fn refine_event_states(
         &self,
-        events: &mut [(usize, DDetectedEvent)],
+        events: Vec<(usize, DDetectedEvent)>,
         epoch_prev: Epoch,
         x_prev: &DVector<f64>,
-    ) -> Result<(), BraheError> {
+        stm_prev: Option<&DMatrix<f64>>,
+        sens_prev: Option<&DMatrix<f64>>,
+    ) -> Result<Vec<(usize, DDetectedEvent, EventVariational)>, BraheError> {
         if events.is_empty() {
-            return Ok(());
+            return Ok(Vec::new());
         }
 
         let t_prev_rel = epoch_prev - self.epoch_initial;
@@ -928,38 +968,106 @@ impl DNumericalPropagator {
         // starting at the step start.
         self.integrator.reset_cache();
 
-        for (_, event) in events.iter_mut() {
+        let mut refined = Vec::with_capacity(events.len());
+
+        for (idx, mut event) in events {
             let dt_to_event = event.window_open - epoch_prev;
 
-            if dt_to_event.abs() <= 1e-12 {
-                event.entry_state = x_prev.clone();
-                event.exit_state = x_prev.clone();
-                continue;
-            }
+            let mut x = x_prev.clone();
+            let mut stm = stm_prev.cloned();
+            let mut sens = sens_prev.cloned();
 
-            // Re-integrate from step start to event time using sub-steps
-            // no larger than 10 seconds.
+            // Re-integrate from step start to event time using sub-steps no
+            // larger than 10 seconds. An event at the step boundary takes no
+            // sub-steps and keeps the exact pre-step values. An adaptive
+            // integrator may take less than the requested sub-step, so advance
+            // by the step actually used until the event time is reached.
             let max_sub_dt = 10.0;
             let n_steps = ((dt_to_event.abs() / max_sub_dt).ceil() as usize).max(1);
             let sub_dt = dt_to_event / n_steps as f64;
 
             let mut t = t_prev_rel;
-            let mut x = x_prev.clone();
+            let mut remaining = dt_to_event;
 
-            for _ in 0..n_steps {
-                let result = self.integrator.step(t, x, params_ref, Some(sub_dt))?;
+            while remaining.abs() > 1e-12 {
+                let dt_sub = if remaining.abs() > sub_dt.abs() {
+                    sub_dt
+                } else {
+                    remaining
+                };
+
+                let result = match self.propagation_mode {
+                    PropagationMode::StateOnly => {
+                        self.integrator.step(t, x, params_ref, Some(dt_sub))?
+                    }
+                    PropagationMode::WithSTM => self.integrator.step_with_varmat(
+                        t,
+                        x,
+                        params_ref,
+                        stm.take().unwrap(),
+                        Some(dt_sub),
+                    )?,
+                    PropagationMode::WithSensitivity => self.integrator.step_with_sensmat(
+                        t,
+                        x,
+                        sens.take().unwrap(),
+                        &self.params,
+                        Some(dt_sub),
+                    )?,
+                    PropagationMode::WithSTMAndSensitivity => {
+                        self.integrator.step_with_varmat_sensmat(
+                            t,
+                            x,
+                            stm.take().unwrap(),
+                            sens.take().unwrap(),
+                            &self.params,
+                            Some(dt_sub),
+                        )?
+                    }
+                };
+
                 x = result.state;
+                stm = result.phi;
+                sens = result.sens;
                 t += result.dt_used;
+                remaining -= result.dt_used;
             }
 
             event.entry_state = x.clone();
             event.exit_state = x;
+
+            refined.push((
+                idx,
+                event,
+                EventVariational {
+                    stm,
+                    sensitivity: sens,
+                },
+            ));
         }
 
-        // Clear again — sub-steps cached derivatives at intermediate times.
+        // Clear again — sub-steps cached derivatives at intermediate times,
+        // but the main integration already accepted the full step. The next
+        // step_once() will start from the post-event state with a fresh cache.
         self.integrator.reset_cache();
 
-        Ok(())
+        Ok(refined)
+    }
+
+    /// Set the STM, sensitivity, and covariance to their values at an event epoch.
+    ///
+    /// # Arguments
+    /// * `variational` - Variational matrices evaluated at the event epoch
+    fn apply_event_variational(&mut self, variational: EventVariational) {
+        self.stm = variational.stm;
+        self.sensitivity = variational.sensitivity;
+
+        // P(t) = Φ(t, t₀) * P(t₀) * Φ(t, t₀)^T
+        if let Some(ref p0) = self.initial_covariance
+            && let Some(ref phi) = self.stm
+        {
+            self.current_covariance = Some(phi * p0 * phi.transpose());
+        }
     }
 
     /// Process detected events using smart sequential algorithm
@@ -970,9 +1078,13 @@ impl DNumericalPropagator {
     /// 3. Process all no-callback events before it (they're safe - don't modify state/params)
     /// 4. Process first callback event, apply mutations, return Restart
     /// 5. Discard events after callback (invalid with new state/params)
+    ///
+    /// A terminal or restart result carries the variational matrices of the
+    /// event that produced it. A callback's state change is treated as
+    /// independent of the state, so the matrices are continuous across it.
     fn process_events_smart(
         &mut self,
-        detected_events: Vec<(usize, DDetectedEvent)>,
+        detected_events: Vec<(usize, DDetectedEvent, EventVariational)>,
     ) -> Result<EventProcessingResult, BraheError> {
         if detected_events.is_empty() {
             return Ok(EventProcessingResult::NoEvents);
@@ -984,16 +1096,16 @@ impl DNumericalPropagator {
         let mut sorted_events = detected_events;
         if self.dt >= 0.0 {
             sorted_events
-                .sort_by(|(_, a), (_, b)| a.window_open.partial_cmp(&b.window_open).unwrap());
+                .sort_by(|(_, a, _), (_, b, _)| a.window_open.partial_cmp(&b.window_open).unwrap());
         } else {
             sorted_events
-                .sort_by(|(_, a), (_, b)| b.window_open.partial_cmp(&a.window_open).unwrap());
+                .sort_by(|(_, a, _), (_, b, _)| b.window_open.partial_cmp(&a.window_open).unwrap());
         }
 
         // 2. Find first event with callback
         let first_callback_idx = sorted_events
             .iter()
-            .position(|(det_idx, _)| self.event_detectors[*det_idx].callback().is_some());
+            .position(|(det_idx, _, _)| self.event_detectors[*det_idx].callback().is_some());
 
         match first_callback_idx {
             None => {
@@ -1001,7 +1113,7 @@ impl DNumericalPropagator {
                 // But check if any are terminal
                 let mut terminal_event = None;
 
-                for (det_idx, event) in sorted_events {
+                for (det_idx, event, variational) in sorted_events {
                     self.event_log.push(event.clone());
                     self.event_detectors[det_idx].mark_processed();
 
@@ -1014,16 +1126,17 @@ impl DNumericalPropagator {
                     // Check if this event is terminal (no callback but has terminal action)
                     let detector = &self.event_detectors[det_idx];
                     if detector.action() == EventAction::Stop {
-                        terminal_event = Some(event);
+                        terminal_event = Some((event, variational));
                         break; // Stop processing further events
                     }
                 }
 
-                if let Some(term_event) = terminal_event {
+                if let Some((term_event, variational)) = terminal_event {
                     self.terminated = true;
                     return Ok(EventProcessingResult::Terminal {
                         epoch: term_event.window_open,
-                        state: term_event.entry_state.clone(),
+                        state: term_event.entry_state,
+                        variational,
                     });
                 }
 
@@ -1032,7 +1145,7 @@ impl DNumericalPropagator {
 
             Some(callback_idx) => {
                 // 3b. Process all no-callback events before the callback event
-                for (det_idx, event) in sorted_events.iter().take(callback_idx) {
+                for (det_idx, event, _) in sorted_events.iter().take(callback_idx) {
                     self.event_log.push(event.clone());
                     self.event_detectors[*det_idx].mark_processed();
 
@@ -1043,8 +1156,9 @@ impl DNumericalPropagator {
                 }
 
                 // 4. Process the first callback event
-                let (det_idx, callback_event) = &sorted_events[callback_idx];
-                let detector = &self.event_detectors[*det_idx];
+                let (det_idx, callback_event, variational) =
+                    sorted_events.swap_remove(callback_idx);
+                let detector = &self.event_detectors[det_idx];
 
                 // Log pre-callback event
                 self.event_log.push(callback_event.clone());
@@ -1091,6 +1205,7 @@ impl DNumericalPropagator {
                         return Ok(EventProcessingResult::Terminal {
                             epoch: callback_event.window_open,
                             state: y_after,
+                            variational,
                         });
                     }
 
@@ -1098,6 +1213,7 @@ impl DNumericalPropagator {
                     return Ok(EventProcessingResult::Restart {
                         epoch: callback_event.window_open,
                         state: y_after,
+                        variational,
                     });
                 }
 
@@ -1717,6 +1833,8 @@ impl DNumericalPropagator {
         // Save state before integration step (for event detection)
         let epoch_prev = self.current_epoch();
         let x_prev = self.x_curr.clone();
+        let stm_prev = self.stm.clone();
+        let sens_prev = self.sensitivity.clone();
 
         // Use adaptive step size (dt_next from previous step)
         let dt_requested = self.dt_next;
@@ -1831,12 +1949,17 @@ impl DNumericalPropagator {
         let epoch_new = self.epoch_current;
 
         // Scan for events in [epoch_prev, epoch_new]
-        let mut detected_events =
-            self.scan_all_events(epoch_prev, epoch_new, &x_prev, &self.x_curr);
+        let detected_events = self.scan_all_events(epoch_prev, epoch_new, &x_prev, &self.x_curr);
 
-        // Refine event states: replace linearly-interpolated states with
-        // precisely-integrated states for accurate callback input.
-        self.refine_event_states(&mut detected_events, epoch_prev, &x_prev)?;
+        // Refine events: replace interpolated states with precisely-integrated
+        // states and evaluate the variational matrices at each event epoch.
+        let detected_events = self.refine_event_states(
+            detected_events,
+            epoch_prev,
+            &x_prev,
+            stm_prev.as_ref(),
+            sens_prev.as_ref(),
+        )?;
 
         // Process events using smart sequential algorithm
         match self.process_events_smart(detected_events)? {
@@ -1872,12 +1995,17 @@ impl DNumericalPropagator {
                 }
             }
 
-            EventProcessingResult::Restart { epoch, state } => {
+            EventProcessingResult::Restart {
+                epoch,
+                state,
+                variational,
+            } => {
                 // Event callback modified state — reset to event time with new state
                 // and return to caller so propagate_to() can re-clamp dt_next.
                 self.t_rel = epoch - self.epoch_initial;
                 self.epoch_current = epoch;
                 self.x_curr = state;
+                self.apply_event_variational(variational);
                 // Invalidate integrator FSAL cache — the cached derivative
                 // is from the old state and must not be reused.
                 self.integrator.reset_cache();
@@ -1886,11 +2014,15 @@ impl DNumericalPropagator {
             EventProcessingResult::Terminal {
                 epoch: term_epoch,
                 state: term_state,
+                variational,
             } => {
                 // Terminal event detected
-                // Update current state to precise event values
+                // Update current time, state, and variational matrices to
+                // their values at the event
+                self.t_rel = term_epoch - self.epoch_initial;
                 self.epoch_current = term_epoch;
                 self.x_curr = term_state.clone();
+                self.apply_event_variational(variational);
 
                 // Store final state and exit (terminated flag already set)
                 if self.should_store_state() {
@@ -4122,6 +4254,124 @@ mod tests {
         // STM is stored at the terminal entry
         let last_idx = prop.trajectory().len() - 1;
         assert!(prop.stm_at_idx(last_idx).is_some());
+    }
+
+    /// Analytical state transition matrix of the simple harmonic oscillator
+    fn sho_analytical_stm(omega: f64, t: f64) -> DMatrix<f64> {
+        let (sin, cos) = (omega * t).sin_cos();
+        DMatrix::from_row_slice(2, 2, &[cos, sin / omega, -omega * sin, cos])
+    }
+
+    #[test]
+    #[parallel]
+    fn test_event_terminal_stm_at_event_epoch() {
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let mut config = NumericalPropagationConfig::default();
+        config.variational.enable_stm = true;
+        config.variational.store_stm_history = true;
+        let p0 = DMatrix::from_diagonal(&DVector::from_vec(vec![4.0, 0.25]));
+
+        let mut prop = DNumericalPropagator::new(
+            epoch,
+            DVector::from_vec(vec![1.0, 0.0]),
+            sho_dynamics(1.0),
+            config,
+            None,
+            None,
+            Some(p0.clone()),
+        )
+        .unwrap();
+        prop.add_event_detector(Box::new(
+            DTimeEvent::new(epoch + 3.21, "Stop".to_string()).set_terminal(),
+        ));
+        prop.propagate_to(epoch + 10.0).unwrap();
+        assert!(prop.terminated());
+
+        // The STM and covariance describe the event epoch, not the end of the
+        // integration step that contained the event.
+        let stm_expected = sho_analytical_stm(1.0, prop.current_epoch() - epoch);
+        let cov_expected = &stm_expected * p0 * stm_expected.transpose();
+        assert_abs_diff_eq!(*prop.stm().unwrap(), stm_expected, epsilon = 1e-6);
+        assert_abs_diff_eq!(
+            *prop.current_covariance().unwrap(),
+            cov_expected,
+            epsilon = 1e-6
+        );
+
+        let last_idx = prop.trajectory().len() - 1;
+        assert_eq!(prop.stm_at_idx(last_idx).unwrap(), prop.stm().unwrap());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_event_terminal_sensitivity_at_event_epoch() {
+        let mut prop = create_test_damped_sho_with_sensitivity();
+        let epoch = prop.initial_epoch();
+        prop.add_event_detector(Box::new(
+            DTimeEvent::new(epoch + 3.21, "Stop".to_string()).set_terminal(),
+        ));
+        prop.propagate_to(epoch + 10.0).unwrap();
+        assert!(prop.terminated());
+
+        // Reference: propagate to the event epoch with no event detectors
+        let mut reference = create_test_damped_sho_with_sensitivity();
+        reference.propagate_to(prop.current_epoch()).unwrap();
+
+        assert_abs_diff_eq!(
+            *prop.sensitivity().unwrap(),
+            *reference.sensitivity().unwrap(),
+            epsilon = 1e-6
+        );
+    }
+
+    #[test]
+    #[parallel]
+    fn test_event_terminal_resume_after_reset_termination() {
+        let mut prop = create_test_sho_with_stm();
+        let epoch = prop.initial_epoch();
+        prop.add_event_detector(Box::new(
+            DTimeEvent::new(epoch + 3.21, "Stop".to_string()).set_terminal(),
+        ));
+        prop.propagate_to(epoch + 10.0).unwrap();
+        assert!(prop.terminated());
+
+        // Resuming continues from the event epoch
+        prop.reset_termination();
+        prop.propagate_to(epoch + 10.0).unwrap();
+        assert_eq!(prop.current_epoch(), epoch + 10.0);
+
+        let (x_expected, v_expected) = sho_analytical_solution(1.0, 0.0, 1.0, 10.0);
+        let state = prop.current_state();
+        assert_abs_diff_eq!(state[0], x_expected, epsilon = 1e-6);
+        assert_abs_diff_eq!(state[1], v_expected, epsilon = 1e-6);
+        assert_abs_diff_eq!(
+            *prop.stm().unwrap(),
+            sho_analytical_stm(1.0, 10.0),
+            epsilon = 1e-6
+        );
+    }
+
+    #[test]
+    #[parallel]
+    fn test_event_callback_stm_continuous() {
+        let mut prop = create_test_sho_with_stm();
+        let epoch = prop.initial_epoch();
+
+        // A callback restarts integration at the event epoch. The STM carries
+        // across the restart, so it matches an uninterrupted propagation.
+        let callback: DEventCallback =
+            Box::new(|_epoch, _state, _params| (None, None, EventAction::Continue));
+        prop.add_event_detector(Box::new(
+            DTimeEvent::new(epoch + 3.21, "Log".to_string()).with_callback(callback),
+        ));
+        prop.propagate_to(epoch + 10.0).unwrap();
+        assert_eq!(prop.event_log().len(), 1);
+
+        assert_abs_diff_eq!(
+            *prop.stm().unwrap(),
+            sho_analytical_stm(1.0, 10.0),
+            epsilon = 1e-6
+        );
     }
 
     #[test]

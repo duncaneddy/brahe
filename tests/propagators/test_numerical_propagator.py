@@ -9,11 +9,13 @@ import pytest
 
 from brahe import (
     Epoch,
+    EventAction,
     IntegrationMethod,
     IntegratorConfig,
     InterpolationMethod,
     NumericalPropagationConfig,
     NumericalPropagator,
+    TimeEvent,
     TimeSystem,
     VariationalConfig,
 )
@@ -944,6 +946,90 @@ def test_numericalpropagator_event_terminal():
     assert prop.terminated()
     time_diff = float(prop.current_epoch() - (epoch + 5.0))
     assert abs(time_diff) < 1.0
+
+
+def sho_analytical_stm(omega, t):
+    """Analytical state transition matrix of the simple harmonic oscillator"""
+    sin, cos = np.sin(omega * t), np.cos(omega * t)
+    return np.array([[cos, sin / omega], [-omega * sin, cos]])
+
+
+def test_numericalpropagator_event_terminal_stm_at_event_epoch():
+    """STM describes the terminal event epoch (mirrors Rust test)"""
+    prop = create_sho_with_stm()
+    epoch = prop.initial_epoch
+    prop.add_event_detector(TimeEvent(epoch + 3.21, "Stop").set_terminal())
+    prop.propagate_to(epoch + 10.0)
+    assert prop.terminated()
+
+    # The STM describes the event epoch, not the end of the integration step
+    # that contained the event.
+    stm_expected = sho_analytical_stm(1.0, prop.current_epoch() - epoch)
+    assert prop.stm() == pytest.approx(stm_expected, abs=1e-6)
+
+
+def test_numericalpropagator_event_terminal_sensitivity_at_event_epoch():
+    """Sensitivity describes the terminal event epoch (mirrors Rust test)"""
+    epoch = create_test_epoch()
+
+    def create_propagator():
+        config = NumericalPropagationConfig.default().with_sensitivity()
+        config.interpolation_method = InterpolationMethod.LINEAR
+        return NumericalPropagator(
+            epoch,
+            np.array([1.0, 0.0]),
+            damped_oscillator_dynamics,
+            config,
+            params=np.array([1.0, 0.1]),
+        )
+
+    prop = create_propagator()
+    prop.add_event_detector(TimeEvent(epoch + 3.21, "Stop").set_terminal())
+    prop.propagate_to(epoch + 10.0)
+    assert prop.terminated()
+
+    # Reference: propagate to the event epoch with no event detectors
+    reference = create_propagator()
+    reference.propagate_to(prop.current_epoch())
+
+    assert prop.sensitivity() == pytest.approx(reference.sensitivity(), abs=1e-6)
+
+
+def test_numericalpropagator_event_terminal_resume_after_reset_termination():
+    """Propagation resumes from the terminal event epoch (mirrors Rust test)"""
+    prop = create_sho_with_stm()
+    epoch = prop.initial_epoch
+    prop.add_event_detector(TimeEvent(epoch + 3.21, "Stop").set_terminal())
+    prop.propagate_to(epoch + 10.0)
+    assert prop.terminated()
+
+    # Resuming continues from the event epoch
+    prop.reset_termination()
+    prop.propagate_to(epoch + 10.0)
+    assert prop.current_epoch() == epoch + 10.0
+
+    assert prop.current_state() == pytest.approx(
+        [np.cos(10.0), -np.sin(10.0)], abs=1e-6
+    )
+    assert prop.stm() == pytest.approx(sho_analytical_stm(1.0, 10.0), abs=1e-6)
+
+
+def test_numericalpropagator_event_callback_stm_continuous():
+    """STM carries across a callback event restart (mirrors Rust test)"""
+    prop = create_sho_with_stm()
+    epoch = prop.initial_epoch
+
+    # A callback restarts integration at the event epoch. The STM carries
+    # across the restart, so it matches an uninterrupted propagation.
+    prop.add_event_detector(
+        TimeEvent(epoch + 3.21, "Log").with_callback(
+            lambda _epoch, _state: (None, EventAction.CONTINUE)
+        )
+    )
+    prop.propagate_to(epoch + 10.0)
+    assert len(prop.event_log()) == 1
+
+    assert prop.stm() == pytest.approx(sho_analytical_stm(1.0, 10.0), abs=1e-6)
 
 
 def test_numericalpropagator_event_query_by_detector_index():

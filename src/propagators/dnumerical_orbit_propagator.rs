@@ -95,15 +95,32 @@ enum PropagationMode {
 // Event Processing Result
 // =============================================================================
 
+/// State transition and sensitivity matrices evaluated at a detected event's epoch
+#[derive(Debug)]
+struct EventVariational {
+    /// State transition matrix from the initial epoch to the event epoch
+    stm: Option<DMatrix<f64>>,
+    /// Sensitivity matrix at the event epoch
+    sensitivity: Option<DMatrix<f64>>,
+}
+
 /// Result of processing detected events in an integration step
 #[derive(Debug)]
 enum EventProcessingResult {
     /// No events detected, or all events processed without callbacks
     NoEvents,
     /// Event callback requested state/param update - restart integration from event time
-    Restart { epoch: Epoch, state: DVector<f64> },
+    Restart {
+        epoch: Epoch,
+        state: DVector<f64>,
+        variational: EventVariational,
+    },
     /// Terminal event detected - stop propagation
-    Terminal { epoch: Epoch, state: DVector<f64> },
+    Terminal {
+        epoch: Epoch,
+        state: DVector<f64>,
+        variational: EventVariational,
+    },
 }
 
 // =============================================================================
@@ -1394,20 +1411,24 @@ impl DNumericalOrbitPropagator {
                     event_type: EventType::Instantaneous,
                     detector_index: idx,
                 };
-                events_to_process.push((idx, event));
+                let variational = EventVariational {
+                    stm: self.stm.clone(),
+                    sensitivity: self.sensitivity.clone(),
+                };
+                events_to_process.push((idx, event, variational));
             }
         }
 
         if !events_to_process.is_empty() {
             // Mark all initial-epoch events as processed so they won't re-trigger
             // on subsequent propagate_to()/step_by() calls (e.g., after reset_termination).
-            for &(idx, _) in &events_to_process {
-                self.event_detectors[idx].mark_processed();
+            for (idx, _, _) in &events_to_process {
+                self.event_detectors[*idx].mark_processed();
             }
 
             match self.process_events_smart(events_to_process)? {
                 EventProcessingResult::NoEvents => {}
-                EventProcessingResult::Restart { epoch, state } => {
+                EventProcessingResult::Restart { epoch, state, .. } => {
                     self.t_rel = epoch - self.epoch_initial;
                     self.epoch_current = epoch;
                     self.x_curr = state;
@@ -1416,6 +1437,7 @@ impl DNumericalOrbitPropagator {
                 EventProcessingResult::Terminal {
                     epoch: term_epoch,
                     state: term_state,
+                    ..
                 } => {
                     self.epoch_current = term_epoch;
                     self.x_curr = term_state;
@@ -1471,20 +1493,38 @@ impl DNumericalOrbitPropagator {
         events
     }
 
-    /// Replace interpolated event states with precisely-integrated states.
+    /// Replace interpolated event states with precisely-integrated states and
+    /// evaluate the variational matrices at each event epoch.
     ///
     /// After bisection finds the event time (to within tolerance), this method
     /// re-integrates from the step start to each event time using sub-steps
     /// no larger than 10 seconds. The resulting state error is bounded by
     /// integrator accuracy rather than interpolation error over the full step.
+    /// The STM and sensitivity matrix are integrated over the same sub-steps
+    /// when enabled, so each event carries matrices that describe its own
+    /// epoch rather than the end of the step that contained it.
+    ///
+    /// # Arguments
+    /// * `events` - Detected events as (detector index, event) pairs
+    /// * `epoch_prev` - Epoch at the start of the step
+    /// * `x_prev` - State at the start of the step
+    /// * `stm_prev` - STM at the start of the step, if STM propagation is enabled
+    /// * `sens_prev` - Sensitivity matrix at the start of the step, if
+    ///   sensitivity propagation is enabled
+    ///
+    /// # Returns
+    /// The events with refined states, each paired with the variational
+    /// matrices at its epoch
     fn refine_event_states(
         &self,
-        events: &mut [(usize, DDetectedEvent)],
+        events: Vec<(usize, DDetectedEvent)>,
         epoch_prev: Epoch,
         x_prev: &DVector<f64>,
-    ) -> Result<(), BraheError> {
+        stm_prev: Option<&DMatrix<f64>>,
+        sens_prev: Option<&DMatrix<f64>>,
+    ) -> Result<Vec<(usize, DDetectedEvent, EventVariational)>, BraheError> {
         if events.is_empty() {
-            return Ok(());
+            return Ok(Vec::new());
         }
 
         let t_prev_rel = epoch_prev - self.epoch_initial;
@@ -1499,36 +1539,82 @@ impl DNumericalOrbitPropagator {
         // starting at the step start.
         self.integrator.reset_cache();
 
-        for (_, event) in events.iter_mut() {
+        let mut refined = Vec::with_capacity(events.len());
+
+        for (idx, mut event) in events {
             let dt_to_event = event.window_open - epoch_prev;
 
-            if dt_to_event.abs() <= 1e-12 {
-                // Event is at the step boundary — use exact pre-step state
-                event.entry_state = x_prev.clone();
-                event.exit_state = x_prev.clone();
-                continue;
-            }
+            let mut x = x_prev.clone();
+            let mut stm = stm_prev.cloned();
+            let mut sens = sens_prev.cloned();
 
-            // Re-integrate from step start to event time using sub-steps
-            // no larger than 10 seconds. This replaces the linearly-interpolated
-            // state with a precisely-integrated one, so the state error is
-            // bounded by velocity × time_tolerance rather than by
-            // linear-interpolation error over the full integration step.
+            // Re-integrate from step start to event time using sub-steps no
+            // larger than 10 seconds. An event at the step boundary takes no
+            // sub-steps and keeps the exact pre-step values. An adaptive
+            // integrator may take less than the requested sub-step, so advance
+            // by the step actually used until the event time is reached.
             let max_sub_dt = 10.0;
             let n_steps = ((dt_to_event.abs() / max_sub_dt).ceil() as usize).max(1);
             let sub_dt = dt_to_event / n_steps as f64;
 
             let mut t = t_prev_rel;
-            let mut x = x_prev.clone();
+            let mut remaining = dt_to_event;
 
-            for _ in 0..n_steps {
-                let result = self.integrator.step(t, x, params_ref, Some(sub_dt))?;
+            while remaining.abs() > 1e-12 {
+                let dt_sub = if remaining.abs() > sub_dt.abs() {
+                    sub_dt
+                } else {
+                    remaining
+                };
+
+                let result = match self.propagation_mode {
+                    PropagationMode::StateOnly => {
+                        self.integrator.step(t, x, params_ref, Some(dt_sub))?
+                    }
+                    PropagationMode::WithSTM => self.integrator.step_with_varmat(
+                        t,
+                        x,
+                        params_ref,
+                        stm.take().unwrap(),
+                        Some(dt_sub),
+                    )?,
+                    PropagationMode::WithSensitivity => self.integrator.step_with_sensmat(
+                        t,
+                        x,
+                        sens.take().unwrap(),
+                        &self.params,
+                        Some(dt_sub),
+                    )?,
+                    PropagationMode::WithSTMAndSensitivity => {
+                        self.integrator.step_with_varmat_sensmat(
+                            t,
+                            x,
+                            stm.take().unwrap(),
+                            sens.take().unwrap(),
+                            &self.params,
+                            Some(dt_sub),
+                        )?
+                    }
+                };
+
                 x = result.state;
+                stm = result.phi;
+                sens = result.sens;
                 t += result.dt_used;
+                remaining -= result.dt_used;
             }
 
             event.entry_state = x.clone();
             event.exit_state = x;
+
+            refined.push((
+                idx,
+                event,
+                EventVariational {
+                    stm,
+                    sensitivity: sens,
+                },
+            ));
         }
 
         // Clear again — sub-steps cached derivatives at intermediate times,
@@ -1536,7 +1622,23 @@ impl DNumericalOrbitPropagator {
         // step_once() will start from the post-event state with a fresh cache.
         self.integrator.reset_cache();
 
-        Ok(())
+        Ok(refined)
+    }
+
+    /// Set the STM, sensitivity, and covariance to their values at an event epoch.
+    ///
+    /// # Arguments
+    /// * `variational` - Variational matrices evaluated at the event epoch
+    fn apply_event_variational(&mut self, variational: EventVariational) {
+        self.stm = variational.stm;
+        self.sensitivity = variational.sensitivity;
+
+        // P(t) = Φ(t, t₀) * P(t₀) * Φ(t, t₀)^T
+        if let Some(ref p0) = self.initial_covariance
+            && let Some(ref phi) = self.stm
+        {
+            self.current_covariance = Some(phi * p0 * phi.transpose());
+        }
     }
 
     /// Process detected events using smart sequential algorithm
@@ -1547,9 +1649,13 @@ impl DNumericalOrbitPropagator {
     /// 3. Process all no-callback events before it (they're safe - don't modify state/params)
     /// 4. Process first callback event, apply mutations, return Restart
     /// 5. Discard events after callback (invalid with new state/params)
+    ///
+    /// A terminal or restart result carries the variational matrices of the
+    /// event that produced it. A callback's state change is treated as
+    /// independent of the state, so the matrices are continuous across it.
     fn process_events_smart(
         &mut self,
-        detected_events: Vec<(usize, DDetectedEvent)>,
+        detected_events: Vec<(usize, DDetectedEvent, EventVariational)>,
     ) -> Result<EventProcessingResult, BraheError> {
         if detected_events.is_empty() {
             return Ok(EventProcessingResult::NoEvents);
@@ -1561,16 +1667,16 @@ impl DNumericalOrbitPropagator {
         let mut sorted_events = detected_events;
         if self.dt >= 0.0 {
             sorted_events
-                .sort_by(|(_, a), (_, b)| a.window_open.partial_cmp(&b.window_open).unwrap());
+                .sort_by(|(_, a, _), (_, b, _)| a.window_open.partial_cmp(&b.window_open).unwrap());
         } else {
             sorted_events
-                .sort_by(|(_, a), (_, b)| b.window_open.partial_cmp(&a.window_open).unwrap());
+                .sort_by(|(_, a, _), (_, b, _)| b.window_open.partial_cmp(&a.window_open).unwrap());
         }
 
         // 2. Find first event with callback
         let first_callback_idx = sorted_events
             .iter()
-            .position(|(det_idx, _)| self.event_detectors[*det_idx].callback().is_some());
+            .position(|(det_idx, _, _)| self.event_detectors[*det_idx].callback().is_some());
 
         match first_callback_idx {
             None => {
@@ -1578,7 +1684,7 @@ impl DNumericalOrbitPropagator {
                 // But check if any are terminal
                 let mut terminal_event = None;
 
-                for (det_idx, event) in sorted_events {
+                for (det_idx, event, variational) in sorted_events {
                     self.event_log.push(event.clone());
                     self.event_detectors[det_idx].mark_processed();
 
@@ -1591,16 +1697,17 @@ impl DNumericalOrbitPropagator {
                     // Check if this event is terminal (no callback but has terminal action)
                     let detector = &self.event_detectors[det_idx];
                     if detector.action() == EventAction::Stop {
-                        terminal_event = Some(event);
+                        terminal_event = Some((event, variational));
                         break; // Stop processing further events
                     }
                 }
 
-                if let Some(term_event) = terminal_event {
+                if let Some((term_event, variational)) = terminal_event {
                     self.terminated = true;
                     return Ok(EventProcessingResult::Terminal {
                         epoch: term_event.window_open,
-                        state: term_event.entry_state.clone(),
+                        state: term_event.entry_state,
+                        variational,
                     });
                 }
 
@@ -1609,7 +1716,7 @@ impl DNumericalOrbitPropagator {
 
             Some(callback_idx) => {
                 // 3b. Process all no-callback events before the callback event
-                for (det_idx, event) in sorted_events.iter().take(callback_idx) {
+                for (det_idx, event, _) in sorted_events.iter().take(callback_idx) {
                     self.event_log.push(event.clone());
                     self.event_detectors[*det_idx].mark_processed();
 
@@ -1620,8 +1727,9 @@ impl DNumericalOrbitPropagator {
                 }
 
                 // 4. Process the first callback event
-                let (det_idx, callback_event) = &sorted_events[callback_idx];
-                let detector = &self.event_detectors[*det_idx];
+                let (det_idx, callback_event, variational) =
+                    sorted_events.swap_remove(callback_idx);
+                let detector = &self.event_detectors[det_idx];
 
                 // Log pre-callback event
                 self.event_log.push(callback_event.clone());
@@ -1684,6 +1792,7 @@ impl DNumericalOrbitPropagator {
                         return Ok(EventProcessingResult::Terminal {
                             epoch: callback_event.window_open,
                             state: y_after,
+                            variational,
                         });
                     }
 
@@ -1691,6 +1800,7 @@ impl DNumericalOrbitPropagator {
                     return Ok(EventProcessingResult::Restart {
                         epoch: callback_event.window_open,
                         state: y_after,
+                        variational,
                     });
                 }
 
@@ -2920,6 +3030,8 @@ impl DNumericalOrbitPropagator {
         // Save state before integration step (for event detection)
         let epoch_prev = self.current_epoch();
         let x_prev = self.x_curr.clone();
+        let stm_prev = self.stm.clone();
+        let sens_prev = self.sensitivity.clone();
 
         // Use adaptive step size (dt_next from previous step)
         let dt_requested = self.dt_next;
@@ -3034,12 +3146,17 @@ impl DNumericalOrbitPropagator {
         let epoch_new = self.epoch_current;
 
         // Scan for events in [epoch_prev, epoch_new]
-        let mut detected_events =
-            self.scan_all_events(epoch_prev, epoch_new, &x_prev, &self.x_curr);
+        let detected_events = self.scan_all_events(epoch_prev, epoch_new, &x_prev, &self.x_curr);
 
-        // Refine event states: replace linearly-interpolated states with
-        // precisely-integrated states for events near the step start.
-        self.refine_event_states(&mut detected_events, epoch_prev, &x_prev)?;
+        // Refine events: replace interpolated states with precisely-integrated
+        // states and evaluate the variational matrices at each event epoch.
+        let detected_events = self.refine_event_states(
+            detected_events,
+            epoch_prev,
+            &x_prev,
+            stm_prev.as_ref(),
+            sens_prev.as_ref(),
+        )?;
 
         // Process events using smart sequential algorithm
         match self.process_events_smart(detected_events)? {
@@ -3072,12 +3189,17 @@ impl DNumericalOrbitPropagator {
                 }
             }
 
-            EventProcessingResult::Restart { epoch, state } => {
+            EventProcessingResult::Restart {
+                epoch,
+                state,
+                variational,
+            } => {
                 // Event callback modified state — reset to event time with new state
                 // and return to caller so propagate_to() can re-clamp dt_next.
                 self.t_rel = epoch - self.epoch_initial;
                 self.epoch_current = epoch;
                 self.x_curr = state;
+                self.apply_event_variational(variational);
                 // Invalidate integrator FSAL cache — the cached derivative
                 // is from the old state and must not be reused.
                 self.integrator.reset_cache();
@@ -3086,11 +3208,15 @@ impl DNumericalOrbitPropagator {
             EventProcessingResult::Terminal {
                 epoch: term_epoch,
                 state: term_state,
+                variational,
             } => {
                 // Terminal event detected
-                // Update current state to precise event values
+                // Update current time, state, and variational matrices to
+                // their values at the event
+                self.t_rel = term_epoch - self.epoch_initial;
                 self.epoch_current = term_epoch;
                 self.x_curr = term_state.clone();
+                self.apply_event_variational(variational);
 
                 // Store final state and exit (terminated flag already set)
                 if self.should_store_state() {
@@ -6371,6 +6497,215 @@ mod tests {
             current - epoch,
             terminal_time - epoch
         ); // Within 10 seconds
+    }
+
+    /// Build a drag-perturbed propagator with the requested variational
+    /// matrices enabled. Mass is read from `params[0]` so the sensitivity
+    /// matrix is non-zero. An initial covariance is set when the STM is enabled.
+    fn create_event_variational_propagator(
+        epoch: Epoch,
+        state: DVector<f64>,
+        enable_stm: bool,
+        enable_sensitivity: bool,
+    ) -> DNumericalOrbitPropagator {
+        let mut config = NumericalPropagationConfig::default();
+        config.variational.enable_stm = enable_stm;
+        config.variational.store_stm_history = enable_stm;
+        config.variational.enable_sensitivity = enable_sensitivity;
+        config.variational.store_sensitivity_history = enable_sensitivity;
+
+        let force_config = ForceModelConfig {
+            central_body: CentralBody::Earth,
+            mass: Some(ParameterSource::ParameterIndex(0)),
+            drag: Some(DragConfiguration {
+                model: AtmosphericModel::HarrisPriester,
+                area: ParameterSource::Value(10.0),
+                cd: ParameterSource::Value(2.2),
+                body: None,
+            }),
+            srp: None,
+            third_body: None,
+            tides: None,
+            ..Default::default()
+        };
+
+        let p0 = enable_stm.then(|| {
+            DMatrix::from_diagonal(&DVector::from_vec(vec![
+                100.0, 100.0, 100.0, 0.01, 0.01, 0.01,
+            ]))
+        });
+
+        DNumericalOrbitPropagator::new(
+            epoch,
+            state,
+            config,
+            force_config,
+            Some(default_test_params()),
+            None,
+            None,
+            p0,
+        )
+        .unwrap()
+    }
+
+    fn event_variational_initial_conditions() -> (Epoch, DVector<f64>) {
+        let epoch = Epoch::from_datetime(2025, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let oe = nalgebra::Vector6::new(R_EARTH + 400e3, 0.01, 51.6, 30.0, 45.0, 60.0);
+        let state = state_koe_to_eci(oe, AngleFormat::Degrees);
+        (epoch, DVector::from_vec(state.as_slice().to_vec()))
+    }
+
+    /// Assert two matrices agree to a tolerance relative to the largest entry
+    /// of the expected matrix.
+    fn assert_matrix_rel_eq(actual: &DMatrix<f64>, expected: &DMatrix<f64>, rel_tol: f64) {
+        let scale = expected.abs().max();
+        let err = (actual - expected).abs().max();
+        assert!(
+            err <= rel_tol * scale,
+            "matrix mismatch: max abs error {err:e} exceeds {rel_tol:e} * {scale:e}"
+        );
+    }
+
+    #[rstest]
+    #[case::stm(true, false)]
+    #[case::sensitivity(false, true)]
+    #[case::stm_and_sensitivity(true, true)]
+    #[parallel]
+    fn test_dnumericalorbitpropagator_terminal_event_variational_at_event_epoch(
+        #[case] enable_stm: bool,
+        #[case] enable_sensitivity: bool,
+    ) {
+        setup_global_test_eop();
+        let (epoch, state) = event_variational_initial_conditions();
+
+        let mut prop = create_event_variational_propagator(
+            epoch,
+            state.clone(),
+            enable_stm,
+            enable_sensitivity,
+        );
+        prop.add_event_detector(Box::new(
+            DTimeEvent::new(epoch + 1000.3, "Stop").set_terminal(),
+        ));
+        prop.propagate_to(epoch + 3600.0).unwrap();
+        assert!(prop.terminated());
+
+        // Reference: propagate to the event epoch with no event detectors
+        let mut reference =
+            create_event_variational_propagator(epoch, state, enable_stm, enable_sensitivity);
+        reference.propagate_to(prop.current_epoch()).unwrap();
+
+        let last_idx = prop.trajectory().len() - 1;
+        assert_eq!(
+            prop.trajectory().epoch_at_idx(last_idx).unwrap(),
+            prop.current_epoch()
+        );
+
+        if enable_stm {
+            assert_matrix_rel_eq(prop.stm().unwrap(), reference.stm().unwrap(), 1e-6);
+            assert_eq!(prop.stm_at_idx(last_idx).unwrap(), prop.stm().unwrap());
+            assert_matrix_rel_eq(
+                prop.current_covariance().unwrap(),
+                reference.current_covariance().unwrap(),
+                1e-6,
+            );
+        }
+        if enable_sensitivity {
+            assert_matrix_rel_eq(
+                prop.sensitivity().unwrap(),
+                reference.sensitivity().unwrap(),
+                1e-4,
+            );
+            assert_eq!(
+                prop.sensitivity_at_idx(last_idx).unwrap(),
+                prop.sensitivity().unwrap()
+            );
+        }
+    }
+
+    #[test]
+    #[parallel]
+    fn test_dnumericalorbitpropagator_terminal_event_resume_after_reset_termination() {
+        setup_global_test_eop();
+        let (epoch, state) = event_variational_initial_conditions();
+        let epoch_end = epoch + 3600.0;
+
+        let mut prop = create_event_variational_propagator(epoch, state.clone(), true, true);
+        prop.add_event_detector(Box::new(
+            DTimeEvent::new(epoch + 1000.3, "Stop").set_terminal(),
+        ));
+        prop.propagate_to(epoch_end).unwrap();
+        assert!(prop.terminated());
+
+        // Resuming continues from the event epoch
+        prop.reset_termination();
+        prop.propagate_to(epoch_end).unwrap();
+        assert_eq!(prop.current_epoch(), epoch_end);
+
+        let mut reference = create_event_variational_propagator(epoch, state, true, true);
+        reference.propagate_to(epoch_end).unwrap();
+
+        let position_error = (prop.current_state() - reference.current_state())
+            .rows(0, 3)
+            .norm();
+        assert!(position_error < 1.0, "position error {position_error} m");
+        assert_matrix_rel_eq(prop.stm().unwrap(), reference.stm().unwrap(), 1e-6);
+        // The sensitivity is not part of the integrator error control, so it
+        // varies more than the STM between runs that take different steps.
+        assert_matrix_rel_eq(
+            prop.sensitivity().unwrap(),
+            reference.sensitivity().unwrap(),
+            5e-3,
+        );
+    }
+
+    #[test]
+    #[parallel]
+    fn test_dnumericalorbitpropagator_callback_event_variational_continuous() {
+        setup_global_test_eop();
+        let (epoch, state) = event_variational_initial_conditions();
+        let epoch_end = epoch + 3600.0;
+        let dv = DVector::from_vec(vec![0.0, 0.0, 0.0, 1.0, -2.0, 0.5]);
+
+        // Impulsive maneuver applied by an event callback mid-step
+        let mut prop = create_event_variational_propagator(epoch, state.clone(), true, true);
+        let dv_callback = dv.clone();
+        prop.add_event_detector(Box::new(
+            DTimeEvent::new(epoch + 1000.3, "Burn").with_callback(Box::new(
+                move |_t, x, _params| (Some(x + &dv_callback), None, EventAction::Continue),
+            )),
+        ));
+        prop.propagate_to(epoch_end).unwrap();
+        let epoch_event = prop.event_log()[0].window_open;
+
+        // Reference: one propagation up to the event and a second from the
+        // post-maneuver state. The matrices compose across the maneuver as
+        //   Phi(t, t0) = Phi(t, te) * Phi(te, t0)
+        //   S(t)       = Phi(t, te) * S(te) + S_te(t)
+        // because the applied state change does not depend on the state.
+        let mut leg1 = create_event_variational_propagator(epoch, state, true, true);
+        leg1.propagate_to(epoch_event).unwrap();
+        let mut leg2 = create_event_variational_propagator(
+            epoch_event,
+            leg1.current_state() + &dv,
+            true,
+            true,
+        );
+        leg2.propagate_to(epoch_end).unwrap();
+
+        let stm_expected = leg2.stm().unwrap() * leg1.stm().unwrap();
+        let sens_expected =
+            leg2.stm().unwrap() * leg1.sensitivity().unwrap() + leg2.sensitivity().unwrap();
+        let p0 = leg1.initial_covariance.clone().unwrap();
+        let cov_expected = &stm_expected * p0 * stm_expected.transpose();
+
+        let position_error = (prop.current_state() - leg2.current_state())
+            .rows(0, 3)
+            .norm();
+        assert!(position_error < 1.0, "position error {position_error} m");
+        assert_matrix_rel_eq(prop.stm().unwrap(), &stm_expected, 1e-6);
+        assert_matrix_rel_eq(prop.sensitivity().unwrap(), &sens_expected, 5e-3);
+        assert_matrix_rel_eq(prop.current_covariance().unwrap(), &cov_expected, 1e-6);
     }
 
     #[test]

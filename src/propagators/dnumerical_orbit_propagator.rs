@@ -1534,14 +1534,15 @@ impl DNumericalOrbitPropagator {
             Some(&self.params)
         };
 
-        // Clear FSAL cache before refinement — the main step cached the
-        // derivative at the step endpoint, which is wrong for re-integration
-        // starting at the step start.
-        self.integrator.reset_cache();
-
         let mut refined = Vec::with_capacity(events.len());
 
         for (idx, mut event) in events {
+            // Clear FSAL cache before each refinement — it holds the
+            // derivative at the endpoint of the main step or of the previous
+            // event's refinement, which is wrong for re-integration starting
+            // at the step start.
+            self.integrator.reset_cache();
+
             let dt_to_event = event.window_open - epoch_prev;
 
             let mut x = x_prev.clone();
@@ -6706,6 +6707,35 @@ mod tests {
         assert_matrix_rel_eq(prop.stm().unwrap(), &stm_expected, 1e-6);
         assert_matrix_rel_eq(prop.sensitivity().unwrap(), &sens_expected, 5e-3);
         assert_matrix_rel_eq(prop.current_covariance().unwrap(), &cov_expected, 1e-6);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_dnumericalorbitpropagator_multiple_events_in_step_refined_independently() {
+        setup_global_test_eop();
+        let (epoch, state) = event_variational_initial_conditions();
+
+        // Two events half a second apart fall within one integration step
+        let mut prop = create_event_variational_propagator(epoch, state.clone(), true, false);
+        prop.add_event_detector(Box::new(DTimeEvent::new(epoch + 1000.3, "First")));
+        prop.add_event_detector(Box::new(DTimeEvent::new(epoch + 1000.8, "Second")));
+        prop.propagate_to(epoch + 3600.0).unwrap();
+        assert_eq!(prop.event_log().len(), 2);
+
+        // Each event state matches a propagation to that epoch alone
+        for event in prop.event_log() {
+            let mut reference =
+                create_event_variational_propagator(epoch, state.clone(), true, false);
+            reference.propagate_to(event.window_open).unwrap();
+            let position_error = (&event.entry_state - reference.current_state())
+                .rows(0, 3)
+                .norm();
+            assert!(
+                position_error < 1e-2,
+                "{}: position error {position_error} m",
+                event.name
+            );
+        }
     }
 
     #[test]

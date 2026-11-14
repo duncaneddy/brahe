@@ -1090,6 +1090,28 @@ def test_numericalorbitpropagator_callback_event_variational_continuous():
     assert_matrix_rel_eq(prop.sensitivity(), sens_expected, 5e-3)
 
 
+def test_numericalorbitpropagator_multiple_events_in_step_refined_independently():
+    """Events sharing one integration step get independent states (mirrors Rust test)"""
+    epoch, state = event_variational_initial_conditions()
+
+    # Two events half a second apart fall within one integration step
+    prop = create_event_variational_propagator(epoch, state, True, False)
+    prop.add_event_detector(TimeEvent(epoch + 1000.3, "First"))
+    prop.add_event_detector(TimeEvent(epoch + 1000.8, "Second"))
+    prop.propagate_to(epoch + 3600.0)
+    events = prop.event_log()
+    assert len(events) == 2
+
+    # Each event state matches a propagation to that epoch alone
+    for event in events:
+        reference = create_event_variational_propagator(epoch, state, True, False)
+        reference.propagate_to(event.window_open)
+        position_error = np.linalg.norm(
+            event.entry_state[:3] - reference.current_state()[:3]
+        )
+        assert position_error < 1e-2, f"{event.name}: {position_error} m"
+
+
 def test_numericalorbitpropagator_event_detection_multiple_no_callbacks():
     """Test multiple events without callbacks (mirrors Rust test)"""
     from brahe import TimeEvent

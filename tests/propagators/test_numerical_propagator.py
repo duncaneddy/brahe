@@ -1032,6 +1032,24 @@ def test_numericalpropagator_event_callback_stm_continuous():
     assert prop.stm() == pytest.approx(sho_analytical_stm(1.0, 10.0), abs=1e-6)
 
 
+def test_numericalpropagator_event_multiple_events_in_step_refined_independently():
+    """Events sharing one integration step get independent states (mirrors Rust test)"""
+    prop = create_sho_with_stm()
+    epoch = prop.initial_epoch
+
+    # Two events 0.01 s apart fall within one integration step
+    prop.add_event_detector(TimeEvent(epoch + 3.21, "First"))
+    prop.add_event_detector(TimeEvent(epoch + 3.22, "Second"))
+    prop.propagate_to(epoch + 10.0)
+    events = prop.event_log()
+    assert len(events) == 2
+
+    # Each event state matches the analytical solution at its own epoch
+    for event in events:
+        t = event.window_open - epoch
+        assert event.entry_state == pytest.approx([np.cos(t), -np.sin(t)], abs=1e-6)
+
+
 def test_numericalpropagator_event_query_by_detector_index():
     """Test events_by_detector_index method (mirrors Rust test)"""
     from brahe import TimeEvent

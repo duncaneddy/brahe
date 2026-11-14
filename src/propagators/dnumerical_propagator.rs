@@ -963,14 +963,15 @@ impl DNumericalPropagator {
             Some(&self.params)
         };
 
-        // Clear FSAL cache before refinement — the main step cached the
-        // derivative at the step endpoint, which is wrong for re-integration
-        // starting at the step start.
-        self.integrator.reset_cache();
-
         let mut refined = Vec::with_capacity(events.len());
 
         for (idx, mut event) in events {
+            // Clear FSAL cache before each refinement — it holds the
+            // derivative at the endpoint of the main step or of the previous
+            // event's refinement, which is wrong for re-integration starting
+            // at the step start.
+            self.integrator.reset_cache();
+
             let dt_to_event = event.window_open - epoch_prev;
 
             let mut x = x_prev.clone();
@@ -4372,6 +4373,30 @@ mod tests {
             sho_analytical_stm(1.0, 10.0),
             epsilon = 1e-6
         );
+    }
+
+    #[test]
+    #[parallel]
+    fn test_event_multiple_events_in_step_refined_independently() {
+        let mut prop = create_test_sho_with_stm();
+        let epoch = prop.initial_epoch();
+
+        // Two events 0.01 s apart fall within one integration step
+        prop.add_event_detector(Box::new(DTimeEvent::new(epoch + 3.21, "First".to_string())));
+        prop.add_event_detector(Box::new(DTimeEvent::new(
+            epoch + 3.22,
+            "Second".to_string(),
+        )));
+        prop.propagate_to(epoch + 10.0).unwrap();
+        assert_eq!(prop.event_log().len(), 2);
+
+        // Each event state matches the analytical solution at its own epoch
+        for event in prop.event_log() {
+            let (x_expected, v_expected) =
+                sho_analytical_solution(1.0, 0.0, 1.0, event.window_open - epoch);
+            assert_abs_diff_eq!(event.entry_state[0], x_expected, epsilon = 1e-6);
+            assert_abs_diff_eq!(event.entry_state[1], v_expected, epsilon = 1e-6);
+        }
     }
 
     #[test]

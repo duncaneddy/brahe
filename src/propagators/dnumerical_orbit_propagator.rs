@@ -6602,20 +6602,22 @@ mod tests {
             prop.current_epoch()
         );
 
+        // Both runs take the same steps up to the event, so the matrices
+        // agree to round-off.
         if enable_stm {
-            assert_matrix_rel_eq(prop.stm().unwrap(), reference.stm().unwrap(), 1e-6);
+            assert_matrix_rel_eq(prop.stm().unwrap(), reference.stm().unwrap(), 1e-9);
             assert_eq!(prop.stm_at_idx(last_idx).unwrap(), prop.stm().unwrap());
             assert_matrix_rel_eq(
                 prop.current_covariance().unwrap(),
                 reference.current_covariance().unwrap(),
-                1e-6,
+                1e-9,
             );
         }
         if enable_sensitivity {
             assert_matrix_rel_eq(
                 prop.sensitivity().unwrap(),
                 reference.sensitivity().unwrap(),
-                1e-4,
+                1e-9,
             );
             assert_eq!(
                 prop.sensitivity_at_idx(last_idx).unwrap(),
@@ -6650,9 +6652,11 @@ mod tests {
             .rows(0, 3)
             .norm();
         assert!(position_error < 1.0, "position error {position_error} m");
-        assert_matrix_rel_eq(prop.stm().unwrap(), reference.stm().unwrap(), 1e-6);
-        // The sensitivity is not part of the integrator error control, so it
-        // varies more than the STM between runs that take different steps.
+        // The runs take different steps after the event. Integrating the same
+        // propagation in two segments without any event changes the STM by up
+        // to 2e-6 and the sensitivity by up to 6e-4 relative, so the tolerances
+        // sit above that floor.
+        assert_matrix_rel_eq(prop.stm().unwrap(), reference.stm().unwrap(), 1e-5);
         assert_matrix_rel_eq(
             prop.sensitivity().unwrap(),
             reference.sensitivity().unwrap(),
@@ -6704,9 +6708,13 @@ mod tests {
             .rows(0, 3)
             .norm();
         assert!(position_error < 1.0, "position error {position_error} m");
-        assert_matrix_rel_eq(prop.stm().unwrap(), &stm_expected, 1e-6);
+        // The legs take different steps from the single run. Composing two
+        // event-free legs changes the STM by up to 5e-7, the covariance by up
+        // to 8e-7, and the sensitivity by up to 6e-4 relative, so the
+        // tolerances sit above that floor.
+        assert_matrix_rel_eq(prop.stm().unwrap(), &stm_expected, 1e-5);
         assert_matrix_rel_eq(prop.sensitivity().unwrap(), &sens_expected, 5e-3);
-        assert_matrix_rel_eq(prop.current_covariance().unwrap(), &cov_expected, 1e-6);
+        assert_matrix_rel_eq(prop.current_covariance().unwrap(), &cov_expected, 1e-5);
     }
 
     #[test]

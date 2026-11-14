@@ -947,7 +947,7 @@ EVENT_VARIATIONAL_P0 = np.diag([100.0, 100.0, 100.0, 0.01, 0.01, 0.01])
 
 
 def create_event_variational_propagator(epoch, state, enable_stm, enable_sensitivity):
-    """Drag-perturbed propagator with the requested variational matrices enabled
+    """Propagator with 20x20 EGM2008 gravity, drag, and variational matrices
 
     Mass is read from params[0] so the sensitivity matrix is non-zero. An
     initial covariance is set when the STM is enabled.
@@ -960,7 +960,7 @@ def create_event_variational_propagator(epoch, state, enable_stm, enable_sensiti
 
     force_config = ForceModelConfig.for_body(
         CentralBody.Earth,
-        GravityConfiguration.point_mass(),
+        GravityConfiguration.spherical_harmonic(20, 20),
         drag=DragConfiguration(
             model=AtmosphericModel.HARRIS_PRIESTER,
             area=ParameterSource.value(10.0),
@@ -1019,10 +1019,16 @@ def test_numericalorbitpropagator_terminal_event_variational_at_event_epoch(
     )
     reference.propagate_to(prop.current_epoch())
 
+    # Both runs take the same steps up to the event, so the matrices agree to
+    # round-off.
+    epoch_event = prop.current_epoch()
     if enable_stm:
-        assert_matrix_rel_eq(prop.stm(), reference.stm(), 1e-6)
+        assert_matrix_rel_eq(prop.stm(), reference.stm(), 1e-9)
+        assert_matrix_rel_eq(
+            prop.covariance(epoch_event), reference.covariance(epoch_event), 1e-9
+        )
     if enable_sensitivity:
-        assert_matrix_rel_eq(prop.sensitivity(), reference.sensitivity(), 1e-4)
+        assert_matrix_rel_eq(prop.sensitivity(), reference.sensitivity(), 1e-9)
 
 
 def test_numericalorbitpropagator_terminal_event_resume_after_reset_termination():
@@ -1047,9 +1053,11 @@ def test_numericalorbitpropagator_terminal_event_resume_after_reset_termination(
         prop.current_state()[:3] - reference.current_state()[:3]
     )
     assert position_error < 1.0
-    assert_matrix_rel_eq(prop.stm(), reference.stm(), 1e-6)
-    # The sensitivity is not part of the integrator error control, so it
-    # varies more than the STM between runs that take different steps.
+    # The runs take different steps after the event. Integrating the same
+    # propagation in two segments without any event changes the STM by up to
+    # 2e-6 and the sensitivity by up to 6e-4 relative, so the tolerances sit
+    # above that floor.
+    assert_matrix_rel_eq(prop.stm(), reference.stm(), 1e-5)
     assert_matrix_rel_eq(prop.sensitivity(), reference.sensitivity(), 5e-3)
 
 
@@ -1083,11 +1091,17 @@ def test_numericalorbitpropagator_callback_event_variational_continuous():
 
     stm_expected = leg2.stm() @ leg1.stm()
     sens_expected = leg2.stm() @ leg1.sensitivity() + leg2.sensitivity()
+    cov_expected = stm_expected @ EVENT_VARIATIONAL_P0 @ stm_expected.T
 
     position_error = np.linalg.norm(prop.current_state()[:3] - leg2.current_state()[:3])
     assert position_error < 1.0
-    assert_matrix_rel_eq(prop.stm(), stm_expected, 1e-6)
+    # The legs take different steps from the single run. Composing two
+    # event-free legs changes the STM by up to 5e-7, the covariance by up to
+    # 8e-7, and the sensitivity by up to 6e-4 relative, so the tolerances sit
+    # above that floor.
+    assert_matrix_rel_eq(prop.stm(), stm_expected, 1e-5)
     assert_matrix_rel_eq(prop.sensitivity(), sens_expected, 5e-3)
+    assert_matrix_rel_eq(prop.covariance(epoch_end), cov_expected, 1e-5)
 
 
 def test_numericalorbitpropagator_multiple_events_in_step_refined_independently():

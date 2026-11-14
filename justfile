@@ -67,6 +67,11 @@ test-python-fast *flags: _setup
     uv pip install -e . --quiet
     {{python}} -m pytest tests/ -n auto --dist loadscope {{flags}}
 
+# Run the Python examples embedded in docstrings (mirrors `cargo test --doc`)
+test-python-docs *flags: _setup
+    uv pip install -e . --quiet
+    {{python}} -m pytest tests/test_docstring_examples.py -m docstring_examples -n auto {{flags}}
+
 # Run integration (network) tests — Rust + Python (needs TEST_SPACETRACK_USER/PASS)
 test-integration: test-integration-rust test-integration-python
 
@@ -773,5 +778,5 @@ bench-gpu-inspect path:
 # ───── Full Quality Check ─────
 
 # Run full quality check (test + lint + format + stubs + docs)
-check: test lint format-check stubs docs
+check: test test-python-docs lint format-check stubs docs
     @echo "✓ All quality checks passed!"

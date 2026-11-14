@@ -120,9 +120,10 @@ include = [
 [tool.pytest.ini_options]
 markers = [
     "integration: marks tests that require network access to remote hosts or long runtimes (run with -m integration); tests that only read SPICE kernels are NOT gated — kernels are expected cached (run `just setup`)",
+    "docstring_examples: executes the Python examples embedded in docstrings (run with `just test-python-docs`)",
 ]
-# By default, exclude integration tests unless explicitly requested with -m integration
-addopts = "-m 'not integration'"
+# By default, exclude integration and docstring-example tests unless explicitly requested with -m
+addopts = "-m 'not integration and not docstring_examples'"
 testpaths = [
     "tests",
 ]

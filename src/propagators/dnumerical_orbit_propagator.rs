@@ -1711,6 +1711,15 @@ impl DNumericalOrbitPropagator {
                 .sort_by(|(_, a, _), (_, b, _)| b.window_open.partial_cmp(&a.window_open).unwrap());
         }
 
+        // A terminal event without a callback stops propagation, so events
+        // after it are never reached.
+        if let Some(terminal_idx) = sorted_events.iter().position(|(det_idx, _, _)| {
+            let detector = &self.event_detectors[*det_idx];
+            detector.callback().is_none() && detector.action() == EventAction::Stop
+        }) {
+            sorted_events.truncate(terminal_idx + 1);
+        }
+
         // 2. Find first event with callback
         let first_callback_idx = sorted_events
             .iter()
@@ -6902,6 +6911,33 @@ mod tests {
                 event.name
             );
         }
+    }
+
+    #[test]
+    #[parallel]
+    fn test_dnumericalorbitpropagator_terminal_event_before_callback_in_same_step() {
+        setup_global_test_eop();
+        let (epoch, state) = event_variational_initial_conditions();
+
+        // A terminal event followed half a second later by a callback event,
+        // both within one integration step
+        let mut prop = create_event_variational_propagator(epoch, state, true, false);
+        prop.add_event_detector(Box::new(
+            DTimeEvent::new(epoch + 1000.8, "Callback").with_callback(Box::new(
+                |_t, _x, _params| (None, None, EventAction::Continue),
+            )),
+        ));
+        prop.add_event_detector(Box::new(
+            DTimeEvent::new(epoch + 1000.3, "Stop").set_terminal(),
+        ));
+        prop.propagate_to(epoch + 3600.0).unwrap();
+
+        // Propagation stops at the terminal event and never reaches the callback
+        assert!(prop.terminated());
+        let time_diff: f64 = prop.current_epoch() - (epoch + 1000.3);
+        assert!(time_diff.abs() < 1e-3);
+        assert_eq!(prop.event_log().len(), 1);
+        assert_eq!(prop.event_log()[0].name, "Stop");
     }
 
     #[test]

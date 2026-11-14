@@ -1124,6 +1124,31 @@ def test_numericalpropagator_event_trajectory_entries_store_covariance():
         )
 
 
+def test_numericalpropagator_event_terminal_before_callback_in_same_step():
+    """A terminal event stops propagation ahead of a later callback (mirrors Rust test)"""
+    epoch = create_test_epoch()
+    prop = NumericalPropagator(
+        epoch, np.array([1.0, 0.0]), sho_dynamics, NumericalPropagationConfig.default()
+    )
+
+    # A terminal event followed 0.01 s later by a callback event, both within
+    # one integration step
+    prop.add_event_detector(
+        TimeEvent(epoch + 3.22, "Callback").with_callback(
+            lambda _epoch, _state: (None, EventAction.CONTINUE)
+        )
+    )
+    prop.add_event_detector(TimeEvent(epoch + 3.21, "Stop").set_terminal())
+    prop.propagate_to(epoch + 10.0)
+
+    # Propagation stops at the terminal event and never reaches the callback
+    assert prop.terminated()
+    assert abs(prop.current_epoch() - (epoch + 3.21)) < 1e-3
+    events = prop.event_log()
+    assert len(events) == 1
+    assert events[0].name == "Stop"
+
+
 def test_numericalpropagator_event_query_by_detector_index():
     """Test events_by_detector_index method (mirrors Rust test)"""
     from brahe import TimeEvent

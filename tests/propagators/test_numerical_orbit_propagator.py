@@ -1190,6 +1190,29 @@ def test_numericalorbitpropagator_event_trajectory_entries_store_variational(
     )
 
 
+def test_numericalorbitpropagator_terminal_event_before_callback_in_same_step():
+    """A terminal event stops propagation ahead of a later callback (mirrors Rust test)"""
+    epoch, state = event_variational_initial_conditions()
+
+    # A terminal event followed half a second later by a callback event, both
+    # within one integration step
+    prop = create_event_variational_propagator(epoch, state, True, False)
+    prop.add_event_detector(
+        TimeEvent(epoch + 1000.8, "Callback").with_callback(
+            lambda _epoch, _state: (None, EventAction.CONTINUE)
+        )
+    )
+    prop.add_event_detector(TimeEvent(epoch + 1000.3, "Stop").set_terminal())
+    prop.propagate_to(epoch + 3600.0)
+
+    # Propagation stops at the terminal event and never reaches the callback
+    assert prop.terminated()
+    assert abs(prop.current_epoch() - (epoch + 1000.3)) < 1e-3
+    events = prop.event_log()
+    assert len(events) == 1
+    assert events[0].name == "Stop"
+
+
 def test_numericalorbitpropagator_event_detection_multiple_no_callbacks():
     """Test multiple events without callbacks (mirrors Rust test)"""
     from brahe import TimeEvent

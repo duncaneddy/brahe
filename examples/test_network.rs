@@ -5,6 +5,9 @@
 
 // FLAGS = ["NETWORK"]
 
+// The example runner adds brahe as a dependency of every Rust example.
+use brahe as _;
+
 fn main() {
     println!("NETWORK flag test: This should only run with --network flag");
 }

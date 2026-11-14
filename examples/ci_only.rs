@@ -4,6 +4,9 @@
 //! unless --ci-only is passed to the test command.
 // FLAGS = ["CI-ONLY"]
 
+// The example runner adds brahe as a dependency of every Rust example.
+use brahe as _;
+
 fn main() {
     println!("CI-ONLY flag test: This should only run with --ci-only flag");
     println!("If you see this during normal test runs, the flag system is broken!");

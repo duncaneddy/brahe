@@ -937,14 +937,14 @@ impl PySP3SatelliteId {
 /// back to its owner to change it.
 ///
 /// Args:
-///     std (Sequence[float | None], optional): Standard deviations of x, y, z; defaults to all unknown.
-///     clock_std (float, optional): Standard deviation of the clock.
-///     xy (float, optional): Correlation between x and y; defaults to None (unknown).
-///     xz (float, optional): Correlation between x and z; defaults to None (unknown).
-///     xc (float, optional): Correlation between x and the clock; defaults to None (unknown).
-///     yz (float, optional): Correlation between y and z; defaults to None (unknown).
-///     yc (float, optional): Correlation between y and the clock; defaults to None (unknown).
-///     zc (float, optional): Correlation between z and the clock; defaults to None (unknown).
+///     std (Sequence[float | None] | None, optional): Standard deviations of x, y, z; defaults to all unknown.
+///     clock_std (float | None, optional): Standard deviation of the clock.
+///     xy (float | None, optional): Correlation between x and y; defaults to None (unknown).
+///     xz (float | None, optional): Correlation between x and z; defaults to None (unknown).
+///     xc (float | None, optional): Correlation between x and the clock; defaults to None (unknown).
+///     yz (float | None, optional): Correlation between y and z; defaults to None (unknown).
+///     yc (float | None, optional): Correlation between y and the clock; defaults to None (unknown).
+///     zc (float | None, optional): Correlation between z and the clock; defaults to None (unknown).
 ///
 /// Example:
 ///     ```python
@@ -1118,19 +1118,19 @@ impl PySP3Correlation {
 ///
 /// Args:
 ///     position (numpy.ndarray): Position in the file's coordinate system, meters, shape (3,).
-///     clock (float, optional): Clock offset, seconds.
-///     velocity (numpy.ndarray, optional): Velocity, meters per second, shape (3,).
-///     clock_rate (float, optional): Clock rate of change, seconds per second.
-///     position_std (Sequence[float | None], optional): Standard deviations of the position, meters.
-///     clock_std (float, optional): Standard deviation of the clock, seconds.
-///     velocity_std (Sequence[float | None], optional): Standard deviations of the velocity, meters per second.
-///     clock_rate_std (float, optional): Standard deviation of the clock rate, seconds per second.
+///     clock (float | None, optional): Clock offset, seconds.
+///     velocity (numpy.ndarray | None, optional): Velocity, meters per second, shape (3,).
+///     clock_rate (float | None, optional): Clock rate of change, seconds per second.
+///     position_std (Sequence[float | None] | None, optional): Standard deviations of the position, meters.
+///     clock_std (float | None, optional): Standard deviation of the clock, seconds.
+///     velocity_std (Sequence[float | None] | None, optional): Standard deviations of the velocity, meters per second.
+///     clock_rate_std (float | None, optional): Standard deviation of the clock rate, seconds per second.
 ///     clock_event (bool, optional): Whether a clock discontinuity occurred; defaults to False.
 ///     clock_predicted (bool, optional): Whether the clock is predicted; defaults to False.
 ///     maneuver (bool, optional): Whether a maneuver occurred; defaults to False.
 ///     orbit_predicted (bool, optional): Whether the orbit is predicted; defaults to False.
-///     position_correlation (SP3Correlation, optional): Position and clock correlation record.
-///     velocity_correlation (SP3Correlation, optional): Velocity and clock rate correlation record.
+///     position_correlation (SP3Correlation | None, optional): Position and clock correlation record.
+///     velocity_correlation (SP3Correlation | None, optional): Velocity and clock rate correlation record.
 ///
 /// Raises:
 ///     ValueError: If a vector argument does not have three components.
@@ -1441,15 +1441,15 @@ impl PySP3Record {
 /// standard deviation bases, and no comments.
 ///
 /// Args:
-///     agency (str, optional): Producing agency; at most 4 characters to be written.
-///     time_system (SP3TimeSystem | str, optional): Time system of the epochs.
-///     coordinate_system (str, optional): Coordinate system label; at most 5 characters to be written.
-///     orbit_type (SP3OrbitType | str, optional): Orbit type; at most 3 characters to be written.
-///     data_used (str, optional): Data used descriptor; at most 5 characters to be written.
-///     has_velocity (bool, optional): Whether the file carries velocity records.
-///     comments (list[str], optional): Comment lines, at most 77 characters each to be written.
-///     position_base (float, optional): Base of the position standard deviation exponents, millimeters.
-///     clock_base (float, optional): Base of the clock standard deviation exponents, picoseconds.
+///     agency (str | None, optional): Producing agency; at most 4 characters to be written.
+///     time_system (SP3TimeSystem | str | None, optional): Time system of the epochs.
+///     coordinate_system (str | None, optional): Coordinate system label; at most 5 characters to be written.
+///     orbit_type (SP3OrbitType | str | None, optional): Orbit type; at most 3 characters to be written.
+///     data_used (str | None, optional): Data used descriptor; at most 5 characters to be written.
+///     has_velocity (bool | None, optional): Whether the file carries velocity records.
+///     comments (list[str] | None, optional): Comment lines, at most 77 characters each to be written.
+///     position_base (float | None, optional): Base of the position standard deviation exponents, millimeters.
+///     clock_base (float | None, optional): Base of the clock standard deviation exponents, picoseconds.
 ///
 /// Example:
 ///     ```python
@@ -1732,7 +1732,7 @@ impl PySP3Header {
 /// Args:
 ///     satellites (list[str | SP3SatelliteId]): Satellites in header order, at most 999, no duplicates.
 ///     epoch_interval (float): Spacing of the epoch grid, seconds.
-///     header (SP3Header, optional): Header of the file; defaults to ``SP3Header()``.
+///     header (SP3Header | None, optional): Header of the file; defaults to ``SP3Header()``.
 ///
 /// Raises:
 ///     BraheError: If a satellite is invalid or duplicated, there are more than 999 satellites, or the interval is not positive and finite.
@@ -2252,8 +2252,8 @@ impl PySP3 {
     ///
     /// Args:
     ///     trajectories (list[tuple[str | SP3SatelliteId, OrbitTrajectory]]): Satellite identifiers paired with their trajectories.
-    ///     step (float, optional): Epoch spacing to resample at, seconds. Default: None, which keeps the stored epochs.
-    ///     header (SP3Header, optional): Header of the file; defaults to ``SP3Header()``. Its epoch interval is set from the epochs written.
+    ///     step (float | None, optional): Epoch spacing to resample at, seconds. Default: None, which keeps the stored epochs.
+    ///     header (SP3Header | None, optional): Header of the file; defaults to ``SP3Header()``. Its epoch interval is set from the epochs written.
     ///
     /// Returns:
     ///     SP3: The file.

@@ -420,7 +420,7 @@ fn py_semimajor_axis_from_orbital_period<'py>(
 ///         evaluated element-wise (broadcast against `e`); or, when `e` is omitted, a 2-D
 ///         array of shape `(n, 6)` of Keplerian element sets [a, e, i, Ω, ω, ν] from which
 ///         `a` and `e` are taken row by row.
-///     e (float or array, optional): The eccentricity, broadcast against `a_or_oe` when either is
+///     e (float or array or None, optional): The eccentricity, broadcast against `a_or_oe` when either is
 ///         an array. Required unless `a_or_oe` is a 2-D element-set batch, where it is ignored.
 ///
 /// Returns:
@@ -475,7 +475,7 @@ fn py_perigee_velocity<'py>(
 ///         evaluated element-wise (broadcast against `e`); or, when `e` is omitted, a 2-D
 ///         array of shape `(n, 6)` of Keplerian element sets [a, e, i, Ω, ω, ν] from which
 ///         `a` and `e` are taken row by row.
-///     e (float or array, optional): The eccentricity, broadcast against `a_or_oe` when either is
+///     e (float or array or None, optional): The eccentricity, broadcast against `a_or_oe` when either is
 ///         an array. Required unless `a_or_oe` is a 2-D element-set batch, where it is ignored.
 ///     gm (float): (keyword-only) The standard gravitational parameter of primary body in m³/s².
 ///
@@ -532,7 +532,7 @@ fn py_periapsis_velocity<'py>(
 ///         evaluated element-wise (broadcast against `e`); or, when `e` is omitted, a 2-D
 ///         array of shape `(n, 6)` of Keplerian element sets [a, e, i, Ω, ω, ν] from which
 ///         `a` and `e` are taken row by row.
-///     e (float or array, optional): The eccentricity, broadcast against `a_or_oe` when either is
+///     e (float or array or None, optional): The eccentricity, broadcast against `a_or_oe` when either is
 ///         an array. Required unless `a_or_oe` is a 2-D element-set batch, where it is ignored.
 ///
 /// Returns:
@@ -587,7 +587,7 @@ fn py_periapsis_distance<'py>(
 ///         evaluated element-wise (broadcast against `e`); or, when `e` is omitted, a 2-D
 ///         array of shape `(n, 6)` of Keplerian element sets [a, e, i, Ω, ω, ν] from which
 ///         `a` and `e` are taken row by row.
-///     e (float or array, optional): The eccentricity, broadcast against `a_or_oe` when either is
+///     e (float or array or None, optional): The eccentricity, broadcast against `a_or_oe` when either is
 ///         an array. Required unless `a_or_oe` is a 2-D element-set batch, where it is ignored.
 ///
 /// Returns:
@@ -642,7 +642,7 @@ fn py_apogee_velocity<'py>(
 ///         evaluated element-wise (broadcast against `e`); or, when `e` is omitted, a 2-D
 ///         array of shape `(n, 6)` of Keplerian element sets [a, e, i, Ω, ω, ν] from which
 ///         `a` and `e` are taken row by row.
-///     e (float or array, optional): The eccentricity, broadcast against `a_or_oe` when either is
+///     e (float or array or None, optional): The eccentricity, broadcast against `a_or_oe` when either is
 ///         an array. Required unless `a_or_oe` is a 2-D element-set batch, where it is ignored.
 ///     gm (float): (keyword-only) The standard gravitational parameter of primary body in m³/s².
 ///
@@ -699,7 +699,7 @@ fn py_apoapsis_velocity<'py>(
 ///         evaluated element-wise (broadcast against `e`); or, when `e` is omitted, a 2-D
 ///         array of shape `(n, 6)` of Keplerian element sets [a, e, i, Ω, ω, ν] from which
 ///         `a` and `e` are taken row by row.
-///     e (float or array, optional): The eccentricity, broadcast against `a_or_oe` when either is
+///     e (float or array or None, optional): The eccentricity, broadcast against `a_or_oe` when either is
 ///         an array. Required unless `a_or_oe` is a 2-D element-set batch, where it is ignored.
 ///
 /// Returns:
@@ -754,7 +754,7 @@ fn py_apoapsis_distance<'py>(
 ///         evaluated element-wise (broadcast against `e`); or, when `e` is omitted, a 2-D
 ///         array of shape `(n, 6)` of Keplerian element sets [a, e, i, Ω, ω, ν] from which
 ///         `a` and `e` are taken row by row.
-///     e (float or array, optional): The eccentricity, broadcast against `a_or_oe` when either is
+///     e (float or array or None, optional): The eccentricity, broadcast against `a_or_oe` when either is
 ///         an array. Required unless `a_or_oe` is a 2-D element-set batch, where it is ignored.
 ///     r_body (float): (keyword-only) The radius of the central body in meters.
 ///
@@ -811,7 +811,7 @@ fn py_periapsis_altitude<'py>(
 ///         evaluated element-wise (broadcast against `e`); or, when `e` is omitted, a 2-D
 ///         array of shape `(n, 6)` of Keplerian element sets [a, e, i, Ω, ω, ν] from which
 ///         `a` and `e` are taken row by row.
-///     e (float or array, optional): The eccentricity, broadcast against `a_or_oe` when either is
+///     e (float or array or None, optional): The eccentricity, broadcast against `a_or_oe` when either is
 ///         an array. Required unless `a_or_oe` is a 2-D element-set batch, where it is ignored.
 ///
 /// Returns:
@@ -866,7 +866,7 @@ fn py_perigee_altitude<'py>(
 ///         evaluated element-wise (broadcast against `e`); or, when `e` is omitted, a 2-D
 ///         array of shape `(n, 6)` of Keplerian element sets [a, e, i, Ω, ω, ν] from which
 ///         `a` and `e` are taken row by row.
-///     e (float or array, optional): The eccentricity, broadcast against `a_or_oe` when either is
+///     e (float or array or None, optional): The eccentricity, broadcast against `a_or_oe` when either is
 ///         an array. Required unless `a_or_oe` is a 2-D element-set batch, where it is ignored.
 ///     r_body (float): (keyword-only) The radius of the central body in meters.
 ///
@@ -923,7 +923,7 @@ fn py_apoapsis_altitude<'py>(
 ///         evaluated element-wise (broadcast against `e`); or, when `e` is omitted, a 2-D
 ///         array of shape `(n, 6)` of Keplerian element sets [a, e, i, Ω, ω, ν] from which
 ///         `a` and `e` are taken row by row.
-///     e (float or array, optional): The eccentricity, broadcast against `a_or_oe` when either is
+///     e (float or array or None, optional): The eccentricity, broadcast against `a_or_oe` when either is
 ///         an array. Required unless `a_or_oe` is a 2-D element-set batch, where it is ignored.
 ///
 /// Returns:
@@ -979,7 +979,7 @@ fn py_apogee_altitude<'py>(
 ///         evaluated element-wise (broadcast against `e`); or, when `e` is omitted, a 2-D
 ///         array of shape `(n, 6)` of Keplerian element sets [a, e, i, Ω, ω, ν] from which
 ///         `a` and `e` are taken row by row.
-///     e (float or array, optional): The eccentricity, broadcast against `a_or_oe` when either is
+///     e (float or array or None, optional): The eccentricity, broadcast against `a_or_oe` when either is
 ///         an array. Required unless `a_or_oe` is a 2-D element-set batch, where it is ignored.
 ///     angle_format (AngleFormat): (keyword-only) Return output in AngleFormat.DEGREES or AngleFormat.RADIANS.
 ///
@@ -1055,7 +1055,7 @@ fn py_geo_sma() -> PyResult<f64> {
 ///         element-wise (broadcast against `e`); or, when `e` is omitted, a 2-D array of
 ///         shape `(n, 6)` of Keplerian element sets [a, e, i, Ω, ω, M] from which `e` and the
 ///         anomaly (index 5) are taken row by row. The anomaly must match the `angle_format`.
-///     e (float or array, optional): The eccentricity, broadcast against `anm_ecc_or_oe` when either is
+///     e (float or array or None, optional): The eccentricity, broadcast against `anm_ecc_or_oe` when either is
 ///         an array. Required unless `anm_ecc_or_oe` is a 2-D element-set batch, where it is ignored.
 ///     angle_format (AngleFormat): (keyword-only) Interprets input and returns output in AngleFormat.DEGREES or AngleFormat.RADIANS.
 ///
@@ -1113,7 +1113,7 @@ fn py_anomaly_eccentric_to_mean<'py>(
 ///         element-wise (broadcast against `e`); or, when `e` is omitted, a 2-D array of
 ///         shape `(n, 6)` of Keplerian element sets [a, e, i, Ω, ω, M] from which `e` and the
 ///         anomaly (index 5) are taken row by row. The anomaly must match the `angle_format`.
-///     e (float or array, optional): The eccentricity, broadcast against `anm_mean_or_oe` when either is
+///     e (float or array or None, optional): The eccentricity, broadcast against `anm_mean_or_oe` when either is
 ///         an array. Required unless `anm_mean_or_oe` is a 2-D element-set batch, where it is ignored.
 ///     angle_format (AngleFormat): (keyword-only) Interprets input and returns output in AngleFormat.DEGREES or AngleFormat.RADIANS.
 ///
@@ -1171,7 +1171,7 @@ fn py_anomaly_mean_to_eccentric<'py>(
 ///         element-wise (broadcast against `e`); or, when `e` is omitted, a 2-D array of
 ///         shape `(n, 6)` of Keplerian element sets [a, e, i, Ω, ω, M] from which `e` and the
 ///         anomaly (index 5) are taken row by row. The anomaly must match the `angle_format`.
-///     e (float or array, optional): The eccentricity, broadcast against `anm_true_or_oe` when either is
+///     e (float or array or None, optional): The eccentricity, broadcast against `anm_true_or_oe` when either is
 ///         an array. Required unless `anm_true_or_oe` is a 2-D element-set batch, where it is ignored.
 ///     angle_format (AngleFormat): (keyword-only) Interprets input and returns output in AngleFormat.DEGREES or AngleFormat.RADIANS.
 ///
@@ -1229,7 +1229,7 @@ fn py_anomaly_true_to_eccentric<'py>(
 ///         element-wise (broadcast against `e`); or, when `e` is omitted, a 2-D array of
 ///         shape `(n, 6)` of Keplerian element sets [a, e, i, Ω, ω, M] from which `e` and the
 ///         anomaly (index 5) are taken row by row. The anomaly must match the `angle_format`.
-///     e (float or array, optional): The eccentricity, broadcast against `anm_ecc_or_oe` when either is
+///     e (float or array or None, optional): The eccentricity, broadcast against `anm_ecc_or_oe` when either is
 ///         an array. Required unless `anm_ecc_or_oe` is a 2-D element-set batch, where it is ignored.
 ///     angle_format (AngleFormat): (keyword-only) Interprets input and returns output in AngleFormat.DEGREES or AngleFormat.RADIANS.
 ///
@@ -1287,7 +1287,7 @@ fn py_anomaly_eccentric_to_true<'py>(
 ///         element-wise (broadcast against `e`); or, when `e` is omitted, a 2-D array of
 ///         shape `(n, 6)` of Keplerian element sets [a, e, i, Ω, ω, M] from which `e` and the
 ///         anomaly (index 5) are taken row by row. The anomaly must match the `angle_format`.
-///     e (float or array, optional): The eccentricity, broadcast against `anm_true_or_oe` when either is
+///     e (float or array or None, optional): The eccentricity, broadcast against `anm_true_or_oe` when either is
 ///         an array. Required unless `anm_true_or_oe` is a 2-D element-set batch, where it is ignored.
 ///     angle_format (AngleFormat): (keyword-only) Interprets input and returns output in AngleFormat.DEGREES or AngleFormat.RADIANS.
 ///
@@ -1345,7 +1345,7 @@ fn py_anomaly_true_to_mean<'py>(
 ///         element-wise (broadcast against `e`); or, when `e` is omitted, a 2-D array of
 ///         shape `(n, 6)` of Keplerian element sets [a, e, i, Ω, ω, M] from which `e` and the
 ///         anomaly (index 5) are taken row by row. The anomaly must match the `angle_format`.
-///     e (float or array, optional): The eccentricity, broadcast against `anm_mean_or_oe` when either is
+///     e (float or array or None, optional): The eccentricity, broadcast against `anm_mean_or_oe` when either is
 ///         an array. Required unless `anm_mean_or_oe` is a 2-D element-set batch, where it is ignored.
 ///     angle_format (AngleFormat): (keyword-only) Interprets input and returns output in AngleFormat.DEGREES or AngleFormat.RADIANS.
 ///
@@ -1525,11 +1525,11 @@ fn py_keplerian_elements_to_tle(
 ///     ephemeris_type (int): Ephemeris type (0-9).
 ///     element_set_number (int): Element set number.
 ///     revolution_number (int): Revolution number at epoch.
-///     classification (str, optional): Security classification. Defaults to ' '.
-///     intl_designator (str, optional): International designator. Defaults to ''.
-///     first_derivative (float, optional): First derivative of mean motion. Defaults to 0.0.
-///     second_derivative (float, optional): Second derivative of mean motion. Defaults to 0.0.
-///     bstar (float, optional): BSTAR drag term. Defaults to 0.0.
+///     classification (str | None, optional): Security classification. Defaults to ' '.
+///     intl_designator (str | None, optional): International designator. Defaults to ''.
+///     first_derivative (float | None, optional): First derivative of mean motion. Defaults to 0.0.
+///     second_derivative (float | None, optional): Second derivative of mean motion. Defaults to 0.0.
+///     bstar (float | None, optional): BSTAR drag term. Defaults to 0.0.
 ///
 /// Returns:
 ///     tuple: A tuple containing (line1, line2) - the two TLE lines as strings.
@@ -1844,7 +1844,7 @@ impl PyWindowEdgeHandling {
 ///     window_seconds (float): Averaging window length in seconds.
 ///     alignment (WindowAlignment): Placement of the averaging window relative to the output epoch.
 ///     edge (WindowEdgeHandling): Handling of output epochs whose window runs past the data bounds.
-///     inverse (MeanElementInverseConfig, optional): Dynamics for the iterative mean-to-osculating inverse.
+///     inverse (MeanElementInverseConfig | None, optional): Dynamics for the iterative mean-to-osculating inverse.
 ///         Required for numerical mean-to-osculating conversion; unused for osculating-to-mean.
 ///
 /// Example:
@@ -2736,7 +2736,7 @@ impl PyWalkerConstellationGenerator {
     /// Args:
     ///     propagation_config (NumericalPropagationConfig): Propagation configuration
     ///     force_config (ForceModelConfig): Force model configuration
-    ///     params (np.ndarray, optional): Parameter vector [mass, drag_area, Cd, srp_area, Cr]
+    ///     params (np.ndarray | None, optional): Parameter vector [mass, drag_area, Cd, srp_area, Cr]
     ///
     /// Returns:
     ///     list[DNumericalOrbitPropagator]: List of propagators, one per satellite

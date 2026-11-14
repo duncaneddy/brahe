@@ -1333,8 +1333,8 @@ impl PyRateLimitConfig {
 /// Args:
 ///     identity (str): Space-Track.org login email.
 ///     password (str): Space-Track.org password.
-///     base_url (str, optional): Custom base URL for testing.
-///     rate_limit (RateLimitConfig, optional): Rate limit configuration.
+///     base_url (str | None, optional): Custom base URL for testing.
+///     rate_limit (RateLimitConfig | None, optional): Rate limit configuration.
 ///         Defaults to 25 requests/minute, 250 requests/hour.
 ///
 /// Example:

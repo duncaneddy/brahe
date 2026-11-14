@@ -149,6 +149,71 @@ def infer_return_type_from_name(name: str, doc: str) -> str:
     return "Any"
 
 
+ACCESS_CONSTRAINT_TYPE = "Union[ElevationConstraint, OffNadirConstraint, LocalTimeConstraint, LookDirectionConstraint, AscDscConstraint, ElevationMaskConstraint, ConstraintAll, ConstraintAny, ConstraintNot]"
+
+PARAM_TYPE_MAP = {
+    "numpy.ndarray": "np.ndarray",
+    "ndarray": "np.ndarray",
+    "list": "Sequence",
+    "tuple": "Tuple",
+    # AccessConstraint is a union of all constraint types
+    "AccessConstraint": ACCESS_CONSTRAINT_TYPE,
+}
+
+# "optional" marks a defaulted parameter only as a trailing comma-separated
+# token, e.g. "(int, optional)" or "(optional)", never inside "Optional[int]".
+OPTIONAL_MARKER = re.compile(r"(?:^|,)\s*optional\s*$", re.IGNORECASE)
+
+
+def split_top_level(type_str: str, separator: str) -> list:
+    """Split a type string on a separator that is outside any brackets."""
+    parts, depth, start, i = [], 0, 0, 0
+    while i < len(type_str):
+        char = type_str[i]
+        if char == "[":
+            depth += 1
+        elif char == "]":
+            depth -= 1
+        elif depth == 0 and type_str.startswith(separator, i):
+            parts.append(type_str[start:i].strip())
+            i += len(separator)
+            start = i
+            continue
+        i += 1
+    parts.append(type_str[start:].strip())
+    return parts
+
+
+def map_param_type(param_type: str) -> str:
+    """Map a docstring parameter type to a stub annotation."""
+    if not param_type:
+        return "Any"
+    if " or " in param_type:
+        types = split_top_level(param_type, " or ")
+        py_type = f"Union[{', '.join(PARAM_TYPE_MAP.get(t, t) for t in types)}]"
+    else:
+        types = split_top_level(param_type, "|")
+        py_type = " | ".join(PARAM_TYPE_MAP.get(t, t) for t in types)
+    # The builtin predicate ``callable`` is not a type.
+    return re.sub(r"\bcallable\b", "Callable[..., Any]", py_type)
+
+
+def accepts_none(py_type: str) -> bool:
+    """Return whether a stub annotation admits None at its outermost level."""
+    if py_type == "Any":
+        return True
+    for member in split_top_level(py_type, "|"):
+        if member == "None":
+            return True
+        match = re.fullmatch(r"(Optional|Union)\[(.*)\]", member)
+        if match and (
+            match.group(1) == "Optional"
+            or "None" in split_top_level(match.group(2), ",")
+        ):
+            return True
+    return False
+
+
 def parse_params_from_docstring(doc: str) -> list:
     """Extract parameters from Args or Arguments section of docstring.
 
@@ -158,139 +223,50 @@ def parse_params_from_docstring(doc: str) -> list:
     if not doc:
         return []
 
-    # Look for Args: or Arguments: section - match everything after
+    # The Args: or Arguments: section runs until the next unindented line,
+    # which starts the following section (Returns:, Attributes:, ...).
     args_match = re.search(
-        r"(?:Args|Arguments):(.*?)(?=\n(?:Returns:|Example:|Raises:|Note:)|$)",
+        r"^(?:Args|Arguments):[ \t]*\n((?:[ \t]+\S.*\n?|[ \t]*\n)*)",
         doc,
-        re.DOTALL,
+        re.MULTILINE,
     )
     if not args_match:
         return []
 
-    args_text = args_match.group(1)
     params = []
-
-    # Parse each argument line - need to look at multi-line parameter descriptions
     current_param = None
     current_desc = []
 
-    for line in args_text.split("\n"):
+    def finish_param():
+        param_name, param_type, is_optional = current_param
+        is_keyword_only = "(keyword-only)" in " ".join(current_desc)
+        params.append(
+            (param_name, map_param_type(param_type), is_optional, is_keyword_only)
+        )
+
+    for line in args_match.group(1).split("\n"):
         line = line.strip()
         if not line:
             continue
         # Match: "param_name (type): description" or "param_name (type, optional): description"
         param_match = re.match(r"(\w+)\s*\(([^)]+)\):\s*(.*)", line)
         if param_match:
-            # Process previous parameter if exists
             if current_param is not None:
-                param_name, param_type, is_optional = current_param
-                desc = " ".join(current_desc)
-                is_keyword_only = "(keyword-only)" in desc
+                finish_param()
 
-                # Handle type mapping
-                if " or " in param_type:
-                    types = [t.strip() for t in param_type.split(" or ")]
-                    mapped_types = []
-                    for t in types:
-                        if t == "numpy.ndarray" or t == "ndarray":
-                            mapped_types.append("np.ndarray")
-                        elif t == "list":
-                            mapped_types.append("Sequence")
-                        elif t == "tuple":
-                            mapped_types.append("Tuple")
-                        else:
-                            mapped_types.append(t)
-                    py_type = f"Union[{', '.join(mapped_types)}]"
-                else:
-                    type_map = {
-                        "str": "str",
-                        "int": "int",
-                        "float": "float",
-                        "bool": "bool",
-                        "numpy.ndarray": "np.ndarray",
-                        "ndarray": "np.ndarray",
-                        "TimeSystem": "TimeSystem",
-                        "AngleFormat": "AngleFormat",
-                        "Epoch": "Epoch",
-                        "list": "Sequence",
-                        "tuple": "Tuple",
-                        "dict": "dict",
-                        "AccessConstraint": "Union[ElevationConstraint, OffNadirConstraint, LocalTimeConstraint, LookDirectionConstraint, AscDscConstraint, ElevationMaskConstraint, ConstraintAll, ConstraintAny, ConstraintNot]",
-                    }
-                    py_type = type_map.get(param_type, param_type)
-
-                if not param_type or not param_type.strip():
-                    py_type = "Any"
-
-                params.append((param_name, py_type, is_optional, is_keyword_only))
-
-            # Start new parameter
-            param_name = param_match.group(1)
             param_type = param_match.group(2).strip()
-            description = param_match.group(3).strip()
-
-            # Check if parameter is optional
-            is_optional = "optional" in param_type.lower()
+            is_optional = OPTIONAL_MARKER.search(param_type) is not None
             if is_optional:
-                # Remove "optional" from type string
-                param_type = re.sub(
-                    r",?\s*optional\s*", "", param_type, flags=re.IGNORECASE
-                ).strip()
+                param_type = OPTIONAL_MARKER.sub("", param_type).strip()
 
-            current_param = (param_name, param_type, is_optional)
-            current_desc = [description]
-        else:
+            current_param = (param_match.group(1), param_type, is_optional)
+            current_desc = [param_match.group(3).strip()]
+        elif current_param is not None:
             # Continuation of previous parameter description
-            if current_param is not None:
-                current_desc.append(line)
+            current_desc.append(line)
 
-    # Process last parameter
     if current_param is not None:
-        param_name, param_type, is_optional = current_param
-        desc = " ".join(current_desc)
-        is_keyword_only = "(keyword-only)" in desc
-
-        # Handle "A or B" union syntax from docstrings
-        if " or " in param_type:
-            # Split and map each type
-            types = [t.strip() for t in param_type.split(" or ")]
-            mapped_types = []
-            for t in types:
-                # Apply type mapping
-                if t == "numpy.ndarray" or t == "ndarray":
-                    mapped_types.append("np.ndarray")
-                elif t == "list":
-                    mapped_types.append("List")
-                elif t == "tuple":
-                    mapped_types.append("Tuple")
-                else:
-                    mapped_types.append(t)
-            py_type = f"Union[{', '.join(mapped_types)}]"
-        else:
-            # Map types to Python type annotations
-            type_map = {
-                "str": "str",
-                "int": "int",
-                "float": "float",
-                "bool": "bool",
-                "numpy.ndarray": "np.ndarray",
-                "ndarray": "np.ndarray",
-                "TimeSystem": "TimeSystem",
-                "AngleFormat": "AngleFormat",
-                "Epoch": "Epoch",
-                "list": "List",
-                "tuple": "Tuple",
-                "dict": "dict",
-                # AccessConstraint is a union of all constraint types
-                "AccessConstraint": "Union[ElevationConstraint, OffNadirConstraint, LocalTimeConstraint, LookDirectionConstraint, AscDscConstraint, ElevationMaskConstraint, ConstraintAll, ConstraintAny, ConstraintNot]",
-            }
-
-            py_type = type_map.get(param_type, param_type)
-
-        # If param_type is empty or just whitespace, default to Any
-        if not param_type or not param_type.strip():
-            py_type = "Any"
-        params.append((param_name, py_type, is_optional, is_keyword_only))
+        finish_param()
 
     # Python forbids a positional parameter without a default after one with a
     # default. The runtime (pyo3) signature always satisfies this, so if a
@@ -306,6 +282,33 @@ def parse_params_from_docstring(doc: str) -> list:
             params[i] = (param_name, py_type, True, is_keyword_only)
 
     return params
+
+
+def check_none_defaults(label: str, obj: Any, doc: str, errors: list) -> None:
+    """Record parameters whose runtime default is None but whose docstring type omits None.
+
+    Args:
+        label (str): Qualified name used in error messages.
+        obj (Any): Callable whose runtime signature supplies the defaults.
+        doc (str): Docstring whose Args section supplies the parameter types.
+        errors (list): List that error messages are appended to.
+    """
+    try:
+        sig = inspect.signature(obj)
+    except (ValueError, TypeError):
+        return
+    doc_types = {
+        name: py_type for name, py_type, _, _ in parse_params_from_docstring(doc)
+    }
+    for param in sig.parameters.values():
+        py_type = doc_types.get(param.name)
+        if param.default is not None or py_type is None:
+            continue
+        if not accepts_none(py_type):
+            errors.append(
+                f"{label}: parameter '{param.name}' defaults to None but its "
+                f"docstring type '{py_type}' does not include None (use 'T | None')"
+            )
 
 
 def parse_init_params_from_docstring(doc: str) -> str:
@@ -402,10 +405,11 @@ def is_classmethod(cls: type, name: str, member: Any) -> bool:
     return False
 
 
-def generate_class_stub(name: str, cls: type) -> str:
+def generate_class_stub(name: str, cls: type, errors: list) -> str:
     """Generate complete stub for a class with all methods and properties."""
     lines = []
     doc = inspect.getdoc(cls)
+    check_none_defaults(name, cls, doc or "", errors)
 
     lines.append(f"class {name}:")
     if doc:
@@ -519,6 +523,10 @@ def generate_class_stub(name: str, cls: type) -> str:
     for member_name, member in all_members:
         try:
             member_doc = inspect.getdoc(member)
+            if callable(member):
+                check_none_defaults(
+                    f"{name}.{member_name}", member, member_doc or "", errors
+                )
 
             # Check if it's a classmethod (PyO3 classmethods are often builtin_function_or_method)
             if is_classmethod(cls, member_name, member):
@@ -608,9 +616,10 @@ def parse_function_params_from_docstring(doc: str) -> str:
     return ", ".join(param_strs)
 
 
-def generate_function_stub(name: str, func: Any) -> str:
+def generate_function_stub(name: str, func: Any, errors: list) -> str:
     """Generate stub for a module-level function."""
     doc = inspect.getdoc(func)
+    check_none_defaults(name, func, doc or "", errors)
     return_type = infer_return_type_from_name(name, doc or "")
     params_str = parse_function_params_from_docstring(doc or "")
 
@@ -640,12 +649,13 @@ def main():
         return 1
 
     output_lines = []
+    errors = []
 
     # Header
     output_lines.append('"""Type stubs for brahe._brahe module - AUTO-GENERATED"""')
     output_lines.append("")
     output_lines.append(
-        "from typing import Any, Iterable, List, Sequence, Tuple, Optional, Union"
+        "from typing import Any, Callable, Iterable, List, Sequence, Tuple, Optional, Union"
     )
     output_lines.append("import numpy as np")
     output_lines.append("")
@@ -680,7 +690,7 @@ def main():
     for name, cls in sorted(classes.items()):
         print(f"Processing class: {name}")
         try:
-            stub = generate_class_stub(name, cls)
+            stub = generate_class_stub(name, cls, errors)
             output_lines.append(stub)
         except Exception as e:  # noqa: BLE001 - isolate arbitrary failures of the wrapped implementation
             print(f"Error processing class {name}: {e}", file=sys.stderr)
@@ -697,7 +707,7 @@ def main():
         for name, func in sorted(functions.items()):
             print(f"Processing function: {name}")
             try:
-                stub = generate_function_stub(name, func)
+                stub = generate_function_stub(name, func, errors)
                 output_lines.append(stub)
                 output_lines.append("")
             except Exception as e:  # noqa: BLE001 - isolate arbitrary failures of the wrapped implementation
@@ -719,6 +729,15 @@ def main():
                 output_lines.append(f"{name}: {type(value).__name__}")
             else:
                 output_lines.append(f"{name}: Any")
+
+    if errors:
+        print(
+            f"Error: {len(errors)} docstring parameter type(s) omit a None default:",
+            file=sys.stderr,
+        )
+        for error in errors:
+            print(f"    {error}", file=sys.stderr)
+        return 1
 
     # Validate before writing: an unparseable stub is silently discarded by
     # tools like griffe, which then fall back to bare inspection of the

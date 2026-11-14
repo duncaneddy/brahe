@@ -259,7 +259,7 @@ fn py_igrf_ecef<'py>(
 ///     x_geod (numpy.ndarray): Geodetic position [longitude, latitude, altitude_m].
 ///         Angle units controlled by angle_format. Altitude always in meters.
 ///     angle_format (AngleFormat): Whether longitude/latitude are in degrees or radians
-///     nmax (int, optional): Maximum spherical harmonic degree (1-133). Default: 133 (full resolution).
+///     nmax (int | None, optional): Maximum spherical harmonic degree (1-133). Default: 133 (full resolution).
 ///
 /// Returns:
 ///     numpy.ndarray: Magnetic field [B_east, B_north, B_zenith] in nT
@@ -303,7 +303,7 @@ fn py_wmmhr_geodetic_enz<'py>(
 ///     x_geod (numpy.ndarray): Geodetic position [longitude, latitude, altitude_m].
 ///         Angle units controlled by angle_format. Altitude always in meters.
 ///     angle_format (AngleFormat): Whether longitude/latitude are in degrees or radians
-///     nmax (int, optional): Maximum spherical harmonic degree (1-133). Default: 133 (full resolution).
+///     nmax (int | None, optional): Maximum spherical harmonic degree (1-133). Default: 133 (full resolution).
 ///
 /// Returns:
 ///     numpy.ndarray: Magnetic field [B_east, B_north, B_zenith] in nT
@@ -344,7 +344,7 @@ fn py_wmmhr_geocentric_enz<'py>(
 ///     x_geod (numpy.ndarray): Geodetic position [longitude, latitude, altitude_m].
 ///         Angle units controlled by angle_format. Altitude always in meters.
 ///     angle_format (AngleFormat): Whether longitude/latitude are in degrees or radians
-///     nmax (int, optional): Maximum spherical harmonic degree (1-133). Default: 133 (full resolution).
+///     nmax (int | None, optional): Maximum spherical harmonic degree (1-133). Default: 133 (full resolution).
 ///
 /// Returns:
 ///     numpy.ndarray: Magnetic field [B_x, B_y, B_z] in ECEF frame, in nT

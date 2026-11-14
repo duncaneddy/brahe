@@ -1106,7 +1106,7 @@ impl_measurement_model_binding!(
         ///     station_alt (float): Station altitude above the WGS84 ellipsoid (meters).
         ///     noise_cov (numpy.ndarray): 3x3 covariance for [azimuth, elevation, range]
         ///         (angle_format units squared, angle_format units squared, meters squared).
-        ///     angle_format (AngleFormat, optional): Angle units. Defaults to degrees.
+        ///     angle_format (AngleFormat | None, optional): Angle units. Defaults to degrees.
         ///
         /// Returns:
         ///     AzElRangeMeasurementModel: New model instance.
@@ -1143,7 +1143,7 @@ impl_measurement_model_binding!(
         ///     station_lat (float): Station geodetic latitude (angle_format units).
         ///     station_alt (float): Station altitude above the WGS84 ellipsoid (meters).
         ///     upper (numpy.ndarray): Upper-triangular elements (6 for 3x3).
-        ///     angle_format (AngleFormat, optional): Angle units. Defaults to degrees.
+        ///     angle_format (AngleFormat | None, optional): Angle units. Defaults to degrees.
         ///
         /// Returns:
         ///     AzElRangeMeasurementModel: New model instance.
@@ -1180,7 +1180,7 @@ Args:
     sigma_az (float): Azimuth noise standard deviation (angle_format units).
     sigma_el (float): Elevation noise standard deviation (angle_format units).
     sigma_range (float): Range noise standard deviation (meters).
-    angle_format (AngleFormat, optional): Angle units. Defaults to degrees.
+    angle_format (AngleFormat | None, optional): Angle units. Defaults to degrees.
     bias_az (float, optional): Azimuth bias applied in predict(). Default 0.
     bias_el (float, optional): Elevation bias applied in predict(). Default 0.
     bias_range (float, optional): Range bias (meters). Default 0.
@@ -1233,7 +1233,7 @@ impl_measurement_model_binding!(
         ///     station_alt (float): Station altitude above the WGS84 ellipsoid (meters).
         ///     noise_cov (numpy.ndarray): 2x2 covariance for [azimuth, elevation]
         ///         (angle_format units squared).
-        ///     angle_format (AngleFormat, optional): Angle units. Defaults to degrees.
+        ///     angle_format (AngleFormat | None, optional): Angle units. Defaults to degrees.
         ///
         /// Returns:
         ///     AzElMeasurementModel: New model instance.
@@ -1270,7 +1270,7 @@ impl_measurement_model_binding!(
         ///     station_lat (float): Station geodetic latitude (angle_format units).
         ///     station_alt (float): Station altitude above the WGS84 ellipsoid (meters).
         ///     upper (numpy.ndarray): Upper-triangular elements (3 for 2x2).
-        ///     angle_format (AngleFormat, optional): Angle units. Defaults to degrees.
+        ///     angle_format (AngleFormat | None, optional): Angle units. Defaults to degrees.
         ///
         /// Returns:
         ///     AzElMeasurementModel: New model instance.
@@ -1306,7 +1306,7 @@ Args:
     station_alt (float): Station altitude above the WGS84 ellipsoid (meters).
     sigma_az (float): Azimuth noise standard deviation (angle_format units).
     sigma_el (float): Elevation noise standard deviation (angle_format units).
-    angle_format (AngleFormat, optional): Angle units. Defaults to degrees.
+    angle_format (AngleFormat | None, optional): Angle units. Defaults to degrees.
     bias_az (float, optional): Azimuth bias applied in predict(). Default 0.
     bias_el (float, optional): Elevation bias applied in predict(). Default 0.
 

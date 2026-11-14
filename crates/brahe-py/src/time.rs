@@ -481,7 +481,7 @@ fn py_time_system_offset_for_datetime(
 ///         - (Epoch): Another Epoch object (copy constructor)
 ///         - (int, int, int): Year, month, day (midnight)
 ///         - (int, int, int, int, int, float, float): Year, month, day, hour, minute, second, nanosecond
-///     time_system (TimeSystem, optional): Time system, defaults to UTC (can be specified as kwarg or in string)
+///     time_system (TimeSystem | None, optional): Time system, defaults to UTC (can be specified as kwarg or in string)
 ///
 /// Example:
 ///     ```python

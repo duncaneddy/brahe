@@ -3050,7 +3050,7 @@ impl PyTrajectory {
     ///     epochs (list[Epoch]): List of time epochs
     ///     states (numpy.ndarray): 2D array of states with shape (num_epochs, dimension)
     ///         where each row is a state vector
-    ///     interpolation_method (InterpolationMethod): Interpolation method (default Linear)
+    ///     interpolation_method (InterpolationMethod | None, optional): Interpolation method (default Linear)
     ///
     /// Returns:
     ///     Trajectory: New trajectory instance populated with data

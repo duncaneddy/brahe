@@ -87,7 +87,7 @@ fn py_icgem_refresh_all_indexes() -> PyResult<()> {
 /// Args:
 ///     body (str): Body name.
 ///     name (str): Model name, optionally suffixed with -DEGREE.
-///     output_path (str, optional): Optional copy destination.
+///     output_path (str | None, optional): Optional copy destination.
 ///
 /// Returns:
 ///     str: Path to the resulting `.gfc` file.

@@ -1187,12 +1187,12 @@ impl PyIGSProduct {
 ///
 /// Args:
 ///     source (IGSProductSource | str): Archive to read from, or its name (``"CDDIS"``, ``"GARNER"``, ``"BKG"``, case-insensitive).
-///     base_url (str, optional): Directory URL that contains one subdirectory per GPS week, for mirrors and tests. A trailing ``/`` is added when missing.
-///     cddis_username (str, optional): NASA Earthdata username. Requires ``cddis_password``, the CDDIS ``source``, and no ``base_url``.
-///     cddis_password (str, optional): NASA Earthdata password. Requires ``cddis_username``.
-///     cache_max_age (float, optional): Seconds a cached directory listing is served before it is refreshed. Default: 3600.0.
-///     max_retries (int, optional): Extra attempts after the first on transient failures. A retry waits for an exponential backoff with jitter, or for the server's ``Retry-After`` when that is longer, up to 30 seconds. Default: 3.
-///     rate_limit (RateLimitConfig, optional): Per-minute and per-hour request caps. Each attempt to fetch a listing or a file counts as one request. Default: 60 per minute and 3600 per hour.
+///     base_url (str | None, optional): Directory URL that contains one subdirectory per GPS week, for mirrors and tests. A trailing ``/`` is added when missing.
+///     cddis_username (str | None, optional): NASA Earthdata username. Requires ``cddis_password``, the CDDIS ``source``, and no ``base_url``.
+///     cddis_password (str | None, optional): NASA Earthdata password. Requires ``cddis_username``.
+///     cache_max_age (float | None, optional): Seconds a cached directory listing is served before it is refreshed. Default: 3600.0.
+///     max_retries (int | None, optional): Extra attempts after the first on transient failures. A retry waits for an exponential backoff with jitter, or for the server's ``Retry-After`` when that is longer, up to 30 seconds. Default: 3.
+///     rate_limit (RateLimitConfig | None, optional): Per-minute and per-hour request caps. Each attempt to fetch a listing or a file counts as one request. Default: 60 per minute and 3600 per hour.
 ///
 /// Raises:
 ///     ValueError: If only one credential is given, credentials are given with a non-CDDIS source or with ``base_url``, or ``source`` is not a known source name.
@@ -1368,10 +1368,10 @@ impl PyIGSProductsClient {
     ///
     /// Args:
     ///     epoch (Epoch): Any instant in the GPS week to list.
-    ///     center (IGSAnalysisCenter | str, optional): Analysis center or its code, such as ``"COD"``.
-    ///     solution (IGSSolutionType | str, optional): Solution type or its code, such as ``"FIN"``.
-    ///     content (IGSContentType | str, optional): Content type or its code, such as ``"ORB"``.
-    ///     format (IGSFileFormat | str, optional): File format or its code, such as ``"SP3"``.
+    ///     center (IGSAnalysisCenter | str | None, optional): Analysis center or its code, such as ``"COD"``.
+    ///     solution (IGSSolutionType | str | None, optional): Solution type or its code, such as ``"FIN"``.
+    ///     content (IGSContentType | str | None, optional): Content type or its code, such as ``"ORB"``.
+    ///     format (IGSFileFormat | str | None, optional): File format or its code, such as ``"SP3"``.
     ///
     /// Returns:
     ///     list[IGSProduct]: Matching products in listing order.
@@ -1429,10 +1429,10 @@ impl PyIGSProductsClient {
     /// Args:
     ///     start (Epoch): Start of the time range.
     ///     end (Epoch): End of the time range, inclusive.
-    ///     center (IGSAnalysisCenter | str, optional): Analysis center or its code, such as ``"COD"``.
-    ///     solution (IGSSolutionType | str, optional): Solution type or its code, such as ``"FIN"``.
-    ///     content (IGSContentType | str, optional): Content type or its code, such as ``"ORB"``.
-    ///     format (IGSFileFormat | str, optional): File format or its code, such as ``"SP3"``.
+    ///     center (IGSAnalysisCenter | str | None, optional): Analysis center or its code, such as ``"COD"``.
+    ///     solution (IGSSolutionType | str | None, optional): Solution type or its code, such as ``"FIN"``.
+    ///     content (IGSContentType | str | None, optional): Content type or its code, such as ``"ORB"``.
+    ///     format (IGSFileFormat | str | None, optional): File format or its code, such as ``"SP3"``.
     ///
     /// Returns:
     ///     list[IGSProduct]: Matching products ordered by start epoch, then name.
@@ -1627,7 +1627,7 @@ impl PyIGSProductsClient {
     ///     center (IGSAnalysisCenter | str): Analysis center or its code, for example ``"COD"``.
     ///     solution (IGSSolutionType | str): Solution type or its code, for example ``"FIN"``.
     ///     pad (bool, optional): Add the days before and after the span when available. Default: True.
-    ///     sampling (float, optional): Sampling interval of the long-name files to use, seconds. Default: the coarsest published.
+    ///     sampling (float | None, optional): Sampling interval of the long-name files to use, seconds. Default: the coarsest published.
     ///     concurrency (int, optional): Threads that download and parse the files, at least 1. Default: 4.
     ///
     /// Returns:

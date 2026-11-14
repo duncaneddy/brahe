@@ -2519,8 +2519,8 @@ impl PyOPMManeuverIterator {
 ///     ra_of_asc_node (float): Right ascension of ascending node in degrees
 ///     arg_of_pericenter (float): Argument of pericenter in degrees
 ///     mean_anomaly (float): Mean anomaly in degrees
-///     mean_motion (float, optional): Mean motion in rev/day. Defaults to None.
-///     gm (float, optional): Gravitational parameter in m³/s². Defaults to None.
+///     mean_motion (float | None, optional): Mean motion in rev/day. Defaults to None.
+///     gm (float | None, optional): Gravitational parameter in m³/s². Defaults to None.
 ///
 /// Raises:
 ///     ValueError: If `time_system` is not a valid CCSDS time system.

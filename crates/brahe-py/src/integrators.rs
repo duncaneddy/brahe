@@ -152,14 +152,14 @@ fn reraise_callback_error(slot: &PyErrSlot, err: brahe::utils::BraheError) -> Py
 /// Args:
 ///     abs_tol (float, optional): Absolute error tolerance. Defaults to 1e-8.
 ///     rel_tol (float, optional): Relative error tolerance. Defaults to 1e-10.
-///     initial_step (float, optional): Initial step size. Defaults to None (auto).
+///     initial_step (float | None, optional): Initial step size. Defaults to None (auto).
 ///     min_step (float, optional): Minimum step size. Defaults to 1e-12.
 ///     max_step (float, optional): Maximum step size. Defaults to 900.0.
 ///     step_safety_factor (float, optional): Safety factor for step control. Defaults to 0.9.
 ///     min_step_scale_factor (float, optional): Minimum step scaling. Defaults to 0.2.
 ///     max_step_scale_factor (float, optional): Maximum step scaling. Defaults to 10.0.
 ///     max_step_attempts (int, optional): Maximum step attempts. Defaults to 25.
-///     fixed_step_size (float, optional): Fixed step size for fixed-step integrators. Defaults to None.
+///     fixed_step_size (float | None, optional): Fixed step size for fixed-step integrators. Defaults to None.
 ///
 /// Example:
 ///     ```python
@@ -425,10 +425,10 @@ impl PyAdaptiveStepDResult {
 /// Args:
 ///     dimension (int): State vector dimension
 ///     dynamics_fn (callable): Dynamics function with signature (t: float, state: ndarray) -> ndarray
-///     jacobian (AnalyticJacobian or NumericalJacobian, optional): Jacobian provider for variational matrix propagation
-///     sensitivity (AnalyticSensitivity or NumericalSensitivity, optional): Sensitivity provider for sensitivity matrix propagation
-///     control_fn (callable, optional): Control input function with signature (t: float, state: ndarray) -> ndarray whose output is added to the dynamics
-///     config (IntegratorConfig, optional): Integration configuration
+///     jacobian (AnalyticJacobian or NumericalJacobian or None, optional): Jacobian provider for variational matrix propagation
+///     sensitivity (AnalyticSensitivity or NumericalSensitivity or None, optional): Sensitivity provider for sensitivity matrix propagation
+///     control_fn (callable | None, optional): Control input function with signature (t: float, state: ndarray) -> ndarray whose output is added to the dynamics
+///     config (IntegratorConfig | None, optional): Integration configuration
 ///
 /// If the dynamics, control, Jacobian, or sensitivity callback raises a Python
 /// exception, that original exception (with its traceback) is re-raised from the
@@ -648,7 +648,7 @@ impl PyRK4DIntegrator {
     /// Args:
     ///     t (float): Current time
     ///     state (ndarray): State vector at time t
-    ///     dt (float, optional): Timestep. If None, uses the step size from configuration.
+    ///     dt (float | None, optional): Timestep. If None, uses the step size from configuration.
     ///
     /// Returns:
     ///     ndarray: State vector at time t + dt
@@ -697,7 +697,7 @@ impl PyRK4DIntegrator {
     ///     t (float): Current time
     ///     state (ndarray): State vector at time t
     ///     phi (ndarray): State transition matrix at time t (dimension × dimension)
-    ///     dt (float, optional): Timestep. If None, uses the step size from configuration.
+    ///     dt (float | None, optional): Timestep. If None, uses the step size from configuration.
     ///
     /// Returns:
     ///     tuple: (new_state, new_phi) - State vector and STM at time t + dt
@@ -777,7 +777,7 @@ impl PyRK4DIntegrator {
     ///     state (np.ndarray): State vector at time t
     ///     sens (np.ndarray): Sensitivity matrix at time t (state_dim x param_dim)
     ///     params (np.ndarray): Parameter vector
-    ///     dt (float, optional): Integration timestep
+    ///     dt (float | None, optional): Integration timestep
     ///
     /// Returns:
     ///     tuple: (new_state, new_sensitivity)
@@ -873,7 +873,7 @@ impl PyRK4DIntegrator {
     ///     phi (np.ndarray): State transition matrix at time t (state_dim x state_dim)
     ///     sens (np.ndarray): Sensitivity matrix at time t (state_dim x param_dim)
     ///     params (np.ndarray): Parameter vector
-    ///     dt (float, optional): Integration timestep
+    ///     dt (float | None, optional): Integration timestep
     ///
     /// Returns:
     ///     tuple: (new_state, new_phi, new_sensitivity)
@@ -1011,10 +1011,10 @@ impl PyRK4DIntegrator {
 /// Args:
 ///     dimension (int): State vector dimension
 ///     dynamics_fn (callable): Dynamics function with signature (t: float, state: ndarray) -> ndarray
-///     jacobian (AnalyticJacobian or NumericalJacobian, optional): Jacobian provider for variational matrix propagation
-///     sensitivity (AnalyticSensitivity or NumericalSensitivity, optional): Sensitivity provider for sensitivity matrix propagation
-///     control_fn (callable, optional): Control input function with signature (t: float, state: ndarray) -> ndarray whose output is added to the dynamics
-///     config (IntegratorConfig, optional): Integration configuration
+///     jacobian (AnalyticJacobian or NumericalJacobian or None, optional): Jacobian provider for variational matrix propagation
+///     sensitivity (AnalyticSensitivity or NumericalSensitivity or None, optional): Sensitivity provider for sensitivity matrix propagation
+///     control_fn (callable | None, optional): Control input function with signature (t: float, state: ndarray) -> ndarray whose output is added to the dynamics
+///     config (IntegratorConfig | None, optional): Integration configuration
 ///
 /// If the dynamics, control, Jacobian, or sensitivity callback raises a Python
 /// exception, that original exception (with its traceback) is re-raised from the
@@ -1580,10 +1580,10 @@ impl PyRKF45DIntegrator {
 /// Args:
 ///     dimension (int): State vector dimension
 ///     dynamics_fn (callable): Dynamics function with signature (t: float, state: ndarray) -> ndarray
-///     jacobian (AnalyticJacobian or NumericalJacobian, optional): Jacobian provider for variational matrix propagation
-///     sensitivity (AnalyticSensitivity or NumericalSensitivity, optional): Sensitivity provider for sensitivity matrix propagation
-///     control_fn (callable, optional): Control input function with signature (t: float, state: ndarray) -> ndarray whose output is added to the dynamics
-///     config (IntegratorConfig, optional): Integration configuration
+///     jacobian (AnalyticJacobian or NumericalJacobian or None, optional): Jacobian provider for variational matrix propagation
+///     sensitivity (AnalyticSensitivity or NumericalSensitivity or None, optional): Sensitivity provider for sensitivity matrix propagation
+///     control_fn (callable | None, optional): Control input function with signature (t: float, state: ndarray) -> ndarray whose output is added to the dynamics
+///     config (IntegratorConfig | None, optional): Integration configuration
 ///
 /// If the dynamics, control, Jacobian, or sensitivity callback raises a Python
 /// exception, that original exception (with its traceback) is re-raised from the
@@ -2148,10 +2148,10 @@ impl PyRKF78DIntegrator {
 /// Args:
 ///     dimension (int): State vector dimension
 ///     dynamics_fn (callable): Dynamics function with signature (t: float, state: ndarray) -> ndarray
-///     jacobian (AnalyticJacobian or NumericalJacobian, optional): Jacobian provider for variational matrix propagation
-///     sensitivity (AnalyticSensitivity or NumericalSensitivity, optional): Sensitivity provider for sensitivity matrix propagation
-///     control_fn (callable, optional): Control input function with signature (t: float, state: ndarray) -> ndarray whose output is added to the dynamics
-///     config (IntegratorConfig, optional): Integration configuration
+///     jacobian (AnalyticJacobian or NumericalJacobian or None, optional): Jacobian provider for variational matrix propagation
+///     sensitivity (AnalyticSensitivity or NumericalSensitivity or None, optional): Sensitivity provider for sensitivity matrix propagation
+///     control_fn (callable | None, optional): Control input function with signature (t: float, state: ndarray) -> ndarray whose output is added to the dynamics
+///     config (IntegratorConfig | None, optional): Integration configuration
 ///
 /// If the dynamics, control, Jacobian, or sensitivity callback raises a Python
 /// exception, that original exception (with its traceback) is re-raised from the
@@ -2707,9 +2707,9 @@ impl PyDP54DIntegrator {
 /// Args:
 ///     dimension (int): State vector dimension (must be even: position + velocity)
 ///     dynamics_fn (callable): Dynamics function with signature (t: float, state: ndarray) -> ndarray
-///     jacobian (AnalyticJacobian or NumericalJacobian, optional): Jacobian provider for variational matrix propagation
-///     sensitivity (AnalyticSensitivity or NumericalSensitivity, optional): Sensitivity provider for sensitivity matrix propagation
-///     config (IntegratorConfig, optional): Integration configuration
+///     jacobian (AnalyticJacobian or NumericalJacobian or None, optional): Jacobian provider for variational matrix propagation
+///     sensitivity (AnalyticSensitivity or NumericalSensitivity or None, optional): Sensitivity provider for sensitivity matrix propagation
+///     config (IntegratorConfig | None, optional): Integration configuration
 ///
 /// Raises:
 ///     ValueError: If dimension is not even

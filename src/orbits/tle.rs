@@ -209,6 +209,12 @@ pub fn norad_id_alpha5_to_numeric(alpha5_id: &str) -> Result<u32, BraheError> {
 
     // Parse remaining 4 digits
     let remaining: String = chars[1..].iter().collect();
+    if remaining.len() != 4 || !remaining.chars().all(|c| c.is_ascii_digit()) {
+        return Err(BraheError::Error(format!(
+            "Invalid Alpha-5 numeric part: {}",
+            remaining
+        )));
+    }
     let numeric_part = remaining
         .parse::<u32>()
         .map_err(|_| BraheError::Error(format!("Invalid Alpha-5 numeric part: {}", remaining)))?;
@@ -373,7 +379,9 @@ pub fn keplerian_elements_to_tle(
 ///
 /// # Arguments
 /// * `epoch` - Epoch of the orbital elements
-/// * `norad_id` - NORAD catalog number as string (supports numeric and Alpha-5 format)
+/// * `norad_id` - NORAD catalog number as string (supports numeric and Alpha-5 format).
+///   IDs shorter than five characters are right-justified in the TLE field with
+///   leading spaces (e.g., `"5"` is written as `"    5"`).
 /// * `classification` - Classification character ('U', 'C', or 'S')
 /// * `intl_designator` - International designator (e.g., "98067A")
 /// * `mean_motion` - Mean motion in revolutions per day
@@ -419,8 +427,11 @@ pub fn create_tle_lines(
         )));
     }
 
+    // Right-justify into the 5-column TLE field, leaving unused leading columns blank
+    let norad_id_field = format!("{:>5}", norad_id_trimmed);
+
     // Validate that it's a valid NORAD ID (numeric or Alpha-5)
-    parse_norad_id(norad_id_trimmed)?;
+    parse_norad_id(&norad_id_field)?;
     if !(0.0..1.0).contains(&eccentricity) {
         return Err(BraheError::Error(
             "Eccentricity must be in range [0, 1)".to_string(),
@@ -510,8 +521,8 @@ pub fn create_tle_lines(
 
     // Create line 1 (without checksum)
     let line1_base = format!(
-        "1 {:5}{} {} {:02}{:012.8} {} {} {} {} {:04}",
-        norad_id_trimmed,
+        "1 {}{} {} {:02}{:012.8} {} {} {} {} {:04}",
+        norad_id_field,
         classification,
         intl_des_final,
         year_2digit,
@@ -543,8 +554,8 @@ pub fn create_tle_lines(
 
     // Create line 2 (without checksum)
     let line2_base = format!(
-        "2 {:5} {:8.4} {:8.4} {} {:8.4} {:8.4} {:11.8}{:05}",
-        norad_id_trimmed,
+        "2 {} {:8.4} {:8.4} {} {:8.4} {:8.4} {:11.8}{:05}",
+        norad_id_field,
         incl_norm,
         raan_norm,
         ecc_final,
@@ -781,6 +792,7 @@ mod tests {
     #[case("!2345")] // Invalid character
     #[case("")] // Empty string
     #[case("     ")] // Only spaces
+    #[case("A+123")] // Sign in Alpha-5 numeric part
     #[parallel]
     fn test_parse_norad_id_invalid(#[case] id_str: &str) {
         assert!(parse_norad_id(id_str).is_err());
@@ -922,6 +934,26 @@ mod tests {
     }
 
     #[rstest]
+    #[case("5", "    5")]
+    #[case("    5", "    5")]
+    #[case("00005", "00005")]
+    #[case("9999", " 9999")]
+    #[case("A0000", "A0000")]
+    #[parallel]
+    fn test_create_tle_lines_norad_id_field(#[case] norad_id: &str, #[case] expected: &str) {
+        let epoch = Epoch::from_datetime(2021, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let elements = Vector6::new(6786000.0, 0.001, 51.6, 306.0, 88.1, 25.5);
+
+        let (line1, line2) = keplerian_elements_to_tle(&epoch, &elements, norad_id).unwrap();
+
+        assert_eq!(line1.len(), 69);
+        assert_eq!(line2.len(), 69);
+        assert_eq!(&line1[2..7], expected);
+        assert_eq!(&line2[2..7], expected);
+        assert!(validate_tle_lines(&line1, &line2));
+    }
+
+    #[rstest]
     #[case(0.0, " 00000+0")]
     #[case(0.00012345, " 12345-3")]
     #[case(-0.00012345, "-12345-3")]
@@ -1003,6 +1035,10 @@ mod tests {
     #[case("A00")] // Too short
     #[case("")] // Empty
     #[case("AAAAA")] // All letters
+    #[case("A+123")] // Sign in numeric part
+    #[case("A-123")] // Sign in numeric part
+    #[case("A 123")] // Space in numeric part
+    #[case("A12 3")] // Space in numeric part
     #[parallel]
     fn test_norad_id_alpha5_to_numeric_invalid(#[case] alpha5_id: &str) {
         assert!(norad_id_alpha5_to_numeric(alpha5_id).is_err());

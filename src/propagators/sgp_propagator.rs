@@ -857,8 +857,8 @@ impl SGPPropagator {
         }
 
         // Extract NORAD ID and determine format
+        let norad_id = parse_norad_id(&line1[2..7])?;
         let norad_id_string = line1[2..7].trim().to_string();
-        let norad_id = parse_norad_id(&norad_id_string)?;
         let format = if norad_id_string
             .chars()
             .next()
@@ -2604,6 +2604,7 @@ mod tests {
     use crate::utils::testing::{setup_global_test_eop, setup_global_test_eop_original_brahe};
     use crate::{DEGREES, RADIANS};
     use approx::assert_abs_diff_eq;
+    use rstest::rstest;
     use serial_test::{parallel, serial};
 
     // Test TLE data
@@ -2722,6 +2723,48 @@ mod tests {
         let prop = propagator.unwrap();
         assert_eq!(prop.norad_id, 25544);
         assert_eq!(prop.satellite_name, None);
+    }
+
+    #[rstest]
+    #[case(5, "    5")]
+    #[case(9999, " 9999")]
+    #[case(25544, "25544")]
+    #[case(100000, "A0000")]
+    #[parallel]
+    fn test_sgppropagator_from_omm_elements_norad_id_field(
+        #[case] norad_id: u64,
+        #[case] expected_field: &str,
+    ) {
+        setup_global_test_eop();
+
+        let prop = SGPPropagator::from_omm_elements(
+            Epoch::from_datetime(2025, 11, 29, 20, 1, 44.058144, 0.0, TimeSystem::UTC),
+            15.49193835,
+            0.0003723,
+            51.6312,
+            206.3646,
+            184.1118,
+            175.9840,
+            norad_id,
+            60.0,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        assert_eq!(prop.norad_id, norad_id as u32);
+        assert_eq!(&prop.line1[2..7], expected_field);
+        assert_eq!(&prop.line2[2..7], expected_field);
+
+        let reparsed = SGPPropagator::from_tle(&prop.line1, &prop.line2, 60.0).unwrap();
+        assert_eq!(reparsed.norad_id, norad_id as u32);
     }
 
     #[test]

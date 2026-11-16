@@ -4,6 +4,8 @@
  * Reference: CCSDS 502.0-B-3 (Orbit Data Messages), section 4
  */
 
+use quick_xml::Reader;
+use quick_xml::events::Event;
 use serde::Deserialize;
 
 use crate::ccsds::common::{
@@ -160,9 +162,126 @@ struct XMLTleParameters {
 // OMM XML Parser
 // ============================================================================
 
+/// Return the `<omm>` element of an `<ndm>` combined instantiation that holds
+/// exactly one OMM, or `content` unchanged when the root element is not `<ndm>`.
+///
+/// A stand-alone OMM XML document has `<omm>` as its root (CCSDS 505.0-B-2). An
+/// `<ndm>` root is the NDM combined instantiation, which may hold any number of
+/// navigation data messages. Unwrapping a single-OMM `<ndm>` is a convenience for
+/// sources such as CelesTrak that publish each OMM inside an `<ndm>` wrapper; it is
+/// not a general NDM reader, so an `<ndm>` holding anything other than one `<omm>`
+/// (plus optional `COMMENT` elements) is rejected.
+///
+/// # Arguments
+///
+/// * `content` - XML document text.
+///
+/// # Returns
+///
+/// * `Result<&str, BraheError>` - The `<omm>...</omm>` slice of `content`, or
+///   `content` itself when the root element is not `<ndm>`.
+fn unwrap_single_omm_ndm(content: &str) -> Result<&str, BraheError> {
+    let mut reader = Reader::from_str(content);
+    let mut depth = 0usize;
+    let mut omm_span: Option<(usize, usize)> = None;
+    let mut omm_start = 0usize;
+    let mut omm_count = 0usize;
+    let mut root_closed = false;
+
+    loop {
+        let event_start = reader.buffer_position() as usize;
+        let event = reader
+            .read_event()
+            .map_err(|e| ccsds_parse_error("OMM", &format!("XML parse error: {}", e)))?;
+        match event {
+            Event::Start(_) | Event::Empty(_) if root_closed => {
+                return Err(ccsds_parse_error(
+                    "OMM",
+                    "XML document contains an element after the closing </ndm>",
+                ));
+            }
+            Event::Start(e) => {
+                let name = e.name();
+                if depth == 0 && name.as_ref() != "ndm" {
+                    return Ok(content);
+                }
+                if depth == 1 {
+                    match name.as_ref() {
+                        "omm" => {
+                            omm_count += 1;
+                            omm_start = event_start;
+                        }
+                        "COMMENT" => {}
+                        other => {
+                            return Err(ccsds_parse_error(
+                                "OMM",
+                                &format!(
+                                    "<ndm> contains a <{}> element; only a single <omm> is supported",
+                                    other
+                                ),
+                            ));
+                        }
+                    }
+                }
+                depth += 1;
+            }
+            Event::Empty(e) => {
+                if depth == 0 {
+                    return Ok(content);
+                }
+                if depth == 1 && e.name().as_ref() != "COMMENT" {
+                    return Err(ccsds_parse_error(
+                        "OMM",
+                        &format!(
+                            "<ndm> contains a <{}/> element; only a single <omm> is supported",
+                            e.name().as_ref()
+                        ),
+                    ));
+                }
+            }
+            Event::End(e) => {
+                depth = depth.saturating_sub(1);
+                if depth == 1 && e.name().as_ref() == "omm" {
+                    omm_span = Some((omm_start, reader.buffer_position() as usize));
+                }
+                if depth == 0 {
+                    root_closed = true;
+                }
+            }
+            Event::Text(_) | Event::CData(_) if depth == 1 || root_closed => {
+                let raw = &content[event_start..reader.buffer_position() as usize];
+                if !raw.trim().is_empty() {
+                    return Err(ccsds_parse_error(
+                        "OMM",
+                        &format!(
+                            "<ndm> contains text outside an element: {:?}; only a single <omm> is supported",
+                            raw.trim()
+                        ),
+                    ));
+                }
+            }
+            Event::Eof => break,
+            _ => {}
+        }
+    }
+
+    match (omm_count, omm_span) {
+        (1, Some((start, end))) => Ok(&content[start..end]),
+        (n, _) => Err(ccsds_parse_error(
+            "OMM",
+            &format!("<ndm> contains {} <omm> elements; expected exactly 1", n),
+        )),
+    }
+}
+
 /// Parse an OMM message from XML format.
+///
+/// Accepts a stand-alone `<omm>` document, or an `<ndm>` combined instantiation
+/// that holds exactly one `<omm>` (see [`unwrap_single_omm_ndm`]).
 pub fn parse_omm_xml(content: &str) -> Result<crate::ccsds::omm::OMM, BraheError> {
     use crate::ccsds::omm::*;
+
+    let content = unwrap_single_omm_ndm(content)?;
 
     let xml_omm: XMLOMM = quick_xml::de::from_str(content)
         .map_err(|e| ccsds_parse_error("OMM", &format!("XML parse error: {}", e)))?;
@@ -539,6 +658,41 @@ pub fn write_omm_xml(omm: &crate::ccsds::omm::OMM) -> Result<String, BraheError>
 mod tests {
 
     use crate::ccsds::xml::parse_omm_xml;
+    use rstest::rstest;
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_parse_omm_xml_ndm_wrapped_single_omm() {
+        let omm = parse_omm_xml(
+            &std::fs::read_to_string("test_assets/ccsds/omm/OMM-ndm-wrapped.xml").unwrap(),
+        )
+        .unwrap();
+
+        assert_eq!(omm.header.format_version, 2.0);
+        assert_eq!(omm.header.originator, "CelesTrak");
+        assert_eq!(omm.metadata.object_name, "ISS (ZARYA)");
+        assert_eq!(omm.metadata.object_id, "1998-067A");
+        assert_eq!(omm.mean_elements.mean_motion, Some(15.49391288));
+        assert_eq!(
+            omm.tle_parameters.as_ref().unwrap().norad_cat_id,
+            Some(25544)
+        );
+    }
+
+    #[rstest]
+    #[case("OMM-ndm-multiple.xml", "2 <omm> elements")]
+    #[case("OMM-ndm-mixed.xml", "<opm>")]
+    #[case("OMM-ndm-stray-text.xml", "text outside an element")]
+    #[case("OMM-ndm-trailing-element.xml", "after the closing </ndm>")]
+    #[serial_test::parallel]
+    fn test_parse_omm_xml_ndm_rejects_non_single_omm(#[case] file: &str, #[case] msg: &str) {
+        let err = parse_omm_xml(
+            &std::fs::read_to_string(format!("test_assets/ccsds/omm/{}", file)).unwrap(),
+        )
+        .unwrap_err();
+
+        assert!(err.to_string().contains(msg), "unexpected error: {}", err);
+    }
 
     #[test]
     #[serial_test::parallel]

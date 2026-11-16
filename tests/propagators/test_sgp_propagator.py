@@ -77,6 +77,34 @@ class TestSGPPropagatorMethods:
         assert prop.epoch.month() == 11
         assert prop.epoch.day() == 29
 
+    @pytest.mark.parametrize(
+        "norad_id,expected_field",
+        [(5, "    5"), (9999, " 9999"), (25544, "25544"), (100000, "A0000")],
+    )
+    def test_sgppropagator_from_omm_elements_norad_id_field(
+        self, norad_id, expected_field
+    ):
+        """Mirror of test_sgppropagator_from_omm_elements_norad_id_field in Rust."""
+        prop = brahe.SGPPropagator.from_omm_elements(
+            epoch=brahe.Epoch.from_datetime(
+                2025, 11, 29, 20, 1, 44.058144, 0.0, brahe.TimeSystem.UTC
+            ),
+            mean_motion=15.49193835,
+            eccentricity=0.0003723,
+            inclination=51.6312,
+            raan=206.3646,
+            arg_of_pericenter=184.1118,
+            mean_anomaly=175.9840,
+            norad_id=norad_id,
+        )
+
+        assert prop.norad_id == norad_id
+        assert prop.line1[2:7] == expected_field
+        assert prop.line2[2:7] == expected_field
+
+        reparsed = brahe.SGPPropagator.from_tle(prop.line1, prop.line2, 60.0)
+        assert reparsed.norad_id == norad_id
+
     def test_sgppropagator_from_omm_elements_with_optional_fields(self):
         """Test SGPPropagator creation from OMM elements with all optional fields."""
         prop = brahe.SGPPropagator.from_omm_elements(

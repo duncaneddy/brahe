@@ -191,7 +191,7 @@ impl OMM {
             header: ODMHeader {
                 format_version: 3.0,
                 classification: None,
-                creation_date: Epoch::now(),
+                creation_date: Some(Epoch::now()),
                 originator,
                 message_id: None,
                 comments: Vec::new(),
@@ -258,7 +258,56 @@ mod tests {
     use super::*;
     use crate::ccsds::common::CCSDSJsonKeyCase;
     use crate::time::TimeSystem;
+    use rstest::rstest;
     use serial_test::parallel;
+
+    #[rstest]
+    #[case("test_assets/ccsds/omm/OMM-celestrak-empty-header.txt")]
+    #[case("test_assets/ccsds/omm/OMM-celestrak-empty-header.xml")]
+    #[parallel]
+    fn test_omm_parse_celestrak_empty_header(#[case] path: &str) {
+        let omm = OMM::from_file(path).unwrap();
+
+        assert!(omm.header.creation_date.is_none());
+        assert_eq!(omm.header.originator, "");
+        assert_eq!(omm.metadata.object_name, "ISS (ZARYA)");
+        assert_eq!(
+            omm.tle_parameters.as_ref().unwrap().norad_cat_id,
+            Some(25544)
+        );
+    }
+
+    #[rstest]
+    #[case(CCSDSFormat::KVN)]
+    #[case(CCSDSFormat::XML)]
+    #[case(CCSDSFormat::JSON)]
+    #[parallel]
+    fn test_omm_empty_creation_date_round_trip(#[case] format: CCSDSFormat) {
+        let omm = OMM::from_file("test_assets/ccsds/omm/OMM-celestrak-empty-header.txt").unwrap();
+
+        let written = omm.to_string(format).unwrap();
+        let omm2 = OMM::from_str(&written).unwrap();
+
+        assert!(omm2.header.creation_date.is_none());
+        assert_eq!(omm2.header.originator, "");
+        assert_eq!(omm2.metadata.object_name, omm.metadata.object_name);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_omm_kvn_missing_creation_date_keyword_errors() {
+        let content =
+            std::fs::read_to_string("test_assets/ccsds/omm/OMM-celestrak-empty-header.txt")
+                .unwrap();
+        let without: String = content
+            .lines()
+            .filter(|l| !l.starts_with("CREATION_DATE"))
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        let err = OMM::from_str(&without).unwrap_err();
+        assert!(err.to_string().contains("CREATION_DATE"), "{}", err);
+    }
 
     #[test]
     #[parallel]

@@ -13,7 +13,8 @@ use serde::Deserialize;
 use crate::ccsds::common::{
     CCSDSCovariance, CCSDSRefFrame, CCSDSSpacecraftParameters, CCSDSTimeSystem, CCSDSUserDefined,
     ODMHeader, covariance_from_lower_triangular, covariance_to_lower_triangular,
-    format_ccsds_datetime_in, parse_ccsds_datetime, round_ccsds_value,
+    format_ccsds_datetime_in, format_optional_ccsds_datetime_in, parse_ccsds_datetime,
+    round_ccsds_value,
 };
 use crate::ccsds::error::ccsds_parse_error;
 use crate::utils::errors::BraheError;
@@ -526,7 +527,7 @@ pub(super) fn write_xml_header(out: &mut String, header: &ODMHeader, i1: &str, i
     out.push_str(&format!(
         "{}<CREATION_DATE>{}</CREATION_DATE>\n",
         i2,
-        format_ccsds_datetime_in(&header.creation_date, &CCSDSTimeSystem::UTC)
+        format_optional_ccsds_datetime_in(&header.creation_date, &CCSDSTimeSystem::UTC)
     ));
     out.push_str(&format!(
         "{}<ORIGINATOR>{}</ORIGINATOR>\n",

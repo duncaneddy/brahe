@@ -1316,7 +1316,7 @@ impl PyOEM {
                 header: ODMHeader {
                     format_version,
                     classification,
-                    creation_date: brahe::time::Epoch::now(),
+                    creation_date: Some(brahe::time::Epoch::now()),
                     originator,
                     message_id: None,
                     comments: Vec::new(),
@@ -1451,7 +1451,7 @@ impl PyOEM {
         )?;
         header.set_item(
             "creation_date",
-            brahe::ccsds::common::format_ccsds_datetime_in(&self.inner.header.creation_date, &brahe::ccsds::common::CCSDSTimeSystem::UTC),
+            self.inner.header.creation_date.as_ref().map(|e| brahe::ccsds::common::format_ccsds_datetime_in(e, &brahe::ccsds::common::CCSDSTimeSystem::UTC)),
         )?;
         header.set_item("originator", &self.inner.header.originator)?;
         header.set_item("message_id", self.inner.header.message_id.as_deref())?;
@@ -1605,24 +1605,23 @@ impl PyOEM {
         self.inner.header.classification = val;
     }
 
-    /// Creation date of the message.
+    /// Creation date of the message, or None when the source left
+    /// CREATION_DATE empty.
     ///
     /// Returns:
-    ///     Epoch: Creation date
+    ///     Epoch | None: Creation date, or None if empty
     #[getter]
-    fn creation_date(&self) -> PyEpoch {
-        PyEpoch {
-            obj: self.inner.header.creation_date,
-        }
+    fn creation_date(&self) -> Option<PyEpoch> {
+        self.inner.header.creation_date.map(|obj| PyEpoch { obj })
     }
 
     /// Set creation date.
     ///
     /// Args:
-    ///     val (Epoch): Creation date
+    ///     val (Epoch | None): Creation date, or None to leave CREATION_DATE empty
     #[setter]
-    fn set_creation_date(&mut self, val: PyEpoch) {
-        self.inner.header.creation_date = val.obj;
+    fn set_creation_date(&mut self, val: Option<PyEpoch>) {
+        self.inner.header.creation_date = val.map(|e| e.obj);
     }
 
     /// Message ID, or None.
@@ -2685,7 +2684,7 @@ impl PyOMM {
         header.set_item("format_version", self.inner.header.format_version)?;
         header.set_item(
             "creation_date",
-            brahe::ccsds::common::format_ccsds_datetime_in(&self.inner.header.creation_date, &brahe::ccsds::common::CCSDSTimeSystem::UTC),
+            self.inner.header.creation_date.as_ref().map(|e| brahe::ccsds::common::format_ccsds_datetime_in(e, &brahe::ccsds::common::CCSDSTimeSystem::UTC)),
         )?;
         header.set_item("originator", &self.inner.header.originator)?;
         dict.set_item("header", header)?;
@@ -2852,24 +2851,23 @@ impl PyOMM {
         self.inner.header.originator = val;
     }
 
-    /// Creation date of the message.
+    /// Creation date of the message, or None when the source left
+    /// CREATION_DATE empty.
     ///
     /// Returns:
-    ///     Epoch: Creation date
+    ///     Epoch | None: Creation date, or None if empty
     #[getter]
-    fn creation_date(&self) -> PyEpoch {
-        PyEpoch {
-            obj: self.inner.header.creation_date,
-        }
+    fn creation_date(&self) -> Option<PyEpoch> {
+        self.inner.header.creation_date.map(|obj| PyEpoch { obj })
     }
 
     /// Set creation date.
     ///
     /// Args:
-    ///     val (Epoch): Creation date
+    ///     val (Epoch | None): Creation date, or None to leave CREATION_DATE empty
     #[setter]
-    fn set_creation_date(&mut self, val: PyEpoch) {
-        self.inner.header.creation_date = val.obj;
+    fn set_creation_date(&mut self, val: Option<PyEpoch>) {
+        self.inner.header.creation_date = val.map(|e| e.obj);
     }
 
     // --- metadata properties ---
@@ -3506,7 +3504,7 @@ impl PyOPM {
         header.set_item("format_version", self.inner.header.format_version)?;
         header.set_item(
             "creation_date",
-            brahe::ccsds::common::format_ccsds_datetime_in(&self.inner.header.creation_date, &brahe::ccsds::common::CCSDSTimeSystem::UTC),
+            self.inner.header.creation_date.as_ref().map(|e| brahe::ccsds::common::format_ccsds_datetime_in(e, &brahe::ccsds::common::CCSDSTimeSystem::UTC)),
         )?;
         header.set_item("originator", &self.inner.header.originator)?;
         header.set_item("comments", &self.inner.header.comments)?;
@@ -3627,24 +3625,23 @@ impl PyOPM {
         self.inner.header.originator = val;
     }
 
-    /// Creation date of the message.
+    /// Creation date of the message, or None when the source left
+    /// CREATION_DATE empty.
     ///
     /// Returns:
-    ///     Epoch: Creation date
+    ///     Epoch | None: Creation date, or None if empty
     #[getter]
-    fn creation_date(&self) -> PyEpoch {
-        PyEpoch {
-            obj: self.inner.header.creation_date,
-        }
+    fn creation_date(&self) -> Option<PyEpoch> {
+        self.inner.header.creation_date.map(|obj| PyEpoch { obj })
     }
 
     /// Set creation date.
     ///
     /// Args:
-    ///     val (Epoch): Creation date
+    ///     val (Epoch | None): Creation date, or None to leave CREATION_DATE empty
     #[setter]
-    fn set_creation_date(&mut self, val: PyEpoch) {
-        self.inner.header.creation_date = val.obj;
+    fn set_creation_date(&mut self, val: Option<PyEpoch>) {
+        self.inner.header.creation_date = val.map(|e| e.obj);
     }
 
     // --- metadata properties ---

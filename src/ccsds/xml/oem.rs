@@ -8,6 +8,7 @@ use serde::Deserialize;
 
 use crate::ccsds::common::{
     CCSDSRefFrame, CCSDSTimeSystem, ODMHeader, format_ccsds_datetime_in, parse_ccsds_datetime,
+    parse_optional_ccsds_datetime,
 };
 use crate::ccsds::error::ccsds_parse_error;
 use crate::ccsds::oem::{OEM, OEMMetadata, OEMSegment, OEMStateVector};
@@ -226,7 +227,7 @@ pub fn parse_oem_xml(content: &str) -> Result<OEM, BraheError> {
     let header = ODMHeader {
         format_version,
         classification: xml_oem.header.classification(),
-        creation_date: parse_ccsds_datetime(creation_date_str, &CCSDSTimeSystem::UTC)?,
+        creation_date: parse_optional_ccsds_datetime(creation_date_str, &CCSDSTimeSystem::UTC)?,
         originator,
         message_id: xml_oem.header.message_id(),
         comments: xml_oem.header.comments(),

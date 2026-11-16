@@ -8,7 +8,8 @@ use std::collections::HashMap;
 
 use crate::ccsds::common::{
     CCSDSCovariance, CCSDSRefFrame, CCSDSSpacecraftParameters, CCSDSTimeSystem, CCSDSUserDefined,
-    ODMHeader, covariance_from_lower_triangular, format_ccsds_datetime_in, parse_ccsds_datetime,
+    ODMHeader, covariance_from_lower_triangular, format_ccsds_datetime_in,
+    format_optional_ccsds_datetime_in, parse_ccsds_datetime, parse_optional_ccsds_datetime,
     strip_units,
 };
 use crate::ccsds::error::{ccsds_missing_field, ccsds_parse_error};
@@ -106,7 +107,7 @@ pub fn parse_opm(content: &str) -> Result<OPM, BraheError> {
     // Header
     let mut format_version: Option<f64> = None;
     let mut classification: Option<String> = None;
-    let mut creation_date: Option<Epoch> = None;
+    let mut creation_date: Option<Option<Epoch>> = None;
     let mut originator: Option<String> = None;
     let mut message_id: Option<String> = None;
 
@@ -238,7 +239,8 @@ pub fn parse_opm(content: &str) -> Result<OPM, BraheError> {
                         );
                     }
                     "CREATION_DATE" => {
-                        creation_date = Some(parse_ccsds_datetime(val, &CCSDSTimeSystem::UTC)?);
+                        creation_date =
+                            Some(parse_optional_ccsds_datetime(val, &CCSDSTimeSystem::UTC)?);
                     }
                     "ORIGINATOR" => {
                         originator = Some(val.to_string());
@@ -605,7 +607,7 @@ pub fn write_opm(opm: &crate::ccsds::opm::OPM) -> Result<String, BraheError> {
     }
     out.push_str(&format!(
         "CREATION_DATE = {}\n",
-        format_ccsds_datetime_in(&opm.header.creation_date, &CCSDSTimeSystem::UTC)
+        format_optional_ccsds_datetime_in(&opm.header.creation_date, &CCSDSTimeSystem::UTC)
     ));
     out.push_str(&format!("ORIGINATOR = {}\n", opm.header.originator));
     if let Some(ref msg_id) = opm.header.message_id {

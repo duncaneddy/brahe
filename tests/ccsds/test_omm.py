@@ -669,3 +669,92 @@ def test_omm_json_uppercase_from_constructor(eop):
     json_str = omm.to_json_string(uppercase_keys=True)
     assert '"OBJECT_NAME"' in json_str
     assert '"ECCENTRICITY"' in json_str
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "test_assets/ccsds/omm/OMM-celestrak-empty-header.txt",
+        "test_assets/ccsds/omm/OMM-celestrak-empty-header.xml",
+    ],
+)
+def test_omm_parse_celestrak_empty_header(eop, path):
+    """Mirror of test_omm_parse_celestrak_empty_header in Rust."""
+    omm = OMM.from_file(path)
+
+    assert omm.creation_date is None
+    assert omm.originator == ""
+    assert omm.object_name == "ISS (ZARYA)"
+    assert omm.norad_cat_id == 25544
+    assert omm.to_dict()["header"]["creation_date"] is None
+
+
+@pytest.mark.parametrize("fmt", ["KVN", "XML", "JSON"])
+def test_omm_empty_creation_date_round_trip(eop, fmt):
+    """Mirror of test_omm_empty_creation_date_round_trip in Rust."""
+    omm = OMM.from_file("test_assets/ccsds/omm/OMM-celestrak-empty-header.txt")
+
+    omm2 = OMM.from_str(omm.to_string(fmt))
+
+    assert omm2.creation_date is None
+    assert omm2.originator == ""
+    assert omm2.object_name == omm.object_name
+
+
+def test_omm_kvn_missing_creation_date_keyword_errors(eop):
+    """Mirror of test_omm_kvn_missing_creation_date_keyword_errors in Rust."""
+    with open("test_assets/ccsds/omm/OMM-celestrak-empty-header.txt") as handle:
+        lines = [
+            line
+            for line in handle.read().splitlines()
+            if not line.startswith("CREATION_DATE")
+        ]
+
+    with pytest.raises(Exception, match="CREATION_DATE"):
+        OMM.from_str("\n".join(lines))
+
+
+def test_omm_creation_date_setter_accepts_none(eop):
+    """Setting creation_date to None leaves CREATION_DATE empty on write."""
+    omm = OMM.from_file("test_assets/ccsds/omm/OMMExample1.txt")
+    assert omm.creation_date is not None
+
+    omm.creation_date = None
+
+    assert omm.creation_date is None
+    assert OMM.from_str(omm.to_string("KVN")).creation_date is None
+
+
+@pytest.mark.parametrize(
+    "json_str",
+    [
+        (
+            '{"EPOCH": "2024-01-15T12:00:00.000", "ECCENTRICITY": 0.001,'
+            ' "INCLINATION": 51.64, "RA_OF_ASC_NODE": 200.0,'
+            ' "ARG_OF_PERICENTER": 100.0, "MEAN_ANOMALY": 260.0}'
+        ),
+        (
+            '{"CREATION_DATE": "", "EPOCH": "2024-01-15T12:00:00.000",'
+            ' "ECCENTRICITY": 0.001, "INCLINATION": 51.64, "RA_OF_ASC_NODE": 200.0,'
+            ' "ARG_OF_PERICENTER": 100.0, "MEAN_ANOMALY": 260.0}'
+        ),
+    ],
+)
+def test_gp_record_to_omm_empty_creation_date(eop, json_str):
+    """Mirror of test_gp_record_to_omm_empty_creation_date in Rust."""
+    omm = bh.GPRecord.from_json(json_str).to_omm()
+
+    assert omm.creation_date is None
+    assert omm.to_gp_record().creation_date is None
+
+
+def test_gp_record_to_omm_malformed_creation_date_errors(eop):
+    """Mirror of test_gp_record_to_omm_malformed_creation_date_errors in Rust."""
+    record = bh.GPRecord.from_json(
+        '{"CREATION_DATE": "not-a-date", "EPOCH": "2024-01-15T12:00:00.000",'
+        ' "ECCENTRICITY": 0.001, "INCLINATION": 51.64, "RA_OF_ASC_NODE": 200.0,'
+        ' "ARG_OF_PERICENTER": 100.0, "MEAN_ANOMALY": 260.0}'
+    )
+
+    with pytest.raises(Exception, match="not-a-date"):
+        record.to_omm()

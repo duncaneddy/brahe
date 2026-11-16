@@ -204,7 +204,7 @@ impl OPM {
             header: ODMHeader {
                 format_version: 3.0,
                 classification: None,
-                creation_date: Epoch::now(),
+                creation_date: Some(Epoch::now()),
                 originator,
                 message_id: None,
                 comments: Vec::new(),
@@ -321,6 +321,23 @@ impl OPM {
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
+    use rstest::rstest;
+
+    #[rstest]
+    #[case("test_assets/ccsds/opm/OPMExample1.txt", "1998-11-06T09:23:57")]
+    #[case("test_assets/ccsds/opm/OPMExample3.xml", "2001-11-06T09:23:57")]
+    #[serial_test::parallel]
+    fn test_opm_empty_creation_date(#[case] path: &str, #[case] date: &str) {
+        let content = std::fs::read_to_string(path).unwrap().replacen(date, "", 1);
+
+        let opm = OPM::from_str(&content).unwrap();
+        assert!(opm.header.creation_date.is_none());
+
+        for format in [CCSDSFormat::KVN, CCSDSFormat::XML, CCSDSFormat::JSON] {
+            let opm2 = OPM::from_str(&opm.to_string(format).unwrap()).unwrap();
+            assert!(opm2.header.creation_date.is_none());
+        }
+    }
     use crate::ccsds::common::CCSDSJsonKeyCase;
     use crate::frames::{
         CelestialFrame, state_eme2000_to_gcrf, state_teme_to_gcrf, state_tod_to_gcrf,

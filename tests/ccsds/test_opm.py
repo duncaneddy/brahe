@@ -1059,3 +1059,22 @@ def test_opm_state_in_frame_teme(eop):
 
     x_teme = opm.state_in_frame(brahe.CelestialFrame.TEME)
     np.testing.assert_array_equal(x_teme, opm.state)
+
+
+@pytest.mark.parametrize(
+    "path,date",
+    [
+        ("test_assets/ccsds/opm/OPMExample1.txt", "1998-11-06T09:23:57"),
+        ("test_assets/ccsds/opm/OPMExample3.xml", "2001-11-06T09:23:57"),
+    ],
+)
+def test_opm_empty_creation_date(eop, path, date):
+    """Mirror of test_opm_empty_creation_date in Rust."""
+    with open(path) as handle:
+        content = handle.read().replace(date, "", 1)
+
+    opm = OPM.from_str(content)
+    assert opm.creation_date is None
+
+    for fmt in ("KVN", "XML", "JSON"):
+        assert OPM.from_str(opm.to_string(fmt)).creation_date is None

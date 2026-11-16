@@ -6,8 +6,8 @@
 
 use crate::ccsds::common::{
     CCSDSCovariance, CCSDSRefFrame, CCSDSTimeSystem, ODMHeader, covariance_from_lower_triangular,
-    covariance_to_lower_triangular, format_ccsds_datetime_in, parse_ccsds_datetime,
-    round_ccsds_value,
+    covariance_to_lower_triangular, format_ccsds_datetime_in, format_optional_ccsds_datetime_in,
+    parse_ccsds_datetime, parse_optional_ccsds_datetime, round_ccsds_value,
 };
 use crate::ccsds::error::{ccsds_missing_field, ccsds_parse_error};
 use crate::ccsds::kvn::common::{KVNToken, tokenize_line};
@@ -31,7 +31,7 @@ pub fn parse_oem(content: &str) -> Result<OEM, BraheError> {
     // Header fields
     let mut format_version: Option<f64> = None;
     let mut classification: Option<String> = None;
-    let mut creation_date: Option<Epoch> = None;
+    let mut creation_date: Option<Option<Epoch>> = None;
     let mut originator: Option<String> = None;
     let mut message_id: Option<String> = None;
     let mut header_comments: Vec<String> = Vec::new();
@@ -81,7 +81,10 @@ pub fn parse_oem(content: &str) -> Result<OEM, BraheError> {
                     }
                     "CLASSIFICATION" => classification = Some(value),
                     "CREATION_DATE" => {
-                        creation_date = Some(parse_ccsds_datetime(&value, &CCSDSTimeSystem::UTC)?);
+                        creation_date = Some(parse_optional_ccsds_datetime(
+                            &value,
+                            &CCSDSTimeSystem::UTC,
+                        )?);
                     }
                     "ORIGINATOR" => originator = Some(value),
                     "MESSAGE_ID" => message_id = Some(value),
@@ -410,7 +413,7 @@ pub fn write_oem(oem: &OEM) -> Result<String, BraheError> {
     }
     out.push_str(&format!(
         "CREATION_DATE = {}\n",
-        format_ccsds_datetime_in(&oem.header.creation_date, &CCSDSTimeSystem::UTC)
+        format_optional_ccsds_datetime_in(&oem.header.creation_date, &CCSDSTimeSystem::UTC)
     ));
     out.push_str(&format!("ORIGINATOR = {}\n", oem.header.originator));
     if let Some(ref msg_id) = oem.header.message_id {
@@ -830,7 +833,7 @@ mod tests {
             header: ODMHeader {
                 format_version: 3.0,
                 classification: None,
-                creation_date: epoch,
+                creation_date: Some(epoch),
                 originator: "TEST".to_string(),
                 message_id: None,
                 comments: Vec::new(),
@@ -899,7 +902,7 @@ mod tests {
             header: ODMHeader {
                 format_version: 3.0,
                 classification: None,
-                creation_date: epoch,
+                creation_date: Some(epoch),
                 originator: "TEST".to_string(),
                 message_id: None,
                 comments: Vec::new(),
@@ -979,7 +982,7 @@ mod tests {
             header: ODMHeader {
                 format_version: 3.0,
                 classification: None,
-                creation_date: epoch,
+                creation_date: Some(epoch),
                 originator: "TEST".to_string(),
                 message_id: None,
                 comments: Vec::new(),
@@ -1028,7 +1031,7 @@ mod tests {
             header: ODMHeader {
                 format_version: 3.0,
                 classification: None,
-                creation_date: epoch,
+                creation_date: Some(epoch),
                 originator: "TEST".to_string(),
                 message_id: None,
                 comments: Vec::new(),
@@ -1078,7 +1081,7 @@ mod tests {
             header: ODMHeader {
                 format_version: 3.0,
                 classification: None,
-                creation_date: epoch,
+                creation_date: Some(epoch),
                 originator: "TEST".to_string(),
                 message_id: None,
                 comments: Vec::new(),

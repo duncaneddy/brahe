@@ -284,8 +284,10 @@ pub struct ODMHeader {
     pub format_version: f64,
     /// Optional classification string (e.g., "public, test-data")
     pub classification: Option<String>,
-    /// Creation date of the message
-    pub creation_date: Epoch,
+    /// Creation date of the message, `None` when the source leaves
+    /// `CREATION_DATE` empty. CCSDS 502.0-B-3 makes the keyword mandatory, so
+    /// writers emit it with an empty value when this is `None`.
+    pub creation_date: Option<Epoch>,
     /// Originator of the message
     pub originator: String,
     /// Optional unique message identifier
@@ -611,6 +613,80 @@ pub fn format_ccsds_datetime_in(epoch: &Epoch, time_system: &CCSDSTimeSystem) ->
     }
 }
 
+/// Parse a CCSDS datetime that may be left empty.
+///
+/// Some publishers (for example CelesTrak) emit mandatory header dates such as
+/// `CREATION_DATE` with an empty value. An empty or whitespace-only string
+/// parses to `None`; any other string must be a valid CCSDS datetime.
+///
+/// # Arguments
+///
+/// * `s` - Datetime string, possibly empty.
+/// * `time_system` - Time system the datetime is expressed in.
+///
+/// # Returns
+///
+/// * `Result<Option<Epoch>, BraheError>` - `None` for an empty value, otherwise
+///   the parsed epoch.
+///
+/// # Examples
+///
+/// ```
+/// use brahe::ccsds::common::{CCSDSTimeSystem, parse_optional_ccsds_datetime};
+///
+/// assert!(parse_optional_ccsds_datetime("", &CCSDSTimeSystem::UTC).unwrap().is_none());
+/// assert!(parse_optional_ccsds_datetime("2024-03-01T12:00:00", &CCSDSTimeSystem::UTC)
+///     .unwrap()
+///     .is_some());
+/// ```
+pub fn parse_optional_ccsds_datetime(
+    s: &str,
+    time_system: &CCSDSTimeSystem,
+) -> Result<Option<Epoch>, crate::utils::errors::BraheError> {
+    if s.trim().is_empty() {
+        Ok(None)
+    } else {
+        parse_ccsds_datetime(s, time_system).map(Some)
+    }
+}
+
+/// Format an optional epoch as a CCSDS datetime string in a given time system.
+///
+/// `None` formats as an empty string, so writers emit the keyword with an
+/// empty value.
+///
+/// # Arguments
+///
+/// * `epoch` - Epoch to format, or `None`.
+/// * `time_system` - Time system to express the datetime in.
+///
+/// # Returns
+///
+/// * `String` - The formatted datetime, or an empty string for `None`.
+///
+/// # Examples
+///
+/// ```
+/// use brahe::ccsds::common::{CCSDSTimeSystem, format_optional_ccsds_datetime_in};
+/// use brahe::time::{Epoch, TimeSystem};
+///
+/// assert_eq!(format_optional_ccsds_datetime_in(&None, &CCSDSTimeSystem::UTC), "");
+/// let epoch = Epoch::from_datetime(2024, 3, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+/// assert_eq!(
+///     format_optional_ccsds_datetime_in(&Some(epoch), &CCSDSTimeSystem::UTC),
+///     "2024-03-01T12:00:00.000"
+/// );
+/// ```
+pub fn format_optional_ccsds_datetime_in(
+    epoch: &Option<Epoch>,
+    time_system: &CCSDSTimeSystem,
+) -> String {
+    epoch
+        .as_ref()
+        .map(|e| format_ccsds_datetime_in(e, time_system))
+        .unwrap_or_default()
+}
+
 /// Strip unit annotations from a CCSDS KVN value string.
 ///
 /// CCSDS KVN values may contain optional unit annotations in square brackets
@@ -903,6 +979,8 @@ mod tests {
     use crate::ccsds::oem::OEM;
     use crate::ccsds::omm::OMM;
     use crate::ccsds::opm::OPM;
+    use crate::time::TimeSystem;
+    use rstest::rstest;
     use serial_test::parallel;
 
     #[test]
@@ -1118,6 +1196,68 @@ mod tests {
         assert_eq!(hour, 9);
         assert_eq!(minute, 23);
         assert_eq!(second, 57.0);
+    }
+
+    #[rstest]
+    #[case("")]
+    #[case("   ")]
+    #[serial_test::parallel]
+    fn test_parse_optional_ccsds_datetime_empty(#[case] value: &str) {
+        assert!(
+            parse_optional_ccsds_datetime(value, &CCSDSTimeSystem::UTC)
+                .unwrap()
+                .is_none()
+        );
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_parse_optional_ccsds_datetime_value() {
+        let epoch = parse_optional_ccsds_datetime("2024-03-01T12:00:00", &CCSDSTimeSystem::UTC)
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            format_ccsds_datetime_in(&epoch, &CCSDSTimeSystem::UTC),
+            "2024-03-01T12:00:00.000"
+        );
+        assert!(parse_optional_ccsds_datetime("not-a-date", &CCSDSTimeSystem::UTC).is_err());
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_json_null_creation_date_reads_as_none() {
+        fn null_creation_date(json: &str) -> String {
+            let mut v: serde_json::Value = serde_json::from_str(json).unwrap();
+            v["header"]["CREATION_DATE"] = serde_json::Value::Null;
+            v.to_string()
+        }
+        let upper = CCSDSJsonKeyCase::Upper;
+
+        let oem = OEM::from_file("test_assets/ccsds/oem/OEMExample1.txt").unwrap();
+        let json = null_creation_date(&oem.to_json_string(upper).unwrap());
+        assert!(OEM::from_str(&json).unwrap().header.creation_date.is_none());
+
+        let omm = OMM::from_file("test_assets/ccsds/omm/OMMExample1.txt").unwrap();
+        let json = null_creation_date(&omm.to_json_string(upper).unwrap());
+        assert!(OMM::from_str(&json).unwrap().header.creation_date.is_none());
+
+        let opm = OPM::from_file("test_assets/ccsds/opm/OPMExample1.txt").unwrap();
+        let json = null_creation_date(&opm.to_json_string(upper).unwrap());
+        assert!(OPM::from_str(&json).unwrap().header.creation_date.is_none());
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_format_optional_ccsds_datetime_in() {
+        assert_eq!(
+            format_optional_ccsds_datetime_in(&None, &CCSDSTimeSystem::UTC),
+            ""
+        );
+        let epoch = Epoch::from_datetime(2024, 3, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        assert_eq!(
+            format_optional_ccsds_datetime_in(&Some(epoch), &CCSDSTimeSystem::UTC),
+            "2024-03-01T12:00:00.000"
+        );
     }
 
     #[test]
@@ -1576,7 +1716,7 @@ mod tests {
         let src = std::fs::read_to_string("test_assets/ccsds/oem/OEMExample1.txt").unwrap();
         let oem = OEM::from_str(&src).unwrap();
         let mut retagged = oem.clone();
-        retagged.header.creation_date = retag(&retagged.header.creation_date);
+        retagged.header.creation_date = retagged.header.creation_date.as_ref().map(retag);
         for seg in &mut retagged.segments {
             seg.metadata.start_time = retag(&seg.metadata.start_time);
             seg.metadata.stop_time = retag(&seg.metadata.stop_time);
@@ -1613,7 +1753,7 @@ mod tests {
         });
         let omm = omm;
         let mut retagged = omm.clone();
-        retagged.header.creation_date = retag(&retagged.header.creation_date);
+        retagged.header.creation_date = retagged.header.creation_date.as_ref().map(retag);
         retagged.mean_elements.epoch = retag(&retagged.mean_elements.epoch);
         retagged.metadata.ref_frame_epoch = retagged.metadata.ref_frame_epoch.as_ref().map(retag);
         if let Some(ref mut cov) = retagged.covariance {
@@ -1641,7 +1781,7 @@ mod tests {
         });
         let opm = opm;
         let mut retagged = opm.clone();
-        retagged.header.creation_date = retag(&retagged.header.creation_date);
+        retagged.header.creation_date = retagged.header.creation_date.as_ref().map(retag);
         retagged.state_vector.epoch = retag(&retagged.state_vector.epoch);
         retagged.metadata.ref_frame_epoch = retagged.metadata.ref_frame_epoch.as_ref().map(retag);
         if let Some(ref mut cov) = retagged.covariance {

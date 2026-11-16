@@ -10,6 +10,7 @@ use serde::Deserialize;
 
 use crate::ccsds::common::{
     CCSDSRefFrame, CCSDSTimeSystem, ODMHeader, format_ccsds_datetime_in, parse_ccsds_datetime,
+    parse_optional_ccsds_datetime,
 };
 use crate::ccsds::error::ccsds_parse_error;
 use crate::ccsds::xml::common::{
@@ -325,7 +326,7 @@ pub fn parse_omm_xml(content: &str) -> Result<crate::ccsds::omm::OMM, BraheError
     let header = ODMHeader {
         format_version,
         classification: xml_omm.header.classification(),
-        creation_date: parse_ccsds_datetime(creation_date_str, &CCSDSTimeSystem::UTC)?,
+        creation_date: parse_optional_ccsds_datetime(creation_date_str, &CCSDSTimeSystem::UTC)?,
         originator,
         message_id: xml_omm.header.message_id(),
         comments: xml_omm.header.comments(),

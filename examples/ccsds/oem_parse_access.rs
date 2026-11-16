@@ -17,7 +17,7 @@ fn main() {
         "Classification: {}",
         oem.header.classification.as_deref().unwrap_or("None")
     );
-    println!("Creation date:  {}", oem.header.creation_date);
+    println!("Creation date:  {}", oem.header.creation_date.unwrap());
     println!("\nNumber of segments: {}", oem.segments.len());
 
     // Access segment metadata

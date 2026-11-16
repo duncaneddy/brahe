@@ -13,7 +13,7 @@ fn main() {
     // Header
     println!("Format version: {}", opm.header.format_version);
     println!("Originator:     {}", opm.header.originator);
-    println!("Creation date:  {}", opm.header.creation_date);
+    println!("Creation date:  {}", opm.header.creation_date.unwrap());
 
     // Metadata
     println!("\nObject name:  {}", opm.metadata.object_name);

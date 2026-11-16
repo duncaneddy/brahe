@@ -3797,7 +3797,6 @@ mod tests {
     use crate::constants::units::AngleFormat;
     use crate::constants::{GM_EARTH, R_EARTH};
     use crate::coordinates::position_ecef_to_geodetic;
-    use crate::eop::{EOPExtrapolation, FileEOPProvider, set_global_eop_provider};
     use crate::events::{DAltitudeEvent, DTimeEvent, EventDirection};
     use crate::frames::position_eci_to_ecef;
     use crate::integrators::IntegratorConfig;
@@ -3813,15 +3812,11 @@ mod tests {
     };
     use crate::propagators::traits::DStatePropagator;
     use crate::time::TimeSystem;
+    use crate::utils::testing::setup_global_test_eop;
     use crate::utils::testing::setup_global_test_gravity_model;
     use crate::{orbital_period, state_koe_to_eci};
     use rstest::rstest;
     use serial_test::{parallel, serial};
-
-    fn setup_global_test_eop() {
-        let eop = FileEOPProvider::from_default_standard(true, EOPExtrapolation::Hold).unwrap();
-        set_global_eop_provider(eop);
-    }
 
     fn setup_global_test_space_weather() {
         crate::utils::testing::setup_global_test_space_weather();

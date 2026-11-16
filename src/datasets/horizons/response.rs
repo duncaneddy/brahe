@@ -66,6 +66,7 @@ impl HorizonsSPKResponse {
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
+    use crate::utils::testing::without_spice_kernels;
     use serial_test::serial;
 
     #[test]
@@ -89,10 +90,10 @@ mod tests {
     #[test]
     #[serial]
     fn test_load_into_registry() {
-        use crate::spice::clear_spice_kernels;
-        let resp = HorizonsSPKResponse::new(PathBuf::from("test_assets/de440s.bsp"), None);
-        resp.load().unwrap();
-        clear_spice_kernels(); // returns (), not Result — do not .unwrap()
+        without_spice_kernels(|| {
+            let resp = HorizonsSPKResponse::new(PathBuf::from("test_assets/de440s.bsp"), None);
+            resp.load().unwrap();
+        });
     }
 
     #[test]

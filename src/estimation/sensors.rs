@@ -807,17 +807,12 @@ mod tests {
     use super::*;
     use crate::coordinates::position_geodetic_to_ecef;
     use crate::datasets::ssn_sensors::load_ssn_sensors;
-    use crate::eop::{EOPExtrapolation, FileEOPProvider, set_global_eop_provider};
     use crate::estimation::MeasurementModel;
     use crate::frames::position_ecef_to_eci;
     use crate::time::TimeSystem;
+    use crate::utils::testing::setup_global_test_eop;
     use approx::assert_abs_diff_eq;
     use serial_test::{parallel, serial};
-
-    fn setup_global_test_eop() {
-        let eop = FileEOPProvider::from_default_standard(true, EOPExtrapolation::Hold).unwrap();
-        set_global_eop_provider(eop);
-    }
 
     fn test_epoch() -> Epoch {
         Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC)

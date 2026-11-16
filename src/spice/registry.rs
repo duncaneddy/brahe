@@ -1027,7 +1027,7 @@ mod tests {
     use super::*;
     use crate::attitude::ToAttitude;
     use crate::time::TimeSystem;
-    use crate::utils::testing::{CacheRedirect, setup_global_test_spice};
+    use crate::utils::testing::{CacheRedirect, setup_global_test_spice, without_spice_kernels};
 
     fn epc_2025() -> Epoch {
         Epoch::from_date(2025, 1, 1, TimeSystem::UTC)
@@ -1293,48 +1293,45 @@ mod tests {
         // falling through to an older kernel that doesn't have the frame
         // at all.
         setup_global_test_spice();
-        clear_spice_kernels();
+        without_spice_kernels(|| {
+            clear_spice_kernels();
 
-        let dir = tempfile::tempdir().unwrap();
-        let path_old = dir.path().join("old.bpc");
-        let path_new = dir.path().join("new.bpc");
-        std::fs::write(&path_old, synthetic_bpck_bytes()).unwrap(); // frame 31006 only
-        std::fs::write(&path_new, synthetic_bpck_bytes_corrupt(31099)).unwrap();
+            let dir = tempfile::tempdir().unwrap();
+            let path_old = dir.path().join("old.bpc");
+            let path_new = dir.path().join("new.bpc");
+            std::fs::write(&path_old, synthetic_bpck_bytes()).unwrap(); // frame 31006 only
+            std::fs::write(&path_new, synthetic_bpck_bytes_corrupt(31099)).unwrap();
 
-        load_spice_kernel(path_old.to_str().unwrap()).unwrap();
-        load_spice_kernel(path_new.to_str().unwrap()).unwrap();
+            load_spice_kernel(path_old.to_str().unwrap()).unwrap();
+            load_spice_kernel(path_new.to_str().unwrap()).unwrap();
 
-        let err = pck_euler_angles(31099, epc_from_et(500.0)).unwrap_err();
-        let msg = format!("{}", err);
-        assert!(
-            msg.contains("RADIUS"),
-            "expected RADIUS error, got: {}",
-            msg
-        );
-        assert!(!msg.contains("not covered"), "error was masked: {}", msg);
-
-        // Restore global state for other tests.
-        clear_spice_kernels();
-        load_spice_kernel("de440s").unwrap();
+            let err = pck_euler_angles(31099, epc_from_et(500.0)).unwrap_err();
+            let msg = format!("{}", err);
+            assert!(
+                msg.contains("RADIUS"),
+                "expected RADIUS error, got: {}",
+                msg
+            );
+            assert!(!msg.contains("not covered"), "error was masked: {}", msg);
+        });
     }
 
     #[test]
     #[serial]
     fn test_registry_load_unload_idempotent() {
         setup_global_test_spice();
-        clear_spice_kernels();
-        assert!(loaded_spice_kernels().is_empty());
+        without_spice_kernels(|| {
+            clear_spice_kernels();
+            assert!(loaded_spice_kernels().is_empty());
 
-        load_spice_kernel("de440s").unwrap();
-        load_spice_kernel("de440s").unwrap(); // idempotent
-        assert_eq!(loaded_spice_kernels(), vec!["de440s".to_string()]);
+            load_spice_kernel("de440s").unwrap();
+            load_spice_kernel("de440s").unwrap(); // idempotent
+            assert_eq!(loaded_spice_kernels(), vec!["de440s".to_string()]);
 
-        unload_spice_kernel("de440s").unwrap();
-        assert!(loaded_spice_kernels().is_empty());
-        assert!(unload_spice_kernel("de440s").is_err()); // not loaded
-
-        // Restore for other tests
-        load_spice_kernel("de440s").unwrap();
+            unload_spice_kernel("de440s").unwrap();
+            assert!(loaded_spice_kernels().is_empty());
+            assert!(unload_spice_kernel("de440s").is_err()); // not loaded
+        });
     }
 
     #[test]
@@ -1382,11 +1379,13 @@ mod tests {
     #[serial]
     fn test_query_with_no_kernels_auto_initializes() {
         setup_global_test_spice(); // ensures de440s is in the local cache
-        clear_spice_kernels();
-        // Auto-init loads de440s from cache without an explicit load_spice_kernel
-        let r = spk_position(NAIFId::Sun, NAIFId::Earth, epc_2025()).unwrap();
-        assert!(r.norm() > 1.4e11);
-        assert_eq!(loaded_spice_kernels(), vec!["de440s".to_string()]);
+        without_spice_kernels(|| {
+            clear_spice_kernels();
+            // Auto-init loads de440s from cache without an explicit load_spice_kernel
+            let r = spk_position(NAIFId::Sun, NAIFId::Earth, epc_2025()).unwrap();
+            assert!(r.norm() > 1.4e11);
+            assert_eq!(loaded_spice_kernels(), vec!["de440s".to_string()]);
+        });
     }
 
     #[test]
@@ -1398,24 +1397,22 @@ mod tests {
         // `load_spice_kernel("moon_pa_de440")`) still auto-loads de440s for
         // `spk_*` queries instead of erroring with "No SPK kernels loaded".
         setup_global_test_spice(); // ensures de440s is in the local cache
-        clear_spice_kernels();
+        without_spice_kernels(|| {
+            clear_spice_kernels();
 
-        let dir = tempfile::tempdir().unwrap();
-        let pck_path = dir.path().join("synthetic.bpc");
-        std::fs::write(&pck_path, synthetic_bpck_bytes()).unwrap();
-        load_spice_kernel(pck_path.to_str().unwrap()).unwrap();
-        assert_eq!(
-            loaded_spice_kernels(),
-            vec![pck_path.to_str().unwrap().to_string()]
-        );
+            let dir = tempfile::tempdir().unwrap();
+            let pck_path = dir.path().join("synthetic.bpc");
+            std::fs::write(&pck_path, synthetic_bpck_bytes()).unwrap();
+            load_spice_kernel(pck_path.to_str().unwrap()).unwrap();
+            assert_eq!(
+                loaded_spice_kernels(),
+                vec![pck_path.to_str().unwrap().to_string()]
+            );
 
-        let r = spk_position(NAIFId::Sun, NAIFId::Earth, epc_2025()).unwrap();
-        assert!(r.norm() > 1.4e11);
-        assert!(loaded_spice_kernels().contains(&"de440s".to_string()));
-
-        // Restore global state for other tests.
-        clear_spice_kernels();
-        load_spice_kernel("de440s").unwrap();
+            let r = spk_position(NAIFId::Sun, NAIFId::Earth, epc_2025()).unwrap();
+            assert!(r.norm() > 1.4e11);
+            assert!(loaded_spice_kernels().contains(&"de440s".to_string()));
+        });
     }
 
     #[test]
@@ -1425,29 +1422,27 @@ mod tests {
         // overlapping body pairs. Regression test for the cross-kernel
         // segment ordering in `global_chain`.
         setup_global_test_spice();
-        clear_spice_kernels();
+        without_spice_kernels(|| {
+            clear_spice_kernels();
 
-        let dir = tempfile::tempdir().unwrap();
-        let path_a = dir.path().join("a.bsp");
-        let path_b = dir.path().join("b.bsp");
-        std::fs::write(&path_a, synthetic_spk_bytes(1.0)).unwrap();
-        std::fs::write(&path_b, synthetic_spk_bytes(2.0)).unwrap();
+            let dir = tempfile::tempdir().unwrap();
+            let path_a = dir.path().join("a.bsp");
+            let path_b = dir.path().join("b.bsp");
+            std::fs::write(&path_a, synthetic_spk_bytes(1.0)).unwrap();
+            std::fs::write(&path_b, synthetic_spk_bytes(2.0)).unwrap();
 
-        load_spice_kernel(path_a.to_str().unwrap()).unwrap();
-        load_spice_kernel(path_b.to_str().unwrap()).unwrap();
+            load_spice_kernel(path_a.to_str().unwrap()).unwrap();
+            load_spice_kernel(path_b.to_str().unwrap()).unwrap();
 
-        // Later-loaded kernel B takes precedence (2.0 km = 2.0e3 m).
-        let r = spk_position(10, NAIFId::SolarSystemBarycenter, epc_2025()).unwrap();
-        assert_abs_diff_eq!(r[0], 2.0e3, epsilon = 1e-9);
+            // Later-loaded kernel B takes precedence (2.0 km = 2.0e3 m).
+            let r = spk_position(10, NAIFId::SolarSystemBarycenter, epc_2025()).unwrap();
+            assert_abs_diff_eq!(r[0], 2.0e3, epsilon = 1e-9);
 
-        // Unloading B invalidates the chain cache and falls back to A.
-        unload_spice_kernel(path_b.to_str().unwrap()).unwrap();
-        let r = spk_position(10, NAIFId::SolarSystemBarycenter, epc_2025()).unwrap();
-        assert_abs_diff_eq!(r[0], 1.0e3, epsilon = 1e-9);
-
-        // Restore global state for other tests.
-        clear_spice_kernels();
-        load_spice_kernel("de440s").unwrap();
+            // Unloading B invalidates the chain cache and falls back to A.
+            unload_spice_kernel(path_b.to_str().unwrap()).unwrap();
+            let r = spk_position(10, NAIFId::SolarSystemBarycenter, epc_2025()).unwrap();
+            assert_abs_diff_eq!(r[0], 1.0e3, epsilon = 1e-9);
+        });
     }
 
     #[test]
@@ -1460,42 +1455,40 @@ mod tests {
         // the 1-hop direct link; querying an epoch only the two-hop path
         // covers must transparently fall back instead of erroring.
         setup_global_test_spice();
-        clear_spice_kernels();
+        without_spice_kernels(|| {
+            clear_spice_kernels();
 
-        let dir = tempfile::tempdir().unwrap();
-        let path_direct = dir.path().join("direct.bsp");
-        let path_ac = dir.path().join("ac.bsp");
-        let path_cb = dir.path().join("cb.bsp");
-        std::fs::write(
-            &path_direct,
-            synthetic_spk_bytes_for(10, 0, 0.0, 100.0, 7.0),
-        )
-        .unwrap();
-        std::fs::write(&path_ac, synthetic_spk_bytes_for(10, 3, 0.0, 200.0, 2.0)).unwrap();
-        std::fs::write(&path_cb, synthetic_spk_bytes_for(3, 0, 0.0, 200.0, 3.0)).unwrap();
+            let dir = tempfile::tempdir().unwrap();
+            let path_direct = dir.path().join("direct.bsp");
+            let path_ac = dir.path().join("ac.bsp");
+            let path_cb = dir.path().join("cb.bsp");
+            std::fs::write(
+                &path_direct,
+                synthetic_spk_bytes_for(10, 0, 0.0, 100.0, 7.0),
+            )
+            .unwrap();
+            std::fs::write(&path_ac, synthetic_spk_bytes_for(10, 3, 0.0, 200.0, 2.0)).unwrap();
+            std::fs::write(&path_cb, synthetic_spk_bytes_for(3, 0, 0.0, 200.0, 3.0)).unwrap();
 
-        load_spice_kernel(path_direct.to_str().unwrap()).unwrap();
-        load_spice_kernel(path_ac.to_str().unwrap()).unwrap();
-        load_spice_kernel(path_cb.to_str().unwrap()).unwrap();
+            load_spice_kernel(path_direct.to_str().unwrap()).unwrap();
+            load_spice_kernel(path_ac.to_str().unwrap()).unwrap();
+            load_spice_kernel(path_cb.to_str().unwrap()).unwrap();
 
-        // et=50: covered by the (cached) direct link -> direct value.
-        let r = spk_position(10, 0, epc_from_et(50.0)).unwrap();
-        assert_abs_diff_eq!(r[0], 7.0e3, epsilon = 1e-6);
+            // et=50: covered by the (cached) direct link -> direct value.
+            let r = spk_position(10, 0, epc_from_et(50.0)).unwrap();
+            assert_abs_diff_eq!(r[0], 7.0e3, epsilon = 1e-6);
 
-        // et=150: direct link out of coverage -> falls back to the
-        // two-hop path (2.0 + 3.0 = 5.0 km).
-        let r = spk_position(10, 0, epc_from_et(150.0)).unwrap();
-        assert_abs_diff_eq!(r[0], 5.0e3, epsilon = 1e-6);
+            // et=150: direct link out of coverage -> falls back to the
+            // two-hop path (2.0 + 3.0 = 5.0 km).
+            let r = spk_position(10, 0, epc_from_et(150.0)).unwrap();
+            assert_abs_diff_eq!(r[0], 5.0e3, epsilon = 1e-6);
 
-        // et=300: neither path covers -> error names target, center, and
-        // mentions coverage.
-        let err = spk_position(10, 0, epc_from_et(300.0)).unwrap_err();
-        let msg = format!("{}", err);
-        assert!(msg.contains("10") && msg.contains("coverage"));
-
-        // Restore global state for other tests.
-        clear_spice_kernels();
-        load_spice_kernel("de440s").unwrap();
+            // et=300: neither path covers -> error names target, center, and
+            // mentions coverage.
+            let err = spk_position(10, 0, epc_from_et(300.0)).unwrap_err();
+            let msg = format!("{}", err);
+            assert!(msg.contains("10") && msg.contains("coverage"));
+        });
     }
 
     #[test]
@@ -1556,25 +1549,23 @@ mod tests {
     #[serial]
     fn test_load_kernel_resolves_moon_pa_de440_network() {
         setup_global_test_spice();
-        clear_spice_kernels();
+        without_spice_kernels(|| {
+            clear_spice_kernels();
 
-        load_spice_kernel("moon_pa_de440").unwrap();
-        assert_eq!(loaded_spice_kernels(), vec!["moon_pa_de440".to_string()]);
+            load_spice_kernel("moon_pa_de440").unwrap();
+            assert_eq!(loaded_spice_kernels(), vec!["moon_pa_de440".to_string()]);
 
-        // Frame class 31008 (MOON_PA_DE440) has coverage at 2025-01-01.
-        let r = pck_rotation_matrix(31008, epc_2025()).unwrap().to_matrix();
-        let rtr = r.transpose() * r;
-        assert_abs_diff_eq!((rtr - Matrix3::identity()).norm(), 0.0, epsilon = 1e-9);
+            // Frame class 31008 (MOON_PA_DE440) has coverage at 2025-01-01.
+            let r = pck_rotation_matrix(31008, epc_2025()).unwrap().to_matrix();
+            let rtr = r.transpose() * r;
+            assert_abs_diff_eq!((rtr - Matrix3::identity()).norm(), 0.0, epsilon = 1e-9);
 
-        // Typed accessors agree with the rotation matrix at the same epoch.
-        let e = pck_euler_angle(31008, epc_2025()).unwrap();
-        assert_abs_diff_eq!(e.to_rotation_matrix().to_matrix(), r, epsilon = 1e-9);
-        let q = pck_quaternion(31008, epc_2025()).unwrap();
-        assert_abs_diff_eq!(q.to_rotation_matrix().to_matrix(), r, epsilon = 1e-9);
-
-        // Restore global state for other tests.
-        clear_spice_kernels();
-        load_spice_kernel("de440s").unwrap();
+            // Typed accessors agree with the rotation matrix at the same epoch.
+            let e = pck_euler_angle(31008, epc_2025()).unwrap();
+            assert_abs_diff_eq!(e.to_rotation_matrix().to_matrix(), r, epsilon = 1e-9);
+            let q = pck_quaternion(31008, epc_2025()).unwrap();
+            assert_abs_diff_eq!(q.to_rotation_matrix().to_matrix(), r, epsilon = 1e-9);
+        });
     }
 
     #[test]
@@ -1582,22 +1573,20 @@ mod tests {
     #[serial]
     fn test_load_mar099s_and_query_phobos_deimos_network() {
         setup_global_test_spice();
-        clear_spice_kernels();
+        without_spice_kernels(|| {
+            clear_spice_kernels();
 
-        load_spice_kernel("mar099s").unwrap();
-        assert_eq!(loaded_spice_kernels(), vec!["mar099s".to_string()]);
+            load_spice_kernel("mar099s").unwrap();
+            assert_eq!(loaded_spice_kernels(), vec!["mar099s".to_string()]);
 
-        let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
-        // Phobos (401) relative to Mars barycenter (4): |r| ~ 9376 km
-        let r = spk_position(NAIFId::Phobos, NAIFId::MarsBarycenter, epc).unwrap();
-        assert!((r.norm() - 9.376e6).abs() < 0.2e6);
-        // Deimos (402) relative to Mars barycenter (4): |r| ~ 23463 km
-        let r = spk_position(NAIFId::Deimos, NAIFId::MarsBarycenter, epc).unwrap();
-        assert!((r.norm() - 2.3463e7).abs() < 0.5e6);
-
-        // Restore global state for other tests.
-        clear_spice_kernels();
-        load_spice_kernel("de440s").unwrap();
+            let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+            // Phobos (401) relative to Mars barycenter (4): |r| ~ 9376 km
+            let r = spk_position(NAIFId::Phobos, NAIFId::MarsBarycenter, epc).unwrap();
+            assert!((r.norm() - 9.376e6).abs() < 0.2e6);
+            // Deimos (402) relative to Mars barycenter (4): |r| ~ 23463 km
+            let r = spk_position(NAIFId::Deimos, NAIFId::MarsBarycenter, epc).unwrap();
+            assert!((r.norm() - 2.3463e7).abs() < 0.5e6);
+        });
     }
 
     #[test]
@@ -1637,16 +1626,14 @@ mod tests {
     #[serial]
     fn test_load_common_kernels() {
         setup_global_test_spice();
-        clear_spice_kernels();
+        without_spice_kernels(|| {
+            clear_spice_kernels();
 
-        load_common_spice_kernels().unwrap();
-        let loaded = loaded_spice_kernels();
-        assert!(loaded.contains(&"de440s".to_string()));
-        assert!(loaded.contains(&"moon_pa_de440".to_string()));
-
-        // Restore global state for other tests.
-        clear_spice_kernels();
-        load_spice_kernel("de440s").unwrap();
+            load_common_spice_kernels().unwrap();
+            let loaded = loaded_spice_kernels();
+            assert!(loaded.contains(&"de440s".to_string()));
+            assert!(loaded.contains(&"moon_pa_de440".to_string()));
+        });
     }
 
     #[test]
@@ -1667,34 +1654,33 @@ mod tests {
         // suppress the DE auto-initialization and leave e.g. the Earth leg
         // of a 499<->399 query unresolvable.
         setup_global_test_spice();
-        load_spice_kernel("de440s").unwrap();
-        {
-            let cache = CacheRedirect::new();
-            cache.seed_real_de440s();
-            cache.seed(
-                "mar099s.bsp",
-                &crate::utils::testing::synthetic_spk_kernel_bytes(&[(499, 4, 2.0)]),
-            );
+        without_spice_kernels(|| {
+            load_spice_kernel("de440s").unwrap();
+            {
+                let cache = CacheRedirect::new();
+                cache.seed_real_de440s();
+                cache.seed(
+                    "mar099s.bsp",
+                    &crate::utils::testing::synthetic_spk_kernel_bytes(&[(499, 4, 2.0)]),
+                );
 
-            clear_spice_kernels();
-            ensure_bodies_loadable(&[499]).unwrap();
-            assert_eq!(
-                loaded_spice_kernels(),
-                vec!["de440s".to_string(), "mar099s".to_string()]
-            );
+                clear_spice_kernels();
+                ensure_bodies_loadable(&[499]).unwrap();
+                assert_eq!(
+                    loaded_spice_kernels(),
+                    vec!["de440s".to_string(), "mar099s".to_string()]
+                );
 
-            // Idempotent: a second call adds nothing.
-            ensure_bodies_loadable(&[499]).unwrap();
-            assert_eq!(loaded_spice_kernels().len(), 2);
+                // Idempotent: a second call adds nothing.
+                ensure_bodies_loadable(&[499]).unwrap();
+                assert_eq!(loaded_spice_kernels().len(), 2);
 
-            // DE-covered IDs load no satellite kernel.
-            clear_spice_kernels();
-            ensure_bodies_loadable(&[301, 399]).unwrap();
-            assert_eq!(loaded_spice_kernels(), vec!["de440s".to_string()]);
-        }
-        // Restore global state for other tests.
-        clear_spice_kernels();
-        load_spice_kernel("de440s").unwrap();
+                // DE-covered IDs load no satellite kernel.
+                clear_spice_kernels();
+                ensure_bodies_loadable(&[301, 399]).unwrap();
+                assert_eq!(loaded_spice_kernels(), vec!["de440s".to_string()]);
+            }
+        });
     }
 
     #[test]
@@ -1714,20 +1700,18 @@ mod tests {
         // A structurally valid DAF whose ID word is neither DAF/SPK nor
         // DAF/PCK hits `load_spice_kernel`'s `other` arm.
         setup_global_test_spice();
-        clear_spice_kernels();
+        without_spice_kernels(|| {
+            clear_spice_kernels();
 
-        let mut bytes = crate::utils::testing::synthetic_spk_kernel_bytes(&[(10, 0, 1.0)]);
-        bytes[..8].copy_from_slice(b"DAF/CK  ");
-        let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("mystery.bin");
-        std::fs::write(&path, &bytes).unwrap();
+            let mut bytes = crate::utils::testing::synthetic_spk_kernel_bytes(&[(10, 0, 1.0)]);
+            bytes[..8].copy_from_slice(b"DAF/CK  ");
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("mystery.bin");
+            std::fs::write(&path, &bytes).unwrap();
 
-        let err = load_spice_kernel(path.to_str().unwrap()).unwrap_err();
-        assert!(format!("{}", err).contains("Unrecognized DAF ID word"));
-
-        // Restore global state for other tests.
-        clear_spice_kernels();
-        load_spice_kernel("de440s").unwrap();
+            let err = load_spice_kernel(path.to_str().unwrap()).unwrap_err();
+            assert!(format!("{}", err).contains("Unrecognized DAF ID word"));
+        });
     }
 
     #[test]
@@ -1739,19 +1723,19 @@ mod tests {
         // valid); only the synthetic moon_pa_de440 PCK is fetched, from the
         // redirected cache, so no download occurs.
         setup_global_test_spice();
-        load_spice_kernel("de440s").unwrap();
-        {
-            let cache = CacheRedirect::new();
-            cache.seed_real_de440s();
-            cache.seed("moon_pa_de440_200625.bpc", &synthetic_bpck_bytes());
+        without_spice_kernels(|| {
+            load_spice_kernel("de440s").unwrap();
+            {
+                let cache = CacheRedirect::new();
+                cache.seed_real_de440s();
+                cache.seed("moon_pa_de440_200625.bpc", &synthetic_bpck_bytes());
 
-            load_common_spice_kernels().unwrap();
-            let loaded = loaded_spice_kernels();
-            assert!(loaded.contains(&"de440s".to_string()));
-            assert!(loaded.contains(&"moon_pa_de440".to_string()));
-        }
-        clear_spice_kernels();
-        load_spice_kernel("de440s").unwrap();
+                load_common_spice_kernels().unwrap();
+                let loaded = loaded_spice_kernels();
+                assert!(loaded.contains(&"de440s".to_string()));
+                assert!(loaded.contains(&"moon_pa_de440".to_string()));
+            }
+        });
     }
 
     #[test]
@@ -1761,35 +1745,35 @@ mod tests {
         // and one satellite ephemeris kernel per outer planet) is seeded as a
         // synthetic file; de440s stays resident and short-circuits.
         setup_global_test_spice();
-        load_spice_kernel("de440s").unwrap();
-        {
-            let cache = CacheRedirect::new();
-            cache.seed_real_de440s();
-            cache.seed("moon_pa_de440_200625.bpc", &synthetic_bpck_bytes());
-            cache.seed("mar099s.bsp", &synthetic_spk_bytes(1.0));
-            cache.seed("jup365.bsp", &synthetic_spk_bytes(1.0));
-            cache.seed("sat441.bsp", &synthetic_spk_bytes(1.0));
-            cache.seed("ura184_part-3.bsp", &synthetic_spk_bytes(1.0));
-            cache.seed("nep097.bsp", &synthetic_spk_bytes(1.0));
-            cache.seed("plu060.bsp", &synthetic_spk_bytes(1.0));
+        without_spice_kernels(|| {
+            load_spice_kernel("de440s").unwrap();
+            {
+                let cache = CacheRedirect::new();
+                cache.seed_real_de440s();
+                cache.seed("moon_pa_de440_200625.bpc", &synthetic_bpck_bytes());
+                cache.seed("mar099s.bsp", &synthetic_spk_bytes(1.0));
+                cache.seed("jup365.bsp", &synthetic_spk_bytes(1.0));
+                cache.seed("sat441.bsp", &synthetic_spk_bytes(1.0));
+                cache.seed("ura184_part-3.bsp", &synthetic_spk_bytes(1.0));
+                cache.seed("nep097.bsp", &synthetic_spk_bytes(1.0));
+                cache.seed("plu060.bsp", &synthetic_spk_bytes(1.0));
 
-            load_all_spice_kernels().unwrap();
-            let loaded = loaded_spice_kernels();
-            for name in [
-                "de440s",
-                "moon_pa_de440",
-                "mar099s",
-                "jup365",
-                "sat441",
-                "ura184",
-                "nep097",
-                "plu060",
-            ] {
-                assert!(loaded.contains(&name.to_string()), "missing {}", name);
+                load_all_spice_kernels().unwrap();
+                let loaded = loaded_spice_kernels();
+                for name in [
+                    "de440s",
+                    "moon_pa_de440",
+                    "mar099s",
+                    "jup365",
+                    "sat441",
+                    "ura184",
+                    "nep097",
+                    "plu060",
+                ] {
+                    assert!(loaded.contains(&name.to_string()), "missing {}", name);
+                }
             }
-        }
-        clear_spice_kernels();
-        load_spice_kernel("de440s").unwrap();
+        });
     }
 
     #[test]
@@ -1798,13 +1782,12 @@ mod tests {
         // `global_chain`'s `return Err` branch: with no SPK kernel loaded the
         // collected segment set is empty.
         setup_global_test_spice();
-        clear_spice_kernels();
+        without_spice_kernels(|| {
+            clear_spice_kernels();
 
-        let err = global_chain(1, 0).unwrap_err();
-        assert!(format!("{}", err).contains("No SPK kernels loaded"));
-
-        // Restore global state for other tests.
-        load_spice_kernel("de440s").unwrap();
+            let err = global_chain(1, 0).unwrap_err();
+            assert!(format!("{}", err).contains("No SPK kernels loaded"));
+        });
     }
 
     #[test]
@@ -1813,12 +1796,14 @@ mod tests {
         // First resolution is a cache miss (resolve + insert -> final `Ok`);
         // the second identical query is a cache hit (early `return Ok`).
         setup_global_test_spice();
-        clear_spice_kernels();
-        load_spice_kernel("de440s").unwrap();
+        without_spice_kernels(|| {
+            clear_spice_kernels();
+            load_spice_kernel("de440s").unwrap();
 
-        let c1 = global_chain(10, 0).unwrap();
-        let c2 = global_chain(10, 0).unwrap();
-        assert_eq!(c1.len(), c2.len());
+            let c1 = global_chain(10, 0).unwrap();
+            let c2 = global_chain(10, 0).unwrap();
+            assert_eq!(c1.len(), c2.len());
+        });
     }
 
     #[test]
@@ -1827,24 +1812,22 @@ mod tests {
         // Scoped SPK query against a loaded PCK hits `spk_kernel_for_query`'s
         // PCK error arm.
         setup_global_test_spice();
-        clear_spice_kernels();
+        without_spice_kernels(|| {
+            clear_spice_kernels();
 
-        let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("orient.bpc");
-        std::fs::write(&path, synthetic_bpck_bytes()).unwrap();
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("orient.bpc");
+            std::fs::write(&path, synthetic_bpck_bytes()).unwrap();
 
-        let err = spk_position_from_kernel(
-            path.to_str().unwrap(),
-            NAIFId::Moon,
-            NAIFId::Earth,
-            epc_2025(),
-        )
-        .unwrap_err();
-        assert!(format!("{}", err).contains("binary PCK"));
-
-        // Restore global state for other tests.
-        clear_spice_kernels();
-        load_spice_kernel("de440s").unwrap();
+            let err = spk_position_from_kernel(
+                path.to_str().unwrap(),
+                NAIFId::Moon,
+                NAIFId::Earth,
+                epc_2025(),
+            )
+            .unwrap_err();
+            assert!(format!("{}", err).contains("binary PCK"));
+        });
     }
 
     #[test]
@@ -1854,36 +1837,34 @@ mod tests {
         // accessor against a path-loaded synthetic PCK (frame 31006 covering
         // ET [0, 1000]).
         setup_global_test_spice();
-        clear_spice_kernels();
+        without_spice_kernels(|| {
+            clear_spice_kernels();
 
-        let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("synthetic.bpc");
-        std::fs::write(&path, synthetic_bpck_bytes()).unwrap();
-        load_spice_kernel(path.to_str().unwrap()).unwrap();
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("synthetic.bpc");
+            std::fs::write(&path, synthetic_bpck_bytes()).unwrap();
+            load_spice_kernel(path.to_str().unwrap()).unwrap();
 
-        let epc = epc_from_et(500.0);
-        let angle = pck_euler_angle(31006, epc).unwrap();
-        let rates = pck_euler_rates(31006, epc).unwrap();
-        let (angle2, rates2) = pck_euler_angle_and_rates(31006, epc).unwrap();
-        assert_eq!(angle2, angle);
-        assert_abs_diff_eq!(rates2, rates, epsilon = 0.0);
+            let epc = epc_from_et(500.0);
+            let angle = pck_euler_angle(31006, epc).unwrap();
+            let rates = pck_euler_rates(31006, epc).unwrap();
+            let (angle2, rates2) = pck_euler_angle_and_rates(31006, epc).unwrap();
+            assert_eq!(angle2, angle);
+            assert_abs_diff_eq!(rates2, rates, epsilon = 0.0);
 
-        let q = pck_quaternion(31006, epc).unwrap();
-        let r = pck_rotation_matrix(31006, epc).unwrap();
-        // Quaternion, rotation matrix, and typed EulerAngle all agree.
-        assert_abs_diff_eq!(
-            q.to_rotation_matrix().to_matrix(),
-            r.to_matrix(),
-            epsilon = 1e-12
-        );
-        assert_abs_diff_eq!(
-            angle.to_rotation_matrix().to_matrix(),
-            r.to_matrix(),
-            epsilon = 1e-12
-        );
-
-        // Restore global state for other tests.
-        clear_spice_kernels();
-        load_spice_kernel("de440s").unwrap();
+            let q = pck_quaternion(31006, epc).unwrap();
+            let r = pck_rotation_matrix(31006, epc).unwrap();
+            // Quaternion, rotation matrix, and typed EulerAngle all agree.
+            assert_abs_diff_eq!(
+                q.to_rotation_matrix().to_matrix(),
+                r.to_matrix(),
+                epsilon = 1e-12
+            );
+            assert_abs_diff_eq!(
+                angle.to_rotation_matrix().to_matrix(),
+                r.to_matrix(),
+                epsilon = 1e-12
+            );
+        });
     }
 }

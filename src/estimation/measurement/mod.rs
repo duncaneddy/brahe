@@ -35,20 +35,15 @@ pub use inertial::{
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::eop::{EOPExtrapolation, FileEOPProvider, set_global_eop_provider};
     use crate::estimation::traits::MeasurementModel;
     use crate::frames::state_eci_to_ecef;
     use crate::math::linalg::SVector6;
     use crate::time::Epoch;
     use crate::utils::errors::BraheError;
+    use crate::utils::testing::setup_global_test_eop;
     use approx::assert_abs_diff_eq;
     use nalgebra::{DMatrix, DVector};
     use serial_test::{parallel, serial};
-
-    fn setup_global_test_eop() {
-        let eop = FileEOPProvider::from_default_standard(true, EOPExtrapolation::Hold).unwrap();
-        set_global_eop_provider(eop);
-    }
 
     fn test_state() -> DVector<f64> {
         DVector::from_vec(vec![

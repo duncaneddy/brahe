@@ -797,7 +797,7 @@ mod tests {
     use crate::spice::{load_spice_kernel, unload_spice_kernel};
     use crate::time::TimeSystem;
     use crate::utils::testing::{
-        CacheRedirect, setup_global_test_spice, synthetic_spk_kernel_bytes,
+        CacheRedirect, setup_global_test_spice, synthetic_spk_kernel_bytes, without_spice_kernels,
     };
 
     #[test]
@@ -912,59 +912,55 @@ mod tests {
         // The MCI translation functions need the Mars body-center (NAIF 499)
         // leg, which the DE kernels don't carry — auto-loaded from `mar099s`.
         // Seed a synthetic mar099s providing the (499, 4) leg into a redirected
-        // cache; the real de440s stays resident (never cleared) for the
-        // barycenter chain. Only mar099s is unloaded/reloaded here.
+        // cache, with the real de440s loaded for the barycenter chain. The
+        // registry is emptied for the test and restored afterwards.
         setup_global_test_spice();
-        load_spice_kernel("de440s").unwrap();
-        let _ = unload_spice_kernel("mar099s");
-        {
-            let cache = CacheRedirect::new();
-            cache.seed_real_de440s();
-            cache.seed("mar099s.bsp", &synthetic_spk_kernel_bytes(&[(499, 4, 2.0)]));
+        without_spice_kernels(|| {
+            load_spice_kernel("de440s").unwrap();
+            {
+                let cache = CacheRedirect::new();
+                cache.seed_real_de440s();
+                cache.seed("mar099s.bsp", &synthetic_spk_kernel_bytes(&[(499, 4, 2.0)]));
 
-            let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
-            let x_eci = vector6_from_array([1e7, 2e7, 3e7, 1.0, 2.0, 3.0]);
+                let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+                let x_eci = vector6_from_array([1e7, 2e7, 3e7, 1.0, 2.0, 3.0]);
 
-            // Auto-load path: `ensure_mars_spk_loaded` is a OnceLock latch,
-            // so it only loads the kernel if no earlier test in this process
-            // fired it. Load explicitly afterwards so the test is
-            // deterministic regardless of latch state.
-            assert!(!crate::spice::kernel_is_loaded("mar099s"));
-            ensure_mars_spk_loaded();
-            if !crate::spice::kernel_is_loaded("mar099s") {
-                load_spice_kernel("mar099s").unwrap();
+                // Auto-load path: `ensure_mars_spk_loaded` is a OnceLock latch,
+                // so it only loads the kernel if no earlier test in this process
+                // fired it. Load explicitly afterwards so the test is
+                // deterministic regardless of latch state.
+                assert!(!crate::spice::kernel_is_loaded("mar099s"));
+                ensure_mars_spk_loaded();
+                if !crate::spice::kernel_is_loaded("mar099s") {
+                    load_spice_kernel("mar099s").unwrap();
+                }
+                let x_mci = state_eci_to_mci(epc, x_eci);
+                assert!(crate::spice::kernel_is_loaded("mar099s"));
+
+                let x_eci2 = state_mci_to_eci(epc, x_mci);
+                for i in 0..6 {
+                    assert_abs_diff_eq!(x_eci2[i], x_eci[i], epsilon = 1e-6);
+                }
+
+                let p_eci = x_eci.fixed_rows::<3>(0).into_owned();
+                let p_mci = position_eci_to_mci(epc, p_eci);
+                let p_eci2 = position_mci_to_eci(epc, p_mci);
+                for i in 0..3 {
+                    assert_abs_diff_eq!(p_eci2[i], p_eci[i], epsilon = 1e-6);
+                }
+
+                // Offset consistency: MCI is the Earth->Mars-body-center translation.
+                let offset = crate::spice::spk_state(NAIFId::Mars, NAIFId::Earth, epc).unwrap();
+                for i in 0..6 {
+                    assert_abs_diff_eq!(x_mci[i], x_eci[i] - offset[i], epsilon = 1e-6);
+                }
+
+                // ensure_mars_spk_loaded is idempotent while loaded.
+                ensure_mars_spk_loaded();
+
+                unload_spice_kernel("mar099s").unwrap();
             }
-            let x_mci = state_eci_to_mci(epc, x_eci);
-            assert!(crate::spice::kernel_is_loaded("mar099s"));
-
-            let x_eci2 = state_mci_to_eci(epc, x_mci);
-            for i in 0..6 {
-                assert_abs_diff_eq!(x_eci2[i], x_eci[i], epsilon = 1e-6);
-            }
-
-            let p_eci = x_eci.fixed_rows::<3>(0).into_owned();
-            let p_mci = position_eci_to_mci(epc, p_eci);
-            let p_eci2 = position_mci_to_eci(epc, p_mci);
-            for i in 0..3 {
-                assert_abs_diff_eq!(p_eci2[i], p_eci[i], epsilon = 1e-6);
-            }
-
-            // Offset consistency: MCI is the Earth->Mars-body-center translation.
-            let offset = crate::spice::spk_state(NAIFId::Mars, NAIFId::Earth, epc).unwrap();
-            for i in 0..6 {
-                assert_abs_diff_eq!(x_mci[i], x_eci[i] - offset[i], epsilon = 1e-6);
-            }
-
-            // ensure_mars_spk_loaded is idempotent while loaded.
-            ensure_mars_spk_loaded();
-
-            unload_spice_kernel("mar099s").unwrap();
-        }
-        // The latch is now set but the kernel was just unloaded, so later
-        // latch-relying tests would see it missing. Best-effort restore of
-        // the real mar099s (real cache; tolerated failure keeps this test
-        // offline-safe when nothing later needs the kernel).
-        let _ = load_spice_kernel("mar099s");
+        });
     }
 
     #[test]

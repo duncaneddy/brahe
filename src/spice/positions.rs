@@ -569,7 +569,7 @@ mod tests {
 
     use super::*;
     use crate::orbit_dynamics::ephemerides::{moon_position, sun_position};
-    use crate::utils::testing::setup_global_test_spice;
+    use crate::utils::testing::{setup_global_test_spice, without_spice_kernels};
 
     #[rstest]
     #[case(2025, 1, 1)]
@@ -847,96 +847,93 @@ mod tests {
         // zero. This also covers all `system_kernel` match arms.
         use crate::spice::{clear_spice_kernels, load_spice_kernel};
         use crate::utils::testing::{CacheRedirect, synthetic_spk_kernel_bytes};
-
         setup_global_test_spice();
-        // Keep the real de440s resident so any concurrent cache-reading test
-        // still finds it (via load_spice_kernel's idempotent short-circuit) while
-        // BRAHE_CACHE is redirected below. The barycenter leg uses the DE440
-        // (de440.bsp) slot, which no other default-suite test loads, so
-        // seeding a synthetic version there cannot corrupt a concurrent read.
-        load_spice_kernel("de440s").unwrap();
-
-        let epc = Epoch::from_date(2025, 1, 1, crate::time::TimeSystem::UTC);
-        {
-            let cache = CacheRedirect::new();
-            cache.seed_real_de440s(); // keep de440s valid for concurrent reloads
-            cache.seed(
-                "de440.bsp",
-                &synthetic_spk_kernel_bytes(&[
-                    (4, 399, 4.0),
-                    (5, 399, 5.0),
-                    (6, 399, 6.0),
-                    (7, 399, 7.0),
-                    (8, 399, 8.0),
-                ]),
-            );
-            cache.seed("mar099s.bsp", &synthetic_spk_kernel_bytes(&[(499, 4, 0.4)]));
-            cache.seed("jup365.bsp", &synthetic_spk_kernel_bytes(&[(599, 5, 0.5)]));
-            cache.seed("sat441.bsp", &synthetic_spk_kernel_bytes(&[(699, 6, 0.6)]));
-            cache.seed(
-                "ura184_part-3.bsp",
-                &synthetic_spk_kernel_bytes(&[(799, 7, 0.7)]),
-            );
-            cache.seed("nep097.bsp", &synthetic_spk_kernel_bytes(&[(899, 8, 0.8)]));
-
-            // Drop any satellite-system kernels loaded by earlier tests
-            // (e.g. the real mar099s from the planet-center third-body
-            // tests): the by-name idempotent short-circuit in
-            // `load_spice_kernel` would otherwise resolve the body-center
-            // legs from the real kernels instead of the synthetic ones
-            // seeded above. Re-anchor de440s from the redirected (real)
-            // bytes seeded by `seed_real_de440s`.
-            clear_spice_kernels();
+        without_spice_kernels(|| {
+            // Keep the real de440s resident so any concurrent cache-reading test
+            // still finds it (via load_spice_kernel's idempotent short-circuit) while
+            // BRAHE_CACHE is redirected below. The barycenter leg uses the DE440
+            // (de440.bsp) slot, which no other default-suite test loads, so
+            // seeding a synthetic version there cannot corrupt a concurrent read.
             load_spice_kernel("de440s").unwrap();
 
-            // (position fn, velocity fn, state fn, expected x sum in meters)
-            type PosFn = fn(Epoch, SPICEKernel) -> Result<Vector3<f64>, BraheError>;
-            type StateFn = fn(Epoch, SPICEKernel) -> Result<Vector6<f64>, BraheError>;
-            let cases: [(PosFn, PosFn, StateFn, f64); 5] = [
-                (
-                    mars_position_spice,
-                    mars_velocity_spice,
-                    mars_state_spice,
-                    4400.0,
-                ),
-                (
-                    jupiter_position_spice,
-                    jupiter_velocity_spice,
-                    jupiter_state_spice,
-                    5500.0,
-                ),
-                (
-                    saturn_position_spice,
-                    saturn_velocity_spice,
-                    saturn_state_spice,
-                    6600.0,
-                ),
-                (
-                    uranus_position_spice,
-                    uranus_velocity_spice,
-                    uranus_state_spice,
-                    7700.0,
-                ),
-                (
-                    neptune_position_spice,
-                    neptune_velocity_spice,
-                    neptune_state_spice,
-                    8800.0,
-                ),
-            ];
-            for (pos_fn, vel_fn, state_fn, expected_x) in cases {
-                let r = pos_fn(epc, SPICEKernel::DE440).unwrap();
-                assert_abs_diff_eq!(r[0], expected_x, epsilon = 1e-6);
-                assert_eq!(vel_fn(epc, SPICEKernel::DE440).unwrap(), Vector3::zeros());
-                let x = state_fn(epc, SPICEKernel::DE440).unwrap();
-                assert_abs_diff_eq!(x[0], expected_x, epsilon = 1e-6);
-                assert_eq!(x.fixed_rows::<3>(3).into_owned(), Vector3::zeros());
+            let epc = Epoch::from_date(2025, 1, 1, crate::time::TimeSystem::UTC);
+            {
+                let cache = CacheRedirect::new();
+                cache.seed_real_de440s(); // keep de440s valid for concurrent reloads
+                cache.seed(
+                    "de440.bsp",
+                    &synthetic_spk_kernel_bytes(&[
+                        (4, 399, 4.0),
+                        (5, 399, 5.0),
+                        (6, 399, 6.0),
+                        (7, 399, 7.0),
+                        (8, 399, 8.0),
+                    ]),
+                );
+                cache.seed("mar099s.bsp", &synthetic_spk_kernel_bytes(&[(499, 4, 0.4)]));
+                cache.seed("jup365.bsp", &synthetic_spk_kernel_bytes(&[(599, 5, 0.5)]));
+                cache.seed("sat441.bsp", &synthetic_spk_kernel_bytes(&[(699, 6, 0.6)]));
+                cache.seed(
+                    "ura184_part-3.bsp",
+                    &synthetic_spk_kernel_bytes(&[(799, 7, 0.7)]),
+                );
+                cache.seed("nep097.bsp", &synthetic_spk_kernel_bytes(&[(899, 8, 0.8)]));
+
+                // Drop any satellite-system kernels loaded by earlier tests
+                // (e.g. the real mar099s from the planet-center third-body
+                // tests): the by-name idempotent short-circuit in
+                // `load_spice_kernel` would otherwise resolve the body-center
+                // legs from the real kernels instead of the synthetic ones
+                // seeded above. Re-anchor de440s from the redirected (real)
+                // bytes seeded by `seed_real_de440s`.
+                clear_spice_kernels();
+                load_spice_kernel("de440s").unwrap();
+
+                // (position fn, velocity fn, state fn, expected x sum in meters)
+                type PosFn = fn(Epoch, SPICEKernel) -> Result<Vector3<f64>, BraheError>;
+                type StateFn = fn(Epoch, SPICEKernel) -> Result<Vector6<f64>, BraheError>;
+                let cases: [(PosFn, PosFn, StateFn, f64); 5] = [
+                    (
+                        mars_position_spice,
+                        mars_velocity_spice,
+                        mars_state_spice,
+                        4400.0,
+                    ),
+                    (
+                        jupiter_position_spice,
+                        jupiter_velocity_spice,
+                        jupiter_state_spice,
+                        5500.0,
+                    ),
+                    (
+                        saturn_position_spice,
+                        saturn_velocity_spice,
+                        saturn_state_spice,
+                        6600.0,
+                    ),
+                    (
+                        uranus_position_spice,
+                        uranus_velocity_spice,
+                        uranus_state_spice,
+                        7700.0,
+                    ),
+                    (
+                        neptune_position_spice,
+                        neptune_velocity_spice,
+                        neptune_state_spice,
+                        8800.0,
+                    ),
+                ];
+                for (pos_fn, vel_fn, state_fn, expected_x) in cases {
+                    let r = pos_fn(epc, SPICEKernel::DE440).unwrap();
+                    assert_abs_diff_eq!(r[0], expected_x, epsilon = 1e-6);
+                    assert_eq!(vel_fn(epc, SPICEKernel::DE440).unwrap(), Vector3::zeros());
+                    let x = state_fn(epc, SPICEKernel::DE440).unwrap();
+                    assert_abs_diff_eq!(x[0], expected_x, epsilon = 1e-6);
+                    assert_eq!(x.fixed_rows::<3>(3).into_owned(), Vector3::zeros());
+                }
             }
-        }
-        // Redirect dropped (real cache restored): drop the synthetic kernels
-        // and reload the real de440s.
-        clear_spice_kernels();
-        load_spice_kernel("de440s").unwrap();
+        });
     }
 
     #[test]
@@ -978,23 +975,22 @@ mod tests {
     fn test_ssb_position_spice_alias_offline() {
         // `ssb_position_spice` forwards to `solar_system_barycenter_position_spice`.
         // A synthetic DE kernel provides SSB (0) rel Earth as a constant.
-        use crate::spice::{clear_spice_kernels, load_spice_kernel};
+        use crate::spice::load_spice_kernel;
         use crate::utils::testing::{CacheRedirect, synthetic_spk_kernel_bytes};
-
         setup_global_test_spice();
-        load_spice_kernel("de440s").unwrap(); // keep real de440s resident (see above)
+        without_spice_kernels(|| {
+            load_spice_kernel("de440s").unwrap(); // keep real de440s resident (see above)
 
-        let epc = Epoch::from_date(2025, 1, 1, crate::time::TimeSystem::UTC);
-        {
-            let cache = CacheRedirect::new();
-            cache.seed_real_de440s(); // keep de440s valid for concurrent reloads
-            // de440.bsp slot: not read by any concurrent default-suite test.
-            cache.seed("de440.bsp", &synthetic_spk_kernel_bytes(&[(0, 399, 3.0)]));
-            let r = ssb_position_spice(epc, SPICEKernel::DE440).unwrap();
-            assert_abs_diff_eq!(r[0], 3000.0, epsilon = 1e-6);
-        }
-        clear_spice_kernels();
-        load_spice_kernel("de440s").unwrap();
+            let epc = Epoch::from_date(2025, 1, 1, crate::time::TimeSystem::UTC);
+            {
+                let cache = CacheRedirect::new();
+                cache.seed_real_de440s(); // keep de440s valid for concurrent reloads
+                // de440.bsp slot: not read by any concurrent default-suite test.
+                cache.seed("de440.bsp", &synthetic_spk_kernel_bytes(&[(0, 399, 3.0)]));
+                let r = ssb_position_spice(epc, SPICEKernel::DE440).unwrap();
+                assert_abs_diff_eq!(r[0], 3000.0, epsilon = 1e-6);
+            }
+        });
     }
 
     #[test]
@@ -1002,24 +998,24 @@ mod tests {
     fn test_solar_system_barycenter_position_spice_error_offline() {
         // Error branch: a cached-but-unparseable DE kernel makes the load
         // fail, and the error propagates out of the generated position fn.
-        use crate::spice::{clear_spice_kernels, load_spice_kernel};
+        use crate::spice::load_spice_kernel;
         use crate::utils::testing::CacheRedirect;
-
         setup_global_test_spice();
-        load_spice_kernel("de440s").unwrap(); // keep real de440s resident (see above)
+        without_spice_kernels(|| {
+            load_spice_kernel("de440s").unwrap(); // keep real de440s resident (see above)
 
-        let epc = Epoch::from_date(2025, 1, 1, crate::time::TimeSystem::UTC);
-        {
-            let cache = CacheRedirect::new();
-            cache.seed_real_de440s(); // keep de440s valid for concurrent reloads
-            // de440.bsp slot: seeding invalid bytes here cannot corrupt a
-            // concurrent test reading the real de440s.
-            cache.seed("de440.bsp", b"not a valid DAF kernel");
-            let err = solar_system_barycenter_position_spice(epc, SPICEKernel::DE440).unwrap_err();
-            assert!(!format!("{}", err).is_empty());
-        }
-        clear_spice_kernels();
-        load_spice_kernel("de440s").unwrap();
+            let epc = Epoch::from_date(2025, 1, 1, crate::time::TimeSystem::UTC);
+            {
+                let cache = CacheRedirect::new();
+                cache.seed_real_de440s(); // keep de440s valid for concurrent reloads
+                // de440.bsp slot: seeding invalid bytes here cannot corrupt a
+                // concurrent test reading the real de440s.
+                cache.seed("de440.bsp", b"not a valid DAF kernel");
+                let err =
+                    solar_system_barycenter_position_spice(epc, SPICEKernel::DE440).unwrap_err();
+                assert!(!format!("{}", err).is_empty());
+            }
+        });
     }
 
     #[test]

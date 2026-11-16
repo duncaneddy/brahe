@@ -180,6 +180,19 @@ struct XMLTleParameters {
 ///
 /// * `Result<&str, BraheError>` - The `<omm>...</omm>` slice of `content`, or
 ///   `content` itself when the root element is not `<ndm>`.
+///
+/// # Examples
+///
+/// `parse_omm_xml` applies this unwrapping before deserializing, so a
+/// CelesTrak-style `<ndm>` document parses as its single OMM:
+///
+/// ```
+/// use brahe::ccsds::xml::parse_omm_xml;
+///
+/// let xml = std::fs::read_to_string("test_assets/ccsds/omm/OMM-ndm-wrapped.xml").unwrap();
+/// let omm = parse_omm_xml(&xml).unwrap();
+/// assert_eq!(omm.metadata.object_name, "ISS (ZARYA)");
+/// ```
 fn unwrap_single_omm_ndm(content: &str) -> Result<&str, BraheError> {
     let mut reader = Reader::from_str(content);
     let mut depth = 0usize;
@@ -263,6 +276,13 @@ fn unwrap_single_omm_ndm(content: &str) -> Result<&str, BraheError> {
             Event::Eof => break,
             _ => {}
         }
+    }
+
+    if !root_closed {
+        return Err(ccsds_parse_error(
+            "OMM",
+            "XML document ends before the closing </ndm>",
+        ));
     }
 
     match (omm_count, omm_span) {
@@ -684,6 +704,7 @@ mod tests {
     #[case("OMM-ndm-mixed.xml", "<opm>")]
     #[case("OMM-ndm-stray-text.xml", "text outside an element")]
     #[case("OMM-ndm-trailing-element.xml", "after the closing </ndm>")]
+    #[case("OMM-ndm-truncated.xml", "ends before the closing </ndm>")]
     #[serial_test::parallel]
     fn test_parse_omm_xml_ndm_rejects_non_single_omm(#[case] file: &str, #[case] msg: &str) {
         let err = parse_omm_xml(

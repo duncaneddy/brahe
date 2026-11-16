@@ -56,6 +56,7 @@ def test_parse_omm_xml_ndm_wrapped_single_omm(eop):
         ("OMM-ndm-mixed.xml", "<opm>"),
         ("OMM-ndm-stray-text.xml", "text outside an element"),
         ("OMM-ndm-trailing-element.xml", "after the closing </ndm>"),
+        ("OMM-ndm-truncated.xml", "ends before the closing </ndm>"),
     ],
 )
 def test_parse_omm_xml_ndm_rejects_non_single_omm(eop, file, msg):

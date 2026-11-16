@@ -534,11 +534,16 @@ mod tests {
     /// off, so any ephemeris lookup fails instead of silently reloading
     /// `de440s`. Clearing the registry alone is not enough: the translation
     /// leg calls `ensure_bodies_loadable`, which reloads the default DE kernel
-    /// from the cache on demand.
+    /// from the cache on demand. The cache redirect and network guard are
+    /// scoped inside the closure so they are dropped before
+    /// `without_spice_kernels` reloads the previously resident kernels from
+    /// the real cache.
     fn without_any_ephemeris<T>(f: impl FnOnce() -> T) -> T {
-        let _cache = CacheRedirect::new();
-        let _mode = NetworkModeGuard::set(Some("offline"));
-        without_spice_kernels(f)
+        without_spice_kernels(|| {
+            let _cache = CacheRedirect::new();
+            let _mode = NetworkModeGuard::set(Some("offline"));
+            f()
+        })
     }
 
     #[test]

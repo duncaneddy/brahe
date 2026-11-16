@@ -15,6 +15,7 @@
 
 use std::collections::HashMap;
 use std::path::Path;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, RwLock};
 
 use nalgebra::{Vector3, Vector6};
@@ -61,6 +62,60 @@ static GLOBAL_SPICE: Lazy<RwLock<KernelRegistry>> = Lazy::new(|| {
         chain_cache: HashMap::new(),
     })
 });
+
+/// Incremented on every change to the set of loaded kernels (load, unload,
+/// clear), always while holding the [`GLOBAL_SPICE`] write lock.
+static REGISTRY_GENERATION: RegistryGeneration = RegistryGeneration(AtomicU64::new(1));
+
+/// Registry generation counter on its own cache lines, so the read-only
+/// fast path in [`KernelPresence::ensure`] does not share a line with the
+/// [`GLOBAL_SPICE`] lock state that every query writes.
+#[repr(align(128))]
+struct RegistryGeneration(AtomicU64);
+
+/// Per-auto-loader record of the registry generation at which its kernel was
+/// last confirmed loaded.
+///
+/// [`KernelPresence::ensure`] runs its check-and-load closure only when the
+/// registry has changed since the last successful run, so the steady-state
+/// cost is two atomic loads and the registry lock is not taken. Aligned to
+/// its own cache lines so those loads do not contend with writes to nearby
+/// statics such as the [`GLOBAL_SPICE`] lock state.
+#[repr(align(128))]
+pub(crate) struct KernelPresence {
+    verified: AtomicU64,
+}
+
+impl KernelPresence {
+    /// Creates a record that has not yet confirmed any generation.
+    ///
+    /// # Returns
+    /// - A `KernelPresence` whose first [`KernelPresence::ensure`] call runs its closure
+    pub(crate) const fn new() -> Self {
+        Self {
+            verified: AtomicU64::new(0),
+        }
+    }
+
+    /// Runs `load_if_absent` unless the registry is unchanged since it last
+    /// returned normally.
+    ///
+    /// The generation is read before `load_if_absent` runs, so a load,
+    /// unload, or clear that races with it makes the next call run it again.
+    /// The recorded generation only increases, so a delayed call cannot
+    /// replace a newer confirmation with an older one.
+    ///
+    /// # Arguments
+    /// - `load_if_absent`: Checks that the kernel is loaded and loads it if absent; panics on failure
+    pub(crate) fn ensure(&self, load_if_absent: impl FnOnce()) {
+        let generation = REGISTRY_GENERATION.0.load(Ordering::Acquire);
+        if self.verified.load(Ordering::Acquire) == generation {
+            return;
+        }
+        load_if_absent();
+        self.verified.fetch_max(generation, Ordering::AcqRel);
+    }
+}
 
 /// Convert a brahe [`Epoch`] to SPICE ephemeris time (TDB seconds past
 /// J2000).
@@ -150,6 +205,7 @@ pub fn load_spice_kernel(kernel: impl Into<KernelSource>) -> Result<(), BraheErr
     reg.kernels.insert(key.clone(), kernel);
     reg.load_order.push(key);
     reg.chain_cache.clear();
+    REGISTRY_GENERATION.0.fetch_add(1, Ordering::Release);
     Ok(())
 }
 
@@ -180,6 +236,7 @@ pub fn unload_spice_kernel(kernel: impl Into<KernelSource>) -> Result<(), BraheE
     }
     reg.load_order.retain(|k| k != &key);
     reg.chain_cache.clear();
+    REGISTRY_GENERATION.0.fetch_add(1, Ordering::Release);
     Ok(())
 }
 
@@ -197,6 +254,7 @@ pub fn clear_spice_kernels() {
     reg.kernels.clear();
     reg.load_order.clear();
     reg.chain_cache.clear();
+    REGISTRY_GENERATION.0.fetch_add(1, Ordering::Release);
 }
 
 /// Names/paths of currently loaded kernels, in load order.
@@ -1020,6 +1078,8 @@ pub fn pck_rotation_matrix(
 #[cfg(test)]
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
+    use std::cell::Cell;
+
     use approx::assert_abs_diff_eq;
     use nalgebra::Matrix3;
     use serial_test::{parallel, serial};
@@ -1031,6 +1091,58 @@ mod tests {
 
     fn epc_2025() -> Epoch {
         Epoch::from_date(2025, 1, 1, TimeSystem::UTC)
+    }
+
+    #[test]
+    #[serial] // reads the process-wide registry generation
+    #[allow(non_snake_case)]
+    fn test_KernelPresence_ensure_reruns_only_after_registry_change() {
+        without_spice_kernels(|| {
+            let presence = KernelPresence::new();
+            let runs = Cell::new(0);
+            let ensure = || presence.ensure(|| runs.set(runs.get() + 1));
+
+            ensure();
+            ensure();
+            assert_eq!(runs.get(), 1);
+
+            clear_spice_kernels();
+            ensure();
+            ensure();
+            assert_eq!(runs.get(), 2);
+
+            let panicked = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                clear_spice_kernels();
+                presence.ensure(|| panic!("load failed"));
+            }));
+            assert!(panicked.is_err());
+            ensure();
+            assert_eq!(runs.get(), 3);
+        });
+    }
+
+    #[test]
+    #[serial] // reads the process-wide registry generation
+    #[allow(non_snake_case)]
+    fn test_KernelPresence_ensure_keeps_newest_generation() {
+        without_spice_kernels(|| {
+            let presence = KernelPresence::new();
+            let runs = Cell::new(0);
+
+            // The outer call reads the generation, then a registry change and
+            // a nested call that confirms the newer generation complete before
+            // the outer call records its older one.
+            presence.ensure(|| {
+                runs.set(runs.get() + 1);
+                clear_spice_kernels();
+                presence.ensure(|| runs.set(runs.get() + 1));
+            });
+            assert_eq!(runs.get(), 2);
+
+            // The newer confirmation stands, so the next call is a no-op.
+            presence.ensure(|| runs.set(runs.get() + 1));
+            assert_eq!(runs.get(), 2);
+        });
     }
 
     /// Build a minimal little-endian SPK with one type-2 segment for target

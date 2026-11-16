@@ -2439,6 +2439,7 @@ pub fn states_itrf_to_tod(
 #[cfg(test)]
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
+    use crate::utils::testing::GlobalEOPGuard;
     use approx::assert_abs_diff_eq;
     use nalgebra::Vector3;
     use serial_test::serial;
@@ -2486,6 +2487,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_bias_precession_matches_sofa_bp00() {
+        let _eop = GlobalEOPGuard::new();
         set_global_eop_provider(StaticEOPProvider::from_zero());
         let _model = PrecessionNutationModelGuard::set(PrecessionNutationModel::IAU2000B);
         let epc = cookbook_epoch();
@@ -2508,6 +2510,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_bias_precession_matches_sofa_bp06() {
+        let _eop = GlobalEOPGuard::new();
         set_global_eop_provider(StaticEOPProvider::from_zero());
         let epc = cookbook_epoch();
         let tt = epc.mjd_as_time_system(TimeSystem::TT);
@@ -2530,6 +2533,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_bias_precession_needs_no_eop() {
+        let _eop = GlobalEOPGuard::new();
         // Large dX/dY corrections have no effect on bias-precession: it does
         // not read the nutation-only Earth orientation corrections at all.
         set_global_eop_provider(StaticEOPProvider::from_values((
@@ -2570,6 +2574,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_rotation_gcrf_to_tod_matches_sofa_pnm00b_with_zero_eop() {
+        let _eop = GlobalEOPGuard::new();
         set_global_eop_provider(StaticEOPProvider::from_zero());
         let _model = PrecessionNutationModelGuard::set(PrecessionNutationModel::IAU2000B);
         let epc = cookbook_epoch();
@@ -2595,6 +2600,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_rotation_gcrf_to_tod_matches_sofa_pnm06a_with_zero_eop() {
+        let _eop = GlobalEOPGuard::new();
         set_global_eop_provider(StaticEOPProvider::from_zero());
         let epc = cookbook_epoch();
         let tt = epc.mjd_as_time_system(TimeSystem::TT);
@@ -2619,6 +2625,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_gcrf_to_itrf_via_tod_matches_sofa_c2t00b_with_zero_eop() {
+        let _eop = GlobalEOPGuard::new();
         set_global_eop_provider(StaticEOPProvider::from_zero());
         let _model = PrecessionNutationModelGuard::set(PrecessionNutationModel::IAU2000B);
         let epc = cookbook_epoch();
@@ -2638,6 +2645,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_gcrf_to_itrf_via_tod_matches_sofa_c2t06a_with_zero_eop() {
+        let _eop = GlobalEOPGuard::new();
         set_global_eop_provider(StaticEOPProvider::from_zero());
         let epc = cookbook_epoch();
         let tt = epc.mjd_as_time_system(TimeSystem::TT);
@@ -2656,6 +2664,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_gast_makes_equinox_chain_equal_cio_chain() {
+        let _eop = GlobalEOPGuard::new();
         // R3(GAST) * NPB == R3(ERA) * C2ixys(X, Y, s) for the X, Y, s of NPB.
         set_cookbook_eop();
         let epc = cookbook_epoch();
@@ -2693,6 +2702,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_rotation_gcrf_to_itrf_via_tod_matches_cookbook_5_4() {
+        let _eop = GlobalEOPGuard::new();
         // SOFA cookbook Section 5.4 (equinox based) final matrix, an
         // IAU 2006/2000A reference, evaluated on the default model. The
         // floor is set by the Earth rotation angle, where the printed
@@ -2717,6 +2727,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_rotation_gcrf_to_itrf_via_tod_matches_cookbook_5_4_iau2000b() {
+        let _eop = GlobalEOPGuard::new();
         // The same IAU 2006/2000A reference matrix, reached on the truncated
         // IAU 2000B model: the two models differ at the milliarcsecond level.
         set_cookbook_eop();
@@ -2740,6 +2751,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_equinox_chain_matches_cio_chain_with_corrections() {
+        let _eop = GlobalEOPGuard::new();
         // Same model basis on both chains, corrections applied in dPsi/dEps
         // versus X/Y: agreement at the microarcsecond level.
         set_cookbook_eop();
@@ -2764,6 +2776,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_rotation_inverses_are_transposes() {
+        let _eop = GlobalEOPGuard::new();
         set_cookbook_eop();
         let epc = cookbook_epoch();
         assert_matrix_eq(
@@ -2798,6 +2811,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_nutation_applies_eop_corrections() {
+        let _eop = GlobalEOPGuard::new();
         // A large synthetic dX shifts the CIP by dX along the GCRF x axis.
         let epc = cookbook_epoch();
         set_global_eop_provider(StaticEOPProvider::from_zero());
@@ -2833,6 +2847,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_state_transforms_rotate_position_and_velocity() {
+        let _eop = GlobalEOPGuard::new();
         set_cookbook_eop();
         let epc = cookbook_epoch();
         let x = sample_state();
@@ -2857,6 +2872,7 @@ mod tests {
     #[allow(clippy::type_complexity)]
     #[serial]
     fn test_position_round_trips() {
+        let _eop = GlobalEOPGuard::new();
         set_cookbook_eop();
         let epc = cookbook_epoch();
         let x = Vector3::new(constants::R_EARTH + 500e3, 1.0e6, -2.0e6);
@@ -2880,6 +2896,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_state_tod_to_itrf_round_trip_and_transport_term() {
+        let _eop = GlobalEOPGuard::new();
         set_cookbook_eop();
         let epc = cookbook_epoch();
         let x_tod = sample_state();
@@ -2915,6 +2932,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_batch_forms_match_scalar_forms() {
+        let _eop = GlobalEOPGuard::new();
         set_cookbook_eop();
         let epochs: Vec<Epoch> = (0..3)
             .map(|i| cookbook_epoch() + 3600.0 * i as f64)

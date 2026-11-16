@@ -856,6 +856,7 @@ pub fn states_itrf_to_gcrf(
 #[cfg(test)]
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
+    use crate::utils::testing::GlobalEOPGuard;
     use approx::assert_abs_diff_eq;
     use nalgebra::Vector3;
     use serial_test::serial;
@@ -885,6 +886,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_bias_precession_nutation() {
+        let _eop = GlobalEOPGuard::new();
         // Test case reproduction of Example 5.5 from SOFA cookbook
 
         // Set Earth orientation parameters for test case
@@ -912,6 +914,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_bias_precession_nutation_iau2000b() {
+        let _eop = GlobalEOPGuard::new();
         // Same Example 5.5 reference matrix reached on the truncated IAU
         // 2000B model, which agrees with IAU 2006/2000A to about 1 mas.
         set_test_static_eop();
@@ -943,6 +946,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_earth_rotation_iau2000b() {
+        let _eop = GlobalEOPGuard::new();
         set_test_static_eop();
         let _model = PrecessionNutationModelGuard::set(PrecessionNutationModel::IAU2000B);
 
@@ -967,6 +971,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_rotation_gcrf_itrf_iau2000b() {
+        let _eop = GlobalEOPGuard::new();
         set_test_static_eop();
         let _model = PrecessionNutationModelGuard::set(PrecessionNutationModel::IAU2000B);
 
@@ -994,6 +999,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_precession_nutation_model_default_and_switch() {
+        let _eop = GlobalEOPGuard::new();
         set_test_static_eop();
         let epc = Epoch::from_datetime(2007, 4, 5, 12, 0, 0.0, 0.0, TimeSystem::UTC);
 
@@ -1025,6 +1031,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_bias_precession_nutation_applies_cip_offsets() {
+        let _eop = GlobalEOPGuard::new();
         let epc = Epoch::from_datetime(2007, 4, 5, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let dx = 0.0001750 * AS2RAD;
         let dy = -0.0002259 * AS2RAD;
@@ -1048,6 +1055,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_earth_rotation() {
+        let _eop = GlobalEOPGuard::new();
         // Test case reproduction of Example 5.5 from SOFA cookbook
 
         // Set Earth orientation parameters for test case
@@ -1075,6 +1083,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_rotation_gcrf_to_itrf() {
+        let _eop = GlobalEOPGuard::new();
         // Test case reproduction of Example 5.5 from SOFA cookbook
         // Testing the explicit GCRF -> ITRF transformation
 
@@ -1103,6 +1112,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_rotation_itrf_to_gcrf() {
+        let _eop = GlobalEOPGuard::new();
         // Test case reproduction of Example 5.5 from SOFA cookbook
         // Testing the explicit ITRF -> GCRF transformation
 

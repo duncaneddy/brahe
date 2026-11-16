@@ -49,6 +49,23 @@ pub fn set_global_eop_provider<T: EarthOrientationProvider + Sync + Send + 'stat
     *GLOBAL_EOP.write().unwrap() = Box::new(provider);
 }
 
+/// Replace the crate-wide Earth orientation data provider and return the
+/// provider that was installed before the call.
+///
+/// # Arguments
+///
+/// - `provider`: Boxed provider to install
+///
+/// # Returns
+///
+/// - `Box<dyn EarthOrientationProvider + Sync + Send>`: The previously installed provider
+#[cfg(test)]
+pub(crate) fn replace_global_eop_provider(
+    provider: Box<dyn EarthOrientationProvider + Sync + Send>,
+) -> Box<dyn EarthOrientationProvider + Sync + Send> {
+    std::mem::replace(&mut *GLOBAL_EOP.write().unwrap(), provider)
+}
+
 /// Get UT1-UTC offset set for specified date from the crate-wide static Earth orientation data
 /// provider. The crate-wide provider must be initialized before this function is called or
 /// the function will return an error.
@@ -623,6 +640,7 @@ mod tests {
     use crate::constants::AS2RAD;
     use crate::eop::file_provider::FileEOPProvider;
     use crate::eop::static_provider::StaticEOPProvider;
+    use crate::utils::testing::GlobalEOPGuard;
     use std::env;
     use std::path::Path;
 
@@ -648,6 +666,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_ensure_global_eop_coverage_uninitialized() {
+        let _eop = GlobalEOPGuard::new();
         clear_test_global_eop();
 
         let result = ensure_global_eop_coverage(58000.0, 58001.0);
@@ -657,6 +676,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_ensure_global_eop_coverage_within_range() {
+        let _eop = GlobalEOPGuard::new();
         setup_test_global_eop(true, EOPExtrapolation::Error);
 
         assert!(ensure_global_eop_coverage(58000.0, 58001.0).is_ok());
@@ -667,6 +687,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_ensure_global_eop_coverage_outside_range_error_extrapolation() {
+        let _eop = GlobalEOPGuard::new();
         setup_test_global_eop(true, EOPExtrapolation::Error);
 
         // Far beyond the end of any loaded EOP file
@@ -683,6 +704,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_ensure_global_eop_coverage_dxdy_gap_error_extrapolation() {
+        let _eop = GlobalEOPGuard::new();
         setup_test_global_eop(true, EOPExtrapolation::Error);
 
         // Standard Bulletin A predictions extend UT1-UTC and polar motion
@@ -707,6 +729,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_ensure_global_eop_coverage_outside_range_hold_extrapolation() {
+        let _eop = GlobalEOPGuard::new();
         setup_test_global_eop(true, EOPExtrapolation::Hold);
 
         // Extrapolation covers out-of-range epochs
@@ -718,6 +741,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_ensure_global_eop_coverage_reversed_range() {
+        let _eop = GlobalEOPGuard::new();
         setup_test_global_eop(true, EOPExtrapolation::Hold);
 
         let result = ensure_global_eop_coverage(58001.0, 58000.0);
@@ -729,6 +753,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_set_global_eop_from_zero() {
+        let _eop = GlobalEOPGuard::new();
         clear_test_global_eop();
 
         assert!(!get_global_eop_initialization());
@@ -757,6 +782,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_set_global_eop_from_static_values() {
+        let _eop = GlobalEOPGuard::new();
         clear_test_global_eop();
 
         assert!(!get_global_eop_initialization());
@@ -785,6 +811,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_set_global_eop_from_c04_file() {
+        let _eop = GlobalEOPGuard::new();
         clear_test_global_eop();
         assert!(!get_global_eop_initialization());
 
@@ -809,6 +836,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_set_global_eop_from_default_c04() {
+        let _eop = GlobalEOPGuard::new();
         clear_test_global_eop();
         assert!(!get_global_eop_initialization());
 
@@ -829,6 +857,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_set_global_eop_from_standard_file() {
+        let _eop = GlobalEOPGuard::new();
         clear_test_global_eop();
         assert!(!get_global_eop_initialization());
 
@@ -853,6 +882,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_set_global_eop_from_default_standard() {
+        let _eop = GlobalEOPGuard::new();
         clear_test_global_eop();
         assert!(!get_global_eop_initialization());
 
@@ -877,6 +907,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_get_global_ut1_utc() {
+        let _eop = GlobalEOPGuard::new();
         clear_test_global_eop();
         setup_test_global_eop(true, EOPExtrapolation::Hold);
         assert!(get_global_eop_initialization());
@@ -903,6 +934,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_get_global_pm_xy() {
+        let _eop = GlobalEOPGuard::new();
         clear_test_global_eop();
         setup_test_global_eop(true, EOPExtrapolation::Hold);
         assert!(get_global_eop_initialization());
@@ -934,6 +966,7 @@ mod tests {
     #[serial]
     #[allow(non_snake_case)]
     fn test_get_global_dxdy() {
+        let _eop = GlobalEOPGuard::new();
         clear_test_global_eop();
         setup_test_global_eop(true, EOPExtrapolation::Hold);
         assert!(get_global_eop_initialization());
@@ -968,6 +1001,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_get_global_lod() {
+        let _eop = GlobalEOPGuard::new();
         clear_test_global_eop();
         setup_test_global_eop(true, EOPExtrapolation::Hold);
         assert!(get_global_eop_initialization());
@@ -994,6 +1028,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_get_global_eop_initialization() {
+        let _eop = GlobalEOPGuard::new();
         clear_test_global_eop();
         setup_test_global_eop(true, EOPExtrapolation::Hold);
         assert!(get_global_eop_initialization());
@@ -1002,6 +1037,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_get_global_eop_len() {
+        let _eop = GlobalEOPGuard::new();
         clear_test_global_eop();
         setup_test_global_eop(true, EOPExtrapolation::Hold);
         assert!(get_global_eop_initialization());
@@ -1012,6 +1048,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_get_global_eop_type() {
+        let _eop = GlobalEOPGuard::new();
         clear_test_global_eop();
         setup_test_global_eop(true, EOPExtrapolation::Hold);
         assert!(get_global_eop_initialization());
@@ -1022,6 +1059,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_get_global_eop_extrapolation() {
+        let _eop = GlobalEOPGuard::new();
         clear_test_global_eop();
         setup_test_global_eop(true, EOPExtrapolation::Hold);
         assert!(get_global_eop_initialization());
@@ -1032,6 +1070,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_get_global_eop_interpolation() {
+        let _eop = GlobalEOPGuard::new();
         clear_test_global_eop();
         setup_test_global_eop(true, EOPExtrapolation::Hold);
         assert!(get_global_eop_initialization());
@@ -1042,6 +1081,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_get_global_eop_mjd_min() {
+        let _eop = GlobalEOPGuard::new();
         clear_test_global_eop();
         setup_test_global_eop(true, EOPExtrapolation::Hold);
         assert!(get_global_eop_initialization());
@@ -1052,6 +1092,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_get_global_eop_mjd_max() {
+        let _eop = GlobalEOPGuard::new();
         clear_test_global_eop();
         setup_test_global_eop(true, EOPExtrapolation::Hold);
         assert!(get_global_eop_initialization());
@@ -1062,6 +1103,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_get_global_eop_mjd_last_lod() {
+        let _eop = GlobalEOPGuard::new();
         clear_test_global_eop();
         setup_test_global_eop(true, EOPExtrapolation::Hold);
         assert!(get_global_eop_initialization());
@@ -1072,6 +1114,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_get_global_eop_mjd_last_dxdy() {
+        let _eop = GlobalEOPGuard::new();
         clear_test_global_eop();
         setup_test_global_eop(true, EOPExtrapolation::Hold);
         assert!(get_global_eop_initialization());
@@ -1083,6 +1126,7 @@ mod tests {
     #[serial]
     #[cfg_attr(not(feature = "integration"), ignore)]
     fn test_initialize_eop() {
+        let _eop = GlobalEOPGuard::new();
         // Clear any existing global EOP
         clear_test_global_eop();
         assert!(!get_global_eop_initialization());

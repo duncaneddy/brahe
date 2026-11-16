@@ -313,6 +313,7 @@ impl TideField {
 
 #[cfg(test)]
 mod tests {
+    use crate::utils::testing::GlobalEOPGuard;
     use nalgebra::{DVector, Vector3, Vector6};
     use serial_test::serial;
 
@@ -535,6 +536,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_tide_field_build_pole_tide_without_eop_errors() {
+        let _eop = GlobalEOPGuard::new();
         // Installing an uninitialized provider de-initializes global EOP
         // in-process (the eop module's own tests use the same reset), so the
         // construction-time pole-tide guard must error.

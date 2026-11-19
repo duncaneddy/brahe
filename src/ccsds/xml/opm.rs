@@ -338,7 +338,7 @@ pub fn parse_opm_xml(content: &str) -> Result<crate::ccsds::opm::OPM, BraheError
 // ============================================================================
 
 /// Write an OPM message to XML format.
-pub fn write_opm_xml(opm: &crate::ccsds::opm::OPM) -> Result<String, BraheError> {
+pub(crate) fn write_opm_xml(opm: &crate::ccsds::opm::OPM) -> Result<String, BraheError> {
     let mut out = String::new();
     let i1 = "  ";
     let i2 = "    ";

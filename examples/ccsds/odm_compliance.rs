@@ -2,7 +2,7 @@
 
 #[allow(unused_imports)]
 use brahe as bh;
-use brahe::ccsds::OMM;
+use brahe::ccsds::{CCSDSFormat, OMM};
 use brahe::time::{Epoch, TimeSystem};
 
 fn main() {
@@ -17,6 +17,12 @@ fn main() {
     println!("Originator:    {:?}", omm.header.originator);
     println!("Compliant:     {}", omm.is_compliant());
     println!("Issues:        {:?}", omm.compliance_issues());
+
+    // The default write methods refuse a non-compliant message
+    let err = omm.to_string(CCSDSFormat::KVN).unwrap_err();
+    println!("Strict write:  {}", err);
+    let kvn = omm.to_string_noncompliant(CCSDSFormat::KVN).unwrap();
+    println!("Lenient write: {} characters", kvn.len());
 
     // Filling in the missing keywords makes the message compliant
     omm.header.creation_date = Some(Epoch::from_datetime(

@@ -591,7 +591,7 @@ pub fn parse_opm(content: &str) -> Result<OPM, BraheError> {
 }
 
 /// Write an OPM message to KVN format.
-pub fn write_opm(opm: &crate::ccsds::opm::OPM) -> Result<String, BraheError> {
+pub(crate) fn write_opm(opm: &crate::ccsds::opm::OPM) -> Result<String, BraheError> {
     let mut out = String::new();
 
     // Header

@@ -12,7 +12,7 @@ use std::path::Path;
 
 use crate::ccsds::common::{
     CCSDSCovariance, CCSDSFormat, CCSDSRefFrame, CCSDSTimeSystem, ODMHeader,
-    odm_object_compliance_issues,
+    ensure_compliant_write, odm_object_compliance_issues,
 };
 use crate::time::Epoch;
 use crate::utils::errors::BraheError;
@@ -319,14 +319,59 @@ impl OEM {
 
     /// Write the OEM message to a string in the specified format.
     ///
+    /// The message must be compliant with CCSDS 502.0-B-3: when
+    /// [`Self::compliance_issues`] is non-empty the write is refused. Use
+    /// [`Self::to_string_noncompliant`] to write such a message anyway.
+    ///
     /// # Arguments
     ///
     /// * `format` - Output encoding format (KVN, XML, or JSON)
     ///
     /// # Returns
     ///
-    /// * `Result<String, BraheError>` - Serialized OEM string or error
+    /// * `Result<String, BraheError>` - Serialized OEM string, or an error when
+    ///   the message lacks mandatory keywords
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::ccsds::{CCSDSFormat, OEM};
+    ///
+    /// let mut oem = OEM::from_file("test_assets/ccsds/oem/OEMExample1.txt").unwrap();
+    /// assert!(oem.to_string(CCSDSFormat::KVN).is_ok());
+    ///
+    /// oem.header.originator = None;
+    /// assert!(oem.to_string(CCSDSFormat::KVN).is_err());
+    /// ```
     pub fn to_string(&self, format: CCSDSFormat) -> Result<String, BraheError> {
+        ensure_compliant_write("OEM", self.compliance_issues())?;
+        self.to_string_noncompliant(format)
+    }
+
+    /// Write the OEM message to a string without checking CCSDS compliance.
+    ///
+    /// Mandatory keywords listed by [`Self::compliance_issues`] are written
+    /// with empty values. Orbit-defining fields are still required.
+    ///
+    /// # Arguments
+    ///
+    /// * `format` - Output encoding format (KVN, XML, or JSON)
+    ///
+    /// # Returns
+    ///
+    /// * `Result<String, BraheError>` - Serialized OEM string
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::ccsds::{CCSDSFormat, OEM};
+    ///
+    /// let mut oem = OEM::from_file("test_assets/ccsds/oem/OEMExample1.txt").unwrap();
+    /// oem.header.originator = None;
+    /// let kvn = oem.to_string_noncompliant(CCSDSFormat::KVN).unwrap();
+    /// assert!(OEM::from_str(&kvn).unwrap().header.originator.is_none());
+    /// ```
+    pub fn to_string_noncompliant(&self, format: CCSDSFormat) -> Result<String, BraheError> {
         match format {
             CCSDSFormat::KVN => crate::ccsds::kvn::write_oem(self),
             CCSDSFormat::XML => crate::ccsds::xml::write_oem_xml(self),
@@ -339,14 +384,58 @@ impl OEM {
 
     /// Write the OEM message to JSON with explicit key case control.
     ///
+    /// The write is refused when [`Self::compliance_issues`] is non-empty.
+    /// Use [`Self::to_json_string_noncompliant`] to write such a message
+    /// anyway.
+    ///
     /// # Arguments
     ///
     /// * `key_case` - Whether CCSDS keywords should be lowercase or uppercase
     ///
     /// # Returns
     ///
-    /// * `Result<String, BraheError>` - Serialized JSON string or error
+    /// * `Result<String, BraheError>` - Serialized JSON string, or an error when
+    ///   the message lacks mandatory keywords
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::ccsds::OEM;
+    /// use brahe::ccsds::common::CCSDSJsonKeyCase;
+    ///
+    /// let oem = OEM::from_file("test_assets/ccsds/oem/OEMExample1.txt").unwrap();
+    /// let json = oem.to_json_string(CCSDSJsonKeyCase::Upper).unwrap();
+    /// assert!(json.contains("ORIGINATOR"));
+    /// ```
     pub fn to_json_string(
+        &self,
+        key_case: crate::ccsds::common::CCSDSJsonKeyCase,
+    ) -> Result<String, BraheError> {
+        ensure_compliant_write("OEM", self.compliance_issues())?;
+        self.to_json_string_noncompliant(key_case)
+    }
+
+    /// Write the OEM message to JSON without checking CCSDS compliance.
+    ///
+    /// # Arguments
+    ///
+    /// * `key_case` - Whether CCSDS keywords should be lowercase or uppercase
+    ///
+    /// # Returns
+    ///
+    /// * `Result<String, BraheError>` - Serialized JSON string
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::ccsds::OEM;
+    /// use brahe::ccsds::common::CCSDSJsonKeyCase;
+    ///
+    /// let mut oem = OEM::from_file("test_assets/ccsds/oem/OEMExample1.txt").unwrap();
+    /// oem.header.originator = None;
+    /// assert!(oem.to_json_string_noncompliant(CCSDSJsonKeyCase::Upper).is_ok());
+    /// ```
+    pub fn to_json_string_noncompliant(
         &self,
         key_case: crate::ccsds::common::CCSDSJsonKeyCase,
     ) -> Result<String, BraheError> {
@@ -355,6 +444,10 @@ impl OEM {
 
     /// Write the OEM message to a file in the specified format.
     ///
+    /// The write is refused, and no file is created, when
+    /// [`Self::compliance_issues`] is non-empty. Use
+    /// [`Self::to_file_noncompliant`] to write such a message anyway.
+    ///
     /// # Arguments
     ///
     /// * `path` - Output file path
@@ -362,10 +455,56 @@ impl OEM {
     ///
     /// # Returns
     ///
-    /// * `Result<(), BraheError>` - Success or error
+    /// * `Result<(), BraheError>` - Success, or an error when the file cannot be
+    ///   written or the message lacks mandatory keywords
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::ccsds::{CCSDSFormat, OEM};
+    ///
+    /// let oem = OEM::from_file("test_assets/ccsds/oem/OEMExample1.txt").unwrap();
+    /// let path = std::env::temp_dir().join("brahe_oem_to_file_example.txt");
+    /// oem.to_file(&path, CCSDSFormat::KVN).unwrap();
+    /// ```
     pub fn to_file<P: AsRef<Path>>(&self, path: P, format: CCSDSFormat) -> Result<(), BraheError> {
         let content = self.to_string(format)?;
-        std::fs::write(path.as_ref(), content)
+        Self::write_file(path.as_ref(), content)
+    }
+
+    /// Write the OEM message to a file without checking CCSDS compliance.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - Output file path
+    /// * `format` - Output encoding format (KVN, XML, or JSON)
+    ///
+    /// # Returns
+    ///
+    /// * `Result<(), BraheError>` - Success, or an error when the file cannot be
+    ///   written
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::ccsds::{CCSDSFormat, OEM};
+    ///
+    /// let mut oem = OEM::from_file("test_assets/ccsds/oem/OEMExample1.txt").unwrap();
+    /// oem.header.originator = None;
+    /// let path = std::env::temp_dir().join("brahe_oem_to_file_noncompliant_example.txt");
+    /// oem.to_file_noncompliant(&path, CCSDSFormat::KVN).unwrap();
+    /// ```
+    pub fn to_file_noncompliant<P: AsRef<Path>>(
+        &self,
+        path: P,
+        format: CCSDSFormat,
+    ) -> Result<(), BraheError> {
+        let content = self.to_string_noncompliant(format)?;
+        Self::write_file(path.as_ref(), content)
+    }
+
+    fn write_file(path: &Path, content: String) -> Result<(), BraheError> {
+        std::fs::write(path, content)
             .map_err(|e| BraheError::IoError(format!("Failed to write OEM file: {}", e)))
     }
 }
@@ -426,6 +565,32 @@ mod tests {
     }
 
     #[rstest]
+    #[case(CCSDSFormat::KVN)]
+    #[case(CCSDSFormat::XML)]
+    #[case(CCSDSFormat::JSON)]
+    #[parallel]
+    fn test_oem_strict_write_rejects_noncompliant(#[case] format: CCSDSFormat) {
+        let mut oem = OEM::from_file("test_assets/ccsds/oem/OEMExample1.txt").unwrap();
+        oem.header.originator = None;
+
+        let err = oem.to_string(format).unwrap_err();
+        assert!(err.to_string().contains("header.ORIGINATOR"), "{}", err);
+        assert!(
+            oem.to_json_string(crate::ccsds::common::CCSDSJsonKeyCase::Lower)
+                .is_err()
+        );
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("oem.txt");
+        assert!(oem.to_file(&path, format).is_err());
+        assert!(!path.exists());
+
+        let written = oem.to_string_noncompliant(format).unwrap();
+        assert_eq!(OEM::from_str(&written).unwrap().header.originator, None);
+        oem.to_file_noncompliant(&path, format).unwrap();
+        assert!(path.exists());
+    }
+
+    #[rstest]
     #[case("test_assets/ccsds/oem/OEMExample1.txt", "1996-11-04T17:22:31")]
     #[case("test_assets/ccsds/oem/OEMExample3.xml", "1996-11-04T17:22:31")]
     #[parallel]
@@ -436,7 +601,7 @@ mod tests {
         assert!(oem.header.creation_date.is_none());
 
         for format in [CCSDSFormat::KVN, CCSDSFormat::XML, CCSDSFormat::JSON] {
-            let oem2 = OEM::from_str(&oem.to_string(format).unwrap()).unwrap();
+            let oem2 = OEM::from_str(&oem.to_string_noncompliant(format).unwrap()).unwrap();
             assert!(oem2.header.creation_date.is_none());
         }
     }

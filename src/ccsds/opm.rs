@@ -12,7 +12,7 @@ use std::path::Path;
 
 use crate::ccsds::common::{
     CCSDSCovariance, CCSDSFormat, CCSDSRefFrame, CCSDSSpacecraftParameters, CCSDSTimeSystem,
-    CCSDSUserDefined, ODMHeader, odm_object_compliance_issues,
+    CCSDSUserDefined, ODMHeader, ensure_compliant_write, odm_object_compliance_issues,
 };
 use crate::ccsds::interop::odm_celestial_frame;
 use crate::frames::{ReferenceFrame, state_frame_to_frame};
@@ -341,7 +341,60 @@ impl OPM {
     }
 
     /// Write the OPM message to a string in the specified format.
+    ///
+    /// The message must be compliant with CCSDS 502.0-B-3: when
+    /// [`Self::compliance_issues`] is non-empty the write is refused. Use
+    /// [`Self::to_string_noncompliant`] to write such a message anyway.
+    ///
+    /// # Arguments
+    ///
+    /// * `format` - Output encoding format (KVN, XML, or JSON)
+    ///
+    /// # Returns
+    ///
+    /// * `Result<String, BraheError>` - Serialized OPM string, or an error when
+    ///   the message lacks mandatory keywords
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::ccsds::{CCSDSFormat, OPM};
+    ///
+    /// let mut opm = OPM::from_file("test_assets/ccsds/opm/OPMExample1.txt").unwrap();
+    /// assert!(opm.to_string(CCSDSFormat::KVN).is_ok());
+    ///
+    /// opm.header.originator = None;
+    /// assert!(opm.to_string(CCSDSFormat::KVN).is_err());
+    /// ```
     pub fn to_string(&self, format: CCSDSFormat) -> Result<String, BraheError> {
+        ensure_compliant_write("OPM", self.compliance_issues())?;
+        self.to_string_noncompliant(format)
+    }
+
+    /// Write the OPM message to a string without checking CCSDS compliance.
+    ///
+    /// Mandatory keywords listed by [`Self::compliance_issues`] are written
+    /// with empty values. Orbit-defining fields are still required.
+    ///
+    /// # Arguments
+    ///
+    /// * `format` - Output encoding format (KVN, XML, or JSON)
+    ///
+    /// # Returns
+    ///
+    /// * `Result<String, BraheError>` - Serialized OPM string
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::ccsds::{CCSDSFormat, OPM};
+    ///
+    /// let mut opm = OPM::from_file("test_assets/ccsds/opm/OPMExample1.txt").unwrap();
+    /// opm.header.originator = None;
+    /// let kvn = opm.to_string_noncompliant(CCSDSFormat::KVN).unwrap();
+    /// assert!(OPM::from_str(&kvn).unwrap().header.originator.is_none());
+    /// ```
+    pub fn to_string_noncompliant(&self, format: CCSDSFormat) -> Result<String, BraheError> {
         match format {
             CCSDSFormat::KVN => crate::ccsds::kvn::write_opm(self),
             CCSDSFormat::XML => crate::ccsds::xml::write_opm_xml(self),
@@ -353,7 +406,59 @@ impl OPM {
     }
 
     /// Write the OPM message to JSON with explicit key case control.
+    ///
+    /// The write is refused when [`Self::compliance_issues`] is non-empty.
+    /// Use [`Self::to_json_string_noncompliant`] to write such a message
+    /// anyway.
+    ///
+    /// # Arguments
+    ///
+    /// * `key_case` - Whether CCSDS keywords should be lowercase or uppercase
+    ///
+    /// # Returns
+    ///
+    /// * `Result<String, BraheError>` - Serialized JSON string, or an error when
+    ///   the message lacks mandatory keywords
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::ccsds::OPM;
+    /// use brahe::ccsds::common::CCSDSJsonKeyCase;
+    ///
+    /// let opm = OPM::from_file("test_assets/ccsds/opm/OPMExample1.txt").unwrap();
+    /// let json = opm.to_json_string(CCSDSJsonKeyCase::Upper).unwrap();
+    /// assert!(json.contains("ORIGINATOR"));
+    /// ```
     pub fn to_json_string(
+        &self,
+        key_case: crate::ccsds::common::CCSDSJsonKeyCase,
+    ) -> Result<String, BraheError> {
+        ensure_compliant_write("OPM", self.compliance_issues())?;
+        self.to_json_string_noncompliant(key_case)
+    }
+
+    /// Write the OPM message to JSON without checking CCSDS compliance.
+    ///
+    /// # Arguments
+    ///
+    /// * `key_case` - Whether CCSDS keywords should be lowercase or uppercase
+    ///
+    /// # Returns
+    ///
+    /// * `Result<String, BraheError>` - Serialized JSON string
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::ccsds::OPM;
+    /// use brahe::ccsds::common::CCSDSJsonKeyCase;
+    ///
+    /// let mut opm = OPM::from_file("test_assets/ccsds/opm/OPMExample1.txt").unwrap();
+    /// opm.header.originator = None;
+    /// assert!(opm.to_json_string_noncompliant(CCSDSJsonKeyCase::Upper).is_ok());
+    /// ```
+    pub fn to_json_string_noncompliant(
         &self,
         key_case: crate::ccsds::common::CCSDSJsonKeyCase,
     ) -> Result<String, BraheError> {
@@ -361,9 +466,68 @@ impl OPM {
     }
 
     /// Write the OPM message to a file in the specified format.
+    ///
+    /// The write is refused, and no file is created, when
+    /// [`Self::compliance_issues`] is non-empty. Use
+    /// [`Self::to_file_noncompliant`] to write such a message anyway.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - Output file path
+    /// * `format` - Output encoding format (KVN, XML, or JSON)
+    ///
+    /// # Returns
+    ///
+    /// * `Result<(), BraheError>` - Success, or an error when the file cannot be
+    ///   written or the message lacks mandatory keywords
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::ccsds::{CCSDSFormat, OPM};
+    ///
+    /// let opm = OPM::from_file("test_assets/ccsds/opm/OPMExample1.txt").unwrap();
+    /// let path = std::env::temp_dir().join("brahe_opm_to_file_example.txt");
+    /// opm.to_file(&path, CCSDSFormat::KVN).unwrap();
+    /// ```
     pub fn to_file<P: AsRef<Path>>(&self, path: P, format: CCSDSFormat) -> Result<(), BraheError> {
         let content = self.to_string(format)?;
-        std::fs::write(path.as_ref(), content)
+        Self::write_file(path.as_ref(), content)
+    }
+
+    /// Write the OPM message to a file without checking CCSDS compliance.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - Output file path
+    /// * `format` - Output encoding format (KVN, XML, or JSON)
+    ///
+    /// # Returns
+    ///
+    /// * `Result<(), BraheError>` - Success, or an error when the file cannot be
+    ///   written
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::ccsds::{CCSDSFormat, OPM};
+    ///
+    /// let mut opm = OPM::from_file("test_assets/ccsds/opm/OPMExample1.txt").unwrap();
+    /// opm.header.originator = None;
+    /// let path = std::env::temp_dir().join("brahe_opm_to_file_noncompliant_example.txt");
+    /// opm.to_file_noncompliant(&path, CCSDSFormat::KVN).unwrap();
+    /// ```
+    pub fn to_file_noncompliant<P: AsRef<Path>>(
+        &self,
+        path: P,
+        format: CCSDSFormat,
+    ) -> Result<(), BraheError> {
+        let content = self.to_string_noncompliant(format)?;
+        Self::write_file(path.as_ref(), content)
+    }
+
+    fn write_file(path: &Path, content: String) -> Result<(), BraheError> {
+        std::fs::write(path, content)
             .map_err(|e| BraheError::IoError(format!("Failed to write OPM file: {}", e)))
     }
 }
@@ -410,6 +574,32 @@ mod tests {
     }
 
     #[rstest]
+    #[case(CCSDSFormat::KVN)]
+    #[case(CCSDSFormat::XML)]
+    #[case(CCSDSFormat::JSON)]
+    #[serial_test::parallel]
+    fn test_opm_strict_write_rejects_noncompliant(#[case] format: CCSDSFormat) {
+        let mut opm = OPM::from_file("test_assets/ccsds/opm/OPMExample1.txt").unwrap();
+        opm.header.originator = None;
+
+        let err = opm.to_string(format).unwrap_err();
+        assert!(err.to_string().contains("header.ORIGINATOR"), "{}", err);
+        assert!(
+            opm.to_json_string(crate::ccsds::common::CCSDSJsonKeyCase::Lower)
+                .is_err()
+        );
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("opm.txt");
+        assert!(opm.to_file(&path, format).is_err());
+        assert!(!path.exists());
+
+        let written = opm.to_string_noncompliant(format).unwrap();
+        assert_eq!(OPM::from_str(&written).unwrap().header.originator, None);
+        opm.to_file_noncompliant(&path, format).unwrap();
+        assert!(path.exists());
+    }
+
+    #[rstest]
     #[case("test_assets/ccsds/opm/OPMExample1.txt", "1998-11-06T09:23:57")]
     #[case("test_assets/ccsds/opm/OPMExample3.xml", "2001-11-06T09:23:57")]
     #[serial_test::parallel]
@@ -420,7 +610,7 @@ mod tests {
         assert!(opm.header.creation_date.is_none());
 
         for format in [CCSDSFormat::KVN, CCSDSFormat::XML, CCSDSFormat::JSON] {
-            let opm2 = OPM::from_str(&opm.to_string(format).unwrap()).unwrap();
+            let opm2 = OPM::from_str(&opm.to_string_noncompliant(format).unwrap()).unwrap();
             assert!(opm2.header.creation_date.is_none());
         }
     }

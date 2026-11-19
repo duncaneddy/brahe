@@ -71,7 +71,7 @@ CCSDS files use **km** and **km/s** for position and velocity. Brahe automatical
 
 CCSDS 502.0-B-3 makes `CREATION_DATE` and `ORIGINATOR` mandatory in every OEM, OMM, and OPM header, and `OBJECT_NAME` and `OBJECT_ID` mandatory in their metadata. Some publishers omit these keywords or leave them empty; CelesTrak, for example, distributes OMMs with empty `CREATION_DATE` and `ORIGINATOR` values. Because the orbit data remains usable without them, brahe reads such messages and represents each absent value as `None`. Keywords that define the orbit itself, such as `EPOCH`, `REF_FRAME`, `TIME_SYSTEM`, and the element values, remain required and a message without them fails to parse.
 
-`compliance_issues()` lists the absent mandatory keywords, each prefixed by its location in the message (`header.CREATION_DATE`, `metadata.OBJECT_ID`, or `segments[0].metadata.OBJECT_NAME` for an OEM), and `is_compliant()` returns whether that list is empty:
+`compliance_issues()` lists the absent mandatory keywords, each prefixed by its location in the message (`header.CREATION_DATE`, `metadata.OBJECT_ID`, or `segments[0].metadata.OBJECT_NAME` for an OEM), and `is_compliant()` returns whether that list is empty. Writing is strict: `to_string`, `to_json_string`, and `to_file` raise an error naming the absent keywords unless called with `strict=False`. In Rust the same methods are always strict, and `to_string_noncompliant`, `to_json_string_noncompliant`, and `to_file_noncompliant` write without the check, so a non-compliant message is only written on request:
 
 === "Python"
     ``` python

@@ -1361,12 +1361,29 @@ impl PyOEM {
     ///
     /// Args:
     ///     format (str): Output format - "KVN", "XML", or "JSON"
+    ///     strict (bool): If True, raise when compliance_issues() is non-empty. Default: True.
     ///
     /// Returns:
     ///     str: Serialized OEM string
-    fn to_string(&self, format: &str) -> PyResult<String> {
+    ///
+    /// Example:
+    ///     ```python
+    ///     from brahe.ccsds import OEM
+    ///
+    ///     oem = OEM.from_file("test_assets/ccsds/oem/OEMExample1.txt")
+    ///     kvn = oem.to_string("KVN")
+    ///
+    ///     oem.originator = None
+    ///     kvn = oem.to_string("KVN", strict=False)
+    ///     ```
+    #[pyo3(signature = (format, strict=true))]
+    fn to_string(&self, format: &str, strict: bool) -> PyResult<String> {
         let fmt = parse_format(format)?;
-        let result = self.inner.to_string(fmt)?;
+        let result = if strict {
+            self.inner.to_string(fmt)
+        } else {
+            self.inner.to_string_noncompliant(fmt)
+        }?;
         Ok(result)
     }
 
@@ -1374,17 +1391,30 @@ impl PyOEM {
     ///
     /// Args:
     ///     uppercase_keys (bool): If True, use uppercase CCSDS keywords. Default: False.
+    ///     strict (bool): If True, raise when compliance_issues() is non-empty. Default: True.
     ///
     /// Returns:
     ///     str: Serialized JSON string
-    #[pyo3(signature = (uppercase_keys=false))]
-    fn to_json_string(&self, uppercase_keys: bool) -> PyResult<String> {
+    ///
+    /// Example:
+    ///     ```python
+    ///     from brahe.ccsds import OEM
+    ///
+    ///     oem = OEM.from_file("test_assets/ccsds/oem/OEMExample1.txt")
+    ///     json_str = oem.to_json_string(uppercase_keys=True)
+    ///     ```
+    #[pyo3(signature = (uppercase_keys=false, strict=true))]
+    fn to_json_string(&self, uppercase_keys: bool, strict: bool) -> PyResult<String> {
         let key_case = if uppercase_keys {
             brahe::ccsds::common::CCSDSJsonKeyCase::Upper
         } else {
             brahe::ccsds::common::CCSDSJsonKeyCase::Lower
         };
-        let result = self.inner.to_json_string(key_case)?;
+        let result = if strict {
+            self.inner.to_json_string(key_case)
+        } else {
+            self.inner.to_json_string_noncompliant(key_case)
+        }?;
         Ok(result)
     }
 
@@ -1393,9 +1423,29 @@ impl PyOEM {
     /// Args:
     ///     path (str): Output file path
     ///     format (str): Output format - "KVN", "XML", or "JSON"
-    fn to_file(&self, path: &str, format: &str) -> PyResult<()> {
+    ///     strict (bool): If True, raise when compliance_issues() is non-empty. Default: True.
+    ///
+    /// Returns:
+    ///     None: Nothing; the serialized message is written to path
+    ///
+    /// Example:
+    ///     ```python
+    ///     import os
+    ///     import tempfile
+    ///     from brahe.ccsds import OEM
+    ///
+    ///     oem = OEM.from_file("test_assets/ccsds/oem/OEMExample1.txt")
+    ///     path = os.path.join(tempfile.mkdtemp(), "oem.txt")
+    ///     oem.to_file(path, "KVN")
+    ///     ```
+    #[pyo3(signature = (path, format, strict=true))]
+    fn to_file(&self, path: &str, format: &str, strict: bool) -> PyResult<()> {
         let fmt = parse_format(format)?;
-        self.inner.to_file(path, fmt)?;
+        if strict {
+            self.inner.to_file(path, fmt)
+        } else {
+            self.inner.to_file_noncompliant(path, fmt)
+        }?;
         Ok(())
     }
 
@@ -2814,12 +2864,29 @@ impl PyOMM {
     ///
     /// Args:
     ///     format (str): Output format - "KVN", "XML", or "JSON"
+    ///     strict (bool): If True, raise when compliance_issues() is non-empty. Default: True.
     ///
     /// Returns:
     ///     str: Serialized OMM string
-    fn to_string(&self, format: &str) -> PyResult<String> {
+    ///
+    /// Example:
+    ///     ```python
+    ///     from brahe.ccsds import OMM
+    ///
+    ///     omm = OMM.from_file("test_assets/ccsds/omm/OMMExample1.txt")
+    ///     kvn = omm.to_string("KVN")
+    ///
+    ///     omm.originator = None
+    ///     kvn = omm.to_string("KVN", strict=False)
+    ///     ```
+    #[pyo3(signature = (format, strict=true))]
+    fn to_string(&self, format: &str, strict: bool) -> PyResult<String> {
         let fmt = parse_format(format)?;
-        let result = self.inner.to_string(fmt)?;
+        let result = if strict {
+            self.inner.to_string(fmt)
+        } else {
+            self.inner.to_string_noncompliant(fmt)
+        }?;
         Ok(result)
     }
 
@@ -2827,17 +2894,30 @@ impl PyOMM {
     ///
     /// Args:
     ///     uppercase_keys (bool): If True, use uppercase CCSDS keywords. Default: False.
+    ///     strict (bool): If True, raise when compliance_issues() is non-empty. Default: True.
     ///
     /// Returns:
     ///     str: Serialized JSON string
-    #[pyo3(signature = (uppercase_keys=false))]
-    fn to_json_string(&self, uppercase_keys: bool) -> PyResult<String> {
+    ///
+    /// Example:
+    ///     ```python
+    ///     from brahe.ccsds import OMM
+    ///
+    ///     omm = OMM.from_file("test_assets/ccsds/omm/OMMExample1.txt")
+    ///     json_str = omm.to_json_string(uppercase_keys=True)
+    ///     ```
+    #[pyo3(signature = (uppercase_keys=false, strict=true))]
+    fn to_json_string(&self, uppercase_keys: bool, strict: bool) -> PyResult<String> {
         let key_case = if uppercase_keys {
             brahe::ccsds::common::CCSDSJsonKeyCase::Upper
         } else {
             brahe::ccsds::common::CCSDSJsonKeyCase::Lower
         };
-        let result = self.inner.to_json_string(key_case)?;
+        let result = if strict {
+            self.inner.to_json_string(key_case)
+        } else {
+            self.inner.to_json_string_noncompliant(key_case)
+        }?;
         Ok(result)
     }
 
@@ -2846,9 +2926,29 @@ impl PyOMM {
     /// Args:
     ///     path (str): Output file path
     ///     format (str): Output format - "KVN", "XML", or "JSON"
-    fn to_file(&self, path: &str, format: &str) -> PyResult<()> {
+    ///     strict (bool): If True, raise when compliance_issues() is non-empty. Default: True.
+    ///
+    /// Returns:
+    ///     None: Nothing; the serialized message is written to path
+    ///
+    /// Example:
+    ///     ```python
+    ///     import os
+    ///     import tempfile
+    ///     from brahe.ccsds import OMM
+    ///
+    ///     omm = OMM.from_file("test_assets/ccsds/omm/OMMExample1.txt")
+    ///     path = os.path.join(tempfile.mkdtemp(), "omm.txt")
+    ///     omm.to_file(path, "KVN")
+    ///     ```
+    #[pyo3(signature = (path, format, strict=true))]
+    fn to_file(&self, path: &str, format: &str, strict: bool) -> PyResult<()> {
         let fmt = parse_format(format)?;
-        self.inner.to_file(path, fmt)?;
+        if strict {
+            self.inner.to_file(path, fmt)
+        } else {
+            self.inner.to_file_noncompliant(path, fmt)
+        }?;
         Ok(())
     }
 
@@ -3531,12 +3631,29 @@ impl PyOPM {
     ///
     /// Args:
     ///     format (str): Output format - "KVN", "XML", or "JSON"
+    ///     strict (bool): If True, raise when compliance_issues() is non-empty. Default: True.
     ///
     /// Returns:
     ///     str: Serialized OPM string
-    fn to_string(&self, format: &str) -> PyResult<String> {
+    ///
+    /// Example:
+    ///     ```python
+    ///     from brahe.ccsds import OPM
+    ///
+    ///     opm = OPM.from_file("test_assets/ccsds/opm/OPMExample1.txt")
+    ///     kvn = opm.to_string("KVN")
+    ///
+    ///     opm.originator = None
+    ///     kvn = opm.to_string("KVN", strict=False)
+    ///     ```
+    #[pyo3(signature = (format, strict=true))]
+    fn to_string(&self, format: &str, strict: bool) -> PyResult<String> {
         let fmt = parse_format(format)?;
-        let result = self.inner.to_string(fmt)?;
+        let result = if strict {
+            self.inner.to_string(fmt)
+        } else {
+            self.inner.to_string_noncompliant(fmt)
+        }?;
         Ok(result)
     }
 
@@ -3544,17 +3661,30 @@ impl PyOPM {
     ///
     /// Args:
     ///     uppercase_keys (bool): If True, use uppercase CCSDS keywords. Default: False.
+    ///     strict (bool): If True, raise when compliance_issues() is non-empty. Default: True.
     ///
     /// Returns:
     ///     str: Serialized JSON string
-    #[pyo3(signature = (uppercase_keys=false))]
-    fn to_json_string(&self, uppercase_keys: bool) -> PyResult<String> {
+    ///
+    /// Example:
+    ///     ```python
+    ///     from brahe.ccsds import OPM
+    ///
+    ///     opm = OPM.from_file("test_assets/ccsds/opm/OPMExample1.txt")
+    ///     json_str = opm.to_json_string(uppercase_keys=True)
+    ///     ```
+    #[pyo3(signature = (uppercase_keys=false, strict=true))]
+    fn to_json_string(&self, uppercase_keys: bool, strict: bool) -> PyResult<String> {
         let key_case = if uppercase_keys {
             brahe::ccsds::common::CCSDSJsonKeyCase::Upper
         } else {
             brahe::ccsds::common::CCSDSJsonKeyCase::Lower
         };
-        let result = self.inner.to_json_string(key_case)?;
+        let result = if strict {
+            self.inner.to_json_string(key_case)
+        } else {
+            self.inner.to_json_string_noncompliant(key_case)
+        }?;
         Ok(result)
     }
 
@@ -3563,9 +3693,29 @@ impl PyOPM {
     /// Args:
     ///     path (str): Output file path
     ///     format (str): Output format - "KVN", "XML", or "JSON"
-    fn to_file(&self, path: &str, format: &str) -> PyResult<()> {
+    ///     strict (bool): If True, raise when compliance_issues() is non-empty. Default: True.
+    ///
+    /// Returns:
+    ///     None: Nothing; the serialized message is written to path
+    ///
+    /// Example:
+    ///     ```python
+    ///     import os
+    ///     import tempfile
+    ///     from brahe.ccsds import OPM
+    ///
+    ///     opm = OPM.from_file("test_assets/ccsds/opm/OPMExample1.txt")
+    ///     path = os.path.join(tempfile.mkdtemp(), "opm.txt")
+    ///     opm.to_file(path, "KVN")
+    ///     ```
+    #[pyo3(signature = (path, format, strict=true))]
+    fn to_file(&self, path: &str, format: &str, strict: bool) -> PyResult<()> {
         let fmt = parse_format(format)?;
-        self.inner.to_file(path, fmt)?;
+        if strict {
+            self.inner.to_file(path, fmt)
+        } else {
+            self.inner.to_file_noncompliant(path, fmt)
+        }?;
         Ok(())
     }
 

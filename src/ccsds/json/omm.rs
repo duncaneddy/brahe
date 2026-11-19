@@ -86,7 +86,7 @@ pub fn parse_omm_json(content: &str) -> Result<crate::ccsds::omm::OMM, BraheErro
 }
 
 /// Write an OMM message to JSON format.
-pub fn write_omm_json(
+pub(crate) fn write_omm_json(
     omm: &crate::ccsds::omm::OMM,
     key_case: CCSDSJsonKeyCase,
 ) -> Result<String, BraheError> {

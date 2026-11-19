@@ -19,6 +19,14 @@ print(f"Originator:    {omm.originator}")
 print(f"Compliant:     {omm.is_compliant()}")
 print(f"Issues:        {omm.compliance_issues()}")
 
+# Writing is strict by default and refuses a non-compliant message
+try:
+    omm.to_string("KVN")
+except bh.BraheError as err:
+    print(f"Strict write:  {err}")
+kvn = omm.to_string("KVN", strict=False)
+print(f"Lenient write: {len(kvn)} characters")
+
 # Filling in the missing keywords makes the message compliant
 omm.creation_date = bh.Epoch.from_datetime(
     2024, 1, 15, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC

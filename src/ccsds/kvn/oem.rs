@@ -396,7 +396,7 @@ pub fn parse_oem(content: &str) -> Result<OEM, BraheError> {
 }
 
 /// Write an OEM message to KVN format.
-pub fn write_oem(oem: &OEM) -> Result<String, BraheError> {
+pub(crate) fn write_oem(oem: &OEM) -> Result<String, BraheError> {
     let mut out = String::new();
 
     // Header

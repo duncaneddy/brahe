@@ -469,7 +469,7 @@ pub fn parse_omm_xml(content: &str) -> Result<crate::ccsds::omm::OMM, BraheError
 // ============================================================================
 
 /// Write an OMM message to XML format.
-pub fn write_omm_xml(omm: &crate::ccsds::omm::OMM) -> Result<String, BraheError> {
+pub(crate) fn write_omm_xml(omm: &crate::ccsds::omm::OMM) -> Result<String, BraheError> {
     let mut out = String::new();
     let i1 = "  ";
     let i2 = "    ";

@@ -19,7 +19,7 @@ fn main() {
 
     // Parse OPM with maneuvers
     let opm = OPM::from_file("test_assets/ccsds/opm/OPMExample2.txt").unwrap();
-    println!("Object: {}", opm.metadata.object_name);
+    println!("Object: {}", opm.metadata.object_name.as_deref().unwrap());
     println!("Epoch:  {}", opm.state_vector.epoch);
     println!("Maneuvers: {}", opm.maneuvers.len());
 

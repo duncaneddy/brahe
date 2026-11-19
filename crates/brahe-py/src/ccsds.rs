@@ -527,8 +527,8 @@ impl PyOEMSegment {
         match &self.mode {
             SegmentMode::Owned { data } => Ok(data.as_ref().clone()),
             SegmentMode::Proxy { parent, seg_idx } => {
-                let obj_name: String = parent.bind(py).call_method1("_seg_get_object_name", (*seg_idx,))?.extract()?;
-                let obj_id: String = parent.bind(py).call_method1("_seg_get_object_id", (*seg_idx,))?.extract()?;
+                let obj_name: Option<String> = parent.bind(py).call_method1("_seg_get_object_name", (*seg_idx,))?.extract()?;
+                let obj_id: Option<String> = parent.bind(py).call_method1("_seg_get_object_id", (*seg_idx,))?.extract()?;
                 let ctr_name: String = parent.bind(py).call_method1("_seg_get_center_name", (*seg_idx,))?.extract()?;
                 let rf_str: String = parent.bind(py).call_method1("_seg_get_ref_frame", (*seg_idx,))?.extract()?;
                 let rf_epoch_obj = parent.bind(py).call_method1("_seg_get_ref_frame_epoch", (*seg_idx,))?;
@@ -603,8 +603,8 @@ impl PyOEMSegment {
             mode: SegmentMode::Owned {
                 data: Box::new(OEMSegment {
                     metadata: OEMMetadata {
-                        object_name,
-                        object_id,
+                        object_name: Some(object_name),
+                        object_id: Some(object_id),
                         center_name,
                         ref_frame: rf,
                         ref_frame_epoch: ref_frame_epoch.map(|e| e.obj),
@@ -628,9 +628,9 @@ impl PyOEMSegment {
     /// Spacecraft name.
     ///
     /// Returns:
-    ///     str: Object name
+    ///     str | None: Object name, or None when OBJECT_NAME is absent
     #[getter]
-    fn object_name(&self, py: Python) -> PyResult<String> {
+    fn object_name(&self, py: Python) -> PyResult<Option<String>> {
         match &self.mode {
             SegmentMode::Owned { data } => Ok(data.metadata.object_name.clone()),
             SegmentMode::Proxy { parent, seg_idx } => {
@@ -642,9 +642,9 @@ impl PyOEMSegment {
     /// Set spacecraft name.
     ///
     /// Args:
-    ///     val (str): Object name
+    ///     val (str | None): Object name, or None to leave OBJECT_NAME empty
     #[setter]
-    fn set_object_name(&mut self, py: Python, val: String) -> PyResult<()> {
+    fn set_object_name(&mut self, py: Python, val: Option<String>) -> PyResult<()> {
         match &mut self.mode {
             SegmentMode::Owned { data } => { data.metadata.object_name = val; Ok(()) }
             SegmentMode::Proxy { parent, seg_idx } => {
@@ -656,9 +656,9 @@ impl PyOEMSegment {
     /// International designator (e.g., "1996-062A").
     ///
     /// Returns:
-    ///     str: Object ID
+    ///     str | None: Object ID, or None when OBJECT_ID is absent
     #[getter]
-    fn object_id(&self, py: Python) -> PyResult<String> {
+    fn object_id(&self, py: Python) -> PyResult<Option<String>> {
         match &self.mode {
             SegmentMode::Owned { data } => Ok(data.metadata.object_id.clone()),
             SegmentMode::Proxy { parent, seg_idx } => {
@@ -670,9 +670,9 @@ impl PyOEMSegment {
     /// Set international designator.
     ///
     /// Args:
-    ///     val (str): Object ID
+    ///     val (str | None): Object ID, or None to leave OBJECT_ID empty
     #[setter]
-    fn set_object_id(&mut self, py: Python, val: String) -> PyResult<()> {
+    fn set_object_id(&mut self, py: Python, val: Option<String>) -> PyResult<()> {
         match &mut self.mode {
             SegmentMode::Owned { data } => { data.metadata.object_id = val; Ok(()) }
             SegmentMode::Proxy { parent, seg_idx } => {
@@ -1120,7 +1120,7 @@ impl PyOEMSegment {
     }
 
     fn __repr__(&self, py: Python) -> PyResult<String> {
-        let name: String = self.object_name(py)?;
+        let name: String = self.object_name(py)?.unwrap_or_default();
         let n: usize = self.num_states(py)?;
         let frame: String = self.ref_frame(py)?;
         Ok(format!(
@@ -1317,7 +1317,7 @@ impl PyOEM {
                     format_version,
                     classification,
                     creation_date: Some(brahe::time::Epoch::now()),
-                    originator,
+                    originator: Some(originator),
                     message_id: None,
                     comments: Vec::new(),
                 },
@@ -1572,18 +1572,18 @@ impl PyOEM {
     /// Originator of the message.
     ///
     /// Returns:
-    ///     str: Originator string
+    ///     str | None: Originator string, or None when ORIGINATOR is absent
     #[getter]
-    fn originator(&self) -> String {
+    fn originator(&self) -> Option<String> {
         self.inner.header.originator.clone()
     }
 
     /// Set originator.
     ///
     /// Args:
-    ///     val (str): Originator string
+    ///     val (str | None): Originator string, or None to leave ORIGINATOR empty
     #[setter]
-    fn set_originator(&mut self, val: String) {
+    fn set_originator(&mut self, val: Option<String>) {
         self.inner.header.originator = val;
     }
 
@@ -1767,8 +1767,8 @@ impl PyOEM {
         })?;
         let mut seg = OEMSegment {
             metadata: OEMMetadata {
-                object_name,
-                object_id,
+                object_name: Some(object_name),
+                object_id: Some(object_id),
                 center_name,
                 ref_frame: rf,
                 ref_frame_epoch: ref_frame_epoch.map(|e| e.obj),
@@ -1825,20 +1825,20 @@ impl PyOEM {
 
     // -- segment metadata getters/setters --
 
-    fn _seg_get_object_name(&self, idx: usize) -> PyResult<String> {
+    fn _seg_get_object_name(&self, idx: usize) -> PyResult<Option<String>> {
         Ok(self.get_seg(idx)?.metadata.object_name.clone())
     }
 
-    fn _seg_set_object_name(&mut self, idx: usize, val: String) -> PyResult<()> {
+    fn _seg_set_object_name(&mut self, idx: usize, val: Option<String>) -> PyResult<()> {
         self.get_seg_mut(idx)?.metadata.object_name = val;
         Ok(())
     }
 
-    fn _seg_get_object_id(&self, idx: usize) -> PyResult<String> {
+    fn _seg_get_object_id(&self, idx: usize) -> PyResult<Option<String>> {
         Ok(self.get_seg(idx)?.metadata.object_id.clone())
     }
 
-    fn _seg_set_object_id(&mut self, idx: usize, val: String) -> PyResult<()> {
+    fn _seg_set_object_id(&mut self, idx: usize, val: Option<String>) -> PyResult<()> {
         self.get_seg_mut(idx)?.metadata.object_id = val;
         Ok(())
     }
@@ -2039,11 +2039,50 @@ impl PyOEM {
         Ok(())
     }
 
+    /// List the CCSDS 502.0-B-3 mandatory keywords this message lacks.
+    ///
+    /// Reading accepts messages that omit CREATION_DATE, ORIGINATOR,
+    /// OBJECT_NAME, or OBJECT_ID, or leave them empty, because the orbit data
+    /// remains usable without them. This method reports which of those
+    /// keywords are absent.
+    ///
+    /// Returns:
+    ///     list[str]: Absent keywords prefixed by their location (e.g.,
+    ///         "header.CREATION_DATE"), empty when the message is compliant
+    ///
+    /// Example:
+    ///     ```python
+    ///     from brahe.ccsds import OEM
+    ///
+    ///     oem = OEM.from_file("test_assets/ccsds/oem/OEMExample1.txt")
+    ///     oem.creation_date = None
+    ///     print(oem.compliance_issues())  # ['header.CREATION_DATE']
+    ///     ```
+    fn compliance_issues(&self) -> Vec<String> {
+        self.inner.compliance_issues()
+    }
+
+    /// Whether the message carries every CCSDS 502.0-B-3 mandatory keyword.
+    ///
+    /// Returns:
+    ///     bool: True when compliance_issues() is empty
+    ///
+    /// Example:
+    ///     ```python
+    ///     from brahe.ccsds import OEM
+    ///
+    ///     oem = OEM.from_file("test_assets/ccsds/oem/OEMExample1.txt")
+    ///     print(oem.is_compliant())  # True
+    ///     ```
+    fn is_compliant(&self) -> bool {
+        self.inner.is_compliant()
+    }
+
     fn __repr__(&self) -> String {
         format!(
             "OEM(segments={}, originator='{}')",
             self.inner.segments.len(),
-            self.inner.header.originator
+            self.inner.header.originator.as_deref().unwrap_or("")
         )
     }
 }
@@ -2836,18 +2875,18 @@ impl PyOMM {
     /// Originator of the message.
     ///
     /// Returns:
-    ///     str: Originator string
+    ///     str | None: Originator string, or None when ORIGINATOR is absent
     #[getter]
-    fn originator(&self) -> String {
+    fn originator(&self) -> Option<String> {
         self.inner.header.originator.clone()
     }
 
     /// Set originator.
     ///
     /// Args:
-    ///     val (str): Originator string
+    ///     val (str | None): Originator string, or None to leave ORIGINATOR empty
     #[setter]
-    fn set_originator(&mut self, val: String) {
+    fn set_originator(&mut self, val: Option<String>) {
         self.inner.header.originator = val;
     }
 
@@ -2875,36 +2914,36 @@ impl PyOMM {
     /// Object name.
     ///
     /// Returns:
-    ///     str: Object name
+    ///     str | None: Object name, or None when OBJECT_NAME is absent
     #[getter]
-    fn object_name(&self) -> String {
+    fn object_name(&self) -> Option<String> {
         self.inner.metadata.object_name.clone()
     }
 
     /// Set object name.
     ///
     /// Args:
-    ///     val (str): Object name
+    ///     val (str | None): Object name, or None to leave OBJECT_NAME empty
     #[setter]
-    fn set_object_name(&mut self, val: String) {
+    fn set_object_name(&mut self, val: Option<String>) {
         self.inner.metadata.object_name = val;
     }
 
     /// Object ID (international designator).
     ///
     /// Returns:
-    ///     str: Object ID
+    ///     str | None: Object ID, or None when OBJECT_ID is absent
     #[getter]
-    fn object_id(&self) -> String {
+    fn object_id(&self) -> Option<String> {
         self.inner.metadata.object_id.clone()
     }
 
     /// Set object ID.
     ///
     /// Args:
-    ///     val (str): Object ID
+    ///     val (str | None): Object ID, or None to leave OBJECT_ID empty
     #[setter]
-    fn set_object_id(&mut self, val: String) {
+    fn set_object_id(&mut self, val: Option<String>) {
         self.inner.metadata.object_id = val;
     }
 
@@ -3326,10 +3365,50 @@ impl PyOMM {
         }
     }
 
+    /// List the CCSDS 502.0-B-3 mandatory keywords this message lacks.
+    ///
+    /// Reading accepts messages that omit CREATION_DATE, ORIGINATOR,
+    /// OBJECT_NAME, or OBJECT_ID, or leave them empty, because the orbit data
+    /// remains usable without them. This method reports which of those
+    /// keywords are absent.
+    ///
+    /// Returns:
+    ///     list[str]: Absent keywords prefixed by their location (e.g.,
+    ///         "header.CREATION_DATE"), empty when the message is compliant
+    ///
+    /// Example:
+    ///     ```python
+    ///     from brahe.ccsds import OMM
+    ///
+    ///     omm = OMM.from_file("test_assets/ccsds/omm/OMMExample1.txt")
+    ///     omm.creation_date = None
+    ///     print(omm.compliance_issues())  # ['header.CREATION_DATE']
+    ///     ```
+    fn compliance_issues(&self) -> Vec<String> {
+        self.inner.compliance_issues()
+    }
+
+    /// Whether the message carries every CCSDS 502.0-B-3 mandatory keyword.
+    ///
+    /// Returns:
+    ///     bool: True when compliance_issues() is empty
+    ///
+    /// Example:
+    ///     ```python
+    ///     from brahe.ccsds import OMM
+    ///
+    ///     omm = OMM.from_file("test_assets/ccsds/omm/OMMExample1.txt")
+    ///     print(omm.is_compliant())  # True
+    ///     ```
+    fn is_compliant(&self) -> bool {
+        self.inner.is_compliant()
+    }
+
     fn __repr__(&self) -> String {
         format!(
             "OMM(object='{}', id='{}')",
-            self.inner.metadata.object_name, self.inner.metadata.object_id
+            self.inner.metadata.object_name.as_deref().unwrap_or(""),
+            self.inner.metadata.object_id.as_deref().unwrap_or("")
         )
     }
 }
@@ -3610,18 +3689,18 @@ impl PyOPM {
     /// Originator of the message.
     ///
     /// Returns:
-    ///     str: Originator string
+    ///     str | None: Originator string, or None when ORIGINATOR is absent
     #[getter]
-    fn originator(&self) -> String {
+    fn originator(&self) -> Option<String> {
         self.inner.header.originator.clone()
     }
 
     /// Set originator.
     ///
     /// Args:
-    ///     val (str): Originator string
+    ///     val (str | None): Originator string, or None to leave ORIGINATOR empty
     #[setter]
-    fn set_originator(&mut self, val: String) {
+    fn set_originator(&mut self, val: Option<String>) {
         self.inner.header.originator = val;
     }
 
@@ -3649,36 +3728,36 @@ impl PyOPM {
     /// Object name.
     ///
     /// Returns:
-    ///     str: Object name
+    ///     str | None: Object name, or None when OBJECT_NAME is absent
     #[getter]
-    fn object_name(&self) -> String {
+    fn object_name(&self) -> Option<String> {
         self.inner.metadata.object_name.clone()
     }
 
     /// Set object name.
     ///
     /// Args:
-    ///     val (str): Object name
+    ///     val (str | None): Object name, or None to leave OBJECT_NAME empty
     #[setter]
-    fn set_object_name(&mut self, val: String) {
+    fn set_object_name(&mut self, val: Option<String>) {
         self.inner.metadata.object_name = val;
     }
 
     /// Object ID (international designator).
     ///
     /// Returns:
-    ///     str: Object ID
+    ///     str | None: Object ID, or None when OBJECT_ID is absent
     #[getter]
-    fn object_id(&self) -> String {
+    fn object_id(&self) -> Option<String> {
         self.inner.metadata.object_id.clone()
     }
 
     /// Set object ID.
     ///
     /// Args:
-    ///     val (str): Object ID
+    ///     val (str | None): Object ID, or None to leave OBJECT_ID empty
     #[setter]
-    fn set_object_id(&mut self, val: String) {
+    fn set_object_id(&mut self, val: Option<String>) {
         self.inner.metadata.object_id = val;
     }
 
@@ -4178,10 +4257,50 @@ impl PyOPM {
         Ok(())
     }
 
+    /// List the CCSDS 502.0-B-3 mandatory keywords this message lacks.
+    ///
+    /// Reading accepts messages that omit CREATION_DATE, ORIGINATOR,
+    /// OBJECT_NAME, or OBJECT_ID, or leave them empty, because the orbit data
+    /// remains usable without them. This method reports which of those
+    /// keywords are absent.
+    ///
+    /// Returns:
+    ///     list[str]: Absent keywords prefixed by their location (e.g.,
+    ///         "header.CREATION_DATE"), empty when the message is compliant
+    ///
+    /// Example:
+    ///     ```python
+    ///     from brahe.ccsds import OPM
+    ///
+    ///     opm = OPM.from_file("test_assets/ccsds/opm/OPMExample1.txt")
+    ///     opm.creation_date = None
+    ///     print(opm.compliance_issues())  # ['header.CREATION_DATE']
+    ///     ```
+    fn compliance_issues(&self) -> Vec<String> {
+        self.inner.compliance_issues()
+    }
+
+    /// Whether the message carries every CCSDS 502.0-B-3 mandatory keyword.
+    ///
+    /// Returns:
+    ///     bool: True when compliance_issues() is empty
+    ///
+    /// Example:
+    ///     ```python
+    ///     from brahe.ccsds import OPM
+    ///
+    ///     opm = OPM.from_file("test_assets/ccsds/opm/OPMExample1.txt")
+    ///     print(opm.is_compliant())  # True
+    ///     ```
+    fn is_compliant(&self) -> bool {
+        self.inner.is_compliant()
+    }
+
     fn __repr__(&self) -> String {
         format!(
             "OPM(object='{}', frame='{}')",
-            self.inner.metadata.object_name, self.inner.metadata.ref_frame
+            self.inner.metadata.object_name.as_deref().unwrap_or(""),
+            self.inner.metadata.ref_frame
         )
     }
 }

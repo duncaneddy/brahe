@@ -284,16 +284,113 @@ pub struct ODMHeader {
     pub format_version: f64,
     /// Optional classification string (e.g., "public, test-data")
     pub classification: Option<String>,
-    /// Creation date of the message, `None` when the source leaves
-    /// `CREATION_DATE` empty. CCSDS 502.0-B-3 makes the keyword mandatory, so
-    /// writers emit it with an empty value when this is `None`.
+    /// Creation date of the message, `None` when the source omits
+    /// `CREATION_DATE` or leaves it empty. CCSDS 502.0-B-3 makes the keyword
+    /// mandatory, so a `None` value is reported by the message's
+    /// `compliance_issues` and writers emit the keyword with an empty value.
     pub creation_date: Option<Epoch>,
-    /// Originator of the message
-    pub originator: String,
+    /// Originator of the message, `None` when the source omits `ORIGINATOR`
+    /// or leaves it empty. Mandatory in CCSDS 502.0-B-3; handled like
+    /// `creation_date`.
+    pub originator: Option<String>,
     /// Optional unique message identifier
     pub message_id: Option<String>,
     /// Comments associated with the header
     pub comments: Vec<String>,
+}
+
+impl ODMHeader {
+    /// List the mandatory header keywords this header lacks.
+    ///
+    /// CCSDS 502.0-B-3 makes `CREATION_DATE` and `ORIGINATOR` mandatory in
+    /// every ODM header. Readers accept messages that omit them or leave them
+    /// empty; this method reports which are absent, treating an empty or
+    /// whitespace-only `originator` as absent.
+    ///
+    /// # Returns
+    ///
+    /// * `Vec<String>` - Absent keywords as `header.<KEYWORD>`, empty when the
+    ///   header is compliant.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::ccsds::common::ODMHeader;
+    ///
+    /// let header = ODMHeader {
+    ///     format_version: 3.0,
+    ///     classification: None,
+    ///     creation_date: None,
+    ///     originator: Some("NOAA".to_string()),
+    ///     message_id: None,
+    ///     comments: Vec::new(),
+    /// };
+    /// assert_eq!(header.compliance_issues(), vec!["header.CREATION_DATE".to_string()]);
+    /// ```
+    pub fn compliance_issues(&self) -> Vec<String> {
+        let mut issues = Vec::new();
+        if self.creation_date.is_none() {
+            issues.push("header.CREATION_DATE".to_string());
+        }
+        if text_is_absent(&self.originator) {
+            issues.push("header.ORIGINATOR".to_string());
+        }
+        issues
+    }
+}
+
+/// Whether a text keyword value is absent, empty, or whitespace-only.
+///
+/// # Arguments
+///
+/// * `value` - The keyword value.
+///
+/// # Returns
+///
+/// * `bool` - `true` when `value` is `None` or holds only whitespace.
+///
+/// # Examples
+///
+/// ```ignore
+/// assert!(text_is_absent(&Some("   ".to_string())));
+/// assert!(!text_is_absent(&Some("NOAA".to_string())));
+/// ```
+fn text_is_absent(value: &Option<String>) -> bool {
+    value.as_deref().is_none_or(|s| s.trim().is_empty())
+}
+
+/// List the mandatory object keywords absent from an ODM metadata block.
+///
+/// # Arguments
+///
+/// * `section` - Location of the metadata block in the message (e.g.,
+///   `metadata` or `segments[0].metadata`).
+/// * `object_name` - The block's `OBJECT_NAME` value.
+/// * `object_id` - The block's `OBJECT_ID` value.
+///
+/// # Returns
+///
+/// * `Vec<String>` - Absent keywords as `<section>.<KEYWORD>`.
+///
+/// # Examples
+///
+/// ```ignore
+/// let issues = odm_object_compliance_issues("metadata", &None, &Some("1998-067A".into()));
+/// assert_eq!(issues, vec!["metadata.OBJECT_NAME".to_string()]);
+/// ```
+pub(crate) fn odm_object_compliance_issues(
+    section: &str,
+    object_name: &Option<String>,
+    object_id: &Option<String>,
+) -> Vec<String> {
+    let mut issues = Vec::new();
+    if text_is_absent(object_name) {
+        issues.push(format!("{}.OBJECT_NAME", section));
+    }
+    if text_is_absent(object_id) {
+        issues.push(format!("{}.OBJECT_ID", section));
+    }
+    issues
 }
 
 /// 6x6 covariance matrix with optional epoch and reference frame.
@@ -685,6 +782,23 @@ pub fn format_optional_ccsds_datetime_in(
         .as_ref()
         .map(|e| format_ccsds_datetime_in(e, time_system))
         .unwrap_or_default()
+}
+
+/// Normalize a CCSDS text value that may be absent or left empty.
+///
+/// # Arguments
+///
+/// * `value` - Raw keyword value, or `None` when the keyword is absent.
+///
+/// # Returns
+///
+/// * `Option<String>` - The trimmed value, or `None` when the keyword is
+///   absent or its value is empty or whitespace.
+pub(crate) fn parse_optional_ccsds_text(value: Option<&str>) -> Option<String> {
+    value
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_string)
 }
 
 /// Strip unit annotations from a CCSDS KVN value string.
@@ -1244,6 +1358,88 @@ mod tests {
         let opm = OPM::from_file("test_assets/ccsds/opm/OPMExample1.txt").unwrap();
         let json = null_creation_date(&opm.to_json_string(upper).unwrap());
         assert!(OPM::from_str(&json).unwrap().header.creation_date.is_none());
+    }
+
+    #[rstest]
+    #[case(None, None)]
+    #[case(Some(""), None)]
+    #[case(Some("   "), None)]
+    #[case(Some(" NOAA/USA "), Some("NOAA/USA"))]
+    #[serial_test::parallel]
+    fn test_parse_optional_ccsds_text(#[case] value: Option<&str>, #[case] expected: Option<&str>) {
+        assert_eq!(parse_optional_ccsds_text(value).as_deref(), expected);
+    }
+
+    #[rstest]
+    #[case("")]
+    #[case("   ")]
+    #[serial_test::parallel]
+    fn test_odm_header_blank_originator_is_absent(#[case] originator: &str) {
+        let header = ODMHeader {
+            format_version: 3.0,
+            classification: None,
+            creation_date: Some(Epoch::from_datetime(
+                2024,
+                3,
+                1,
+                12,
+                0,
+                0.0,
+                0.0,
+                TimeSystem::UTC,
+            )),
+            originator: Some(originator.to_string()),
+            message_id: None,
+            comments: Vec::new(),
+        };
+
+        assert_eq!(header.compliance_issues(), vec!["header.ORIGINATOR"]);
+    }
+
+    #[rstest]
+    #[case(true, true, &[])]
+    #[case(false, true, &["header.CREATION_DATE"])]
+    #[case(true, false, &["header.ORIGINATOR"])]
+    #[case(false, false, &["header.CREATION_DATE", "header.ORIGINATOR"])]
+    #[serial_test::parallel]
+    fn test_odm_header_compliance_issues(
+        #[case] has_date: bool,
+        #[case] has_originator: bool,
+        #[case] issues: &[&str],
+    ) {
+        let header = ODMHeader {
+            format_version: 3.0,
+            classification: None,
+            creation_date: has_date
+                .then(|| Epoch::from_datetime(2024, 3, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC)),
+            originator: has_originator.then(|| "NOAA/USA".to_string()),
+            message_id: None,
+            comments: Vec::new(),
+        };
+
+        assert_eq!(header.compliance_issues(), issues);
+    }
+
+    #[rstest]
+    #[case(Some("ISS"), Some("1998-067A"), &[])]
+    #[case(None, Some("1998-067A"), &["segments[1].metadata.OBJECT_NAME"])]
+    #[case(Some("  "), Some("1998-067A"), &["segments[1].metadata.OBJECT_NAME"])]
+    #[case(Some("ISS"), Some(""), &["segments[1].metadata.OBJECT_ID"])]
+    #[case(Some("ISS"), None, &["segments[1].metadata.OBJECT_ID"])]
+    #[serial_test::parallel]
+    fn test_odm_object_compliance_issues(
+        #[case] name: Option<&str>,
+        #[case] id: Option<&str>,
+        #[case] issues: &[&str],
+    ) {
+        assert_eq!(
+            odm_object_compliance_issues(
+                "segments[1].metadata",
+                &name.map(str::to_string),
+                &id.map(str::to_string),
+            ),
+            issues
+        );
     }
 
     #[test]

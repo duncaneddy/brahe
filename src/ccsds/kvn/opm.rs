@@ -10,7 +10,7 @@ use crate::ccsds::common::{
     CCSDSCovariance, CCSDSRefFrame, CCSDSSpacecraftParameters, CCSDSTimeSystem, CCSDSUserDefined,
     ODMHeader, covariance_from_lower_triangular, format_ccsds_datetime_in,
     format_optional_ccsds_datetime_in, parse_ccsds_datetime, parse_optional_ccsds_datetime,
-    strip_units,
+    parse_optional_ccsds_text, strip_units,
 };
 use crate::ccsds::error::{ccsds_missing_field, ccsds_parse_error};
 use crate::ccsds::kvn::common::{
@@ -495,8 +495,8 @@ pub fn parse_opm(content: &str) -> Result<OPM, BraheError> {
         format_version: format_version
             .ok_or_else(|| ccsds_missing_field("OPM", "CCSDS_OPM_VERS"))?,
         classification,
-        creation_date: creation_date.ok_or_else(|| ccsds_missing_field("OPM", "CREATION_DATE"))?,
-        originator: originator.ok_or_else(|| ccsds_missing_field("OPM", "ORIGINATOR"))?,
+        creation_date: creation_date.flatten(),
+        originator: parse_optional_ccsds_text(originator.as_deref()),
         message_id,
         comments: header_comments,
     };
@@ -571,8 +571,8 @@ pub fn parse_opm(content: &str) -> Result<OPM, BraheError> {
     Ok(OPM {
         header,
         metadata: OPMMetadata {
-            object_name: object_name.ok_or_else(|| ccsds_missing_field("OPM", "OBJECT_NAME"))?,
-            object_id: object_id.ok_or_else(|| ccsds_missing_field("OPM", "OBJECT_ID"))?,
+            object_name: parse_optional_ccsds_text(object_name.as_deref()),
+            object_id: parse_optional_ccsds_text(object_id.as_deref()),
             center_name: center_name.ok_or_else(|| ccsds_missing_field("OPM", "CENTER_NAME"))?,
             ref_frame: ref_frame.ok_or_else(|| ccsds_missing_field("OPM", "REF_FRAME"))?,
             ref_frame_epoch: ref_frame_epoch
@@ -609,7 +609,10 @@ pub fn write_opm(opm: &crate::ccsds::opm::OPM) -> Result<String, BraheError> {
         "CREATION_DATE = {}\n",
         format_optional_ccsds_datetime_in(&opm.header.creation_date, &CCSDSTimeSystem::UTC)
     ));
-    out.push_str(&format!("ORIGINATOR = {}\n", opm.header.originator));
+    out.push_str(&format!(
+        "ORIGINATOR = {}\n",
+        opm.header.originator.as_deref().unwrap_or("")
+    ));
     if let Some(ref msg_id) = opm.header.message_id {
         out.push_str(&format!("MESSAGE_ID = {}\n", msg_id));
     }
@@ -619,8 +622,14 @@ pub fn write_opm(opm: &crate::ccsds::opm::OPM) -> Result<String, BraheError> {
     for comment in &opm.metadata.comments {
         out.push_str(&format!("COMMENT {}\n", comment));
     }
-    out.push_str(&format!("OBJECT_NAME = {}\n", opm.metadata.object_name));
-    out.push_str(&format!("OBJECT_ID = {}\n", opm.metadata.object_id));
+    out.push_str(&format!(
+        "OBJECT_NAME = {}\n",
+        opm.metadata.object_name.as_deref().unwrap_or("")
+    ));
+    out.push_str(&format!(
+        "OBJECT_ID = {}\n",
+        opm.metadata.object_id.as_deref().unwrap_or("")
+    ));
     out.push_str(&format!("CENTER_NAME = {}\n", opm.metadata.center_name));
     out.push_str(&format!("REF_FRAME = {}\n", opm.metadata.ref_frame));
     if let Some(ref epoch) = opm.metadata.ref_frame_epoch {
@@ -742,9 +751,9 @@ mod tests {
         let opm = parse_opm(&content).unwrap();
 
         assert!((opm.header.format_version - 3.0).abs() < 1e-10);
-        assert_eq!(opm.header.originator, "JAXA");
-        assert_eq!(opm.metadata.object_name, "GODZILLA 5");
-        assert_eq!(opm.metadata.object_id, "1998-999A");
+        assert_eq!(opm.header.originator.as_deref(), Some("JAXA"));
+        assert_eq!(opm.metadata.object_name.as_deref(), Some("GODZILLA 5"));
+        assert_eq!(opm.metadata.object_id.as_deref(), Some("1998-999A"));
         assert_eq!(opm.metadata.ref_frame, CCSDSRefFrame::ITRF2000);
 
         // State vector (km → m)
@@ -772,7 +781,7 @@ mod tests {
         let content = std::fs::read_to_string("test_assets/ccsds/opm/OPMExample2.txt").unwrap();
         let opm = parse_opm(&content).unwrap();
 
-        assert_eq!(opm.metadata.object_name, "EUTELSAT W4");
+        assert_eq!(opm.metadata.object_name.as_deref(), Some("EUTELSAT W4"));
         assert_eq!(opm.metadata.ref_frame, CCSDSRefFrame::TOD);
 
         // State vector

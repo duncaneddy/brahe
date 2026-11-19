@@ -108,7 +108,10 @@ pub fn write_omm_json(
             &CCSDSTimeSystem::UTC
         )),
     );
-    header.insert(key("ORIGINATOR", key_case), json!(&omm.header.originator));
+    header.insert(
+        key("ORIGINATOR", key_case),
+        json!(omm.header.originator.as_deref().unwrap_or("")),
+    );
     if let Some(ref msg_id) = omm.header.message_id {
         header.insert(key("MESSAGE_ID", key_case), json!(msg_id));
     }
@@ -121,9 +124,12 @@ pub fn write_omm_json(
     let mut meta = Map::new();
     meta.insert(
         key("OBJECT_NAME", key_case),
-        json!(&omm.metadata.object_name),
+        json!(omm.metadata.object_name.as_deref().unwrap_or("")),
     );
-    meta.insert(key("OBJECT_ID", key_case), json!(&omm.metadata.object_id));
+    meta.insert(
+        key("OBJECT_ID", key_case),
+        json!(omm.metadata.object_id.as_deref().unwrap_or("")),
+    );
     meta.insert(
         key("CENTER_NAME", key_case),
         json!(&omm.metadata.center_name),
@@ -366,8 +372,8 @@ mod tests {
             }
         }"#;
         let omm = parse_omm_json(json).unwrap();
-        assert_eq!(omm.metadata.object_name, "TEST_SAT");
-        assert_eq!(omm.header.originator, "UPPER_TEST");
+        assert_eq!(omm.metadata.object_name.as_deref(), Some("TEST_SAT"));
+        assert_eq!(omm.header.originator.as_deref(), Some("UPPER_TEST"));
         assert!((omm.mean_elements.mean_motion.unwrap() - 15.123456).abs() < 1e-6);
     }
 

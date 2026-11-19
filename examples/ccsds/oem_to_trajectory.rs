@@ -13,7 +13,7 @@ fn main() {
     let seg = &oem.segments[0];
     println!(
         "Segment: {}, {} states, frame={}",
-        seg.metadata.object_name,
+        seg.metadata.object_name.as_deref().unwrap(),
         seg.states.len(),
         seg.metadata.ref_frame
     );

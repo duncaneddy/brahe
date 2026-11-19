@@ -12,7 +12,7 @@ use std::path::Path;
 
 use crate::ccsds::common::{
     CCSDSCovariance, CCSDSFormat, CCSDSRefFrame, CCSDSSpacecraftParameters, CCSDSTimeSystem,
-    CCSDSUserDefined, ODMHeader,
+    CCSDSUserDefined, ODMHeader, odm_object_compliance_issues,
 };
 use crate::ccsds::interop::odm_celestial_frame;
 use crate::frames::{ReferenceFrame, state_frame_to_frame};
@@ -45,10 +45,13 @@ pub struct OPM {
 /// OPM metadata.
 #[derive(Debug, Clone)]
 pub struct OPMMetadata {
-    /// Spacecraft name
-    pub object_name: String,
-    /// International designator
-    pub object_id: String,
+    /// Spacecraft name, `None` when the source omits `OBJECT_NAME` or leaves
+    /// it empty. Mandatory in CCSDS 502.0-B-3; reported by `compliance_issues`.
+    pub object_name: Option<String>,
+    /// International designator (e.g., "1996-062A"), `None` when the source
+    /// omits `OBJECT_ID` or leaves it empty. Mandatory in CCSDS 502.0-B-3;
+    /// reported by `compliance_issues`.
+    pub object_id: Option<String>,
     /// Center body name
     pub center_name: String,
     /// Reference frame
@@ -111,8 +114,8 @@ impl OPMMetadata {
         time_system: CCSDSTimeSystem,
     ) -> Self {
         Self {
-            object_name,
-            object_id,
+            object_name: Some(object_name),
+            object_id: Some(object_id),
             center_name,
             ref_frame,
             ref_frame_epoch: None,
@@ -205,7 +208,7 @@ impl OPM {
                 format_version: 3.0,
                 classification: None,
                 creation_date: Some(Epoch::now()),
-                originator,
+                originator: Some(originator),
                 message_id: None,
                 comments: Vec::new(),
             },
@@ -271,6 +274,54 @@ impl OPM {
         state_frame_to_frame(message_frame, frame, self.state_vector.epoch, x)
     }
 
+    /// List the CCSDS 502.0-B-3 mandatory keywords this message lacks.
+    ///
+    /// Readers accept messages that omit `CREATION_DATE`, `ORIGINATOR`,
+    /// `OBJECT_NAME`, or `OBJECT_ID`, or leave them empty, because the
+    /// orbit data remains usable without them. This method reports which of
+    /// those keywords are absent.
+    ///
+    /// # Returns
+    ///
+    /// * `Vec<String>` - Absent keywords prefixed by their location (e.g.,
+    ///   `header.CREATION_DATE`), empty when the message is compliant.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::ccsds::OPM;
+    ///
+    /// let opm = OPM::from_file("test_assets/ccsds/opm/OPMExample1.txt").unwrap();
+    /// assert_eq!(opm.compliance_issues(), Vec::<String>::new());
+    /// ```
+    pub fn compliance_issues(&self) -> Vec<String> {
+        let mut issues = self.header.compliance_issues();
+        issues.extend(odm_object_compliance_issues(
+            "metadata",
+            &self.metadata.object_name,
+            &self.metadata.object_id,
+        ));
+        issues
+    }
+
+    /// Whether the message carries every CCSDS 502.0-B-3 mandatory keyword.
+    ///
+    /// # Returns
+    ///
+    /// * `bool` - `true` when [`Self::compliance_issues`] is empty.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::ccsds::OPM;
+    ///
+    /// let opm = OPM::from_file("test_assets/ccsds/opm/OPMExample1.txt").unwrap();
+    /// assert_eq!(opm.is_compliant(), Vec::<String>::new().is_empty());
+    /// ```
+    pub fn is_compliant(&self) -> bool {
+        self.compliance_issues().is_empty()
+    }
+
     /// Parse an OPM message from a string, auto-detecting the format.
     #[allow(clippy::should_implement_trait)]
     pub fn from_str(content: &str) -> Result<Self, BraheError> {
@@ -322,6 +373,41 @@ impl OPM {
 mod tests {
     use super::*;
     use rstest::rstest;
+
+    fn without_keyword(path: &str, keyword: &str) -> String {
+        std::fs::read_to_string(path)
+            .unwrap()
+            .lines()
+            .filter(|l| !l.starts_with(keyword))
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+
+    #[rstest]
+    #[case("CREATION_DATE", &["header.CREATION_DATE"])]
+    #[case("ORIGINATOR", &["header.ORIGINATOR"])]
+    #[case("OBJECT_NAME", &["metadata.OBJECT_NAME"])]
+    #[case("OBJECT_ID", &["metadata.OBJECT_ID"])]
+    #[serial_test::parallel]
+    fn test_opm_compliance_issues_missing_keyword(#[case] keyword: &str, #[case] issues: &[&str]) {
+        let opm = OPM::from_str(&without_keyword(
+            "test_assets/ccsds/opm/OPMExample1.txt",
+            keyword,
+        ))
+        .unwrap();
+
+        assert_eq!(opm.compliance_issues(), issues);
+        assert!(!opm.is_compliant());
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_opm_is_compliant() {
+        let opm = OPM::from_file("test_assets/ccsds/opm/OPMExample1.txt").unwrap();
+
+        assert!(opm.compliance_issues().is_empty());
+        assert!(opm.is_compliant());
+    }
 
     #[rstest]
     #[case("test_assets/ccsds/opm/OPMExample1.txt", "1998-11-06T09:23:57")]
@@ -555,7 +641,7 @@ mod tests {
         );
         let sv = OPMStateVector::new(Epoch::now(), [7000e3, 0.0, 0.0], [0.0, 7500.0, 0.0]);
         let mut opm = OPM::new("TEST_ORG".to_string(), metadata, sv);
-        assert_eq!(opm.header.originator, "TEST_ORG");
+        assert_eq!(opm.header.originator.as_deref(), Some("TEST_ORG"));
         assert_eq!(opm.maneuvers.len(), 0);
 
         let m = OPMManeuver::new(Epoch::now(), 120.0, CCSDSRefFrame::RTN, [10.0, 0.0, 0.0])
@@ -595,8 +681,8 @@ mod tests {
             CCSDSRefFrame::ITRF2000,
             CCSDSTimeSystem::UTC,
         );
-        assert_eq!(meta.object_name, "ISS");
-        assert_eq!(meta.object_id, "1998-067A");
+        assert_eq!(meta.object_name.as_deref(), Some("ISS"));
+        assert_eq!(meta.object_id.as_deref(), Some("1998-067A"));
         assert_eq!(meta.center_name, "EARTH");
         assert!(matches!(meta.ref_frame, CCSDSRefFrame::ITRF2000));
         assert!(matches!(meta.time_system, CCSDSTimeSystem::UTC));
@@ -635,12 +721,12 @@ mod tests {
         let sv = OPMStateVector::new(epoch, [7000e3, 0.0, 0.0], [0.0, 7500.0, 0.0]);
         let opm = OPM::new("TEST_ORG".to_string(), meta, sv);
 
-        assert_eq!(opm.header.originator, "TEST_ORG");
+        assert_eq!(opm.header.originator.as_deref(), Some("TEST_ORG"));
         assert!((opm.header.format_version - 3.0).abs() < 1e-15);
         assert!(opm.header.classification.is_none());
         assert!(opm.header.message_id.is_none());
-        assert_eq!(opm.metadata.object_name, "SAT1");
-        assert_eq!(opm.metadata.object_id, "2024-001A");
+        assert_eq!(opm.metadata.object_name.as_deref(), Some("SAT1"));
+        assert_eq!(opm.metadata.object_id.as_deref(), Some("2024-001A"));
         assert!(opm.keplerian_elements.is_none());
         assert!(opm.spacecraft_parameters.is_none());
         assert!(opm.covariance.is_none());
@@ -652,8 +738,8 @@ mod tests {
     #[parallel]
     fn test_opm_kvn_parse_example1() {
         let opm = OPM::from_file("test_assets/ccsds/opm/OPMExample1.txt").unwrap();
-        assert_eq!(opm.metadata.object_name, "GODZILLA 5");
-        assert_eq!(opm.metadata.object_id, "1998-999A");
+        assert_eq!(opm.metadata.object_name.as_deref(), Some("GODZILLA 5"));
+        assert_eq!(opm.metadata.object_id.as_deref(), Some("1998-999A"));
         assert_eq!(opm.metadata.center_name, "EARTH");
         assert!(matches!(opm.metadata.ref_frame, CCSDSRefFrame::ITRF2000));
         assert!(matches!(opm.metadata.time_system, CCSDSTimeSystem::UTC));
@@ -755,8 +841,8 @@ mod tests {
     #[parallel]
     fn test_opm_xml_parse_example3() {
         let opm = OPM::from_file("test_assets/ccsds/opm/OPMExample3.xml").unwrap();
-        assert_eq!(opm.metadata.object_name, "OSPREY 5");
-        assert_eq!(opm.metadata.object_id, "1998-999A");
+        assert_eq!(opm.metadata.object_name.as_deref(), Some("OSPREY 5"));
+        assert_eq!(opm.metadata.object_id.as_deref(), Some("1998-999A"));
         assert_eq!(opm.metadata.center_name, "EARTH");
         assert!(matches!(opm.metadata.ref_frame, CCSDSRefFrame::TOD));
         assert!(opm.metadata.ref_frame_epoch.is_some());

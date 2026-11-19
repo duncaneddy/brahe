@@ -142,7 +142,10 @@ pub fn write_opm_json(
             &CCSDSTimeSystem::UTC
         )),
     );
-    header.insert(key("ORIGINATOR", key_case), json!(&opm.header.originator));
+    header.insert(
+        key("ORIGINATOR", key_case),
+        json!(opm.header.originator.as_deref().unwrap_or("")),
+    );
     if let Some(ref msg_id) = opm.header.message_id {
         header.insert(key("MESSAGE_ID", key_case), json!(msg_id));
     }
@@ -155,9 +158,12 @@ pub fn write_opm_json(
     let mut meta = Map::new();
     meta.insert(
         key("OBJECT_NAME", key_case),
-        json!(&opm.metadata.object_name),
+        json!(opm.metadata.object_name.as_deref().unwrap_or("")),
     );
-    meta.insert(key("OBJECT_ID", key_case), json!(&opm.metadata.object_id));
+    meta.insert(
+        key("OBJECT_ID", key_case),
+        json!(opm.metadata.object_id.as_deref().unwrap_or("")),
+    );
     meta.insert(
         key("CENTER_NAME", key_case),
         json!(&opm.metadata.center_name),
@@ -443,8 +449,8 @@ mod tests {
             }
         }"#;
         let opm = parse_opm_json(json).unwrap();
-        assert_eq!(opm.metadata.object_name, "TEST_OPM");
-        assert_eq!(opm.header.originator, "UPPER_OPM");
+        assert_eq!(opm.metadata.object_name.as_deref(), Some("TEST_OPM"));
+        assert_eq!(opm.header.originator.as_deref(), Some("UPPER_OPM"));
     }
 
     // =========================================================================

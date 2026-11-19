@@ -67,6 +67,33 @@ CCSDS files use **km** and **km/s** for position and velocity. Brahe automatical
 !!! warning "Unit Conversion"
     If you compare brahe output directly to values in a CCSDS file, remember the factor of 1000 for position/velocity and 10$^9$ for GM. Covariance elements scale by 10$^6$ (km$^2$ → m$^2$).
 
+## Standard Compliance
+
+CCSDS 502.0-B-3 makes `CREATION_DATE` and `ORIGINATOR` mandatory in every OEM, OMM, and OPM header, and `OBJECT_NAME` and `OBJECT_ID` mandatory in their metadata. Some publishers omit these keywords or leave them empty; CelesTrak, for example, distributes OMMs with empty `CREATION_DATE` and `ORIGINATOR` values. Because the orbit data remains usable without them, brahe reads such messages and represents each absent value as `None`. Keywords that define the orbit itself, such as `EPOCH`, `REF_FRAME`, `TIME_SYSTEM`, and the element values, remain required and a message without them fails to parse.
+
+`compliance_issues()` lists the absent mandatory keywords, each prefixed by its location in the message (`header.CREATION_DATE`, `metadata.OBJECT_ID`, or `segments[0].metadata.OBJECT_NAME` for an OEM), and `is_compliant()` returns whether that list is empty:
+
+=== "Python"
+    ``` python
+    --8<-- "./examples/ccsds/odm_compliance.py:8"
+    ```
+
+=== "Rust"
+    ``` rust
+    --8<-- "./examples/ccsds/odm_compliance.rs:4"
+    ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/ccsds/odm_compliance.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/ccsds/odm_compliance.rs.txt"
+        ```
+
 ---
 
 ## See Also

@@ -13,7 +13,7 @@ fn main() {
     let omm = OMM::from_file("test_assets/ccsds/omm/OMMExample1.txt").unwrap();
     println!(
         "Object: {} ({})",
-        omm.metadata.object_name, omm.metadata.object_id
+        omm.metadata.object_name.as_deref().unwrap(), omm.metadata.object_id.as_deref().unwrap()
     );
     println!("Theory: {}", omm.metadata.mean_element_theory);
     println!("Epoch:  {}", omm.mean_elements.epoch);
@@ -32,8 +32,8 @@ fn main() {
         omm.mean_elements.mean_anomaly,
         tle.norad_cat_id.unwrap() as u64,
         60.0, // step_size
-        Some(omm.metadata.object_name.as_str()),
-        Some(omm.metadata.object_id.as_str()),
+        omm.metadata.object_name.as_deref(),
+        omm.metadata.object_id.as_deref(),
         tle.classification_type,
         tle.bstar,
         tle.mean_motion_dot,

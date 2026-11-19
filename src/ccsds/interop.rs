@@ -17,7 +17,7 @@ use crate::ccsds::aem::{
 };
 use crate::ccsds::common::{
     CCSDSRefFrame, CCSDSTimeSystem, ODMHeader, format_ccsds_datetime_in, parse_ccsds_datetime,
-    parse_optional_ccsds_datetime,
+    parse_optional_ccsds_datetime, parse_optional_ccsds_text,
 };
 use crate::ccsds::frames::{
     ADMReferenceFrame, CCSDSCelestialBodyFrame, CCSDSOrbitRelativeFrame, CCSDSSpacecraftBodyFrame,
@@ -325,7 +325,7 @@ impl OEM {
 
         let mut traj = DOrbitTrajectory::new(6, frame, OrbitRepresentation::Cartesian, None)?;
 
-        traj.name = Some(segment.metadata.object_name.clone());
+        traj.name = segment.metadata.object_name.clone();
 
         for sv in &segment.states {
             let x = SVector6::new(
@@ -379,7 +379,7 @@ impl OEM {
 
         let mut traj = SOrbitTrajectory::new(frame, OrbitRepresentation::Cartesian, None)?;
 
-        traj.name = Some(segment.metadata.object_name.clone());
+        traj.name = segment.metadata.object_name.clone();
 
         for sv in &segment.states {
             let state = SVector6::new(
@@ -1151,10 +1151,7 @@ impl OMM {
             None => None,
         };
 
-        let originator = record
-            .originator
-            .clone()
-            .unwrap_or_else(|| "UNKNOWN".to_string());
+        let originator = parse_optional_ccsds_text(record.originator.as_deref());
 
         // Parse reference frame
         let ref_frame = record
@@ -1164,26 +1161,22 @@ impl OMM {
             .unwrap_or(CCSDSRefFrame::TEME);
 
         // Parse metadata
-        let metadata = OMMMetadata::new(
-            record
-                .object_name
-                .clone()
-                .unwrap_or_else(|| "UNKNOWN".to_string()),
-            record
-                .object_id
-                .clone()
-                .unwrap_or_else(|| "UNKNOWN".to_string()),
-            record
+        let metadata = OMMMetadata {
+            object_name: parse_optional_ccsds_text(record.object_name.as_deref()),
+            object_id: parse_optional_ccsds_text(record.object_id.as_deref()),
+            center_name: record
                 .center_name
                 .clone()
                 .unwrap_or_else(|| "EARTH".to_string()),
             ref_frame,
+            ref_frame_epoch: None,
             time_system,
-            record
+            mean_element_theory: record
                 .mean_element_theory
                 .clone()
                 .unwrap_or_else(|| "SGP4".to_string()),
-        );
+            comments: Vec::new(),
+        };
 
         // Build mean elements
         let mut mean_elements = OMMeanElements::new(
@@ -1266,9 +1259,9 @@ impl OMM {
                 .creation_date
                 .as_ref()
                 .map(|e| format_ccsds_datetime_in(e, &CCSDSTimeSystem::UTC)),
-            originator: Some(self.header.originator.clone()),
-            object_name: Some(self.metadata.object_name.clone()),
-            object_id: Some(self.metadata.object_id.clone()),
+            originator: self.header.originator.clone(),
+            object_name: self.metadata.object_name.clone(),
+            object_id: self.metadata.object_id.clone(),
             center_name: Some(self.metadata.center_name.clone()),
             ref_frame: Some(format!("{}", self.metadata.ref_frame)),
             time_system: Some(format!("{}", self.metadata.time_system)),
@@ -2378,11 +2371,11 @@ mod tests {
 
         // Header
         assert!((omm.header.format_version - 3.0).abs() < 1e-10);
-        assert_eq!(omm.header.originator, "18 SDS");
+        assert_eq!(omm.header.originator.as_deref(), Some("18 SDS"));
 
         // Metadata
-        assert_eq!(omm.metadata.object_name, "ISS (ZARYA)");
-        assert_eq!(omm.metadata.object_id, "1998-067A");
+        assert_eq!(omm.metadata.object_name.as_deref(), Some("ISS (ZARYA)"));
+        assert_eq!(omm.metadata.object_id.as_deref(), Some("1998-067A"));
         assert_eq!(omm.metadata.center_name, "EARTH");
         assert_eq!(omm.metadata.ref_frame, CCSDSRefFrame::TEME);
         assert_eq!(omm.metadata.time_system, CCSDSTimeSystem::UTC);
@@ -2418,6 +2411,31 @@ mod tests {
 
         assert!(omm.header.creation_date.is_none());
         assert!(omm.to_gp_record().creation_date.is_none());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_gp_record_to_omm_missing_provenance_fields() {
+        let json = r#"{"OBJECT_NAME": "", "EPOCH": "2024-01-15T12:00:00.000", "ECCENTRICITY": 0.001, "INCLINATION": 51.64, "RA_OF_ASC_NODE": 200.0, "ARG_OF_PERICENTER": 100.0, "MEAN_ANOMALY": 260.0}"#;
+        let record: GPRecord = serde_json::from_str(json).unwrap();
+        let omm = record.to_omm().unwrap();
+
+        assert_eq!(omm.header.originator, None);
+        assert_eq!(omm.metadata.object_name, None);
+        assert_eq!(omm.metadata.object_id, None);
+        assert_eq!(
+            omm.compliance_issues(),
+            vec![
+                "header.CREATION_DATE",
+                "header.ORIGINATOR",
+                "metadata.OBJECT_NAME",
+                "metadata.OBJECT_ID",
+            ]
+        );
+        let back = omm.to_gp_record();
+        assert_eq!(back.originator, None);
+        assert_eq!(back.object_name, None);
+        assert_eq!(back.object_id, None);
     }
 
     #[test]

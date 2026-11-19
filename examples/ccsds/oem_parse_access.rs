@@ -12,7 +12,7 @@ fn main() {
 
     // Header properties
     println!("Format version: {}", oem.header.format_version);
-    println!("Originator:     {}", oem.header.originator);
+    println!("Originator:     {}", oem.header.originator.as_deref().unwrap());
     println!(
         "Classification: {}",
         oem.header.classification.as_deref().unwrap_or("None")
@@ -23,8 +23,8 @@ fn main() {
     // Access segment metadata
     let seg = &oem.segments[0];
     println!("\nSegment 0:");
-    println!("  Object name:   {}", seg.metadata.object_name);
-    println!("  Object ID:     {}", seg.metadata.object_id);
+    println!("  Object name:   {}", seg.metadata.object_name.as_deref().unwrap());
+    println!("  Object ID:     {}", seg.metadata.object_id.as_deref().unwrap());
     println!("  Center name:   {}", seg.metadata.center_name);
     println!("  Ref frame:     {}", seg.metadata.ref_frame);
     println!("  Time system:   {}", seg.metadata.time_system);

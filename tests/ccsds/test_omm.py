@@ -683,8 +683,9 @@ def test_omm_parse_celestrak_empty_header(eop, path):
     omm = OMM.from_file(path)
 
     assert omm.creation_date is None
-    assert omm.originator == ""
+    assert omm.originator is None
     assert omm.object_name == "ISS (ZARYA)"
+    assert omm.compliance_issues() == ["header.CREATION_DATE", "header.ORIGINATOR"]
     assert omm.norad_cat_id == 25544
     assert omm.to_dict()["header"]["creation_date"] is None
 
@@ -697,21 +698,68 @@ def test_omm_empty_creation_date_round_trip(eop, fmt):
     omm2 = OMM.from_str(omm.to_string(fmt))
 
     assert omm2.creation_date is None
-    assert omm2.originator == ""
+    assert omm2.originator is None
     assert omm2.object_name == omm.object_name
 
 
-def test_omm_kvn_missing_creation_date_keyword_errors(eop):
-    """Mirror of test_omm_kvn_missing_creation_date_keyword_errors in Rust."""
-    with open("test_assets/ccsds/omm/OMM-celestrak-empty-header.txt") as handle:
-        lines = [
-            line
-            for line in handle.read().splitlines()
-            if not line.startswith("CREATION_DATE")
-        ]
+def _without_keyword(path, keyword):
+    """Read a KVN fixture and drop every line that starts with keyword."""
+    with open(path) as handle:
+        return "\n".join(
+            line for line in handle.read().splitlines() if not line.startswith(keyword)
+        )
 
-    with pytest.raises(Exception, match="CREATION_DATE"):
-        OMM.from_str("\n".join(lines))
+
+@pytest.mark.parametrize(
+    "keyword,issue",
+    [
+        ("CREATION_DATE", "header.CREATION_DATE"),
+        ("ORIGINATOR", "header.ORIGINATOR"),
+        ("OBJECT_NAME", "metadata.OBJECT_NAME"),
+        ("OBJECT_ID", "metadata.OBJECT_ID"),
+    ],
+)
+def test_omm_compliance_issues_missing_keyword(eop, keyword, issue):
+    """Mirror of test_omm_compliance_issues_missing_keyword in Rust."""
+    omm = OMM.from_str(
+        _without_keyword("test_assets/ccsds/omm/OMMExample1.txt", keyword)
+    )
+
+    assert omm.compliance_issues() == [issue]
+    assert not omm.is_compliant()
+
+
+def test_omm_is_compliant(eop):
+    """Mirror of test_omm_is_compliant in Rust."""
+    omm = OMM.from_file("test_assets/ccsds/omm/OMMExample1.txt")
+
+    assert omm.compliance_issues() == []
+    assert omm.is_compliant()
+
+
+def test_omm_kvn_missing_epoch_errors(eop):
+    """Mirror of test_omm_kvn_missing_epoch_errors in Rust."""
+    with pytest.raises(Exception, match="EPOCH"):
+        OMM.from_str(_without_keyword("test_assets/ccsds/omm/OMMExample1.txt", "EPOCH"))
+
+
+def test_omm_provenance_setters_accept_none(eop):
+    """Setting originator, object_name, and object_id to None reports them."""
+    omm = OMM.from_file("test_assets/ccsds/omm/OMMExample1.txt")
+
+    omm.originator = None
+    omm.object_name = None
+    omm.object_id = None
+
+    assert omm.compliance_issues() == [
+        "header.ORIGINATOR",
+        "metadata.OBJECT_NAME",
+        "metadata.OBJECT_ID",
+    ]
+    reparsed = OMM.from_str(omm.to_string("KVN"))
+    assert reparsed.originator is None
+    assert reparsed.object_name is None
+    assert reparsed.object_id is None
 
 
 def test_omm_creation_date_setter_accepts_none(eop):
@@ -746,6 +794,30 @@ def test_gp_record_to_omm_empty_creation_date(eop, json_str):
 
     assert omm.creation_date is None
     assert omm.to_gp_record().creation_date is None
+
+
+def test_gp_record_to_omm_missing_provenance_fields(eop):
+    """Mirror of test_gp_record_to_omm_missing_provenance_fields in Rust."""
+    record = bh.GPRecord.from_json(
+        '{"OBJECT_NAME": "", "EPOCH": "2024-01-15T12:00:00.000", "ECCENTRICITY": 0.001, '
+        '"INCLINATION": 51.64, "RA_OF_ASC_NODE": 200.0, "ARG_OF_PERICENTER": 100.0, '
+        '"MEAN_ANOMALY": 260.0}'
+    )
+    omm = record.to_omm()
+
+    assert omm.originator is None
+    assert omm.object_name is None
+    assert omm.object_id is None
+    assert omm.compliance_issues() == [
+        "header.CREATION_DATE",
+        "header.ORIGINATOR",
+        "metadata.OBJECT_NAME",
+        "metadata.OBJECT_ID",
+    ]
+    back = omm.to_gp_record()
+    assert back.originator is None
+    assert back.object_name is None
+    assert back.object_id is None
 
 
 def test_gp_record_to_omm_malformed_creation_date_errors(eop):

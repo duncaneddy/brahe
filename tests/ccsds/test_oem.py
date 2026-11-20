@@ -1870,6 +1870,27 @@ def test_oem_is_compliant(eop):
     assert msg.is_compliant()
 
 
+@pytest.mark.parametrize("fmt", ["KVN", "XML", "JSON"])
+def test_oem_strict_write_rejects_noncompliant(eop, tmp_path, fmt):
+    """Mirror of test_oem_strict_write_rejects_noncompliant in Rust."""
+    msg = OEM.from_file("test_assets/ccsds/oem/OEMExample1.txt")
+    msg.originator = None
+
+    with pytest.raises(brahe.BraheError, match="header.ORIGINATOR"):
+        msg.to_string(fmt)
+    with pytest.raises(brahe.BraheError, match="header.ORIGINATOR"):
+        msg.to_json_string()
+    path = tmp_path / "oem.txt"
+    with pytest.raises(brahe.BraheError, match="header.ORIGINATOR"):
+        msg.to_file(str(path), fmt)
+    assert not path.exists()
+
+    written = msg.to_string(fmt, strict=False)
+    assert OEM.from_str(written).originator is None
+    msg.to_file(str(path), fmt, strict=False)
+    assert path.exists()
+
+
 @pytest.mark.parametrize(
     "path,date",
     [
@@ -1886,4 +1907,4 @@ def test_oem_empty_creation_date(eop, path, date):
     assert oem.creation_date is None
 
     for fmt in ("KVN", "XML", "JSON"):
-        assert OEM.from_str(oem.to_string(fmt)).creation_date is None
+        assert OEM.from_str(oem.to_string(fmt, strict=False)).creation_date is None

@@ -1096,6 +1096,27 @@ def test_opm_is_compliant(eop):
     assert msg.is_compliant()
 
 
+@pytest.mark.parametrize("fmt", ["KVN", "XML", "JSON"])
+def test_opm_strict_write_rejects_noncompliant(eop, tmp_path, fmt):
+    """Mirror of test_opm_strict_write_rejects_noncompliant in Rust."""
+    msg = OPM.from_file("test_assets/ccsds/opm/OPMExample1.txt")
+    msg.originator = None
+
+    with pytest.raises(brahe.BraheError, match="header.ORIGINATOR"):
+        msg.to_string(fmt)
+    with pytest.raises(brahe.BraheError, match="header.ORIGINATOR"):
+        msg.to_json_string()
+    path = tmp_path / "opm.txt"
+    with pytest.raises(brahe.BraheError, match="header.ORIGINATOR"):
+        msg.to_file(str(path), fmt)
+    assert not path.exists()
+
+    written = msg.to_string(fmt, strict=False)
+    assert OPM.from_str(written).originator is None
+    msg.to_file(str(path), fmt, strict=False)
+    assert path.exists()
+
+
 @pytest.mark.parametrize(
     "path,date",
     [
@@ -1112,4 +1133,4 @@ def test_opm_empty_creation_date(eop, path, date):
     assert opm.creation_date is None
 
     for fmt in ("KVN", "XML", "JSON"):
-        assert OPM.from_str(opm.to_string(fmt)).creation_date is None
+        assert OPM.from_str(opm.to_string(fmt, strict=False)).creation_date is None

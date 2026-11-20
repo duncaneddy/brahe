@@ -527,7 +527,7 @@ fn parse_scientific_notation(s: &str) -> Result<f64, BraheError> {
 }
 
 /// Write an OMM message to KVN format.
-pub fn write_omm(omm: &crate::ccsds::omm::OMM) -> Result<String, BraheError> {
+pub(crate) fn write_omm(omm: &crate::ccsds::omm::OMM) -> Result<String, BraheError> {
     let mut out = String::new();
 
     // Header

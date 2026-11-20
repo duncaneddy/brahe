@@ -331,7 +331,7 @@ pub fn parse_oem_xml(content: &str) -> Result<OEM, BraheError> {
 // ============================================================================
 
 /// Write an OEM message to XML format.
-pub fn write_oem_xml(oem: &crate::ccsds::oem::OEM) -> Result<String, BraheError> {
+pub(crate) fn write_oem_xml(oem: &crate::ccsds::oem::OEM) -> Result<String, BraheError> {
     let mut out = String::new();
     let i1 = "  ";
     let i2 = "    ";

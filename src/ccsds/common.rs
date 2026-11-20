@@ -359,6 +359,39 @@ fn text_is_absent(value: &Option<String>) -> bool {
     value.as_deref().is_none_or(|s| s.trim().is_empty())
 }
 
+/// Reject a write of a message that lacks mandatory keywords.
+///
+/// # Arguments
+///
+/// * `message_type` - Message type name used in the error (e.g., `OMM`).
+/// * `issues` - The message's `compliance_issues()`.
+///
+/// # Returns
+///
+/// * `Result<(), BraheError>` - `Ok` when `issues` is empty, otherwise an
+///   error naming every absent keyword.
+///
+/// # Examples
+///
+/// ```ignore
+/// assert!(ensure_compliant_write("OMM", vec![]).is_ok());
+/// assert!(ensure_compliant_write("OMM", vec!["header.ORIGINATOR".into()]).is_err());
+/// ```
+pub(crate) fn ensure_compliant_write(
+    message_type: &str,
+    issues: Vec<String>,
+) -> Result<(), crate::utils::errors::BraheError> {
+    if issues.is_empty() {
+        return Ok(());
+    }
+    Err(crate::utils::errors::BraheError::Error(format!(
+        "{} lacks mandatory CCSDS keywords: {}; use the *_noncompliant write methods \
+         (strict=False in Python) to emit it anyway",
+        message_type,
+        issues.join(", ")
+    )))
+}
+
 /// List the mandatory object keywords absent from an ODM metadata block.
 ///
 /// # Arguments
@@ -1418,6 +1451,22 @@ mod tests {
         };
 
         assert_eq!(header.compliance_issues(), issues);
+    }
+
+    #[rstest]
+    #[case(&[], true)]
+    #[case(&["header.ORIGINATOR"], false)]
+    #[serial_test::parallel]
+    fn test_ensure_compliant_write(#[case] issues: &[&str], #[case] ok: bool) {
+        let result = ensure_compliant_write("OMM", issues.iter().map(|s| s.to_string()).collect());
+
+        assert_eq!(result.is_ok(), ok);
+        if let Err(err) = result {
+            let msg = err.to_string();
+            assert!(msg.contains("OMM"), "{}", msg);
+            assert!(msg.contains("header.ORIGINATOR"), "{}", msg);
+            assert!(msg.contains("_noncompliant"), "{}", msg);
+        }
     }
 
     #[rstest]

@@ -52,7 +52,9 @@ def test_format_optional_ccsds_datetime_in(eop, cls, path):
     msg = cls.from_file(path)
     msg.creation_date = None
     assert re.search(
-        r"^CREATION_DATE\s*=\s*$", msg.to_string("KVN"), flags=re.MULTILINE
+        r"^CREATION_DATE\s*=\s*$",
+        msg.to_string("KVN", strict=False),
+        flags=re.MULTILINE,
     )
 
     msg.creation_date = bh.Epoch.from_datetime(
@@ -60,7 +62,7 @@ def test_format_optional_ccsds_datetime_in(eop, cls, path):
     )
     assert re.search(
         r"^CREATION_DATE\s*=\s*2024-03-01T12:00:00\.000\s*$",
-        msg.to_string("KVN"),
+        msg.to_string("KVN", strict=False),
         flags=re.MULTILINE,
     )
 
@@ -137,3 +139,22 @@ def test_odm_object_compliance_issues(eop, name, object_id, issues):
     oem.segments[1].object_id = object_id
 
     assert oem.compliance_issues() == issues
+
+
+@pytest.mark.parametrize(
+    "strict,clear_originator,ok",
+    [(True, False, True), (True, True, False), (False, True, True)],
+)
+def test_ensure_compliant_write(eop, strict, clear_originator, ok):
+    """Mirror of test_ensure_compliant_write in Rust."""
+    omm = OMM.from_file("test_assets/ccsds/omm/OMMExample1.txt")
+    if clear_originator:
+        omm.originator = None
+
+    if ok:
+        omm.to_string("KVN", strict=strict)
+    else:
+        with pytest.raises(
+            bh.BraheError, match=r"OMM.*header\.ORIGINATOR.*_noncompliant"
+        ):
+            omm.to_string("KVN", strict=strict)

@@ -146,7 +146,7 @@ pub fn parse_oem_json(content: &str) -> Result<crate::ccsds::oem::OEM, BraheErro
 }
 
 /// Write an OEM message to JSON format.
-pub fn write_oem_json(
+pub(crate) fn write_oem_json(
     oem: &crate::ccsds::oem::OEM,
     key_case: CCSDSJsonKeyCase,
 ) -> Result<String, BraheError> {

@@ -12,7 +12,7 @@ use std::path::Path;
 
 use crate::ccsds::common::{
     CCSDSCovariance, CCSDSFormat, CCSDSRefFrame, CCSDSSpacecraftParameters, CCSDSTimeSystem,
-    CCSDSUserDefined, ODMHeader, odm_object_compliance_issues,
+    CCSDSUserDefined, ODMHeader, ensure_compliant_write, odm_object_compliance_issues,
 };
 use crate::time::Epoch;
 use crate::utils::errors::BraheError;
@@ -276,7 +276,60 @@ impl OMM {
     }
 
     /// Write the OMM message to a string in the specified format.
+    ///
+    /// The message must be compliant with CCSDS 502.0-B-3: when
+    /// [`Self::compliance_issues`] is non-empty the write is refused. Use
+    /// [`Self::to_string_noncompliant`] to write such a message anyway.
+    ///
+    /// # Arguments
+    ///
+    /// * `format` - Output encoding format (KVN, XML, or JSON)
+    ///
+    /// # Returns
+    ///
+    /// * `Result<String, BraheError>` - Serialized OMM string, or an error when
+    ///   the message lacks mandatory keywords
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::ccsds::{CCSDSFormat, OMM};
+    ///
+    /// let mut omm = OMM::from_file("test_assets/ccsds/omm/OMMExample1.txt").unwrap();
+    /// assert!(omm.to_string(CCSDSFormat::KVN).is_ok());
+    ///
+    /// omm.header.originator = None;
+    /// assert!(omm.to_string(CCSDSFormat::KVN).is_err());
+    /// ```
     pub fn to_string(&self, format: CCSDSFormat) -> Result<String, BraheError> {
+        ensure_compliant_write("OMM", self.compliance_issues())?;
+        self.to_string_noncompliant(format)
+    }
+
+    /// Write the OMM message to a string without checking CCSDS compliance.
+    ///
+    /// Mandatory keywords listed by [`Self::compliance_issues`] are written
+    /// with empty values. Orbit-defining fields are still required.
+    ///
+    /// # Arguments
+    ///
+    /// * `format` - Output encoding format (KVN, XML, or JSON)
+    ///
+    /// # Returns
+    ///
+    /// * `Result<String, BraheError>` - Serialized OMM string
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::ccsds::{CCSDSFormat, OMM};
+    ///
+    /// let mut omm = OMM::from_file("test_assets/ccsds/omm/OMMExample1.txt").unwrap();
+    /// omm.header.originator = None;
+    /// let kvn = omm.to_string_noncompliant(CCSDSFormat::KVN).unwrap();
+    /// assert!(OMM::from_str(&kvn).unwrap().header.originator.is_none());
+    /// ```
+    pub fn to_string_noncompliant(&self, format: CCSDSFormat) -> Result<String, BraheError> {
         match format {
             CCSDSFormat::KVN => crate::ccsds::kvn::write_omm(self),
             CCSDSFormat::XML => crate::ccsds::xml::write_omm_xml(self),
@@ -288,7 +341,59 @@ impl OMM {
     }
 
     /// Write the OMM message to JSON with explicit key case control.
+    ///
+    /// The write is refused when [`Self::compliance_issues`] is non-empty.
+    /// Use [`Self::to_json_string_noncompliant`] to write such a message
+    /// anyway.
+    ///
+    /// # Arguments
+    ///
+    /// * `key_case` - Whether CCSDS keywords should be lowercase or uppercase
+    ///
+    /// # Returns
+    ///
+    /// * `Result<String, BraheError>` - Serialized JSON string, or an error when
+    ///   the message lacks mandatory keywords
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::ccsds::OMM;
+    /// use brahe::ccsds::common::CCSDSJsonKeyCase;
+    ///
+    /// let omm = OMM::from_file("test_assets/ccsds/omm/OMMExample1.txt").unwrap();
+    /// let json = omm.to_json_string(CCSDSJsonKeyCase::Upper).unwrap();
+    /// assert!(json.contains("ORIGINATOR"));
+    /// ```
     pub fn to_json_string(
+        &self,
+        key_case: crate::ccsds::common::CCSDSJsonKeyCase,
+    ) -> Result<String, BraheError> {
+        ensure_compliant_write("OMM", self.compliance_issues())?;
+        self.to_json_string_noncompliant(key_case)
+    }
+
+    /// Write the OMM message to JSON without checking CCSDS compliance.
+    ///
+    /// # Arguments
+    ///
+    /// * `key_case` - Whether CCSDS keywords should be lowercase or uppercase
+    ///
+    /// # Returns
+    ///
+    /// * `Result<String, BraheError>` - Serialized JSON string
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::ccsds::OMM;
+    /// use brahe::ccsds::common::CCSDSJsonKeyCase;
+    ///
+    /// let mut omm = OMM::from_file("test_assets/ccsds/omm/OMMExample1.txt").unwrap();
+    /// omm.header.originator = None;
+    /// assert!(omm.to_json_string_noncompliant(CCSDSJsonKeyCase::Upper).is_ok());
+    /// ```
+    pub fn to_json_string_noncompliant(
         &self,
         key_case: crate::ccsds::common::CCSDSJsonKeyCase,
     ) -> Result<String, BraheError> {
@@ -296,9 +401,68 @@ impl OMM {
     }
 
     /// Write the OMM message to a file in the specified format.
+    ///
+    /// The write is refused, and no file is created, when
+    /// [`Self::compliance_issues`] is non-empty. Use
+    /// [`Self::to_file_noncompliant`] to write such a message anyway.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - Output file path
+    /// * `format` - Output encoding format (KVN, XML, or JSON)
+    ///
+    /// # Returns
+    ///
+    /// * `Result<(), BraheError>` - Success, or an error when the file cannot be
+    ///   written or the message lacks mandatory keywords
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::ccsds::{CCSDSFormat, OMM};
+    ///
+    /// let omm = OMM::from_file("test_assets/ccsds/omm/OMMExample1.txt").unwrap();
+    /// let path = std::env::temp_dir().join("brahe_omm_to_file_example.txt");
+    /// omm.to_file(&path, CCSDSFormat::KVN).unwrap();
+    /// ```
     pub fn to_file<P: AsRef<Path>>(&self, path: P, format: CCSDSFormat) -> Result<(), BraheError> {
         let content = self.to_string(format)?;
-        std::fs::write(path.as_ref(), content)
+        Self::write_file(path.as_ref(), content)
+    }
+
+    /// Write the OMM message to a file without checking CCSDS compliance.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - Output file path
+    /// * `format` - Output encoding format (KVN, XML, or JSON)
+    ///
+    /// # Returns
+    ///
+    /// * `Result<(), BraheError>` - Success, or an error when the file cannot be
+    ///   written
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::ccsds::{CCSDSFormat, OMM};
+    ///
+    /// let mut omm = OMM::from_file("test_assets/ccsds/omm/OMMExample1.txt").unwrap();
+    /// omm.header.originator = None;
+    /// let path = std::env::temp_dir().join("brahe_omm_to_file_noncompliant_example.txt");
+    /// omm.to_file_noncompliant(&path, CCSDSFormat::KVN).unwrap();
+    /// ```
+    pub fn to_file_noncompliant<P: AsRef<Path>>(
+        &self,
+        path: P,
+        format: CCSDSFormat,
+    ) -> Result<(), BraheError> {
+        let content = self.to_string_noncompliant(format)?;
+        Self::write_file(path.as_ref(), content)
+    }
+
+    fn write_file(path: &Path, content: String) -> Result<(), BraheError> {
+        std::fs::write(path, content)
             .map_err(|e| BraheError::IoError(format!("Failed to write OMM file: {}", e)))
     }
 }
@@ -340,7 +504,7 @@ mod tests {
     fn test_omm_empty_creation_date_round_trip(#[case] format: CCSDSFormat) {
         let omm = OMM::from_file("test_assets/ccsds/omm/OMM-celestrak-empty-header.txt").unwrap();
 
-        let written = omm.to_string(format).unwrap();
+        let written = omm.to_string_noncompliant(format).unwrap();
         let omm2 = OMM::from_str(&written).unwrap();
 
         assert!(omm2.header.creation_date.is_none());
@@ -381,6 +545,32 @@ mod tests {
 
         assert!(omm.compliance_issues().is_empty());
         assert!(omm.is_compliant());
+    }
+
+    #[rstest]
+    #[case(CCSDSFormat::KVN)]
+    #[case(CCSDSFormat::XML)]
+    #[case(CCSDSFormat::JSON)]
+    #[parallel]
+    fn test_omm_strict_write_rejects_noncompliant(#[case] format: CCSDSFormat) {
+        let mut omm = OMM::from_file("test_assets/ccsds/omm/OMMExample1.txt").unwrap();
+        omm.header.originator = None;
+
+        let err = omm.to_string(format).unwrap_err();
+        assert!(err.to_string().contains("header.ORIGINATOR"), "{}", err);
+        assert!(
+            omm.to_json_string(crate::ccsds::common::CCSDSJsonKeyCase::Lower)
+                .is_err()
+        );
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("omm.txt");
+        assert!(omm.to_file(&path, format).is_err());
+        assert!(!path.exists());
+
+        let written = omm.to_string_noncompliant(format).unwrap();
+        assert_eq!(OMM::from_str(&written).unwrap().header.originator, None);
+        omm.to_file_noncompliant(&path, format).unwrap();
+        assert!(path.exists());
     }
 
     #[test]

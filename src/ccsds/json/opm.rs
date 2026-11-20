@@ -120,7 +120,7 @@ pub fn parse_opm_json(content: &str) -> Result<crate::ccsds::opm::OPM, BraheErro
 }
 
 /// Write an OPM message to JSON format.
-pub fn write_opm_json(
+pub(crate) fn write_opm_json(
     opm: &crate::ccsds::opm::OPM,
     key_case: CCSDSJsonKeyCase,
 ) -> Result<String, BraheError> {

@@ -695,7 +695,7 @@ def test_omm_empty_creation_date_round_trip(eop, fmt):
     """Mirror of test_omm_empty_creation_date_round_trip in Rust."""
     omm = OMM.from_file("test_assets/ccsds/omm/OMM-celestrak-empty-header.txt")
 
-    omm2 = OMM.from_str(omm.to_string(fmt))
+    omm2 = OMM.from_str(omm.to_string(fmt, strict=False))
 
     assert omm2.creation_date is None
     assert omm2.originator is None
@@ -737,6 +737,27 @@ def test_omm_is_compliant(eop):
     assert omm.is_compliant()
 
 
+@pytest.mark.parametrize("fmt", ["KVN", "XML", "JSON"])
+def test_omm_strict_write_rejects_noncompliant(eop, tmp_path, fmt):
+    """Mirror of test_omm_strict_write_rejects_noncompliant in Rust."""
+    msg = OMM.from_file("test_assets/ccsds/omm/OMMExample1.txt")
+    msg.originator = None
+
+    with pytest.raises(bh.BraheError, match="header.ORIGINATOR"):
+        msg.to_string(fmt)
+    with pytest.raises(bh.BraheError, match="header.ORIGINATOR"):
+        msg.to_json_string()
+    path = tmp_path / "omm.txt"
+    with pytest.raises(bh.BraheError, match="header.ORIGINATOR"):
+        msg.to_file(str(path), fmt)
+    assert not path.exists()
+
+    written = msg.to_string(fmt, strict=False)
+    assert OMM.from_str(written).originator is None
+    msg.to_file(str(path), fmt, strict=False)
+    assert path.exists()
+
+
 def test_omm_kvn_missing_epoch_errors(eop):
     """Mirror of test_omm_kvn_missing_epoch_errors in Rust."""
     with pytest.raises(Exception, match="EPOCH"):
@@ -756,7 +777,7 @@ def test_omm_provenance_setters_accept_none(eop):
         "metadata.OBJECT_NAME",
         "metadata.OBJECT_ID",
     ]
-    reparsed = OMM.from_str(omm.to_string("KVN"))
+    reparsed = OMM.from_str(omm.to_string("KVN", strict=False))
     assert reparsed.originator is None
     assert reparsed.object_name is None
     assert reparsed.object_id is None
@@ -770,7 +791,7 @@ def test_omm_creation_date_setter_accepts_none(eop):
     omm.creation_date = None
 
     assert omm.creation_date is None
-    assert OMM.from_str(omm.to_string("KVN")).creation_date is None
+    assert OMM.from_str(omm.to_string("KVN", strict=False)).creation_date is None
 
 
 @pytest.mark.parametrize(

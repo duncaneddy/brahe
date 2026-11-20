@@ -1,0 +1,8 @@
+Object name:   Some("ISS (ZARYA)")
+Creation date: None
+Originator:    None
+Compliant:     false
+Issues:        ["header.CREATION_DATE", "header.ORIGINATOR"]
+Strict write:  OMM lacks mandatory CCSDS keywords: header.CREATION_DATE, header.ORIGINATOR; use the *_noncompliant write methods (strict=False in Python) to emit it anyway
+Lenient write: 549 characters
+Compliant after update: true

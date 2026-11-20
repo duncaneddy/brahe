@@ -1,0 +1,12 @@
+Source: Garner, base URL: http://garner.ucsd.edu/pub/products/
+Files published for the week: 1813
+
+COD final SP3 orbits: 7
+  COD0OPSFIN_20243150000_01D_05M_ORB.SP3.gz: starts 2024-11-10 00:00:00.000 GPS, span 24 h, sampling 300 s
+  COD0OPSFIN_20243160000_01D_05M_ORB.SP3.gz: starts 2024-11-11 00:00:00.000 GPS, span 24 h, sampling 300 s
+  COD0OPSFIN_20243170000_01D_05M_ORB.SP3.gz: starts 2024-11-12 00:00:00.000 GPS, span 24 h, sampling 300 s
+
+IGS final SP3 orbits: 7
+  IGS0OPSFIN_20243150000_01D_15M_ORB.SP3.gz: starts 2024-11-10 00:00:00.000 GPS, span 24 h, sampling 900 s
+  IGS0OPSFIN_20243160000_01D_15M_ORB.SP3.gz: starts 2024-11-11 00:00:00.000 GPS, span 24 h, sampling 900 s
+  IGS0OPSFIN_20243170000_01D_15M_ORB.SP3.gz: starts 2024-11-12 00:00:00.000 GPS, span 24 h, sampling 900 s

@@ -36,6 +36,35 @@ def test_parse_omm_xml_multiple_comments_per_block(eop):
     assert "spacecraft_parameters" in d
 
 
+def test_parse_omm_xml_ndm_wrapped_single_omm(eop):
+    """Mirror of test_parse_omm_xml_ndm_wrapped_single_omm in Rust."""
+    omm = OMM.from_str(_asset("test_assets/ccsds/omm/OMM-ndm-wrapped.xml"))
+    d = omm.to_dict()
+
+    assert d["header"]["format_version"] == 2.0
+    assert d["header"]["originator"] == "CelesTrak"
+    assert d["metadata"]["object_name"] == "ISS (ZARYA)"
+    assert d["metadata"]["object_id"] == "1998-067A"
+    assert d["mean_elements"]["mean_motion"] == 15.49391288
+    assert d["tle_parameters"]["norad_cat_id"] == 25544
+
+
+@pytest.mark.parametrize(
+    "file,msg",
+    [
+        ("OMM-ndm-multiple.xml", "2 <omm> elements"),
+        ("OMM-ndm-mixed.xml", "<opm>"),
+        ("OMM-ndm-stray-text.xml", "text outside an element"),
+        ("OMM-ndm-trailing-element.xml", "after the closing </ndm>"),
+        ("OMM-ndm-truncated.xml", "ends before the closing </ndm>"),
+    ],
+)
+def test_parse_omm_xml_ndm_rejects_non_single_omm(eop, file, msg):
+    """Mirror of test_parse_omm_xml_ndm_rejects_non_single_omm in Rust."""
+    with pytest.raises(Exception, match=msg):
+        OMM.from_str(_asset(f"test_assets/ccsds/omm/{file}"))
+
+
 def test_parse_opm_xml_multiple_comments_per_block(eop):
     """Mirror of test_parse_opm_xml_multiple_comments_per_block in Rust."""
     opm = OPM.from_str(_asset("test_assets/ccsds/opm/OPM-multiple-comments.xml"))

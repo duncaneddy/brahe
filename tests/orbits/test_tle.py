@@ -229,6 +229,7 @@ class TestNORADIDParsing:
             "!2345",  # Invalid character
             "",  # Empty string
             "     ",  # Only spaces
+            "A+123",  # Sign in Alpha-5 numeric part
         ],
     )
     def test_parse_norad_id_invalid(self, id_str):
@@ -384,6 +385,29 @@ class TestKeplerianElementsToTLE:
         assert line1 == expected_line1
         assert line2 == expected_line2
 
+    @pytest.mark.parametrize(
+        "norad_id,expected",
+        [
+            ("5", "    5"),
+            ("    5", "    5"),
+            ("00005", "00005"),
+            ("9999", " 9999"),
+            ("A0000", "A0000"),
+        ],
+    )
+    def test_create_tle_lines_norad_id_field(self, norad_id, expected):
+        """Short NORAD IDs are right-justified with spaces in the 5-column field."""
+        epoch = brahe.Epoch.from_datetime(2021, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
+        elements = np.array([6786000.0, 0.001, 51.6, 306.0, 88.1, 25.5])
+
+        line1, line2 = brahe.keplerian_elements_to_tle(epoch, elements, norad_id)
+
+        assert len(line1) == 69
+        assert len(line2) == 69
+        assert line1[2:7] == expected
+        assert line2[2:7] == expected
+        assert brahe.validate_tle_lines(line1, line2)
+
 
 class TestNORADIDConversions:
     """Test NORAD ID conversion functions."""
@@ -424,6 +448,27 @@ class TestNORADIDConversions:
             RuntimeError
         ):  # brahe.BraheError in Rust becomes RuntimeError in Python
             brahe.norad_id_numeric_to_alpha5(norad_id)
+
+    @pytest.mark.parametrize(
+        "alpha5_id",
+        [
+            "I0001",  # Invalid letter I
+            "O0001",  # Invalid letter O
+            "@0001",  # Invalid character
+            "A00012",  # Too long
+            "A00",  # Too short
+            "",  # Empty
+            "AAAAA",  # All letters
+            "A+123",  # Sign in numeric part
+            "A-123",  # Sign in numeric part
+            "A 123",  # Space in numeric part
+            "A12 3",  # Space in numeric part
+        ],
+    )
+    def test_norad_id_alpha5_to_numeric_invalid(self, alpha5_id):
+        """Test conversion of invalid Alpha-5 IDs."""
+        with pytest.raises(RuntimeError):
+            brahe.norad_id_alpha5_to_numeric(alpha5_id)
 
     @pytest.mark.parametrize(
         "norad_id", [100000, 100001, 109999, 110000, 125678, 186789, 236789, 339999]

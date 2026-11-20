@@ -2843,6 +2843,7 @@ pub fn accel_gravity_spherical_harmonics_cunningham_with_workspace<P: IntoPositi
 #[cfg(test)]
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
+    use crate::utils::testing::GlobalEOPGuard;
     use approx::assert_abs_diff_eq;
     use nalgebra::DVector;
     use rstest::rstest;
@@ -3623,6 +3624,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_spherical_harmonic_agrees_with_fast_zonal() {
+        let _eop = GlobalEOPGuard::new();
         let eop = FileEOPProvider::from_default_standard(true, EOPExtrapolation::Hold).unwrap();
         set_global_eop_provider(eop);
 
@@ -3712,6 +3714,7 @@ mod tests {
     /// recursion implementations of J2–J6.
     #[serial]
     fn test_fast_zonal_full_rotation_agrees_with_spherical_harmonic() {
+        let _eop = GlobalEOPGuard::new();
         let eop = FileEOPProvider::from_default_standard(true, EOPExtrapolation::Hold).unwrap();
         set_global_eop_provider(eop);
 
@@ -4102,6 +4105,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_numerical_propagator_with_icgem_jgm3_model() {
+        let _eop = GlobalEOPGuard::new();
         // End-to-end: a DNumericalOrbitPropagator built from a ForceModelConfig
         // whose gravity source is `GravityModelType::ICGEMModel { Earth, "JGM3" }`
         // must initialize cleanly and advance the state.

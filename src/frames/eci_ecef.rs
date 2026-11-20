@@ -491,6 +491,7 @@ pub fn states_ecef_to_eci(
 #[cfg(test)]
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
+    use crate::utils::testing::GlobalEOPGuard;
     use approx::assert_abs_diff_eq;
     use nalgebra::Vector3;
     use serial_test::serial;
@@ -506,6 +507,7 @@ mod tests {
     #[serial]
     #[allow(non_snake_case)]
     fn test_rotation_eci_to_ecef() {
+        let _eop = GlobalEOPGuard::new();
         // Test case reproduction of Example 5.5 from SOFA cookbook
 
         use crate::constants::AS2RAD;
@@ -544,6 +546,7 @@ mod tests {
     #[serial]
     #[allow(non_snake_case)]
     fn test_rotation_ecef_to_eci() {
+        let _eop = GlobalEOPGuard::new();
         // Test case reproduction of Example 5.5 from SOFA cookbook
 
         use crate::constants::AS2RAD;

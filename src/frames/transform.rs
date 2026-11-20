@@ -2513,38 +2513,42 @@ mod tests {
         use crate::utils::testing::synthetic_pck_kernel_bytes;
 
         setup_global_test_spice();
-        let frame_id = 31123;
-        let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("synthetic_bfpck.bpc");
-        std::fs::write(&path, synthetic_pck_kernel_bytes(frame_id)).unwrap();
-        let path = path.to_str().unwrap();
-        crate::spice::load_spice_kernel(path).unwrap();
+        without_spice_kernels(|| {
+            let frame_id = 31123;
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("synthetic_bfpck.bpc");
+            std::fs::write(&path, synthetic_pck_kernel_bytes(frame_id)).unwrap();
+            let path = path.to_str().unwrap();
+            crate::spice::load_spice_kernel(path).unwrap();
 
-        let epc = Epoch::from_jd(
-            crate::constants::JD_J2000 + 500.0 / crate::constants::SECONDS_PER_DAY,
-            TimeSystem::TDB,
-        );
-        let center = CelestialFrame::BodyCenteredICRF(-30001);
-        let fixed = CelestialFrame::BodyFixedPCK {
-            center: -30001,
-            frame_id,
-        };
-        let x = vector6_from_array([5.0e5, -1.0e5, 2.0e5, 3.0, -4.0, 1.0]);
-        let x_fixed = state_frame_to_frame(center, fixed, epc, x).unwrap();
-        let x_back = state_frame_to_frame(fixed, center, epc, x_fixed).unwrap();
-        for i in 0..6 {
-            assert_abs_diff_eq!(x_back[i], x[i], epsilon = 1e-6);
-        }
-        // Rotation-only query dispatches through icrf_to_frame_dcm's PCK arm.
-        let r = rotation_frame_to_frame(center, fixed, epc).unwrap();
-        let rtr = r.transpose() * r;
-        for i in 0..3 {
-            for j in 0..3 {
-                assert_abs_diff_eq!(rtr[(i, j)], if i == j { 1.0 } else { 0.0 }, epsilon = 1e-12);
+            let epc = Epoch::from_jd(
+                crate::constants::JD_J2000 + 500.0 / crate::constants::SECONDS_PER_DAY,
+                TimeSystem::TDB,
+            );
+            let center = CelestialFrame::BodyCenteredICRF(-30001);
+            let fixed = CelestialFrame::BodyFixedPCK {
+                center: -30001,
+                frame_id,
+            };
+            let x = vector6_from_array([5.0e5, -1.0e5, 2.0e5, 3.0, -4.0, 1.0]);
+            let x_fixed = state_frame_to_frame(center, fixed, epc, x).unwrap();
+            let x_back = state_frame_to_frame(fixed, center, epc, x_fixed).unwrap();
+            for i in 0..6 {
+                assert_abs_diff_eq!(x_back[i], x[i], epsilon = 1e-6);
             }
-        }
-
-        crate::spice::unload_spice_kernel(path).unwrap();
+            // Rotation-only query dispatches through icrf_to_frame_dcm's PCK arm.
+            let r = rotation_frame_to_frame(center, fixed, epc).unwrap();
+            let rtr = r.transpose() * r;
+            for i in 0..3 {
+                for j in 0..3 {
+                    assert_abs_diff_eq!(
+                        rtr[(i, j)],
+                        if i == j { 1.0 } else { 0.0 },
+                        epsilon = 1e-12
+                    );
+                }
+            }
+        });
     }
 
     #[test]

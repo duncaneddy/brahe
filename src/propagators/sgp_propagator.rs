@@ -2601,6 +2601,7 @@ mod tests {
         clear_object_registry, register_object, state_gcrf_to_mod, state_gcrf_to_teme,
         state_gcrf_to_tod, state_itrf_to_tod, unregister_object,
     };
+    use crate::utils::testing::GlobalEOPGuard;
     use crate::utils::testing::{setup_global_test_eop, setup_global_test_eop_original_brahe};
     use crate::{DEGREES, RADIANS};
     use approx::assert_abs_diff_eq;
@@ -3686,6 +3687,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_sgppropagator_state_teme() {
+        let _eop = GlobalEOPGuard::new();
         setup_global_test_eop_original_brahe();
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
         let epoch = prop.initial_epoch();
@@ -3711,6 +3713,7 @@ mod tests {
     #[serial]
     #[allow(clippy::type_complexity)]
     fn test_sgppropagator_gcrf_itrf_pef_match_reference_values() {
+        let _eop = GlobalEOPGuard::new();
         setup_global_test_eop_original_brahe();
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
         let e0 = prop.initial_epoch();
@@ -3817,6 +3820,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_sgppropagator_state_in_frame_teme_is_raw_output() {
+        let _eop = GlobalEOPGuard::new();
         setup_global_test_eop_original_brahe();
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
         let epc = prop.initial_epoch() + 600.0;
@@ -3836,6 +3840,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_sgppropagator_output_format_teme_stores_raw_states() {
+        let _eop = GlobalEOPGuard::new();
         setup_global_test_eop_original_brahe();
         let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0)
             .unwrap()
@@ -3853,6 +3858,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_sgppropagator_output_format_tod_of_epoch() {
+        let _eop = GlobalEOPGuard::new();
         setup_global_test_eop_original_brahe();
         let base = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
         let e = base.initial_epoch();
@@ -3881,6 +3887,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_sgppropagator_state_pef() {
+        let _eop = GlobalEOPGuard::new();
         setup_global_test_eop_original_brahe();
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
         let epoch = prop.initial_epoch();
@@ -3905,6 +3912,7 @@ mod tests {
     #[serial]
     #[ignore] // TODO: Velocity error is higher than desired - Need to do deeper-dive validation of frame transformations
     fn test_sgppropagator_state_ecef_values() {
+        let _eop = GlobalEOPGuard::new();
         setup_global_test_eop_original_brahe();
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
         let epoch = prop.initial_epoch();
@@ -3926,6 +3934,7 @@ mod tests {
     #[serial]
     #[ignore] // TODO: Velocity error is higher than desired - Need to do deeper-dive validation of frame transformations
     fn test_sgppropagator_state_itrf_values() {
+        let _eop = GlobalEOPGuard::new();
         setup_global_test_eop_original_brahe();
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
         let epoch = prop.initial_epoch();
@@ -3947,6 +3956,7 @@ mod tests {
     #[serial]
     #[ignore] // TODO: Velocity error is higher than desired - Need to do deeper-dive validation of frame transformations
     fn test_sgppropagator_state_eci_values() {
+        let _eop = GlobalEOPGuard::new();
         setup_global_test_eop_original_brahe();
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
         let epoch = prop.initial_epoch();
@@ -3968,6 +3978,7 @@ mod tests {
     #[serial]
     #[ignore] // TODO: Velocity error is higher than desired - Need to do deeper-dive validation of frame transformations
     fn test_sgppropagator_state_gcrf_values() {
+        let _eop = GlobalEOPGuard::new();
         setup_global_test_eop_original_brahe();
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
         let epoch = prop.initial_epoch();
@@ -3989,6 +4000,7 @@ mod tests {
     #[serial]
     #[ignore] // TODO: Velocity error is higher than desired - Need to do deeper-dive validation of frame transformations
     fn test_sgppropagator_state_eme2000_values() {
+        let _eop = GlobalEOPGuard::new();
         setup_global_test_eop_original_brahe();
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
         let epoch = prop.initial_epoch();

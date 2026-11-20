@@ -320,6 +320,39 @@ pub(crate) fn setup_global_test_eop_original_brahe() {
     set_global_eop_provider(eop);
 }
 
+/// Scope guard for tests that install their own global EOP provider.
+///
+/// Creating the guard removes the current global provider and installs an
+/// uninitialized `StaticEOPProvider`; dropping it, including during a panic,
+/// reinstalls the removed provider. Hold it for the whole test body so a test
+/// that installs static, zero, or alternate-file EOP data leaves the global
+/// provider as it found it.
+pub(crate) struct GlobalEOPGuard {
+    previous: Option<Box<dyn EarthOrientationProvider + Sync + Send>>,
+}
+
+impl GlobalEOPGuard {
+    /// Remove the current global EOP provider for the lifetime of the guard.
+    ///
+    /// # Returns
+    /// - `GlobalEOPGuard`: Guard that restores the removed provider on drop
+    pub(crate) fn new() -> Self {
+        Self {
+            previous: Some(replace_global_eop_provider(Box::new(
+                StaticEOPProvider::new(),
+            ))),
+        }
+    }
+}
+
+impl Drop for GlobalEOPGuard {
+    fn drop(&mut self) {
+        if let Some(previous) = self.previous.take() {
+            replace_global_eop_provider(previous);
+        }
+    }
+}
+
 /// Initialize global gravity model with EGM2008_120 for orbit dynamics tests.
 ///
 /// Sets up EGM2008 (degree/order 120) as the global gravity model. Use at the start
@@ -364,30 +397,33 @@ pub(crate) fn without_spice_kernels<T>(f: impl FnOnce() -> T) -> T {
 /// Initialize the global SPICE kernel registry with the DE440s test asset.
 ///
 /// Copies `test_assets/de440s.bsp` into the NAIF cache directory (if present)
-/// and loads it into the global registry. Safe to call from multiple tests;
-/// initialization runs once.
+/// once per process, and loads `de440s` into the global registry on every
+/// call where it is not already loaded. Safe to call from multiple tests.
 ///
 /// # Panics
 /// Panics if the test asset exists but cannot be copied or loaded.
 pub(crate) fn setup_global_test_spice() {
-    static SPICE_INIT: OnceLock<()> = OnceLock::new();
+    static SPICE_CACHE_SEEDED: OnceLock<bool> = OnceLock::new();
 
-    SPICE_INIT.get_or_init(|| {
+    let seeded = *SPICE_CACHE_SEEDED.get_or_init(|| {
         let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
         let test_asset_path = Path::new(&manifest_dir)
             .join("test_assets")
             .join("de440s.bsp");
 
         if !test_asset_path.exists() {
-            return;
+            return false;
         }
 
         let cache_dir = get_naif_cache_dir().expect("Failed to get NAIF cache dir");
         let cache_path = Path::new(&cache_dir).join("de440s.bsp");
         fs::copy(&test_asset_path, &cache_path).expect("Failed to copy test asset to cache");
-
-        crate::spice::load_spice_kernel("de440s").expect("Failed to load DE440s test kernel");
+        true
     });
+
+    if seeded {
+        crate::spice::load_spice_kernel("de440s").expect("Failed to load DE440s test kernel");
+    }
 }
 
 /// Build a minimal little-endian `DAF/SPK` kernel with one constant-position
@@ -993,12 +1029,36 @@ mod tests {
     #[test]
     #[serial]
     fn test_setup_global_test_eop_original_brahe() {
+        let _eop = GlobalEOPGuard::new();
         // Test that setup with original brahe EOP file works
         setup_global_test_eop_original_brahe();
 
         // Verify EOP is initialized
         let result = get_global_ut1_utc(58849.0);
         assert!(result.is_ok());
+    }
+
+    #[test]
+    #[serial]
+    fn test_global_eop_guard_restores_prior_provider() {
+        setup_global_test_eop();
+        let ut1_utc = get_global_ut1_utc(58849.0).unwrap();
+
+        {
+            let _eop = GlobalEOPGuard::new();
+            assert!(!get_global_eop_initialization());
+            set_global_eop_provider(StaticEOPProvider::from_zero());
+            assert_eq!(get_global_ut1_utc(58849.0).unwrap(), 0.0);
+        }
+        assert_eq!(get_global_ut1_utc(58849.0).unwrap(), ut1_utc);
+
+        let panicked = std::panic::catch_unwind(|| {
+            let _eop = GlobalEOPGuard::new();
+            set_global_eop_provider(StaticEOPProvider::from_zero());
+            panic!("body panic");
+        });
+        assert!(panicked.is_err());
+        assert_eq!(get_global_ut1_utc(58849.0).unwrap(), ut1_utc);
     }
 
     #[test]

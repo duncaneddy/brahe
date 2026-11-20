@@ -267,7 +267,7 @@ mod tests {
     // (tests for different catalogs use distinct files and may still run in
     // parallel with each other).
     #[test]
-    #[serial(fk5_catalog_cache)]
+    #[serial]
     fn test_get_catalog_does_not_cache_bad_download() {
         let server = httpmock::MockServer::start();
         let mock = server.mock(|when, then| {
@@ -292,7 +292,7 @@ mod tests {
     }
 
     #[test]
-    #[serial(fk5_catalog_cache)]
+    #[serial]
     fn test_get_catalog_heals_corrupt_cache() {
         let server = httpmock::MockServer::start();
         let mock = server.mock(|when, then| {
@@ -324,7 +324,7 @@ mod tests {
     }
 
     #[test]
-    #[serial(fk5_catalog_cache)]
+    #[serial]
     fn test_get_fk5_catalog_from_url_cache_hit_skips_download() {
         // A fresh, valid cache file present on disk is used directly: the
         // getter must not touch the network at all.
@@ -347,7 +347,7 @@ mod tests {
     }
 
     #[test]
-    #[serial(fk5_catalog_cache)]
+    #[serial]
     fn test_get_fk5_catalog_from_url_empty_records_not_cached() {
         // A download that parses successfully but to zero records (e.g. a
         // body of only blank lines) is rejected rather than cached.
@@ -370,7 +370,7 @@ mod tests {
     }
 
     #[test]
-    #[serial(hipparcos_catalog_cache)]
+    #[serial]
     fn test_get_hipparcos_catalog_from_url_does_not_cache_bad_download() {
         let server = httpmock::MockServer::start();
         let mock = server.mock(|when, then| {
@@ -391,7 +391,7 @@ mod tests {
     }
 
     #[test]
-    #[serial(hipparcos_catalog_cache)]
+    #[serial]
     fn test_get_hipparcos_catalog_from_url_heals_corrupt_cache() {
         let server = httpmock::MockServer::start();
         let mock = server.mock(|when, then| {
@@ -412,7 +412,7 @@ mod tests {
     }
 
     #[test]
-    #[serial(hipparcos_catalog_cache)]
+    #[serial]
     fn test_get_hipparcos_catalog_from_url_cache_hit_skips_download() {
         let server = httpmock::MockServer::start();
         let mock = server.mock(|when, then| {
@@ -433,7 +433,7 @@ mod tests {
     }
 
     #[test]
-    #[serial(hipparcos_catalog_cache)]
+    #[serial]
     fn test_get_hipparcos_catalog_from_url_empty_records_not_cached() {
         let server = httpmock::MockServer::start();
         let mock = server.mock(|when, then| {
@@ -454,7 +454,7 @@ mod tests {
     }
 
     #[test]
-    #[serial(tycho2_catalog_cache)]
+    #[serial]
     fn test_get_tycho2_catalog_from_url_does_not_cache_bad_download() {
         let server = httpmock::MockServer::start();
         let mock = server.mock(|when, then| {
@@ -475,7 +475,7 @@ mod tests {
     }
 
     #[test]
-    #[serial(tycho2_catalog_cache)]
+    #[serial]
     fn test_get_tycho2_catalog_from_url_heals_corrupt_cache() {
         let server = httpmock::MockServer::start();
         let mock = server.mock(|when, then| {
@@ -496,7 +496,7 @@ mod tests {
     }
 
     #[test]
-    #[serial(tycho2_catalog_cache)]
+    #[serial]
     fn test_get_tycho2_catalog_from_url_cache_hit_skips_download() {
         let server = httpmock::MockServer::start();
         let mock = server.mock(|when, then| {
@@ -517,7 +517,7 @@ mod tests {
     }
 
     #[test]
-    #[serial(tycho2_catalog_cache)]
+    #[serial]
     fn test_get_tycho2_catalog_from_url_empty_records_not_cached() {
         let server = httpmock::MockServer::start();
         let mock = server.mock(|when, then| {

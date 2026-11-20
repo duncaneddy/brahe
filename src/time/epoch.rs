@@ -2168,6 +2168,7 @@ impl Ord for Epoch {
 #[cfg(test)]
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
+    use crate::utils::testing::GlobalEOPGuard;
     use serial_test::{parallel, serial};
     use std::f64::consts::PI;
 
@@ -3029,6 +3030,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_epoch_gmst82_matches_sgp4_polynomial_value() {
+        let _eop = GlobalEOPGuard::new();
         crate::utils::testing::setup_global_test_eop_original_brahe();
         // TLE epoch 08264.51782528 of the ISS test TLE used by the SGP tests.
         let epc = crate::orbits::epoch_from_tle(

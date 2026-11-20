@@ -211,7 +211,7 @@ impl OEM {
             header: ODMHeader {
                 format_version: 3.0,
                 classification: None,
-                creation_date: Epoch::now(),
+                creation_date: Some(Epoch::now()),
                 originator,
                 message_id: None,
                 comments: Vec::new(),
@@ -319,7 +319,24 @@ impl OEM {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rstest::rstest;
     use serial_test::parallel;
+
+    #[rstest]
+    #[case("test_assets/ccsds/oem/OEMExample1.txt", "1996-11-04T17:22:31")]
+    #[case("test_assets/ccsds/oem/OEMExample3.xml", "1996-11-04T17:22:31")]
+    #[parallel]
+    fn test_oem_empty_creation_date(#[case] path: &str, #[case] date: &str) {
+        let content = std::fs::read_to_string(path).unwrap().replacen(date, "", 1);
+
+        let oem = OEM::from_str(&content).unwrap();
+        assert!(oem.header.creation_date.is_none());
+
+        for format in [CCSDSFormat::KVN, CCSDSFormat::XML, CCSDSFormat::JSON] {
+            let oem2 = OEM::from_str(&oem.to_string(format).unwrap()).unwrap();
+            assert!(oem2.header.creation_date.is_none());
+        }
+    }
 
     #[test]
     #[parallel]

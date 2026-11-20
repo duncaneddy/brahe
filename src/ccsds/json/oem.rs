@@ -8,7 +8,7 @@ use serde_json::{Map, Value, json};
 
 use crate::ccsds::common::{
     CCSDSJsonKeyCase, CCSDSTimeSystem, covariance_to_lower_triangular, format_ccsds_datetime_in,
-    round_ccsds_value,
+    format_optional_ccsds_datetime_in, round_ccsds_value,
 };
 use crate::ccsds::error::ccsds_parse_error;
 use crate::ccsds::json::common::{
@@ -163,7 +163,7 @@ pub fn write_oem_json(
     }
     header.insert(
         key("CREATION_DATE", key_case),
-        json!(format_ccsds_datetime_in(
+        json!(format_optional_ccsds_datetime_in(
             &oem.header.creation_date,
             &CCSDSTimeSystem::UTC
         )),

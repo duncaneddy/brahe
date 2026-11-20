@@ -6,7 +6,9 @@
 
 use serde_json::{Map, Value, json};
 
-use crate::ccsds::common::{CCSDSJsonKeyCase, CCSDSTimeSystem, format_ccsds_datetime_in};
+use crate::ccsds::common::{
+    CCSDSJsonKeyCase, CCSDSTimeSystem, format_ccsds_datetime_in, format_optional_ccsds_datetime_in,
+};
 use crate::ccsds::error::ccsds_parse_error;
 use crate::ccsds::json::common::{
     TIME_SYSTEM_FIRST, emit_json_comments, flatten_object, flatten_object_ordered, key,
@@ -135,7 +137,7 @@ pub fn write_opm_json(
     }
     header.insert(
         key("CREATION_DATE", key_case),
-        json!(format_ccsds_datetime_in(
+        json!(format_optional_ccsds_datetime_in(
             &opm.header.creation_date,
             &CCSDSTimeSystem::UTC
         )),

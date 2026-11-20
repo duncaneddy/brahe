@@ -17,6 +17,7 @@ use crate::ccsds::aem::{
 };
 use crate::ccsds::common::{
     CCSDSRefFrame, CCSDSTimeSystem, ODMHeader, format_ccsds_datetime_in, parse_ccsds_datetime,
+    parse_optional_ccsds_datetime,
 };
 use crate::ccsds::frames::{
     ADMReferenceFrame, CCSDSCelestialBodyFrame, CCSDSOrbitRelativeFrame, CCSDSSpacecraftBodyFrame,
@@ -1094,7 +1095,9 @@ impl OMM {
     ///
     /// Validates that required orbital element fields are present (epoch,
     /// eccentricity, inclination, ra_of_asc_node, arg_of_pericenter,
-    /// mean_anomaly) and builds an OMM with defaults for missing metadata.
+    /// mean_anomaly) and builds an OMM with defaults for missing metadata. A
+    /// missing or empty `CREATION_DATE` becomes `None`; a malformed one is an
+    /// error.
     ///
     /// # Arguments
     ///
@@ -1143,11 +1146,10 @@ impl OMM {
             .and_then(|v| v.parse::<f64>().ok())
             .unwrap_or(3.0);
 
-        let creation_date = record
-            .creation_date
-            .as_deref()
-            .and_then(|s| parse_ccsds_datetime(s, &CCSDSTimeSystem::UTC).ok())
-            .unwrap_or_else(Epoch::now);
+        let creation_date = match record.creation_date.as_deref() {
+            Some(s) => parse_optional_ccsds_datetime(s, &CCSDSTimeSystem::UTC)?,
+            None => None,
+        };
 
         let originator = record
             .originator
@@ -1259,10 +1261,11 @@ impl OMM {
         GPRecord {
             ccsds_omm_vers: Some(format!("{:.1}", self.header.format_version)),
             comment: None,
-            creation_date: Some(format_ccsds_datetime_in(
-                &self.header.creation_date,
-                &CCSDSTimeSystem::UTC,
-            )),
+            creation_date: self
+                .header
+                .creation_date
+                .as_ref()
+                .map(|e| format_ccsds_datetime_in(e, &CCSDSTimeSystem::UTC)),
             originator: Some(self.header.originator.clone()),
             object_name: Some(self.metadata.object_name.clone()),
             object_id: Some(self.metadata.object_id.clone()),
@@ -1621,6 +1624,7 @@ impl TryFrom<&ReferenceFrame> for ADMReferenceFrame {
 #[cfg(test)]
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
+    use rstest::rstest;
     use serial_test::{parallel, serial};
 
     use super::*;
@@ -2402,6 +2406,26 @@ mod tests {
         assert!((tle.bstar.unwrap() - 0.000341).abs() < 1e-10);
         assert!((tle.mean_motion_dot.unwrap() - 0.00001).abs() < 1e-12);
         assert!((tle.mean_motion_ddot.unwrap()).abs() < 1e-15);
+    }
+
+    #[rstest]
+    #[case(r#"{"EPOCH": "2024-01-15T12:00:00.000", "ECCENTRICITY": 0.001, "INCLINATION": 51.64, "RA_OF_ASC_NODE": 200.0, "ARG_OF_PERICENTER": 100.0, "MEAN_ANOMALY": 260.0}"#)]
+    #[case(r#"{"CREATION_DATE": "", "EPOCH": "2024-01-15T12:00:00.000", "ECCENTRICITY": 0.001, "INCLINATION": 51.64, "RA_OF_ASC_NODE": 200.0, "ARG_OF_PERICENTER": 100.0, "MEAN_ANOMALY": 260.0}"#)]
+    #[parallel]
+    fn test_gp_record_to_omm_empty_creation_date(#[case] json: &str) {
+        let record: GPRecord = serde_json::from_str(json).unwrap();
+        let omm = record.to_omm().unwrap();
+
+        assert!(omm.header.creation_date.is_none());
+        assert!(omm.to_gp_record().creation_date.is_none());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_gp_record_to_omm_malformed_creation_date_errors() {
+        let json = r#"{"CREATION_DATE": "not-a-date", "EPOCH": "2024-01-15T12:00:00.000", "ECCENTRICITY": 0.001, "INCLINATION": 51.64, "RA_OF_ASC_NODE": 200.0, "ARG_OF_PERICENTER": 100.0, "MEAN_ANOMALY": 260.0}"#;
+        let record: GPRecord = serde_json::from_str(json).unwrap();
+        assert!(record.to_omm().is_err());
     }
 
     #[test]

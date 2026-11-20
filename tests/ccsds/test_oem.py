@@ -1833,3 +1833,22 @@ def test_OEMSegment_add_trajectory_uses_the_segment_center(eop):
     for written, sample in zip(seg.states, samples):
         np.testing.assert_array_equal(written.position, sample[:3])
         np.testing.assert_array_equal(written.velocity, sample[3:6])
+
+
+@pytest.mark.parametrize(
+    "path,date",
+    [
+        ("test_assets/ccsds/oem/OEMExample1.txt", "1996-11-04T17:22:31"),
+        ("test_assets/ccsds/oem/OEMExample3.xml", "1996-11-04T17:22:31"),
+    ],
+)
+def test_oem_empty_creation_date(eop, path, date):
+    """Mirror of test_oem_empty_creation_date in Rust."""
+    with open(path) as handle:
+        content = handle.read().replace(date, "", 1)
+
+    oem = OEM.from_str(content)
+    assert oem.creation_date is None
+
+    for fmt in ("KVN", "XML", "JSON"):
+        assert OEM.from_str(oem.to_string(fmt)).creation_date is None

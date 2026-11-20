@@ -79,9 +79,15 @@ pub(super) fn write_json_covariance_elements(
 }
 
 /// Emit a single JSON value as a KVN line.
+///
+/// Null values are skipped, except `CREATION_DATE`: the keyword is mandatory,
+/// so a null value is emitted as an empty KVN value rather than dropped.
 pub(super) fn emit_kvn(lines: &mut Vec<String>, ukey: &str, val: &Value) {
     match val {
         Value::Object(_) => flatten_object(lines, val),
+        Value::Null if ukey == "CREATION_DATE" => {
+            lines.push(format!("{} = ", ukey));
+        }
         Value::Null => {}
         Value::String(s) => {
             lines.push(format!("{} = {}", ukey, s));
@@ -276,6 +282,14 @@ mod tests {
         let mut lines = Vec::new();
         emit_kvn(&mut lines, "NULL_KEY", &json!(null));
         assert!(lines.is_empty());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_emit_kvn_null_creation_date_kept_empty() {
+        let mut lines = Vec::new();
+        emit_kvn(&mut lines, "CREATION_DATE", &json!(null));
+        assert_eq!(lines, vec!["CREATION_DATE = ".to_string()]);
     }
 
     #[test]

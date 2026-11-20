@@ -168,7 +168,10 @@ pub fn write_oem_json(
             &CCSDSTimeSystem::UTC
         )),
     );
-    header.insert(key("ORIGINATOR", key_case), json!(&oem.header.originator));
+    header.insert(
+        key("ORIGINATOR", key_case),
+        json!(oem.header.originator.as_deref().unwrap_or("")),
+    );
     if let Some(ref msg_id) = oem.header.message_id {
         header.insert(key("MESSAGE_ID", key_case), json!(msg_id));
     }
@@ -186,9 +189,12 @@ pub fn write_oem_json(
         let mut meta = Map::new();
         meta.insert(
             key("OBJECT_NAME", key_case),
-            json!(&seg.metadata.object_name),
+            json!(seg.metadata.object_name.as_deref().unwrap_or("")),
         );
-        meta.insert(key("OBJECT_ID", key_case), json!(&seg.metadata.object_id));
+        meta.insert(
+            key("OBJECT_ID", key_case),
+            json!(seg.metadata.object_id.as_deref().unwrap_or("")),
+        );
         meta.insert(
             key("CENTER_NAME", key_case),
             json!(&seg.metadata.center_name),

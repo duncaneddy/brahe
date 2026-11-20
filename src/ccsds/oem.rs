@@ -12,6 +12,7 @@ use std::path::Path;
 
 use crate::ccsds::common::{
     CCSDSCovariance, CCSDSFormat, CCSDSRefFrame, CCSDSTimeSystem, ODMHeader,
+    odm_object_compliance_issues,
 };
 use crate::time::Epoch;
 use crate::utils::errors::BraheError;
@@ -48,10 +49,13 @@ pub struct OEMSegment {
 /// Metadata for an OEM segment.
 #[derive(Debug, Clone)]
 pub struct OEMMetadata {
-    /// Spacecraft name
-    pub object_name: String,
-    /// International designator (e.g., "1996-062A")
-    pub object_id: String,
+    /// Spacecraft name, `None` when the source omits `OBJECT_NAME` or leaves
+    /// it empty. Mandatory in CCSDS 502.0-B-3; reported by `compliance_issues`.
+    pub object_name: Option<String>,
+    /// International designator (e.g., "1996-062A"), `None` when the source
+    /// omits `OBJECT_ID` or leaves it empty. Mandatory in CCSDS 502.0-B-3;
+    /// reported by `compliance_issues`.
+    pub object_id: Option<String>,
     /// Name of the central body (e.g., "EARTH", "MARS BARYCENTER")
     pub center_name: String,
     /// Reference frame for the state vectors
@@ -167,8 +171,8 @@ impl OEMMetadata {
         stop_time: Epoch,
     ) -> Self {
         Self {
-            object_name,
-            object_id,
+            object_name: Some(object_name),
+            object_id: Some(object_id),
             center_name,
             ref_frame,
             ref_frame_epoch: None,
@@ -212,7 +216,7 @@ impl OEM {
                 format_version: 3.0,
                 classification: None,
                 creation_date: Some(Epoch::now()),
-                originator,
+                originator: Some(originator),
                 message_id: None,
                 comments: Vec::new(),
             },
@@ -227,6 +231,56 @@ impl OEM {
     /// * `segment` - Segment to add
     pub fn push_segment(&mut self, segment: OEMSegment) {
         self.segments.push(segment);
+    }
+
+    /// List the CCSDS 502.0-B-3 mandatory keywords this message lacks.
+    ///
+    /// Readers accept messages that omit `CREATION_DATE`, `ORIGINATOR`,
+    /// `OBJECT_NAME`, or `OBJECT_ID`, or leave them empty, because the
+    /// orbit data remains usable without them. This method reports which of
+    /// those keywords are absent.
+    ///
+    /// # Returns
+    ///
+    /// * `Vec<String>` - Absent keywords prefixed by their location (e.g.,
+    ///   `header.CREATION_DATE`), empty when the message is compliant.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::ccsds::OEM;
+    ///
+    /// let oem = OEM::from_file("test_assets/ccsds/oem/OEMExample1.txt").unwrap();
+    /// assert_eq!(oem.compliance_issues(), Vec::<String>::new());
+    /// ```
+    pub fn compliance_issues(&self) -> Vec<String> {
+        let mut issues = self.header.compliance_issues();
+        for (i, segment) in self.segments.iter().enumerate() {
+            issues.extend(odm_object_compliance_issues(
+                &format!("segments[{}].metadata", i),
+                &segment.metadata.object_name,
+                &segment.metadata.object_id,
+            ));
+        }
+        issues
+    }
+
+    /// Whether the message carries every CCSDS 502.0-B-3 mandatory keyword.
+    ///
+    /// # Returns
+    ///
+    /// * `bool` - `true` when [`Self::compliance_issues`] is empty.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::ccsds::OEM;
+    ///
+    /// let oem = OEM::from_file("test_assets/ccsds/oem/OEMExample1.txt").unwrap();
+    /// assert_eq!(oem.is_compliant(), Vec::<String>::new().is_empty());
+    /// ```
+    pub fn is_compliant(&self) -> bool {
+        self.compliance_issues().is_empty()
     }
 
     /// Parse an OEM message from a string, auto-detecting the format.
@@ -322,6 +376,55 @@ mod tests {
     use rstest::rstest;
     use serial_test::parallel;
 
+    fn without_keyword(path: &str, keyword: &str) -> String {
+        std::fs::read_to_string(path)
+            .unwrap()
+            .lines()
+            .filter(|l| !l.starts_with(keyword))
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+
+    #[rstest]
+    #[case("CREATION_DATE", &["header.CREATION_DATE"])]
+    #[case("ORIGINATOR", &["header.ORIGINATOR"])]
+    #[case(
+        "OBJECT_NAME",
+        &[
+            "segments[0].metadata.OBJECT_NAME",
+            "segments[1].metadata.OBJECT_NAME",
+            "segments[2].metadata.OBJECT_NAME",
+        ]
+    )]
+    #[case(
+        "OBJECT_ID",
+        &[
+            "segments[0].metadata.OBJECT_ID",
+            "segments[1].metadata.OBJECT_ID",
+            "segments[2].metadata.OBJECT_ID",
+        ]
+    )]
+    #[parallel]
+    fn test_oem_compliance_issues_missing_keyword(#[case] keyword: &str, #[case] issues: &[&str]) {
+        let oem = OEM::from_str(&without_keyword(
+            "test_assets/ccsds/oem/OEMExample1.txt",
+            keyword,
+        ))
+        .unwrap();
+
+        assert_eq!(oem.compliance_issues(), issues);
+        assert!(!oem.is_compliant());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_oem_is_compliant() {
+        let oem = OEM::from_file("test_assets/ccsds/oem/OEMExample1.txt").unwrap();
+
+        assert!(oem.compliance_issues().is_empty());
+        assert!(oem.is_compliant());
+    }
+
     #[rstest]
     #[case("test_assets/ccsds/oem/OEMExample1.txt", "1996-11-04T17:22:31")]
     #[case("test_assets/ccsds/oem/OEMExample3.xml", "1996-11-04T17:22:31")]
@@ -342,7 +445,7 @@ mod tests {
     #[parallel]
     fn test_oem_builder() {
         let mut oem = OEM::new("TEST_ORG".to_string());
-        assert_eq!(oem.header.originator, "TEST_ORG");
+        assert_eq!(oem.header.originator.as_deref(), Some("TEST_ORG"));
         assert_eq!(oem.segments.len(), 0);
 
         let metadata = OEMMetadata::new(
@@ -370,7 +473,10 @@ mod tests {
 
         oem.push_segment(seg);
         assert_eq!(oem.segments.len(), 1);
-        assert_eq!(oem.segments[0].metadata.object_name, "SAT1");
+        assert_eq!(
+            oem.segments[0].metadata.object_name.as_deref(),
+            Some("SAT1")
+        );
         assert_eq!(oem.segments[0].states.len(), 2);
     }
 
@@ -397,7 +503,7 @@ mod tests {
 
         let kvn = oem.to_string(CCSDSFormat::KVN).unwrap();
         let oem2 = OEM::from_str(&kvn).unwrap();
-        assert_eq!(oem2.header.originator, "ROUND_TRIP");
+        assert_eq!(oem2.header.originator.as_deref(), Some("ROUND_TRIP"));
         assert_eq!(oem2.segments.len(), 1);
         assert_eq!(oem2.segments[0].states.len(), 1);
     }
@@ -444,7 +550,7 @@ mod tests {
         let json_str = oem.to_string(CCSDSFormat::JSON).unwrap();
         assert!(json_str.contains("7000") || json_str.contains("7.0"));
         let oem2 = OEM::from_str(&json_str).unwrap();
-        assert_eq!(oem2.header.originator, "JSON_RT");
+        assert_eq!(oem2.header.originator.as_deref(), Some("JSON_RT"));
         assert_eq!(oem2.segments.len(), 1);
         assert_eq!(oem2.segments[0].states.len(), 1);
         assert!((oem2.segments[0].states[0].position[0] - 7000e3).abs() < 1.0);

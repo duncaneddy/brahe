@@ -1061,6 +1061,41 @@ def test_opm_state_in_frame_teme(eop):
     np.testing.assert_array_equal(x_teme, opm.state)
 
 
+def _without_keyword(path, keyword):
+    """Read a KVN fixture and drop every line that starts with keyword."""
+    with open(path) as handle:
+        return "\n".join(
+            line for line in handle.read().splitlines() if not line.startswith(keyword)
+        )
+
+
+@pytest.mark.parametrize(
+    "keyword,issues",
+    [
+        ("CREATION_DATE", ["header.CREATION_DATE"]),
+        ("ORIGINATOR", ["header.ORIGINATOR"]),
+        ("OBJECT_NAME", ["metadata.OBJECT_NAME"]),
+        ("OBJECT_ID", ["metadata.OBJECT_ID"]),
+    ],
+)
+def test_opm_compliance_issues_missing_keyword(eop, keyword, issues):
+    """Mirror of test_opm_compliance_issues_missing_keyword in Rust."""
+    msg = OPM.from_str(
+        _without_keyword("test_assets/ccsds/opm/OPMExample1.txt", keyword)
+    )
+
+    assert msg.compliance_issues() == issues
+    assert not msg.is_compliant()
+
+
+def test_opm_is_compliant(eop):
+    """Mirror of test_opm_is_compliant in Rust."""
+    msg = OPM.from_file("test_assets/ccsds/opm/OPMExample1.txt")
+
+    assert msg.compliance_issues() == []
+    assert msg.is_compliant()
+
+
 @pytest.mark.parametrize(
     "path,date",
     [

@@ -10,7 +10,7 @@ use serde::Deserialize;
 
 use crate::ccsds::common::{
     CCSDSRefFrame, CCSDSTimeSystem, ODMHeader, format_ccsds_datetime_in, parse_ccsds_datetime,
-    parse_optional_ccsds_datetime,
+    parse_optional_ccsds_datetime, parse_optional_ccsds_text,
 };
 use crate::ccsds::error::ccsds_parse_error;
 use crate::ccsds::xml::common::{
@@ -192,7 +192,7 @@ struct XMLTleParameters {
 ///
 /// let xml = std::fs::read_to_string("test_assets/ccsds/omm/OMM-ndm-wrapped.xml").unwrap();
 /// let omm = parse_omm_xml(&xml).unwrap();
-/// assert_eq!(omm.metadata.object_name, "ISS (ZARYA)");
+/// assert_eq!(omm.metadata.object_name.as_deref(), Some("ISS (ZARYA)"));
 /// ```
 fn unwrap_single_omm_ndm(content: &str) -> Result<&str, BraheError> {
     let mut reader = Reader::from_str(content);
@@ -313,20 +313,16 @@ pub fn parse_omm_xml(content: &str) -> Result<crate::ccsds::omm::OMM, BraheError
         .and_then(|v| v.parse::<f64>().ok())
         .unwrap_or(3.0);
 
-    let creation_date_str = xml_omm
-        .header
-        .creation_date()
-        .ok_or_else(|| ccsds_parse_error("OMM", "missing CREATION_DATE in header"))?;
-    let originator = xml_omm
-        .header
-        .originator()
-        .ok_or_else(|| ccsds_parse_error("OMM", "missing ORIGINATOR in header"))?
-        .to_string();
+    let creation_date_str = xml_omm.header.creation_date();
+    let originator = parse_optional_ccsds_text(xml_omm.header.originator());
 
     let header = ODMHeader {
         format_version,
         classification: xml_omm.header.classification(),
-        creation_date: parse_optional_ccsds_datetime(creation_date_str, &CCSDSTimeSystem::UTC)?,
+        creation_date: creation_date_str
+            .map(|s| parse_optional_ccsds_datetime(s, &CCSDSTimeSystem::UTC))
+            .transpose()?
+            .flatten(),
         originator,
         message_id: xml_omm.header.message_id(),
         comments: xml_omm.header.comments(),
@@ -344,11 +340,8 @@ pub fn parse_omm_xml(content: &str) -> Result<crate::ccsds::omm::OMM, BraheError
         .transpose()?;
 
     let metadata = OMMMetadata {
-        object_name: meta
-            .find_str("OBJECT_NAME")
-            .ok_or_else(|| ccsds_parse_error("OMM", "missing OBJECT_NAME"))?
-            .to_string(),
-        object_id: meta.find_str("OBJECT_ID").unwrap_or("").to_string(),
+        object_name: parse_optional_ccsds_text(meta.find_str("OBJECT_NAME")),
+        object_id: parse_optional_ccsds_text(meta.find_str("OBJECT_ID")),
         center_name: meta
             .find_str("CENTER_NAME")
             .ok_or_else(|| ccsds_parse_error("OMM", "missing CENTER_NAME"))?
@@ -506,12 +499,12 @@ pub fn write_omm_xml(omm: &crate::ccsds::omm::OMM) -> Result<String, BraheError>
     out.push_str(&format!(
         "{}<OBJECT_NAME>{}</OBJECT_NAME>\n",
         i4,
-        escape_xml_text(&omm.metadata.object_name)
+        escape_xml_text(omm.metadata.object_name.as_deref().unwrap_or(""))
     ));
     out.push_str(&format!(
         "{}<OBJECT_ID>{}</OBJECT_ID>\n",
         i4,
-        escape_xml_text(&omm.metadata.object_id)
+        escape_xml_text(omm.metadata.object_id.as_deref().unwrap_or(""))
     ));
     out.push_str(&format!(
         "{}<CENTER_NAME>{}</CENTER_NAME>\n",
@@ -690,9 +683,9 @@ mod tests {
         .unwrap();
 
         assert_eq!(omm.header.format_version, 2.0);
-        assert_eq!(omm.header.originator, "CelesTrak");
-        assert_eq!(omm.metadata.object_name, "ISS (ZARYA)");
-        assert_eq!(omm.metadata.object_id, "1998-067A");
+        assert_eq!(omm.header.originator.as_deref(), Some("CelesTrak"));
+        assert_eq!(omm.metadata.object_name.as_deref(), Some("ISS (ZARYA)"));
+        assert_eq!(omm.metadata.object_id.as_deref(), Some("1998-067A"));
         assert_eq!(omm.mean_elements.mean_motion, Some(15.49391288));
         assert_eq!(
             omm.tle_parameters.as_ref().unwrap().norad_cat_id,

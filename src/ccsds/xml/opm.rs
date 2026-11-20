@@ -8,7 +8,7 @@ use serde::Deserialize;
 
 use crate::ccsds::common::{
     CCSDSRefFrame, CCSDSTimeSystem, ODMHeader, format_ccsds_datetime_in, parse_ccsds_datetime,
-    parse_optional_ccsds_datetime,
+    parse_optional_ccsds_datetime, parse_optional_ccsds_text,
 };
 use crate::ccsds::error::ccsds_parse_error;
 use crate::ccsds::xml::common::{
@@ -185,20 +185,16 @@ pub fn parse_opm_xml(content: &str) -> Result<crate::ccsds::opm::OPM, BraheError
         .and_then(|v| v.parse::<f64>().ok())
         .unwrap_or(3.0);
 
-    let creation_date_str = xml_opm
-        .header
-        .creation_date()
-        .ok_or_else(|| ccsds_parse_error("OPM", "missing CREATION_DATE in header"))?;
-    let originator = xml_opm
-        .header
-        .originator()
-        .ok_or_else(|| ccsds_parse_error("OPM", "missing ORIGINATOR in header"))?
-        .to_string();
+    let creation_date_str = xml_opm.header.creation_date();
+    let originator = parse_optional_ccsds_text(xml_opm.header.originator());
 
     let header = ODMHeader {
         format_version,
         classification: xml_opm.header.classification(),
-        creation_date: parse_optional_ccsds_datetime(creation_date_str, &CCSDSTimeSystem::UTC)?,
+        creation_date: creation_date_str
+            .map(|s| parse_optional_ccsds_datetime(s, &CCSDSTimeSystem::UTC))
+            .transpose()?
+            .flatten(),
         originator,
         message_id: xml_opm.header.message_id(),
         comments: xml_opm.header.comments(),
@@ -217,14 +213,8 @@ pub fn parse_opm_xml(content: &str) -> Result<crate::ccsds::opm::OPM, BraheError
         .transpose()?;
 
     let metadata = OPMMetadata {
-        object_name: meta
-            .find_str("OBJECT_NAME")
-            .ok_or_else(|| ccsds_parse_error("OPM", "missing OBJECT_NAME"))?
-            .to_string(),
-        object_id: meta
-            .find_str("OBJECT_ID")
-            .ok_or_else(|| ccsds_parse_error("OPM", "missing OBJECT_ID"))?
-            .to_string(),
+        object_name: parse_optional_ccsds_text(meta.find_str("OBJECT_NAME")),
+        object_id: parse_optional_ccsds_text(meta.find_str("OBJECT_ID")),
         center_name: meta
             .find_str("CENTER_NAME")
             .ok_or_else(|| ccsds_parse_error("OPM", "missing CENTER_NAME"))?
@@ -378,12 +368,12 @@ pub fn write_opm_xml(opm: &crate::ccsds::opm::OPM) -> Result<String, BraheError>
     out.push_str(&format!(
         "{}<OBJECT_NAME>{}</OBJECT_NAME>\n",
         i4,
-        escape_xml_text(&opm.metadata.object_name)
+        escape_xml_text(opm.metadata.object_name.as_deref().unwrap_or(""))
     ));
     out.push_str(&format!(
         "{}<OBJECT_ID>{}</OBJECT_ID>\n",
         i4,
-        escape_xml_text(&opm.metadata.object_id)
+        escape_xml_text(opm.metadata.object_id.as_deref().unwrap_or(""))
     ));
     out.push_str(&format!(
         "{}<CENTER_NAME>{}</CENTER_NAME>\n",

@@ -14,7 +14,7 @@ fn main() {
     let opm = OPM::from_file("test_assets/ccsds/opm/OPMExample1.txt").unwrap();
     println!(
         "Object: {} ({})",
-        opm.metadata.object_name, opm.metadata.object_id
+        opm.metadata.object_name.as_deref().unwrap(), opm.metadata.object_id.as_deref().unwrap()
     );
     println!("Epoch:  {}", opm.state_vector.epoch);
     println!("Frame:  {}", opm.metadata.ref_frame);

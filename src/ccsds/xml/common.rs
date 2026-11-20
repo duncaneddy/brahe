@@ -532,7 +532,7 @@ pub(super) fn write_xml_header(out: &mut String, header: &ODMHeader, i1: &str, i
     out.push_str(&format!(
         "{}<ORIGINATOR>{}</ORIGINATOR>\n",
         i2,
-        escape_xml_text(&header.originator)
+        escape_xml_text(header.originator.as_deref().unwrap_or(""))
     ));
     if let Some(ref mid) = header.message_id {
         out.push_str(&format!(
@@ -687,9 +687,9 @@ mod tests {
     fn test_write_oem_xml_escapes_free_text() {
         let content = std::fs::read_to_string("test_assets/ccsds/oem/OEMExample1.txt").unwrap();
         let mut oem = OEM::from_str(&content).unwrap();
-        oem.header.originator = MARKUP.to_string();
+        oem.header.originator = Some(MARKUP.to_string());
         oem.header.comments = vec![MARKUP.to_string()];
-        oem.segments[0].metadata.object_name = MARKUP.to_string();
+        oem.segments[0].metadata.object_name = Some(MARKUP.to_string());
 
         let xml = oem.to_string(CCSDSFormat::XML).unwrap();
         assert!(xml.contains(&format!("<ORIGINATOR>{}</ORIGINATOR>", MARKUP_ESCAPED)));
@@ -697,9 +697,12 @@ mod tests {
         assert!(xml.contains(&format!("<OBJECT_NAME>{}</OBJECT_NAME>", MARKUP_ESCAPED)));
 
         let reparsed = OEM::from_str(&xml).unwrap();
-        assert_eq!(reparsed.header.originator, MARKUP);
+        assert_eq!(reparsed.header.originator.as_deref(), Some(MARKUP));
         assert_eq!(reparsed.header.comments, vec![MARKUP.to_string()]);
-        assert_eq!(reparsed.segments[0].metadata.object_name, MARKUP);
+        assert_eq!(
+            reparsed.segments[0].metadata.object_name.as_deref(),
+            Some(MARKUP)
+        );
     }
 
     #[test]
@@ -707,8 +710,8 @@ mod tests {
     fn test_write_omm_xml_escapes_free_text_and_user_defined() {
         let content = std::fs::read_to_string("test_assets/ccsds/omm/OMMExample2.txt").unwrap();
         let mut omm = OMM::from_str(&content).unwrap();
-        omm.header.originator = MARKUP.to_string();
-        omm.metadata.object_name = MARKUP.to_string();
+        omm.header.originator = Some(MARKUP.to_string());
+        omm.metadata.object_name = Some(MARKUP.to_string());
         omm.user_defined = Some(crate::ccsds::common::CCSDSUserDefined {
             parameters: std::collections::HashMap::from([(
                 "EARTH_MODEL".to_string(),
@@ -722,8 +725,8 @@ mod tests {
         assert!(xml.contains(r#"value="R&amp;D &lt;ops&gt; &quot;quoted&quot;""#));
 
         let reparsed = OMM::from_str(&xml).unwrap();
-        assert_eq!(reparsed.header.originator, MARKUP);
-        assert_eq!(reparsed.metadata.object_name, MARKUP);
+        assert_eq!(reparsed.header.originator.as_deref(), Some(MARKUP));
+        assert_eq!(reparsed.metadata.object_name.as_deref(), Some(MARKUP));
         assert_eq!(
             reparsed.user_defined.unwrap().parameters["EARTH_MODEL"],
             MARKUP
@@ -735,8 +738,8 @@ mod tests {
     fn test_write_opm_xml_escapes_free_text() {
         let content = std::fs::read_to_string("test_assets/ccsds/opm/OPMExample1.txt").unwrap();
         let mut opm = OPM::from_str(&content).unwrap();
-        opm.header.originator = MARKUP.to_string();
-        opm.metadata.object_name = MARKUP.to_string();
+        opm.header.originator = Some(MARKUP.to_string());
+        opm.metadata.object_name = Some(MARKUP.to_string());
         opm.metadata.comments = vec![MARKUP.to_string()];
 
         let xml = opm.to_string(CCSDSFormat::XML).unwrap();
@@ -744,8 +747,8 @@ mod tests {
         assert!(xml.contains(&format!("<OBJECT_NAME>{}</OBJECT_NAME>", MARKUP_ESCAPED)));
 
         let reparsed = OPM::from_str(&xml).unwrap();
-        assert_eq!(reparsed.header.originator, MARKUP);
-        assert_eq!(reparsed.metadata.object_name, MARKUP);
+        assert_eq!(reparsed.header.originator.as_deref(), Some(MARKUP));
+        assert_eq!(reparsed.metadata.object_name.as_deref(), Some(MARKUP));
         assert_eq!(reparsed.metadata.comments, vec![MARKUP.to_string()]);
     }
 
@@ -893,7 +896,7 @@ mod tests {
     fn test_write_oem_xml_rejects_forbidden_characters() {
         let content = std::fs::read_to_string("test_assets/ccsds/oem/OEMExample1.txt").unwrap();
         let mut oem = OEM::from_str(&content).unwrap();
-        oem.header.originator = FORBIDDEN.to_string();
+        oem.header.originator = Some(FORBIDDEN.to_string());
 
         let msg = oem.to_string(CCSDSFormat::XML).unwrap_err().to_string();
         assert!(msg.contains("OEM"), "{}", msg);
@@ -906,7 +909,7 @@ mod tests {
     fn test_write_omm_xml_rejects_forbidden_characters() {
         let content = std::fs::read_to_string("test_assets/ccsds/omm/OMMExample2.txt").unwrap();
         let mut omm = OMM::from_str(&content).unwrap();
-        omm.metadata.object_name = FORBIDDEN.to_string();
+        omm.metadata.object_name = Some(FORBIDDEN.to_string());
 
         let msg = omm.to_string(CCSDSFormat::XML).unwrap_err().to_string();
         assert!(msg.contains("OMM"), "{}", msg);
@@ -987,7 +990,7 @@ mod tests {
         let content = std::fs::read_to_string("test_assets/ccsds/opm/OPMExample1.txt").unwrap();
         let write_with_originator = |c: char| {
             let mut opm = OPM::from_str(&content).unwrap();
-            opm.header.originator = format!("GSOC{}LAB", c);
+            opm.header.originator = Some(format!("GSOC{}LAB", c));
             opm.to_string(CCSDSFormat::XML)
         };
 

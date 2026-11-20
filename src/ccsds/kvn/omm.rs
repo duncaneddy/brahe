@@ -10,7 +10,7 @@ use crate::ccsds::common::{
     CCSDSCovariance, CCSDSRefFrame, CCSDSSpacecraftParameters, CCSDSTimeSystem, CCSDSUserDefined,
     ODMHeader, covariance_from_lower_triangular, format_ccsds_datetime_in,
     format_optional_ccsds_datetime_in, parse_ccsds_datetime, parse_optional_ccsds_datetime,
-    strip_units,
+    parse_optional_ccsds_text, strip_units,
 };
 use crate::ccsds::error::{ccsds_missing_field, ccsds_parse_error};
 use crate::ccsds::kvn::common::{
@@ -413,15 +413,15 @@ pub fn parse_omm(content: &str) -> Result<OMM, BraheError> {
         format_version: format_version
             .ok_or_else(|| ccsds_missing_field("OMM", "CCSDS_OMM_VERS"))?,
         classification,
-        creation_date: creation_date.ok_or_else(|| ccsds_missing_field("OMM", "CREATION_DATE"))?,
-        originator: originator.ok_or_else(|| ccsds_missing_field("OMM", "ORIGINATOR"))?,
+        creation_date: creation_date.flatten(),
+        originator: parse_optional_ccsds_text(originator.as_deref()),
         message_id,
         comments: header_comments,
     };
 
     let metadata = OMMMetadata {
-        object_name: object_name.ok_or_else(|| ccsds_missing_field("OMM", "OBJECT_NAME"))?,
-        object_id: object_id.ok_or_else(|| ccsds_missing_field("OMM", "OBJECT_ID"))?,
+        object_name: parse_optional_ccsds_text(object_name.as_deref()),
+        object_id: parse_optional_ccsds_text(object_id.as_deref()),
         center_name: center_name.ok_or_else(|| ccsds_missing_field("OMM", "CENTER_NAME"))?,
         ref_frame: ref_frame.ok_or_else(|| ccsds_missing_field("OMM", "REF_FRAME"))?,
         ref_frame_epoch: ref_frame_epoch
@@ -545,7 +545,10 @@ pub fn write_omm(omm: &crate::ccsds::omm::OMM) -> Result<String, BraheError> {
         "CREATION_DATE = {}\n",
         format_optional_ccsds_datetime_in(&omm.header.creation_date, &CCSDSTimeSystem::UTC)
     ));
-    out.push_str(&format!("ORIGINATOR = {}\n", omm.header.originator));
+    out.push_str(&format!(
+        "ORIGINATOR = {}\n",
+        omm.header.originator.as_deref().unwrap_or("")
+    ));
     if let Some(ref msg_id) = omm.header.message_id {
         out.push_str(&format!("MESSAGE_ID = {}\n", msg_id));
     }
@@ -555,8 +558,14 @@ pub fn write_omm(omm: &crate::ccsds::omm::OMM) -> Result<String, BraheError> {
     for comment in &omm.metadata.comments {
         out.push_str(&format!("COMMENT {}\n", comment));
     }
-    out.push_str(&format!("OBJECT_NAME = {}\n", omm.metadata.object_name));
-    out.push_str(&format!("OBJECT_ID = {}\n", omm.metadata.object_id));
+    out.push_str(&format!(
+        "OBJECT_NAME = {}\n",
+        omm.metadata.object_name.as_deref().unwrap_or("")
+    ));
+    out.push_str(&format!(
+        "OBJECT_ID = {}\n",
+        omm.metadata.object_id.as_deref().unwrap_or("")
+    ));
     out.push_str(&format!("CENTER_NAME = {}\n", omm.metadata.center_name));
     out.push_str(&format!("REF_FRAME = {}\n", omm.metadata.ref_frame));
     if let Some(ref epoch) = omm.metadata.ref_frame_epoch {
@@ -692,11 +701,11 @@ mod tests {
         let omm = parse_omm(&content).unwrap();
 
         assert!((omm.header.format_version - 3.0).abs() < 1e-10);
-        assert_eq!(omm.header.originator, "NOAA/USA");
+        assert_eq!(omm.header.originator.as_deref(), Some("NOAA/USA"));
         assert!(omm.header.message_id.is_none());
 
-        assert_eq!(omm.metadata.object_name, "GOES 9");
-        assert_eq!(omm.metadata.object_id, "1995-025A");
+        assert_eq!(omm.metadata.object_name.as_deref(), Some("GOES 9"));
+        assert_eq!(omm.metadata.object_id.as_deref(), Some("1995-025A"));
         assert_eq!(omm.metadata.center_name, "EARTH");
         assert_eq!(omm.metadata.ref_frame, CCSDSRefFrame::TEME);
         assert_eq!(omm.metadata.time_system, CCSDSTimeSystem::UTC);
@@ -731,7 +740,7 @@ mod tests {
         let content = std::fs::read_to_string("test_assets/ccsds/omm/OMMExample2.txt").unwrap();
         let omm = parse_omm(&content).unwrap();
 
-        assert_eq!(omm.metadata.object_name, "GOES 9");
+        assert_eq!(omm.metadata.object_name.as_deref(), Some("GOES 9"));
         assert!(omm.covariance.is_some());
         let cov = omm.covariance.as_ref().unwrap();
         assert_eq!(cov.cov_ref_frame.as_ref().unwrap(), &CCSDSRefFrame::TEME);
@@ -760,8 +769,8 @@ mod tests {
         let content = std::fs::read_to_string("test_assets/ccsds/omm/OMMExample4.txt").unwrap();
         let omm = parse_omm(&content).unwrap();
 
-        assert_eq!(omm.metadata.object_name, "STARLETTE");
-        assert_eq!(omm.metadata.object_id, "1975-010A");
+        assert_eq!(omm.metadata.object_name.as_deref(), Some("STARLETTE"));
+        assert_eq!(omm.metadata.object_id.as_deref(), Some("1975-010A"));
         assert!((omm.mean_elements.mean_motion.unwrap() - 13.82309053).abs() < 1e-8);
         assert!((omm.mean_elements.eccentricity - 0.0205751).abs() < 1e-7);
 

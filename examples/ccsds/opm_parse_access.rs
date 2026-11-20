@@ -12,12 +12,12 @@ fn main() {
 
     // Header
     println!("Format version: {}", opm.header.format_version);
-    println!("Originator:     {}", opm.header.originator);
+    println!("Originator:     {}", opm.header.originator.as_deref().unwrap());
     println!("Creation date:  {}", opm.header.creation_date.unwrap());
 
     // Metadata
-    println!("\nObject name:  {}", opm.metadata.object_name);
-    println!("Object ID:    {}", opm.metadata.object_id);
+    println!("\nObject name:  {}", opm.metadata.object_name.as_deref().unwrap());
+    println!("Object ID:    {}", opm.metadata.object_id.as_deref().unwrap());
     println!("Center name:  {}", opm.metadata.center_name);
     println!("Ref frame:    {}", opm.metadata.ref_frame);
     println!("Time system:  {}", opm.metadata.time_system);

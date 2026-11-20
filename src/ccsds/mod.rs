@@ -18,7 +18,7 @@
  *
  * let oem = OEM::from_file("ephemeris.oem").unwrap();
  * for segment in &oem.segments {
- *     println!("Object: {}", segment.metadata.object_name);
+ *     println!("Object: {:?}", segment.metadata.object_name);
  *     println!("States: {}", segment.states.len());
  * }
  * ```

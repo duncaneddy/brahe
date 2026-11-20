@@ -1835,6 +1835,41 @@ def test_OEMSegment_add_trajectory_uses_the_segment_center(eop):
         np.testing.assert_array_equal(written.velocity, sample[3:6])
 
 
+def _without_keyword(path, keyword):
+    """Read a KVN fixture and drop every line that starts with keyword."""
+    with open(path) as handle:
+        return "\n".join(
+            line for line in handle.read().splitlines() if not line.startswith(keyword)
+        )
+
+
+@pytest.mark.parametrize(
+    "keyword,issues",
+    [
+        ("CREATION_DATE", ["header.CREATION_DATE"]),
+        ("ORIGINATOR", ["header.ORIGINATOR"]),
+        ("OBJECT_NAME", [f"segments[{i}].metadata.OBJECT_NAME" for i in range(3)]),
+        ("OBJECT_ID", [f"segments[{i}].metadata.OBJECT_ID" for i in range(3)]),
+    ],
+)
+def test_oem_compliance_issues_missing_keyword(eop, keyword, issues):
+    """Mirror of test_oem_compliance_issues_missing_keyword in Rust."""
+    msg = OEM.from_str(
+        _without_keyword("test_assets/ccsds/oem/OEMExample1.txt", keyword)
+    )
+
+    assert msg.compliance_issues() == issues
+    assert not msg.is_compliant()
+
+
+def test_oem_is_compliant(eop):
+    """Mirror of test_oem_is_compliant in Rust."""
+    msg = OEM.from_file("test_assets/ccsds/oem/OEMExample1.txt")
+
+    assert msg.compliance_issues() == []
+    assert msg.is_compliant()
+
+
 @pytest.mark.parametrize(
     "path,date",
     [

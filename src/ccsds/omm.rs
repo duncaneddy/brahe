@@ -12,7 +12,7 @@ use std::path::Path;
 
 use crate::ccsds::common::{
     CCSDSCovariance, CCSDSFormat, CCSDSRefFrame, CCSDSSpacecraftParameters, CCSDSTimeSystem,
-    CCSDSUserDefined, ODMHeader,
+    CCSDSUserDefined, ODMHeader, odm_object_compliance_issues,
 };
 use crate::time::Epoch;
 use crate::utils::errors::BraheError;
@@ -41,10 +41,13 @@ pub struct OMM {
 /// OMM metadata.
 #[derive(Debug, Clone)]
 pub struct OMMMetadata {
-    /// Spacecraft name
-    pub object_name: String,
-    /// International designator
-    pub object_id: String,
+    /// Spacecraft name, `None` when the source omits `OBJECT_NAME` or leaves
+    /// it empty. Mandatory in CCSDS 502.0-B-3; reported by `compliance_issues`.
+    pub object_name: Option<String>,
+    /// International designator (e.g., "1996-062A"), `None` when the source
+    /// omits `OBJECT_ID` or leaves it empty. Mandatory in CCSDS 502.0-B-3;
+    /// reported by `compliance_issues`.
+    pub object_id: Option<String>,
     /// Center body name
     pub center_name: String,
     /// Reference frame
@@ -129,8 +132,8 @@ impl OMMMetadata {
         mean_element_theory: String,
     ) -> Self {
         Self {
-            object_name,
-            object_id,
+            object_name: Some(object_name),
+            object_id: Some(object_id),
             center_name,
             ref_frame,
             ref_frame_epoch: None,
@@ -192,7 +195,7 @@ impl OMM {
                 format_version: 3.0,
                 classification: None,
                 creation_date: Some(Epoch::now()),
-                originator,
+                originator: Some(originator),
                 message_id: None,
                 comments: Vec::new(),
             },
@@ -204,6 +207,54 @@ impl OMM {
             user_defined: None,
             comments: Vec::new(),
         }
+    }
+
+    /// List the CCSDS 502.0-B-3 mandatory keywords this message lacks.
+    ///
+    /// Readers accept messages that omit `CREATION_DATE`, `ORIGINATOR`,
+    /// `OBJECT_NAME`, or `OBJECT_ID`, or leave them empty, because the
+    /// orbit data remains usable without them. This method reports which of
+    /// those keywords are absent.
+    ///
+    /// # Returns
+    ///
+    /// * `Vec<String>` - Absent keywords prefixed by their location (e.g.,
+    ///   `header.CREATION_DATE`), empty when the message is compliant.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::ccsds::OMM;
+    ///
+    /// let omm = OMM::from_file("test_assets/ccsds/omm/OMM-celestrak-empty-header.txt").unwrap();
+    /// assert_eq!(omm.compliance_issues(), vec!["header.CREATION_DATE".to_string(), "header.ORIGINATOR".to_string()]);
+    /// ```
+    pub fn compliance_issues(&self) -> Vec<String> {
+        let mut issues = self.header.compliance_issues();
+        issues.extend(odm_object_compliance_issues(
+            "metadata",
+            &self.metadata.object_name,
+            &self.metadata.object_id,
+        ));
+        issues
+    }
+
+    /// Whether the message carries every CCSDS 502.0-B-3 mandatory keyword.
+    ///
+    /// # Returns
+    ///
+    /// * `bool` - `true` when [`Self::compliance_issues`] is empty.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::ccsds::OMM;
+    ///
+    /// let omm = OMM::from_file("test_assets/ccsds/omm/OMM-celestrak-empty-header.txt").unwrap();
+    /// assert_eq!(omm.is_compliant(), vec!["header.CREATION_DATE".to_string(), "header.ORIGINATOR".to_string()].is_empty());
+    /// ```
+    pub fn is_compliant(&self) -> bool {
+        self.compliance_issues().is_empty()
     }
 
     /// Parse an OMM message from a string, auto-detecting the format.
@@ -269,8 +320,12 @@ mod tests {
         let omm = OMM::from_file(path).unwrap();
 
         assert!(omm.header.creation_date.is_none());
-        assert_eq!(omm.header.originator, "");
-        assert_eq!(omm.metadata.object_name, "ISS (ZARYA)");
+        assert_eq!(omm.header.originator, None);
+        assert_eq!(omm.metadata.object_name.as_deref(), Some("ISS (ZARYA)"));
+        assert_eq!(
+            omm.compliance_issues(),
+            vec!["header.CREATION_DATE", "header.ORIGINATOR"]
+        );
         assert_eq!(
             omm.tle_parameters.as_ref().unwrap().norad_cat_id,
             Some(25544)
@@ -289,24 +344,55 @@ mod tests {
         let omm2 = OMM::from_str(&written).unwrap();
 
         assert!(omm2.header.creation_date.is_none());
-        assert_eq!(omm2.header.originator, "");
+        assert_eq!(omm2.header.originator, None);
         assert_eq!(omm2.metadata.object_name, omm.metadata.object_name);
+    }
+
+    fn without_keyword(path: &str, keyword: &str) -> String {
+        std::fs::read_to_string(path)
+            .unwrap()
+            .lines()
+            .filter(|l| !l.starts_with(keyword))
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+
+    #[rstest]
+    #[case("CREATION_DATE", "header.CREATION_DATE")]
+    #[case("ORIGINATOR", "header.ORIGINATOR")]
+    #[case("OBJECT_NAME", "metadata.OBJECT_NAME")]
+    #[case("OBJECT_ID", "metadata.OBJECT_ID")]
+    #[parallel]
+    fn test_omm_compliance_issues_missing_keyword(#[case] keyword: &str, #[case] issue: &str) {
+        let omm = OMM::from_str(&without_keyword(
+            "test_assets/ccsds/omm/OMMExample1.txt",
+            keyword,
+        ))
+        .unwrap();
+
+        assert_eq!(omm.compliance_issues(), vec![issue.to_string()]);
+        assert!(!omm.is_compliant());
     }
 
     #[test]
     #[parallel]
-    fn test_omm_kvn_missing_creation_date_keyword_errors() {
-        let content =
-            std::fs::read_to_string("test_assets/ccsds/omm/OMM-celestrak-empty-header.txt")
-                .unwrap();
-        let without: String = content
-            .lines()
-            .filter(|l| !l.starts_with("CREATION_DATE"))
-            .collect::<Vec<_>>()
-            .join("\n");
+    fn test_omm_is_compliant() {
+        let omm = OMM::from_file("test_assets/ccsds/omm/OMMExample1.txt").unwrap();
 
-        let err = OMM::from_str(&without).unwrap_err();
-        assert!(err.to_string().contains("CREATION_DATE"), "{}", err);
+        assert!(omm.compliance_issues().is_empty());
+        assert!(omm.is_compliant());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_omm_kvn_missing_epoch_errors() {
+        let err = OMM::from_str(&without_keyword(
+            "test_assets/ccsds/omm/OMMExample1.txt",
+            "EPOCH",
+        ))
+        .unwrap_err();
+
+        assert!(err.to_string().contains("EPOCH"), "{}", err);
     }
 
     #[test]
@@ -340,8 +426,8 @@ mod tests {
             CCSDSTimeSystem::UTC,
             "SGP4".to_string(),
         );
-        assert_eq!(meta.object_name, "ISS");
-        assert_eq!(meta.object_id, "1998-067A");
+        assert_eq!(meta.object_name.as_deref(), Some("ISS"));
+        assert_eq!(meta.object_id.as_deref(), Some("1998-067A"));
         assert_eq!(meta.center_name, "EARTH");
         assert!(matches!(meta.ref_frame, CCSDSRefFrame::TEME));
         assert!(matches!(meta.time_system, CCSDSTimeSystem::UTC));
@@ -398,12 +484,12 @@ mod tests {
         let elems = OMMeanElements::new(epoch, 0.001, 51.6, 120.0, 90.0, 45.0);
         let omm = OMM::new("TEST_ORG".to_string(), meta, elems);
 
-        assert_eq!(omm.header.originator, "TEST_ORG");
+        assert_eq!(omm.header.originator.as_deref(), Some("TEST_ORG"));
         assert!((omm.header.format_version - 3.0).abs() < 1e-15);
         assert!(omm.header.classification.is_none());
         assert!(omm.header.message_id.is_none());
-        assert_eq!(omm.metadata.object_name, "SAT1");
-        assert_eq!(omm.metadata.object_id, "2024-001A");
+        assert_eq!(omm.metadata.object_name.as_deref(), Some("SAT1"));
+        assert_eq!(omm.metadata.object_id.as_deref(), Some("2024-001A"));
         assert!((omm.mean_elements.eccentricity - 0.001).abs() < 1e-15);
         assert!(omm.tle_parameters.is_none());
         assert!(omm.spacecraft_parameters.is_none());
@@ -416,8 +502,8 @@ mod tests {
     #[parallel]
     fn test_omm_kvn_parse_example1() {
         let omm = OMM::from_file("test_assets/ccsds/omm/OMMExample1.txt").unwrap();
-        assert_eq!(omm.metadata.object_name, "GOES 9");
-        assert_eq!(omm.metadata.object_id, "1995-025A");
+        assert_eq!(omm.metadata.object_name.as_deref(), Some("GOES 9"));
+        assert_eq!(omm.metadata.object_id.as_deref(), Some("1995-025A"));
         assert_eq!(omm.metadata.center_name, "EARTH");
         assert_eq!(omm.metadata.mean_element_theory, "SGP/SGP4");
         assert!((omm.mean_elements.eccentricity - 0.0005013).abs() < 1e-10);
@@ -439,8 +525,8 @@ mod tests {
     fn test_omm_kvn_parse_example2_with_covariance() {
         // OMMExample2 has covariance data
         let omm = OMM::from_file("test_assets/ccsds/omm/OMMExample2.txt").unwrap();
-        assert_eq!(omm.metadata.object_name, "GOES 9");
-        assert_eq!(omm.metadata.object_id, "1995-025A");
+        assert_eq!(omm.metadata.object_name.as_deref(), Some("GOES 9"));
+        assert_eq!(omm.metadata.object_id.as_deref(), Some("1995-025A"));
         assert!(omm.covariance.is_some());
         let cov = omm.covariance.as_ref().unwrap();
         // CX_X = 3.331349476038534e-04 km^2 -> * 1e6 m^2
@@ -509,8 +595,8 @@ mod tests {
     #[parallel]
     fn test_omm_xml_parse_example4() {
         let omm = OMM::from_file("test_assets/ccsds/omm/OMMExample4.xml").unwrap();
-        assert_eq!(omm.metadata.object_name, "STARLETTE");
-        assert_eq!(omm.metadata.object_id, "1975-010A");
+        assert_eq!(omm.metadata.object_name.as_deref(), Some("STARLETTE"));
+        assert_eq!(omm.metadata.object_id.as_deref(), Some("1975-010A"));
         assert_eq!(omm.metadata.mean_element_theory, "SGP4");
         assert!((omm.mean_elements.mean_motion.unwrap() - 13.82309053).abs() < 1e-8);
         let tle = omm.tle_parameters.as_ref().unwrap();

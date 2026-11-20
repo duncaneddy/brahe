@@ -7,7 +7,8 @@
 use crate::ccsds::common::{
     CCSDSCovariance, CCSDSRefFrame, CCSDSTimeSystem, ODMHeader, covariance_from_lower_triangular,
     covariance_to_lower_triangular, format_ccsds_datetime_in, format_optional_ccsds_datetime_in,
-    parse_ccsds_datetime, parse_optional_ccsds_datetime, round_ccsds_value,
+    parse_ccsds_datetime, parse_optional_ccsds_datetime, parse_optional_ccsds_text,
+    round_ccsds_value,
 };
 use crate::ccsds::error::{ccsds_missing_field, ccsds_parse_error};
 use crate::ccsds::kvn::common::{KVNToken, tokenize_line};
@@ -149,12 +150,10 @@ pub fn parse_oem(content: &str) -> Result<OEM, BraheError> {
                     "META_STOP" => {
                         // Finalize metadata and transition to ephemeris block
                         let metadata = OEMMetadata {
-                            object_name: meta_object_name
-                                .take()
-                                .ok_or_else(|| ccsds_missing_field("OEM", "OBJECT_NAME"))?,
-                            object_id: meta_object_id
-                                .take()
-                                .ok_or_else(|| ccsds_missing_field("OEM", "OBJECT_ID"))?,
+                            object_name: parse_optional_ccsds_text(
+                                meta_object_name.take().as_deref(),
+                            ),
+                            object_id: parse_optional_ccsds_text(meta_object_id.take().as_deref()),
                             center_name: meta_center_name
                                 .take()
                                 .ok_or_else(|| ccsds_missing_field("OEM", "CENTER_NAME"))?,
@@ -387,8 +386,8 @@ pub fn parse_oem(content: &str) -> Result<OEM, BraheError> {
         format_version: format_version
             .ok_or_else(|| ccsds_missing_field("OEM", "CCSDS_OEM_VERS"))?,
         classification,
-        creation_date: creation_date.ok_or_else(|| ccsds_missing_field("OEM", "CREATION_DATE"))?,
-        originator: originator.ok_or_else(|| ccsds_missing_field("OEM", "ORIGINATOR"))?,
+        creation_date: creation_date.flatten(),
+        originator: parse_optional_ccsds_text(originator.as_deref()),
         message_id,
         comments: header_comments,
     };
@@ -415,7 +414,10 @@ pub fn write_oem(oem: &OEM) -> Result<String, BraheError> {
         "CREATION_DATE = {}\n",
         format_optional_ccsds_datetime_in(&oem.header.creation_date, &CCSDSTimeSystem::UTC)
     ));
-    out.push_str(&format!("ORIGINATOR = {}\n", oem.header.originator));
+    out.push_str(&format!(
+        "ORIGINATOR = {}\n",
+        oem.header.originator.as_deref().unwrap_or("")
+    ));
     if let Some(ref msg_id) = oem.header.message_id {
         out.push_str(&format!("MESSAGE_ID = {}\n", msg_id));
     }
@@ -429,8 +431,14 @@ pub fn write_oem(oem: &OEM) -> Result<String, BraheError> {
         for comment in &segment.metadata.comments {
             out.push_str(&format!("COMMENT {}\n", comment));
         }
-        out.push_str(&format!("OBJECT_NAME = {}\n", segment.metadata.object_name));
-        out.push_str(&format!("OBJECT_ID = {}\n", segment.metadata.object_id));
+        out.push_str(&format!(
+            "OBJECT_NAME = {}\n",
+            segment.metadata.object_name.as_deref().unwrap_or("")
+        ));
+        out.push_str(&format!(
+            "OBJECT_ID = {}\n",
+            segment.metadata.object_id.as_deref().unwrap_or("")
+        ));
         out.push_str(&format!("CENTER_NAME = {}\n", segment.metadata.center_name));
         out.push_str(&format!("REF_FRAME = {}\n", segment.metadata.ref_frame));
         if let Some(ref epoch) = segment.metadata.ref_frame_epoch {
@@ -560,15 +568,18 @@ mod tests {
             oem.header.classification.as_deref(),
             Some("public, test-data")
         );
-        assert_eq!(oem.header.originator, "NASA/JPL");
+        assert_eq!(oem.header.originator.as_deref(), Some("NASA/JPL"));
 
         // 3 segments
         assert_eq!(oem.segments.len(), 3);
 
         // Segment 0 metadata
         let seg0 = &oem.segments[0];
-        assert_eq!(seg0.metadata.object_name, "MARS GLOBAL SURVEYOR");
-        assert_eq!(seg0.metadata.object_id, "1996-062A");
+        assert_eq!(
+            seg0.metadata.object_name.as_deref(),
+            Some("MARS GLOBAL SURVEYOR")
+        );
+        assert_eq!(seg0.metadata.object_id.as_deref(), Some("1996-062A"));
         assert_eq!(seg0.metadata.center_name, "MARS BARYCENTER");
         assert_eq!(seg0.metadata.ref_frame, CCSDSRefFrame::J2000);
         assert_eq!(seg0.metadata.time_system, CCSDSTimeSystem::UTC);
@@ -643,7 +654,10 @@ mod tests {
 
         assert!((oem.header.format_version - 2.0).abs() < 1e-10);
         assert_eq!(oem.segments.len(), 1);
-        assert_eq!(oem.segments[0].metadata.object_name, "MARS GLOBAL SURVEYOR");
+        assert_eq!(
+            oem.segments[0].metadata.object_name.as_deref(),
+            Some("MARS GLOBAL SURVEYOR")
+        );
         assert_eq!(oem.segments[0].metadata.center_name, "MARS");
         assert_eq!(oem.segments[0].metadata.ref_frame, CCSDSRefFrame::EME2000);
         assert_eq!(oem.segments[0].states.len(), 3);
@@ -657,8 +671,11 @@ mod tests {
 
         assert_eq!(oem.segments.len(), 1);
         assert_eq!(oem.segments[0].metadata.ref_frame, CCSDSRefFrame::GCRF);
-        assert_eq!(oem.segments[0].metadata.object_name, "ISS");
-        assert_eq!(oem.segments[0].metadata.object_id, "1998-067A");
+        assert_eq!(oem.segments[0].metadata.object_name.as_deref(), Some("ISS"));
+        assert_eq!(
+            oem.segments[0].metadata.object_id.as_deref(),
+            Some("1998-067A")
+        );
         assert_eq!(oem.segments[0].states.len(), 49);
     }
 
@@ -834,7 +851,7 @@ mod tests {
                 format_version: 3.0,
                 classification: None,
                 creation_date: Some(epoch),
-                originator: "TEST".to_string(),
+                originator: Some("TEST".to_string()),
                 message_id: None,
                 comments: Vec::new(),
             },
@@ -903,7 +920,7 @@ mod tests {
                 format_version: 3.0,
                 classification: None,
                 creation_date: Some(epoch),
-                originator: "TEST".to_string(),
+                originator: Some("TEST".to_string()),
                 message_id: None,
                 comments: Vec::new(),
             },
@@ -983,7 +1000,7 @@ mod tests {
                 format_version: 3.0,
                 classification: None,
                 creation_date: Some(epoch),
-                originator: "TEST".to_string(),
+                originator: Some("TEST".to_string()),
                 message_id: None,
                 comments: Vec::new(),
             },
@@ -1032,7 +1049,7 @@ mod tests {
                 format_version: 3.0,
                 classification: None,
                 creation_date: Some(epoch),
-                originator: "TEST".to_string(),
+                originator: Some("TEST".to_string()),
                 message_id: None,
                 comments: Vec::new(),
             },
@@ -1082,7 +1099,7 @@ mod tests {
                 format_version: 3.0,
                 classification: None,
                 creation_date: Some(epoch),
-                originator: "TEST".to_string(),
+                originator: Some("TEST".to_string()),
                 message_id: None,
                 comments: Vec::new(),
             },

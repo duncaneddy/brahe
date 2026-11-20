@@ -21,6 +21,7 @@
 use nalgebra::Vector3;
 
 use crate::math::{SMatrix3, SVector6};
+use crate::spice::registry::KernelPresence;
 use crate::spice::{NAIFId, spk_position, spk_state};
 use crate::time::Epoch;
 use crate::utils::BraheError;
@@ -39,8 +40,10 @@ use super::transform::{
 /// barycenter (NAIF 4); `mar099s` provides the Mars body-center (NAIF
 /// 499) leg the MCI translation functions require.
 ///
-/// The registry is only consulted on the first call (`OnceLock`); unloading
-/// a kernel afterwards is not re-detected.
+/// The registry is checked again whenever any kernel has been loaded,
+/// unloaded, or cleared since the last call, so a kernel unloaded after an
+/// earlier call is loaded again on the next one; otherwise the call returns
+/// without taking the registry lock.
 ///
 /// Called automatically by every MCI translation in this module; not
 /// normally called directly. Mirrors
@@ -50,37 +53,58 @@ use super::transform::{
 /// Panics with an actionable message if the kernel cannot be loaded (e.g.
 /// no network access and no cached copy).
 pub(crate) fn ensure_mars_spk_loaded() {
-    // OnceLock latch: the registry is checked (and the kernels loaded if
-    // absent) on the first call only. Unloading a kernel mid-operation
-    // afterwards is not re-detected; subsequent ephemeris queries will
-    // error instead. If the load fails the latch stays unset and the next
-    // call retries.
-    static MARS_SPK_LOADED: std::sync::OnceLock<()> = std::sync::OnceLock::new();
-    MARS_SPK_LOADED.get_or_init(|| {
-        if crate::spice::kernel_is_loaded("mar099s") {
-            return;
-        }
-        // Loads the default DE ephemeris first when the registry is empty (a
-        // satellite kernel alone cannot resolve the Earth leg and would
-        // suppress the DE auto-initialization), then mar099s.
-        crate::spice::registry::ensure_bodies_loadable(&[NAIFId::Mars.id()]).unwrap_or_else(|e| {
-            panic!(
-                "Failed to auto-load Mars ephemeris kernels (de440s/mar099s): {}. \
-                 Download them with brahe::datasets::naif::download_spice_kernel \
-                 (SPICEKernel::DE440s / SPICEKernel::Mar099s, None) and call \
-                 brahe::spice::load_spice_kernel(<path>).",
-                e
-            )
-        });
-        if !crate::spice::kernel_is_loaded("mar099s") {
-            panic!(
-                "Failed to auto-load Mars satellite ephemeris 'mar099s'. \
-                 Download it with brahe::datasets::naif::download_spice_kernel\
-                 (SPICEKernel::Mar099s, None) and call \
-                 brahe::spice::load_spice_kernel(<path>)."
-            );
-        }
+    MAR099S.ensure(load_mars_spk_if_absent);
+}
+
+/// Presence record for [`ensure_mars_spk_loaded`].
+static MAR099S: KernelPresence = KernelPresence::new();
+
+/// Runs a Mars ephemeris query with `mar099s` auto-loaded, reloading the
+/// kernel and retrying once if it was unloaded between the check and the
+/// query.
+///
+/// # Arguments
+/// - `query`: SPK query that needs `mar099s`
+///
+/// # Returns
+/// - The result of `query`
+///
+/// # Panics
+/// Panics as described on [`ensure_mars_spk_loaded`] if the kernel cannot be loaded.
+fn with_mars_spk<T>(query: impl Fn() -> Result<T, BraheError>) -> Result<T, BraheError> {
+    ensure_mars_spk_loaded();
+    query().or_else(|_| {
+        load_mars_spk_if_absent();
+        query()
+    })
+}
+
+/// Loads `de440s`/`mar099s` unless `mar099s` is already in the registry.
+/// Panics as described on [`ensure_mars_spk_loaded`].
+fn load_mars_spk_if_absent() {
+    if crate::spice::kernel_is_loaded("mar099s") {
+        return;
+    }
+    // Loads the default DE ephemeris first when the registry is empty (a
+    // satellite kernel alone cannot resolve the Earth leg and would
+    // suppress the DE auto-initialization), then mar099s.
+    crate::spice::registry::ensure_bodies_loadable(&[NAIFId::Mars.id()]).unwrap_or_else(|e| {
+        panic!(
+            "Failed to auto-load Mars ephemeris kernels (de440s/mar099s): {}. \
+             Download them with brahe::datasets::naif::download_spice_kernel \
+             (SPICEKernel::DE440s / SPICEKernel::Mar099s, None) and call \
+             brahe::spice::load_spice_kernel(<path>).",
+            e
+        )
     });
+    if !crate::spice::kernel_is_loaded("mar099s") {
+        panic!(
+            "Failed to auto-load Mars satellite ephemeris 'mar099s'. \
+             Download it with brahe::datasets::naif::download_spice_kernel\
+             (SPICEKernel::Mar099s, None) and call \
+             brahe::spice::load_spice_kernel(<path>)."
+        );
+    }
 }
 
 /// Computes the rotation matrix from Mars-Centered Inertial (MCI) to
@@ -232,8 +256,7 @@ fn mcmf_context(epc: Epoch) -> RotatingFrameContext {
 /// // x_mci = x_eci - offset
 /// ```
 fn mars_earth_offset_position(epc: Epoch) -> Vector3<f64> {
-    ensure_mars_spk_loaded();
-    spk_position(NAIFId::Mars, NAIFId::Earth, epc)
+    with_mars_spk(|| spk_position(NAIFId::Mars, NAIFId::Earth, epc))
         .expect("SPK query failed: ensure a DE kernel is available (auto-init de440s)")
 }
 
@@ -255,8 +278,7 @@ fn mars_earth_offset_position(epc: Epoch) -> Vector3<f64> {
 /// // x_mci = x_eci - offset
 /// ```
 fn mars_earth_offset_state(epc: Epoch) -> SVector6 {
-    ensure_mars_spk_loaded();
-    spk_state(NAIFId::Mars, NAIFId::Earth, epc)
+    with_mars_spk(|| spk_state(NAIFId::Mars, NAIFId::Earth, epc))
         .expect("SPK query failed: ensure a DE kernel is available (auto-init de440s)")
 }
 
@@ -787,6 +809,8 @@ pub fn states_mci_to_eci(
 #[cfg(test)]
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
+    use std::cell::Cell;
+
     use approx::assert_abs_diff_eq;
     use nalgebra::Vector3;
     use serial_test::{parallel, serial};
@@ -797,7 +821,7 @@ mod tests {
     use crate::spice::{load_spice_kernel, unload_spice_kernel};
     use crate::time::TimeSystem;
     use crate::utils::testing::{
-        CacheRedirect, setup_global_test_spice, synthetic_spk_kernel_bytes,
+        CacheRedirect, setup_global_test_spice, synthetic_spk_kernel_bytes, without_spice_kernels,
     };
 
     #[test]
@@ -912,59 +936,70 @@ mod tests {
         // The MCI translation functions need the Mars body-center (NAIF 499)
         // leg, which the DE kernels don't carry — auto-loaded from `mar099s`.
         // Seed a synthetic mar099s providing the (499, 4) leg into a redirected
-        // cache; the real de440s stays resident (never cleared) for the
-        // barycenter chain. Only mar099s is unloaded/reloaded here.
+        // cache, with the real de440s loaded for the barycenter chain. The
+        // registry is emptied for the test and restored afterwards.
         setup_global_test_spice();
-        load_spice_kernel("de440s").unwrap();
-        let _ = unload_spice_kernel("mar099s");
-        {
-            let cache = CacheRedirect::new();
-            cache.seed_real_de440s();
-            cache.seed("mar099s.bsp", &synthetic_spk_kernel_bytes(&[(499, 4, 2.0)]));
+        without_spice_kernels(|| {
+            load_spice_kernel("de440s").unwrap();
+            {
+                let cache = CacheRedirect::new();
+                cache.seed_real_de440s();
+                cache.seed("mar099s.bsp", &synthetic_spk_kernel_bytes(&[(499, 4, 2.0)]));
 
-            let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
-            let x_eci = vector6_from_array([1e7, 2e7, 3e7, 1.0, 2.0, 3.0]);
+                let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+                let x_eci = vector6_from_array([1e7, 2e7, 3e7, 1.0, 2.0, 3.0]);
 
-            // Auto-load path: `ensure_mars_spk_loaded` is a OnceLock latch,
-            // so it only loads the kernel if no earlier test in this process
-            // fired it. Load explicitly afterwards so the test is
-            // deterministic regardless of latch state.
-            assert!(!crate::spice::kernel_is_loaded("mar099s"));
-            ensure_mars_spk_loaded();
-            if !crate::spice::kernel_is_loaded("mar099s") {
-                load_spice_kernel("mar099s").unwrap();
+                // Auto-load path: `ensure_mars_spk_loaded` loads the kernel from
+                // the redirected cache because it is absent from the registry.
+                assert!(!crate::spice::kernel_is_loaded("mar099s"));
+                ensure_mars_spk_loaded();
+                assert!(crate::spice::kernel_is_loaded("mar099s"));
+                let x_mci = state_eci_to_mci(epc, x_eci);
+                assert!(crate::spice::kernel_is_loaded("mar099s"));
+
+                let x_eci2 = state_mci_to_eci(epc, x_mci);
+                for i in 0..6 {
+                    assert_abs_diff_eq!(x_eci2[i], x_eci[i], epsilon = 1e-6);
+                }
+
+                let p_eci = x_eci.fixed_rows::<3>(0).into_owned();
+                let p_mci = position_eci_to_mci(epc, p_eci);
+                let p_eci2 = position_mci_to_eci(epc, p_mci);
+                for i in 0..3 {
+                    assert_abs_diff_eq!(p_eci2[i], p_eci[i], epsilon = 1e-6);
+                }
+
+                // Offset consistency: MCI is the Earth->Mars-body-center translation.
+                let offset = crate::spice::spk_state(NAIFId::Mars, NAIFId::Earth, epc).unwrap();
+                for i in 0..6 {
+                    assert_abs_diff_eq!(x_mci[i], x_eci[i] - offset[i], epsilon = 1e-6);
+                }
+
+                // ensure_mars_spk_loaded is idempotent while loaded.
+                ensure_mars_spk_loaded();
+
+                // An unloaded kernel is loaded again on the next call.
+                unload_spice_kernel("mar099s").unwrap();
+                ensure_mars_spk_loaded();
+                assert!(crate::spice::kernel_is_loaded("mar099s"));
+
+                // A kernel unloaded between the presence check and the query
+                // is reloaded and the query retried.
+                let attempts = Cell::new(0);
+                let offset_retry = with_mars_spk(|| {
+                    attempts.set(attempts.get() + 1);
+                    if attempts.get() == 1 {
+                        unload_spice_kernel("mar099s").unwrap();
+                    }
+                    crate::spice::spk_state(NAIFId::Mars, NAIFId::Earth, epc)
+                })
+                .unwrap();
+                assert_eq!(attempts.get(), 2);
+                assert_eq!(offset_retry, offset);
+
+                unload_spice_kernel("mar099s").unwrap();
             }
-            let x_mci = state_eci_to_mci(epc, x_eci);
-            assert!(crate::spice::kernel_is_loaded("mar099s"));
-
-            let x_eci2 = state_mci_to_eci(epc, x_mci);
-            for i in 0..6 {
-                assert_abs_diff_eq!(x_eci2[i], x_eci[i], epsilon = 1e-6);
-            }
-
-            let p_eci = x_eci.fixed_rows::<3>(0).into_owned();
-            let p_mci = position_eci_to_mci(epc, p_eci);
-            let p_eci2 = position_mci_to_eci(epc, p_mci);
-            for i in 0..3 {
-                assert_abs_diff_eq!(p_eci2[i], p_eci[i], epsilon = 1e-6);
-            }
-
-            // Offset consistency: MCI is the Earth->Mars-body-center translation.
-            let offset = crate::spice::spk_state(NAIFId::Mars, NAIFId::Earth, epc).unwrap();
-            for i in 0..6 {
-                assert_abs_diff_eq!(x_mci[i], x_eci[i] - offset[i], epsilon = 1e-6);
-            }
-
-            // ensure_mars_spk_loaded is idempotent while loaded.
-            ensure_mars_spk_loaded();
-
-            unload_spice_kernel("mar099s").unwrap();
-        }
-        // The latch is now set but the kernel was just unloaded, so later
-        // latch-relying tests would see it missing. Best-effort restore of
-        // the real mar099s (real cache; tolerated failure keeps this test
-        // offline-safe when nothing later needs the kernel).
-        let _ = load_spice_kernel("mar099s");
+        });
     }
 
     #[test]

@@ -329,8 +329,9 @@ pub(crate) fn setup_global_test_gravity_model() {
     set_global_gravity_model(gravity_model);
 }
 
-/// Runs `f` with the global SPICE registry emptied, then restores the kernels
-/// that were loaded before the call.
+/// Runs `f` with the global SPICE registry emptied, then replaces whatever `f`
+/// left loaded with the kernels that were loaded before the call, in their
+/// original order.
 ///
 /// Use this to prove that a code path consults no ephemeris: any SPK or PCK
 /// query inside `f` fails instead of silently succeeding on a kernel another
@@ -349,6 +350,7 @@ pub(crate) fn without_spice_kernels<T>(f: impl FnOnce() -> T) -> T {
     let loaded = crate::spice::loaded_spice_kernels();
     crate::spice::clear_spice_kernels();
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(f));
+    crate::spice::clear_spice_kernels();
     for kernel in loaded {
         crate::spice::load_spice_kernel(kernel.as_str())
             .expect("Failed to restore a previously loaded SPICE kernel");
@@ -997,6 +999,40 @@ mod tests {
         // Verify EOP is initialized
         let result = get_global_ut1_utc(58849.0);
         assert!(result.is_ok());
+    }
+
+    #[test]
+    #[serial]
+    fn test_without_spice_kernels_restores_prior_registry() {
+        setup_global_test_spice();
+        let dir = tempfile::tempdir().unwrap();
+        let prior = dir.path().join("prior.bsp");
+        let inner = dir.path().join("inner.bsp");
+        fs::write(&prior, synthetic_spk_kernel_bytes(&[(10, 0, 1.0)])).unwrap();
+        fs::write(&inner, synthetic_spk_kernel_bytes(&[(10, 0, 2.0)])).unwrap();
+
+        without_spice_kernels(|| {
+            crate::spice::load_spice_kernel("de440s").unwrap();
+            crate::spice::load_spice_kernel(prior.to_str().unwrap()).unwrap();
+            let before = crate::spice::loaded_spice_kernels();
+
+            let value = without_spice_kernels(|| {
+                assert!(crate::spice::loaded_spice_kernels().is_empty());
+                crate::spice::load_spice_kernel(inner.to_str().unwrap()).unwrap();
+                7
+            });
+            assert_eq!(value, 7);
+            assert_eq!(crate::spice::loaded_spice_kernels(), before);
+
+            let panicked = std::panic::catch_unwind(|| {
+                without_spice_kernels(|| {
+                    crate::spice::load_spice_kernel(inner.to_str().unwrap()).unwrap();
+                    panic!("body panic");
+                })
+            });
+            assert!(panicked.is_err());
+            assert_eq!(crate::spice::loaded_spice_kernels(), before);
+        });
     }
 
     #[test]

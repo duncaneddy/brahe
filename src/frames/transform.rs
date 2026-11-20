@@ -2557,20 +2557,23 @@ mod tests {
         // succeeds and agrees with MCMF (identical rotation dispatch and,
         // now, identical body-center origin).
         setup_global_test_spice();
-        let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
-        let x = vector6_from_array([1e8, -2e8, 5e7, 1.0e3, -2.0e3, 0.5e3]);
-        let via_iau = state_frame_to_frame(
-            CelestialFrame::GCRF,
-            CelestialFrame::BodyFixedIAU(499),
-            epc,
-            x,
-        )
-        .unwrap();
-        let via_mcmf =
-            state_frame_to_frame(CelestialFrame::GCRF, CelestialFrame::MCMF, epc, x).unwrap();
-        for i in 0..6 {
-            assert_abs_diff_eq!(via_iau[i], via_mcmf[i], epsilon = 1e-9);
-        }
+        without_spice_kernels(|| {
+            crate::spice::load_spice_kernel("de440s").unwrap();
+            let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+            let x = vector6_from_array([1e8, -2e8, 5e7, 1.0e3, -2.0e3, 0.5e3]);
+            let via_iau = state_frame_to_frame(
+                CelestialFrame::GCRF,
+                CelestialFrame::BodyFixedIAU(499),
+                epc,
+                x,
+            )
+            .unwrap();
+            let via_mcmf =
+                state_frame_to_frame(CelestialFrame::GCRF, CelestialFrame::MCMF, epc, x).unwrap();
+            for i in 0..6 {
+                assert_abs_diff_eq!(via_iau[i], via_mcmf[i], epsilon = 1e-9);
+            }
+        });
     }
 
     #[test]

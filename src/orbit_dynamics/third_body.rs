@@ -1456,7 +1456,7 @@ mod tests {
     // accepted limitation shared with the registry's offline tests.)
 
     use crate::spice::{load_spice_kernel, unload_spice_kernel};
-    use crate::utils::testing::{CacheRedirect, synthetic_spk_kernel_bytes};
+    use crate::utils::testing::{CacheRedirect, synthetic_spk_kernel_bytes, without_spice_kernels};
 
     /// Third-body acceleration formula replicated for expected values.
     fn expected_accel(
@@ -1481,66 +1481,69 @@ mod tests {
         // used must come from the kernel named by `source`, not from
         // whichever kernel was loaded last.
         setup_global_test_spice();
-        let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
-        let r = Vector3::new(1.0e3, 0.0, 0.0);
-        let central = CentralBody::from_naif_id(299).unwrap(); // Venus
+        without_spice_kernels(|| {
+            load_spice_kernel("de440s").unwrap();
+            let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+            let r = Vector3::new(1.0e3, 0.0, 0.0);
+            let central = CentralBody::from_naif_id(299).unwrap(); // Venus
 
-        // Mercury rel Venus resolves as seg(1,0) + seg(199,1) - seg(2,0) - seg(299,2) [km].
-        // de430: 100 + 10 - 200 - 20 = -110 km; de432s: 300 + 30 - 600 - 60 = -330 km.
-        let a_de430 = expected_accel(Vector3::new(-110.0e3, 0.0, 0.0), r, GM_MERCURY, false);
-        let a_de432s = expected_accel(Vector3::new(-330.0e3, 0.0, 0.0), r, GM_MERCURY, false);
+            // Mercury rel Venus resolves as seg(1,0) + seg(199,1) - seg(2,0) - seg(299,2) [km].
+            // de430: 100 + 10 - 200 - 20 = -110 km; de432s: 300 + 30 - 600 - 60 = -330 km.
+            let a_de430 = expected_accel(Vector3::new(-110.0e3, 0.0, 0.0), r, GM_MERCURY, false);
+            let a_de432s = expected_accel(Vector3::new(-330.0e3, 0.0, 0.0), r, GM_MERCURY, false);
 
-        {
-            let cache = CacheRedirect::new();
-            cache.seed(
-                "de430.bsp",
-                &synthetic_spk_kernel_bytes(&[
-                    (1, 0, 100.0),
-                    (199, 1, 10.0),
-                    (2, 0, 200.0),
-                    (299, 2, 20.0),
-                ]),
-            );
-            cache.seed(
-                "de432s.bsp",
-                &synthetic_spk_kernel_bytes(&[
-                    (1, 0, 300.0),
-                    (199, 1, 30.0),
-                    (2, 0, 600.0),
-                    (299, 2, 60.0),
-                ]),
-            );
+            {
+                let cache = CacheRedirect::new();
+                cache.seed(
+                    "de430.bsp",
+                    &synthetic_spk_kernel_bytes(&[
+                        (1, 0, 100.0),
+                        (199, 1, 10.0),
+                        (2, 0, 200.0),
+                        (299, 2, 20.0),
+                    ]),
+                );
+                cache.seed(
+                    "de432s.bsp",
+                    &synthetic_spk_kernel_bytes(&[
+                        (1, 0, 300.0),
+                        (199, 1, 30.0),
+                        (2, 0, 600.0),
+                        (299, 2, 60.0),
+                    ]),
+                );
 
-            for order in [["de430", "de432s"], ["de432s", "de430"]] {
+                for order in [["de430", "de432s"], ["de432s", "de430"]] {
+                    let _ = unload_spice_kernel("de430");
+                    let _ = unload_spice_kernel("de432s");
+                    for name in order {
+                        load_spice_kernel(name).unwrap();
+                    }
+
+                    let a = accel_third_body_for_body(
+                        &central,
+                        &ThirdBody::Mercury,
+                        EphemerisSource::SPK(SPICEKernel::DE430),
+                        epc,
+                        r,
+                    )
+                    .unwrap();
+                    assert_abs_diff_eq!(a, a_de430, epsilon = a_de430.norm() * 1e-12);
+
+                    let a = accel_third_body_for_body(
+                        &central,
+                        &ThirdBody::Mercury,
+                        EphemerisSource::SPK(SPICEKernel::DE432s),
+                        epc,
+                        r,
+                    )
+                    .unwrap();
+                    assert_abs_diff_eq!(a, a_de432s, epsilon = a_de432s.norm() * 1e-12);
+                }
                 let _ = unload_spice_kernel("de430");
                 let _ = unload_spice_kernel("de432s");
-                for name in order {
-                    load_spice_kernel(name).unwrap();
-                }
-
-                let a = accel_third_body_for_body(
-                    &central,
-                    &ThirdBody::Mercury,
-                    EphemerisSource::SPK(SPICEKernel::DE430),
-                    epc,
-                    r,
-                )
-                .unwrap();
-                assert_abs_diff_eq!(a, a_de430, epsilon = a_de430.norm() * 1e-12);
-
-                let a = accel_third_body_for_body(
-                    &central,
-                    &ThirdBody::Mercury,
-                    EphemerisSource::SPK(SPICEKernel::DE432s),
-                    epc,
-                    r,
-                )
-                .unwrap();
-                assert_abs_diff_eq!(a, a_de432s, epsilon = a_de432s.norm() * 1e-12);
             }
-            let _ = unload_spice_kernel("de430");
-            let _ = unload_spice_kernel("de432s");
-        }
+        });
     }
 
     #[test]
@@ -1550,73 +1553,76 @@ mod tests {
         // leg comes from mar099s, while the Mars-barycenter-rel-central leg
         // must still honor the configured DE kernel.
         setup_global_test_spice();
-        let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
-        let r = Vector3::new(1.0e3, 0.0, 0.0);
-        let gm_phobos = ThirdBody::Phobos.gm();
+        without_spice_kernels(|| {
+            load_spice_kernel("de440s").unwrap();
+            let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+            let r = Vector3::new(1.0e3, 0.0, 0.0);
+            let gm_phobos = ThirdBody::Phobos.gm();
 
-        // Phobos rel EMB = seg(401,4) + [seg(4,0) - seg(3,0)].
-        // de430: 50 + (400 - 40) = 410 km; de432s: 50 + (800 - 80) = 770 km.
-        let a_de430 = expected_accel(Vector3::new(410.0e3, 0.0, 0.0), r, gm_phobos, false);
-        let a_de432s = expected_accel(Vector3::new(770.0e3, 0.0, 0.0), r, gm_phobos, false);
-        // Phobos rel Mars (body center, 499) stays within mar099s: both
-        // anchor to the Mars system barycenter, so no DE leg is involved:
-        // 50 - 2 = 48 km.
-        let a_mars = expected_accel(Vector3::new(48.0e3, 0.0, 0.0), r, gm_phobos, false);
+            // Phobos rel EMB = seg(401,4) + [seg(4,0) - seg(3,0)].
+            // de430: 50 + (400 - 40) = 410 km; de432s: 50 + (800 - 80) = 770 km.
+            let a_de430 = expected_accel(Vector3::new(410.0e3, 0.0, 0.0), r, gm_phobos, false);
+            let a_de432s = expected_accel(Vector3::new(770.0e3, 0.0, 0.0), r, gm_phobos, false);
+            // Phobos rel Mars (body center, 499) stays within mar099s: both
+            // anchor to the Mars system barycenter, so no DE leg is involved:
+            // 50 - 2 = 48 km.
+            let a_mars = expected_accel(Vector3::new(48.0e3, 0.0, 0.0), r, gm_phobos, false);
 
-        {
-            let cache = CacheRedirect::new();
-            cache.seed(
-                "mar099s.bsp",
-                &synthetic_spk_kernel_bytes(&[(401, 4, 50.0), (499, 4, 2.0)]),
-            );
-            cache.seed(
-                "de430.bsp",
-                &synthetic_spk_kernel_bytes(&[(4, 0, 400.0), (3, 0, 40.0)]),
-            );
-            cache.seed(
-                "de432s.bsp",
-                &synthetic_spk_kernel_bytes(&[(4, 0, 800.0), (3, 0, 80.0)]),
-            );
-            let _ = unload_spice_kernel("mar099s");
-            let _ = unload_spice_kernel("de430");
-            let _ = unload_spice_kernel("de432s");
-            load_spice_kernel("de430").unwrap();
-            load_spice_kernel("de432s").unwrap();
+            {
+                let cache = CacheRedirect::new();
+                cache.seed(
+                    "mar099s.bsp",
+                    &synthetic_spk_kernel_bytes(&[(401, 4, 50.0), (499, 4, 2.0)]),
+                );
+                cache.seed(
+                    "de430.bsp",
+                    &synthetic_spk_kernel_bytes(&[(4, 0, 400.0), (3, 0, 40.0)]),
+                );
+                cache.seed(
+                    "de432s.bsp",
+                    &synthetic_spk_kernel_bytes(&[(4, 0, 800.0), (3, 0, 80.0)]),
+                );
+                let _ = unload_spice_kernel("mar099s");
+                let _ = unload_spice_kernel("de430");
+                let _ = unload_spice_kernel("de432s");
+                load_spice_kernel("de430").unwrap();
+                load_spice_kernel("de432s").unwrap();
 
-            let a = accel_third_body_for_body(
-                &CentralBody::EMB,
-                &ThirdBody::Phobos,
-                EphemerisSource::SPK(SPICEKernel::DE430),
-                epc,
-                r,
-            )
-            .unwrap();
-            assert_abs_diff_eq!(a, a_de430, epsilon = a_de430.norm() * 1e-12);
+                let a = accel_third_body_for_body(
+                    &CentralBody::EMB,
+                    &ThirdBody::Phobos,
+                    EphemerisSource::SPK(SPICEKernel::DE430),
+                    epc,
+                    r,
+                )
+                .unwrap();
+                assert_abs_diff_eq!(a, a_de430, epsilon = a_de430.norm() * 1e-12);
 
-            let a = accel_third_body_for_body(
-                &CentralBody::EMB,
-                &ThirdBody::Phobos,
-                EphemerisSource::SPK(SPICEKernel::DE432s),
-                epc,
-                r,
-            )
-            .unwrap();
-            assert_abs_diff_eq!(a, a_de432s, epsilon = a_de432s.norm() * 1e-12);
+                let a = accel_third_body_for_body(
+                    &CentralBody::EMB,
+                    &ThirdBody::Phobos,
+                    EphemerisSource::SPK(SPICEKernel::DE432s),
+                    epc,
+                    r,
+                )
+                .unwrap();
+                assert_abs_diff_eq!(a, a_de432s, epsilon = a_de432s.norm() * 1e-12);
 
-            let a = accel_third_body_for_body(
-                &CentralBody::Mars,
-                &ThirdBody::Phobos,
-                EphemerisSource::SPK(SPICEKernel::DE430),
-                epc,
-                r,
-            )
-            .unwrap();
-            assert_abs_diff_eq!(a, a_mars, epsilon = a_mars.norm() * 1e-12);
+                let a = accel_third_body_for_body(
+                    &CentralBody::Mars,
+                    &ThirdBody::Phobos,
+                    EphemerisSource::SPK(SPICEKernel::DE430),
+                    epc,
+                    r,
+                )
+                .unwrap();
+                assert_abs_diff_eq!(a, a_mars, epsilon = a_mars.norm() * 1e-12);
 
-            let _ = unload_spice_kernel("mar099s");
-            let _ = unload_spice_kernel("de430");
-            let _ = unload_spice_kernel("de432s");
-        }
+                let _ = unload_spice_kernel("mar099s");
+                let _ = unload_spice_kernel("de430");
+                let _ = unload_spice_kernel("de432s");
+            }
+        });
     }
 
     #[test]
@@ -1625,64 +1631,25 @@ mod tests {
         // A Custom body with an ID outside DE and known satellite-kernel
         // coverage resolves across all loaded kernels (bring-your-own SPK).
         setup_global_test_spice();
-        let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
-        let r = Vector3::new(1.0e3, 0.0, 0.0);
-        let gm = 6.26325e10; // Ceres
+        without_spice_kernels(|| {
+            load_spice_kernel("de440s").unwrap();
+            let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+            let r = Vector3::new(1.0e3, 0.0, 0.0);
+            let gm = 6.26325e10; // Ceres
 
-        let body = ThirdBody::Custom {
-            name: "Ceres".to_string(),
-            naif_id: 2000001,
-            gm,
-        };
-        // SSB central body: direct term only.
-        let a_expected = expected_accel(Vector3::new(77.0e3, 0.0, 0.0), r, gm, true);
-
-        let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("ceres.bsp");
-        std::fs::write(&path, synthetic_spk_kernel_bytes(&[(2000001, 0, 77.0)])).unwrap();
-        let path = path.to_str().unwrap();
-
-        load_spice_kernel("de440s").unwrap();
-        load_spice_kernel(path).unwrap();
-
-        let a =
-            accel_third_body_for_body(&CentralBody::SSB, &body, EphemerisSource::DE440s, epc, r)
-                .unwrap();
-        assert_abs_diff_eq!(a, a_expected, epsilon = a_expected.norm() * 1e-12);
-
-        let _ = unload_spice_kernel(path);
-    }
-
-    #[test]
-    #[serial]
-    fn test_accel_third_body_for_body_satellite_range_id_falls_back_to_global() {
-        // A Custom body with a satellite-range NAIF ID (Pluto system, 950)
-        // that the mapped system kernel (plu060) does NOT carry must fall
-        // back to global resolution so a bring-your-own SPK still works.
-        setup_global_test_spice();
-        let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
-        let r = Vector3::new(1.0e3, 0.0, 0.0);
-        let gm = 1.0e9;
-
-        let body = ThirdBody::Custom {
-            name: "MysteryMoon".to_string(),
-            naif_id: 950,
-            gm,
-        };
-        // SSB central body: direct term only.
-        let a_expected = expected_accel(Vector3::new(33.0e3, 0.0, 0.0), r, gm, true);
-
-        {
-            let cache = CacheRedirect::new();
-            // plu060 carries only Pluto (999) rel its barycenter — no 950.
-            cache.seed("plu060.bsp", &synthetic_spk_kernel_bytes(&[(999, 9, 10.0)]));
+            let body = ThirdBody::Custom {
+                name: "Ceres".to_string(),
+                naif_id: 2000001,
+                gm,
+            };
+            // SSB central body: direct term only.
+            let a_expected = expected_accel(Vector3::new(77.0e3, 0.0, 0.0), r, gm, true);
 
             let dir = tempfile::tempdir().unwrap();
-            let path = dir.path().join("mystery.bsp");
-            std::fs::write(&path, synthetic_spk_kernel_bytes(&[(950, 0, 33.0)])).unwrap();
+            let path = dir.path().join("ceres.bsp");
+            std::fs::write(&path, synthetic_spk_kernel_bytes(&[(2000001, 0, 77.0)])).unwrap();
             let path = path.to_str().unwrap();
 
-            let _ = unload_spice_kernel("plu060");
             load_spice_kernel("de440s").unwrap();
             load_spice_kernel(path).unwrap();
 
@@ -1697,8 +1664,58 @@ mod tests {
             assert_abs_diff_eq!(a, a_expected, epsilon = a_expected.norm() * 1e-12);
 
             let _ = unload_spice_kernel(path);
-            let _ = unload_spice_kernel("plu060");
-        }
+        });
+    }
+
+    #[test]
+    #[serial]
+    fn test_accel_third_body_for_body_satellite_range_id_falls_back_to_global() {
+        // A Custom body with a satellite-range NAIF ID (Pluto system, 950)
+        // that the mapped system kernel (plu060) does NOT carry must fall
+        // back to global resolution so a bring-your-own SPK still works.
+        setup_global_test_spice();
+        without_spice_kernels(|| {
+            load_spice_kernel("de440s").unwrap();
+            let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+            let r = Vector3::new(1.0e3, 0.0, 0.0);
+            let gm = 1.0e9;
+
+            let body = ThirdBody::Custom {
+                name: "MysteryMoon".to_string(),
+                naif_id: 950,
+                gm,
+            };
+            // SSB central body: direct term only.
+            let a_expected = expected_accel(Vector3::new(33.0e3, 0.0, 0.0), r, gm, true);
+
+            {
+                let cache = CacheRedirect::new();
+                // plu060 carries only Pluto (999) rel its barycenter — no 950.
+                cache.seed("plu060.bsp", &synthetic_spk_kernel_bytes(&[(999, 9, 10.0)]));
+
+                let dir = tempfile::tempdir().unwrap();
+                let path = dir.path().join("mystery.bsp");
+                std::fs::write(&path, synthetic_spk_kernel_bytes(&[(950, 0, 33.0)])).unwrap();
+                let path = path.to_str().unwrap();
+
+                let _ = unload_spice_kernel("plu060");
+                load_spice_kernel("de440s").unwrap();
+                load_spice_kernel(path).unwrap();
+
+                let a = accel_third_body_for_body(
+                    &CentralBody::SSB,
+                    &body,
+                    EphemerisSource::DE440s,
+                    epc,
+                    r,
+                )
+                .unwrap();
+                assert_abs_diff_eq!(a, a_expected, epsilon = a_expected.norm() * 1e-12);
+
+                let _ = unload_spice_kernel(path);
+                let _ = unload_spice_kernel("plu060");
+            }
+        });
     }
 
     #[test]

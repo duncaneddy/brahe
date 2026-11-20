@@ -63,6 +63,7 @@ use nalgebra::Vector3;
 
 use crate::constants::AS2RAD;
 use crate::math::{SMatrix3, SVector6};
+use crate::spice::registry::KernelPresence;
 use crate::spice::{NAIFId, spk_position, spk_state};
 use crate::time::Epoch;
 use crate::utils::BraheError;
@@ -79,8 +80,10 @@ const MOON_PA_FRAME_ID: i32 = 31008;
 
 /// Idempotently loads the `moon_pa_de440` binary PCK (downloading it to
 /// `~/.cache/brahe/naif` if needed) into the global SPICE kernel registry.
-/// The registry is only consulted on the first call (`OnceLock`); unloading
-/// the kernel afterwards is not re-detected.
+/// The registry is checked again whenever any kernel has been loaded,
+/// unloaded, or cleared since the last call, so a kernel unloaded after an
+/// earlier call is loaded again on the next one; otherwise the call returns
+/// without taking the registry lock.
 ///
 /// Called automatically by every LFPA/LFME transformation in this module;
 /// not normally called directly.
@@ -89,25 +92,46 @@ const MOON_PA_FRAME_ID: i32 = 31008;
 /// Panics with an actionable message if the kernel cannot be loaded (e.g.
 /// no network access and no cached copy).
 pub(crate) fn ensure_lunar_pck_loaded() {
-    // OnceLock latch: the registry is checked (and the kernel loaded if
-    // absent) on the first call only. Unloading the kernel mid-operation
-    // afterwards is not re-detected; subsequent orientation queries will
-    // error instead. If the load fails the latch stays unset and the next
-    // call retries.
-    static LUNAR_PCK_LOADED: std::sync::OnceLock<()> = std::sync::OnceLock::new();
-    LUNAR_PCK_LOADED.get_or_init(|| {
-        if crate::spice::kernel_is_loaded("moon_pa_de440") {
-            return;
-        }
-        crate::spice::load_spice_kernel("moon_pa_de440").unwrap_or_else(|e| {
-            panic!(
-                "Failed to auto-load lunar PCK 'moon_pa_de440': {}. \
-                 Download it with brahe::datasets::naif::download_spice_kernel\
-                 (SPICEKernel::MoonPaDe440, None) and call \
-                 brahe::spice::load_spice_kernel(<path>).",
-                e
-            )
-        });
+    MOON_PA_DE440.ensure(load_lunar_pck_if_absent);
+}
+
+/// Presence record for [`ensure_lunar_pck_loaded`].
+static MOON_PA_DE440: KernelPresence = KernelPresence::new();
+
+/// Runs a lunar PCK query with `moon_pa_de440` auto-loaded, reloading the
+/// kernel and retrying once if it was unloaded between the check and the
+/// query.
+///
+/// # Arguments
+/// - `query`: PCK query that needs `moon_pa_de440`
+///
+/// # Returns
+/// - The result of `query`
+///
+/// # Panics
+/// Panics as described on [`ensure_lunar_pck_loaded`] if the kernel cannot be loaded.
+fn with_lunar_pck<T>(query: impl Fn() -> Result<T, BraheError>) -> Result<T, BraheError> {
+    ensure_lunar_pck_loaded();
+    query().or_else(|_| {
+        load_lunar_pck_if_absent();
+        query()
+    })
+}
+
+/// Loads `moon_pa_de440` unless it is already in the registry. Panics as
+/// described on [`ensure_lunar_pck_loaded`].
+fn load_lunar_pck_if_absent() {
+    if crate::spice::kernel_is_loaded("moon_pa_de440") {
+        return;
+    }
+    crate::spice::load_spice_kernel("moon_pa_de440").unwrap_or_else(|e| {
+        panic!(
+            "Failed to auto-load lunar PCK 'moon_pa_de440': {}. \
+             Download it with brahe::datasets::naif::download_spice_kernel\
+             (SPICEKernel::MoonPaDe440, None) and call \
+             brahe::spice::load_spice_kernel(<path>).",
+            e
+        )
     });
 }
 
@@ -133,8 +157,7 @@ pub(crate) fn ensure_lunar_pck_loaded() {
 /// let r = rotation_lci_to_lfpa(epc);
 /// ```
 pub fn rotation_lci_to_lfpa(epc: Epoch) -> SMatrix3 {
-    ensure_lunar_pck_loaded();
-    crate::spice::pck_rotation_matrix(MOON_PA_FRAME_ID, epc)
+    with_lunar_pck(|| crate::spice::pck_rotation_matrix(MOON_PA_FRAME_ID, epc))
         .unwrap_or_else(|e| panic!("Lunar PCK orientation query failed: {}", e))
         .to_matrix()
 }
@@ -370,12 +393,14 @@ pub fn position_lfme_to_lci(epc: Epoch, x_lfme: Vector3<f64>) -> Vector3<f64> {
 /// // c.r_mat rotates LCI -> LFPA; c.omega_b is the LFPA angular velocity
 /// ```
 fn lfpa_context(epc: Epoch) -> RotatingFrameContext {
-    ensure_lunar_pck_loaded();
-    let (angles, rates) = crate::spice::pck_euler_angles(MOON_PA_FRAME_ID, epc)
-        .unwrap_or_else(|e| panic!("Lunar PCK orientation query failed: {}", e));
-    let r_mat = crate::spice::pck_rotation_matrix(MOON_PA_FRAME_ID, epc)
-        .unwrap_or_else(|e| panic!("Lunar PCK orientation query failed: {}", e))
-        .to_matrix();
+    let ((angles, rates), r_mat) = with_lunar_pck(|| {
+        Ok((
+            crate::spice::pck_euler_angles(MOON_PA_FRAME_ID, epc)?,
+            crate::spice::pck_rotation_matrix(MOON_PA_FRAME_ID, epc)?,
+        ))
+    })
+    .unwrap_or_else(|e| panic!("Lunar PCK orientation query failed: {}", e));
+    let r_mat = r_mat.to_matrix();
     let omega_b = euler313_omega_body(angles, rates);
     RotatingFrameContext { r_mat, omega_b }
 }
@@ -399,13 +424,12 @@ fn lfpa_context(epc: Epoch) -> RotatingFrameContext {
 /// // c.r_mat rotates LCI -> LFME; c.omega_b is the LFME angular velocity
 /// ```
 fn lfme_context(epc: Epoch) -> RotatingFrameContext {
-    ensure_lunar_pck_loaded();
-    let (angles, rates) = crate::spice::pck_euler_angles(MOON_PA_FRAME_ID, epc)
-        .unwrap_or_else(|e| panic!("Lunar PCK orientation query failed: {}", e));
+    let lfpa = lfpa_context(epc);
     let r_pa_to_me = rotation_lfpa_to_lfme();
-    let r_mat = r_pa_to_me * rotation_lci_to_lfpa(epc);
-    let omega_b = r_pa_to_me * euler313_omega_body(angles, rates);
-    RotatingFrameContext { r_mat, omega_b }
+    RotatingFrameContext {
+        r_mat: r_pa_to_me * lfpa.r_mat,
+        omega_b: r_pa_to_me * lfpa.omega_b,
+    }
 }
 
 /// Moon position relative to the Earth in ICRF axes.
@@ -1218,6 +1242,8 @@ pub fn states_lci_to_eci(
 #[cfg(test)]
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
+    use std::cell::Cell;
+
     use approx::assert_abs_diff_eq;
     use nalgebra::Vector3;
     use serial_test::{parallel, serial};
@@ -1228,7 +1254,7 @@ mod tests {
     use crate::spice::{load_spice_kernel, unload_spice_kernel};
     use crate::time::TimeSystem;
     use crate::utils::testing::{
-        CacheRedirect, setup_global_test_spice, synthetic_pck_kernel_bytes,
+        CacheRedirect, setup_global_test_spice, synthetic_pck_kernel_bytes, without_spice_kernels,
     };
 
     /// Epoch at ET ~500 s past J2000 TDB, inside the [0, 1000] coverage of the
@@ -1468,95 +1494,118 @@ mod tests {
     fn test_lunar_pck_transforms_offline() {
         // LFPA/LFME rotations and states auto-load the moon_pa_de440 PCK. Seed
         // a synthetic PCK (frame class 31008, ET coverage [0, 1000]) into a
-        // redirected cache so the auto-load path resolves offline. The real
-        // de440s stays resident throughout (never cleared); only the lunar PCK
-        // is unloaded/reloaded so a prior panicked run cannot poison us.
+        // redirected cache so the auto-load path resolves offline. The
+        // registry is emptied for the test and restored afterwards.
         setup_global_test_spice();
-        load_spice_kernel("de440s").unwrap();
-        let _ = unload_spice_kernel("moon_pa_de440");
-        {
-            let cache = CacheRedirect::new();
-            cache.seed_real_de440s();
-            cache.seed(
-                "moon_pa_de440_200625.bpc",
-                &synthetic_pck_kernel_bytes(MOON_PA_FRAME_ID),
-            );
+        without_spice_kernels(|| {
+            load_spice_kernel("de440s").unwrap();
+            {
+                let cache = CacheRedirect::new();
+                cache.seed_real_de440s();
+                cache.seed(
+                    "moon_pa_de440_200625.bpc",
+                    &synthetic_pck_kernel_bytes(MOON_PA_FRAME_ID),
+                );
 
-            let epc = epc_synth();
+                let epc = epc_synth();
 
-            // Auto-load path: `ensure_lunar_pck_loaded` is a OnceLock latch,
-            // so it only loads the kernel if no earlier test in this process
-            // fired it. Load explicitly afterwards so the test is
-            // deterministic regardless of latch state.
-            assert!(!crate::spice::kernel_is_loaded("moon_pa_de440"));
-            ensure_lunar_pck_loaded();
-            if !crate::spice::kernel_is_loaded("moon_pa_de440") {
-                load_spice_kernel("moon_pa_de440").unwrap();
-            }
-            let r_lci_lfpa = rotation_lci_to_lfpa(epc);
-            assert!(crate::spice::kernel_is_loaded("moon_pa_de440"));
+                // Auto-load path: `ensure_lunar_pck_loaded` loads the kernel from
+                // the redirected cache because it is absent from the registry.
+                assert!(!crate::spice::kernel_is_loaded("moon_pa_de440"));
+                ensure_lunar_pck_loaded();
+                assert!(crate::spice::kernel_is_loaded("moon_pa_de440"));
+                let r_lci_lfpa = rotation_lci_to_lfpa(epc);
+                assert!(crate::spice::kernel_is_loaded("moon_pa_de440"));
 
-            // rotation_lfpa_to_lci is the transpose of rotation_lci_to_lfpa.
-            let r_lfpa_lci = rotation_lfpa_to_lci(epc);
-            for i in 0..3 {
-                for j in 0..3 {
-                    assert_abs_diff_eq!(r_lfpa_lci[(i, j)], r_lci_lfpa[(j, i)], epsilon = 1e-15);
+                // rotation_lfpa_to_lci is the transpose of rotation_lci_to_lfpa.
+                let r_lfpa_lci = rotation_lfpa_to_lci(epc);
+                for i in 0..3 {
+                    for j in 0..3 {
+                        assert_abs_diff_eq!(
+                            r_lfpa_lci[(i, j)],
+                            r_lci_lfpa[(j, i)],
+                            epsilon = 1e-15
+                        );
+                    }
                 }
-            }
 
-            // rotation_lci_to_lfme = rotation_lfpa_to_lfme * rotation_lci_to_lfpa,
-            // and rotation_lfme_to_lci is its transpose.
-            let r_lci_lfme = rotation_lci_to_lfme(epc);
-            let expected_lfme = rotation_lfpa_to_lfme() * r_lci_lfpa;
-            for i in 0..3 {
-                for j in 0..3 {
-                    assert_abs_diff_eq!(r_lci_lfme[(i, j)], expected_lfme[(i, j)], epsilon = 1e-15);
+                // rotation_lci_to_lfme = rotation_lfpa_to_lfme * rotation_lci_to_lfpa,
+                // and rotation_lfme_to_lci is its transpose.
+                let r_lci_lfme = rotation_lci_to_lfme(epc);
+                let expected_lfme = rotation_lfpa_to_lfme() * r_lci_lfpa;
+                for i in 0..3 {
+                    for j in 0..3 {
+                        assert_abs_diff_eq!(
+                            r_lci_lfme[(i, j)],
+                            expected_lfme[(i, j)],
+                            epsilon = 1e-15
+                        );
+                    }
                 }
-            }
-            let r_lfme_lci = rotation_lfme_to_lci(epc);
-            for i in 0..3 {
-                for j in 0..3 {
-                    assert_abs_diff_eq!(r_lfme_lci[(i, j)], r_lci_lfme[(j, i)], epsilon = 1e-15);
+                let r_lfme_lci = rotation_lfme_to_lci(epc);
+                for i in 0..3 {
+                    for j in 0..3 {
+                        assert_abs_diff_eq!(
+                            r_lfme_lci[(i, j)],
+                            r_lci_lfme[(j, i)],
+                            epsilon = 1e-15
+                        );
+                    }
                 }
-            }
 
-            // Position round trips (LCI <-> LFPA, LCI <-> LFME).
-            let p_lci = Vector3::new(R_MOON + 100e3, 1e5, 2e5);
-            let p_lfpa = position_lci_to_lfpa(epc, p_lci);
-            let p_lci_back = position_lfpa_to_lci(epc, p_lfpa);
-            for i in 0..3 {
-                assert_abs_diff_eq!(p_lci_back[i], p_lci[i], epsilon = 1e-6);
-            }
-            let p_lfme = position_lci_to_lfme(epc, p_lci);
-            let p_lci_back2 = position_lfme_to_lci(epc, p_lfme);
-            for i in 0..3 {
-                assert_abs_diff_eq!(p_lci_back2[i], p_lci[i], epsilon = 1e-6);
-            }
+                // Position round trips (LCI <-> LFPA, LCI <-> LFME).
+                let p_lci = Vector3::new(R_MOON + 100e3, 1e5, 2e5);
+                let p_lfpa = position_lci_to_lfpa(epc, p_lci);
+                let p_lci_back = position_lfpa_to_lci(epc, p_lfpa);
+                for i in 0..3 {
+                    assert_abs_diff_eq!(p_lci_back[i], p_lci[i], epsilon = 1e-6);
+                }
+                let p_lfme = position_lci_to_lfme(epc, p_lci);
+                let p_lci_back2 = position_lfme_to_lci(epc, p_lfme);
+                for i in 0..3 {
+                    assert_abs_diff_eq!(p_lci_back2[i], p_lci[i], epsilon = 1e-6);
+                }
 
-            // State round trips exercise the velocity transport terms.
-            let x_lci = vector6_from_array([R_MOON + 100e3, 1e5, 2e5, 0.0, 1.6e3, 0.0]);
-            let x_lfpa = state_lci_to_lfpa(epc, x_lci);
-            let x_lci_back = state_lfpa_to_lci(epc, x_lfpa);
-            for i in 0..6 {
-                assert_abs_diff_eq!(x_lci_back[i], x_lci[i], epsilon = 1e-6);
-            }
-            let x_lfme = state_lci_to_lfme(epc, x_lci);
-            let x_lci_back2 = state_lfme_to_lci(epc, x_lfme);
-            for i in 0..6 {
-                assert_abs_diff_eq!(x_lci_back2[i], x_lci[i], epsilon = 1e-6);
-            }
+                // State round trips exercise the velocity transport terms.
+                let x_lci = vector6_from_array([R_MOON + 100e3, 1e5, 2e5, 0.0, 1.6e3, 0.0]);
+                let x_lfpa = state_lci_to_lfpa(epc, x_lci);
+                let x_lci_back = state_lfpa_to_lci(epc, x_lfpa);
+                for i in 0..6 {
+                    assert_abs_diff_eq!(x_lci_back[i], x_lci[i], epsilon = 1e-6);
+                }
+                let x_lfme = state_lci_to_lfme(epc, x_lci);
+                let x_lci_back2 = state_lfme_to_lci(epc, x_lfme);
+                for i in 0..6 {
+                    assert_abs_diff_eq!(x_lci_back2[i], x_lci[i], epsilon = 1e-6);
+                }
 
-            // ensure_lunar_pck_loaded is idempotent: a second call while loaded
-            // is a no-op (does not error).
-            ensure_lunar_pck_loaded();
+                // ensure_lunar_pck_loaded is idempotent: a second call while loaded
+                // is a no-op (does not error).
+                ensure_lunar_pck_loaded();
 
-            unload_spice_kernel("moon_pa_de440").unwrap();
-        }
-        // The latch is now set but the kernel was just unloaded, so later
-        // latch-relying tests would see it missing. Best-effort restore of
-        // the real PCK (real cache; tolerated failure keeps this test
-        // offline-safe when nothing later needs the kernel).
-        let _ = load_spice_kernel("moon_pa_de440");
+                // An unloaded kernel is loaded again on the next call.
+                unload_spice_kernel("moon_pa_de440").unwrap();
+                ensure_lunar_pck_loaded();
+                assert!(crate::spice::kernel_is_loaded("moon_pa_de440"));
+
+                // A kernel unloaded between the presence check and the query
+                // is reloaded and the query retried.
+                let attempts = Cell::new(0);
+                let r_retry = with_lunar_pck(|| {
+                    attempts.set(attempts.get() + 1);
+                    if attempts.get() == 1 {
+                        unload_spice_kernel("moon_pa_de440").unwrap();
+                    }
+                    crate::spice::pck_rotation_matrix(MOON_PA_FRAME_ID, epc)
+                })
+                .unwrap()
+                .to_matrix();
+                assert_eq!(attempts.get(), 2);
+                assert_eq!(r_retry, r_lci_lfpa);
+
+                unload_spice_kernel("moon_pa_de440").unwrap();
+            }
+        });
     }
 
     #[test]

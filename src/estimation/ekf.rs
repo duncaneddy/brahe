@@ -1134,7 +1134,6 @@ impl ExtendedKalmanFilterBuilder {
 mod tests {
     use super::*;
     use crate::constants::physical::GM_EARTH;
-    use crate::eop::{EOPExtrapolation, FileEOPProvider, set_global_eop_provider};
     use crate::estimation::{
         EKFConfig, InertialPositionMeasurementModel, InertialStateMeasurementModel,
         ProcessNoiseConfig,
@@ -1144,13 +1143,9 @@ mod tests {
     use crate::propagators::force_model_config::ForceModelConfig;
     use crate::propagators::traits::DStatePropagator;
     use crate::time::TimeSystem;
+    use crate::utils::testing::setup_global_test_eop;
     use approx::assert_abs_diff_eq;
     use serial_test::{parallel, serial};
-
-    fn setup_global_test_eop() {
-        let eop = FileEOPProvider::from_default_standard(true, EOPExtrapolation::Hold).unwrap();
-        set_global_eop_provider(eop);
-    }
 
     // =========================================================================
     // Test helpers — two-body point-mass scenario (exact dynamics)

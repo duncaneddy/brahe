@@ -524,6 +524,37 @@ def test_from_unix_timestamp(eop):
     assert epc.unix_timestamp() == pytest.approx(ts, abs=1e-3)
 
 
+def test_from_unix_timestamp_afternoon_normalizes_seconds(eop):
+    # 2024-01-01 15:30:00 UTC. Unix midnight falls half way through a Julian
+    # day, so an afternoon timestamp must carry into the next internal day.
+    epc = bh.Epoch.from_unix_timestamp(1704123000.0)
+    expected = bh.Epoch.from_datetime(2024, 1, 1, 15, 30, 0.0, 0.0, bh.UTC)
+
+    assert repr(epc) == repr(expected)
+    assert epc == expected
+
+    # An epoch one second earlier must compare as earlier
+    assert expected - 1.0 < epc
+
+
+def test_from_gps_afternoon_normalizes_seconds(eop):
+    # 2024-01-07 15:30:00 GPS: GPS week 2296, 55800 s into the week. GPS weeks
+    # start at midnight, half way through a Julian day.
+    expected = bh.Epoch.from_datetime(2024, 1, 7, 15, 30, 0.0, 0.0, bh.GPS)
+    sow = 15.0 * 3600.0 + 30.0 * 60.0
+    gps_seconds = 2296.0 * 7.0 * 86400.0 + sow
+
+    epochs = [
+        bh.Epoch.from_gps_date(2296, sow),
+        bh.Epoch.from_gps_seconds(gps_seconds),
+        bh.Epoch.from_gps_nanoseconds(int(gps_seconds) * 1_000_000_000),
+    ]
+
+    for epc in epochs:
+        assert repr(epc) == repr(expected)
+        assert epc == expected
+
+
 def test_isostring(eop):
     # Confirm Before the leap second
     epc = bh.Epoch.from_datetime(2016, 12, 31, 23, 59, 59.0, 0.0, bh.UTC)

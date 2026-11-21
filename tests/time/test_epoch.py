@@ -555,6 +555,51 @@ def test_from_gps_afternoon_normalizes_seconds(eop):
         assert epc == expected
 
 
+@pytest.mark.parametrize(
+    "timestamp, expected",
+    [
+        (-3600.0, (1969, 12, 31, 23, 0, 0.0, 0.0)),
+        (-0.25, (1969, 12, 31, 23, 59, 59.0, 750_000_000.0)),
+        (-86400.0, (1969, 12, 31, 0, 0, 0.0, 0.0)),
+        (-90000.0, (1969, 12, 30, 23, 0, 0.0, 0.0)),
+    ],
+)
+def test_from_unix_timestamp_negative(eop, timestamp, expected):
+    epc = bh.Epoch.from_unix_timestamp(timestamp)
+    year, month, day, hour, minute, second, nanosecond = epc.to_datetime()
+
+    assert (year, month, day, hour, minute) == expected[:5]
+    assert second == expected[5]
+    assert nanosecond == pytest.approx(expected[6], abs=1.0)
+    assert epc.unix_timestamp() == pytest.approx(timestamp, abs=1e-3)
+
+
+def test_from_gps_negative_seconds(eop):
+    # 1980-01-05 23:00:00 GPS, one hour before the GPS epoch
+    expected = bh.Epoch.from_datetime(1980, 1, 5, 23, 0, 0.0, 0.0, bh.GPS)
+
+    epochs = [
+        bh.Epoch.from_gps_date(0, -3600.0),
+        bh.Epoch.from_gps_seconds(-3600.0),
+    ]
+
+    for epc in epochs:
+        assert epc == expected
+
+
+@pytest.mark.parametrize(
+    "gps_nanoseconds",
+    [1, 500_000_000, 999_999_999, 1_000_000_000, 1_500_000_000],
+)
+def test_from_gps_nanoseconds_subsecond(eop, gps_nanoseconds):
+    epc = bh.Epoch.from_gps_nanoseconds(gps_nanoseconds)
+    expected = bh.Epoch.from_datetime(
+        1980, 1, 6, 0, 0, 0.0, float(gps_nanoseconds), bh.GPS
+    )
+
+    assert epc == expected
+
+
 def test_isostring(eop):
     # Confirm Before the leap second
     epc = bh.Epoch.from_datetime(2016, 12, 31, 23, 59, 59.0, 0.0, bh.UTC)

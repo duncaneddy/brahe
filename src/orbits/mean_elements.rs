@@ -432,11 +432,20 @@ fn convert_pairs_out(
 ///   [-π, π]. f comes from atan2, in (-π, π], while M is used as given, so the plain
 ///   difference is off by a multiple of 2π whenever M is outside (-π, π], for example for M in
 ///   (π, 2π).
+/// - The long-period terms of (F.11), (F.12) and (F.13) are multiplied by sin(2ω), which the
+///   printed 4th edition omits. The book's errata list corrects this (Ref. 2, entries for
+///   p. 885 of the book), and Izzo et al. note it as well (Ref. 3).
 ///
 /// # References
 ///
 /// 1. H. Schaub and J. L. Junkins, "Analytical Mechanics of Space Systems," 4th ed., AIAA
 ///    Education Series, AIAA, Reston, VA, 2018, Appendix F, Equations F.1-F.22.
+/// 2. H. Schaub and J. L. Junkins, "Errata List and New Additions for the AIAA Education Series
+///    Text Book 'Analytical Mechanics of Space Systems', 4th Edition," version of April 28,
+///    2026, entries for p. 885 (Eqs. F.11-F.13). <https://hanspeterschaub.info/Papers/errata5.pdf>
+/// 3. P. Izzo, L. Dell'Elce, P. Gurfil, and A. J. Rosengren, "Nonsingular vectorial
+///    reformulation of the short-period corrections in Kozai's oblateness solution," Celestial
+///    Mechanics and Dynamical Astronomy, Vol. 134, No. 2, 2022, Article 12.
 fn transform_koe(oe: &SVector<f64, 6>, direction: TransformDirection) -> SVector<f64, 6> {
     // Extract orbital elements: [a, e, i, Ω, ω, M]
     let a = oe[0]; // Semi-major axis (m)
@@ -509,6 +518,7 @@ fn transform_koe(oe: &SVector<f64, 6>, direction: TransformDirection) -> SVector
     // Combined angle terms: 2ω, 2ω + f, 2ω + 2f, 2ω + 3f
     let two_argp = 2.0 * argp;
     let cos_2argp = two_argp.cos();
+    let sin_2argp = two_argp.sin();
     let cos_2argp_f = (two_argp + f).cos();
     let sin_2argp_f = (two_argp + f).sin();
     let cos_2argp_2f = (two_argp + 2.0 * f).cos();
@@ -592,19 +602,27 @@ fn transform_koe(oe: &SVector<f64, 6>, direction: TransformDirection) -> SVector
     // This is the most complex expression in the algorithm
     // =========================================================================
 
-    // Line 1: M + ω + Ω + (γ'₂/8)η³(1 - 11cos²i - 40cos⁴i/(1-5cos²i))
+    // The long-period terms (the γ'₂ part of line 1, lines 2 and 4 here, and the first lines of
+    // (F.12) and (F.13)) carry the factor sin(2ω), which the printed 4th edition omits (Ref. 2,
+    // entries for p. 885).
+
+    // Line 1: M + ω + Ω + (γ'₂/8)η³(1 - 11cos²i - 40cos⁴i/(1-5cos²i))sin(2ω)
     let mpo_line1 = m_anom
         + argp
         + raan
-        + (gamma2_prime / 8.0) * eta3 * (1.0 - 11.0 * cos2_i - 40.0 * cos4_i / one_minus_5cos2_i);
+        + (gamma2_prime / 8.0)
+            * eta3
+            * (1.0 - 11.0 * cos2_i - 40.0 * cos4_i / one_minus_5cos2_i)
+            * sin_2argp;
 
     // Line 2: -(γ'₂/16)(2 + e² - 11(2 + 3e²)cos²i
-    //         - 40(2 + 5e²)cos⁴i/(1-5cos²i) - 400e²cos⁶i/(1-5cos²i)²)
+    //         - 40(2 + 5e²)cos⁴i/(1-5cos²i) - 400e²cos⁶i/(1-5cos²i)²)sin(2ω)
     let mpo_line2 = -(gamma2_prime / 16.0)
         * (2.0 + e * e
             - 11.0 * (2.0 + 3.0 * e * e) * cos2_i
             - 40.0 * (2.0 + 5.0 * e * e) * cos4_i / one_minus_5cos2_i
-            - 400.0 * e * e * cos6_i / one_minus_5cos2_i_sq);
+            - 400.0 * e * e * cos6_i / one_minus_5cos2_i_sq)
+        * sin_2argp;
 
     // Line 3: +(γ'₂/4)(-6(1 - 5cos²i)(f - M + e·sin(f))
     //         + (3 - 5cos²i)(3sin(2ω + 2f) + 3e·sin(2ω + f) + e·sin(2ω + 3f)))
@@ -613,12 +631,13 @@ fn transform_koe(oe: &SVector<f64, 6>, direction: TransformDirection) -> SVector
             + (3.0 - 5.0 * cos2_i)
                 * (3.0 * sin_2argp_2f + 3.0 * e * sin_2argp_f + e * sin_2argp_3f));
 
-    // Line 4: -(γ'₂/8)e²cos(i)(11 + 80cos²i/(1-5cos²i) + 200cos⁴i/(1-5cos²i)²)
+    // Line 4: -(γ'₂/8)e²cos(i)(11 + 80cos²i/(1-5cos²i) + 200cos⁴i/(1-5cos²i)²)sin(2ω)
     let mpo_line4 = -(gamma2_prime / 8.0)
         * e
         * e
         * cos_i
-        * (11.0 + 80.0 * cos2_i / one_minus_5cos2_i + 200.0 * cos4_i / one_minus_5cos2_i_sq);
+        * (11.0 + 80.0 * cos2_i / one_minus_5cos2_i + 200.0 * cos4_i / one_minus_5cos2_i_sq)
+        * sin_2argp;
 
     // Line 5: -(γ'₂/2)cos(i)(6(f - M + e·sin(f)) - 3sin(2ω + 2f) - 3e·sin(2ω + f) - e·sin(2ω + 3f))
     let mpo_line5 = -(gamma2_prime / 2.0)
@@ -633,7 +652,7 @@ fn transform_koe(oe: &SVector<f64, 6>, direction: TransformDirection) -> SVector
 
     // =========================================================================
     // (F.12) e·δM term
-    // (eδM) = (γ'₂/8)eη³(1 - 11cos²i - 40cos⁴i/(1-5cos²i))
+    // (eδM) = (γ'₂/8)eη³(1 - 11cos²i - 40cos⁴i/(1-5cos²i))sin(2ω)
     //       - (γ'₂/4)η³{2(3cos²i - 1)((aη/r)² + a/r + 1)sin(f)
     //       + 3(1 - cos²i)[(-(aη/r)² - a/r + 1)sin(2ω + f)
     //                    + ((aη/r)² + a/r + 1/3)sin(2ω + 3f)]}
@@ -643,8 +662,11 @@ fn transform_koe(oe: &SVector<f64, 6>, direction: TransformDirection) -> SVector
     let aeta_over_r_sq = aeta_over_r * aeta_over_r;
 
     // First line
-    let edm_line1 =
-        (gamma2_prime / 8.0) * e * eta3 * (1.0 - 11.0 * cos2_i - 40.0 * cos4_i / one_minus_5cos2_i);
+    let edm_line1 = (gamma2_prime / 8.0)
+        * e
+        * eta3
+        * (1.0 - 11.0 * cos2_i - 40.0 * cos4_i / one_minus_5cos2_i)
+        * sin_2argp;
 
     // Second line (the curly braces part)
     let edm_term1 = 2.0 * (3.0 * cos2_i - 1.0) * (aeta_over_r_sq + a_over_r + 1.0) * sin_f;
@@ -658,7 +680,7 @@ fn transform_koe(oe: &SVector<f64, 6>, direction: TransformDirection) -> SVector
 
     // =========================================================================
     // (F.13) δΩ - RAAN perturbation
-    // δΩ = -(γ'₂/8)e²cos(i)(11 + 80cos²i/(1-5cos²i) + 200cos⁴i/(1-5cos²i)²)
+    // δΩ = -(γ'₂/8)e²cos(i)(11 + 80cos²i/(1-5cos²i) + 200cos⁴i/(1-5cos²i)²)sin(2ω)
     //    - (γ'₂/2)cos(i)(6(f - M + e·sin(f)) - 3sin(2ω + 2f)
     //                    - 3e·sin(2ω + f) - e·sin(2ω + 3f))
     // =========================================================================
@@ -668,7 +690,8 @@ fn transform_koe(oe: &SVector<f64, 6>, direction: TransformDirection) -> SVector
         * e
         * e
         * cos_i
-        * (11.0 + 80.0 * cos2_i / one_minus_5cos2_i + 200.0 * cos4_i / one_minus_5cos2_i_sq);
+        * (11.0 + 80.0 * cos2_i / one_minus_5cos2_i + 200.0 * cos4_i / one_minus_5cos2_i_sq)
+        * sin_2argp;
 
     // Second line
     let do_line2 = -(gamma2_prime / 2.0)
@@ -1411,6 +1434,40 @@ mod tests {
                         "M and M +- 2pi differ: {d1}, {d2} m"
                     );
                 }
+            }
+        }
+    }
+
+    #[test]
+    #[parallel]
+    fn test_brouwer_lyddane_reflection_symmetry() {
+        // (Ω, ω, M) -> (-Ω, -ω, -M) maps the osculating angles to their negatives: the angle
+        // corrections are odd in the angles. Without sin(2ω) on the long-period terms this fails.
+        let wrap = |x: f64| (x + PI).rem_euclid(2.0 * PI) - PI;
+        for &(a, e, i, raan, argp, m) in &[
+            (20000e3, 0.5, 30.0_f64, 0.3, 1.1, 2.0),
+            (7000e3, 0.01, 51.6, 2.0, 0.4, 5.0),
+            (26600e3, 0.74, 55.0, 1.0, 4.5, 3.5),
+        ] {
+            let p = bl_m2o(&SVector::<f64, 6>::new(a, e, i.to_radians(), raan, argp, m));
+            let q = bl_m2o(&SVector::<f64, 6>::new(
+                a,
+                e,
+                i.to_radians(),
+                -raan,
+                -argp,
+                -m,
+            ));
+            assert_abs_diff_eq!(p[0], q[0], epsilon = 1e-6);
+            assert_abs_diff_eq!(p[1], q[1], epsilon = 1e-14);
+            assert_abs_diff_eq!(p[2], q[2], epsilon = 1e-14);
+            for k in 3..6 {
+                assert!(
+                    wrap(p[k] + q[k]).abs() < 1e-12,
+                    "element {k}: {} {}",
+                    p[k],
+                    q[k]
+                );
             }
         }
     }

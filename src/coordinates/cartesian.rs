@@ -40,9 +40,9 @@ use crate::utils::batch::{batch_map, try_batch_map};
 ///
 /// # Panics
 /// Panics if Kepler's equation fails to converge for the given mean anomaly
-/// and eccentricity, which can only occur for near-parabolic eccentricities
-/// (e approaching 1). Use `anomaly_mean_to_eccentric` directly to handle
-/// non-convergence as an error.
+/// and eccentricity. This is not expected for finite elements with 0 ≤ e < 1;
+/// eccentricities outside [0, 1) are not supported. Use
+/// `anomaly_mean_to_eccentric` directly to handle non-convergence as an error.
 ///
 /// # Examples
 /// ```
@@ -76,8 +76,8 @@ pub fn state_koe_to_eci(x_oe: SVector6, angle_format: AngleFormat) -> SVector6 {
 
     let E = orbits::anomaly_mean_to_eccentric(M, e, AngleFormat::Radians).unwrap_or_else(|err| {
         panic!(
-            "Kepler's equation failed to converge for M={} rad, e={} ({}); near-parabolic \
-             eccentricities are not supported by this conversion",
+            "Kepler's equation failed to converge for M={} rad, e={} ({}); eccentricities \
+             outside [0, 1) are not supported by this conversion",
             M, e, err
         )
     });
@@ -148,8 +148,8 @@ pub(crate) fn state_koe_to_inertial_gm(
 
     let E = orbits::anomaly_mean_to_eccentric(M, e, AngleFormat::Radians).unwrap_or_else(|err| {
         panic!(
-            "Kepler's equation failed to converge for M={} rad, e={} ({}); near-parabolic \
-             eccentricities are not supported by this conversion",
+            "Kepler's equation failed to converge for M={} rad, e={} ({}); eccentricities \
+             outside [0, 1) are not supported by this conversion",
             M, e, err
         )
     });

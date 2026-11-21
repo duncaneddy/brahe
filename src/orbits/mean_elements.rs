@@ -464,8 +464,8 @@ fn transform_koe(oe: &SVector<f64, 6>, direction: TransformDirection) -> SVector
     // (F.4) Solve Kepler's equation: M = E - e·sin(E) for eccentric anomaly E
     let e_anom = anomaly_mean_to_eccentric(m_anom, e, AngleFormat::Radians).unwrap_or_else(|err| {
         panic!(
-            "Kepler's equation failed to converge for M={} rad, e={} ({}); near-parabolic \
-                 eccentricities are not supported by Brouwer-Lyddane mean element conversion",
+            "Kepler's equation failed to converge for M={} rad, e={} ({}); eccentricities \
+                 outside [0, 1) are not supported by Brouwer-Lyddane mean element conversion",
             m_anom, e, err
         )
     });

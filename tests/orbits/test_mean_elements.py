@@ -13,6 +13,33 @@ import brahe
 BROUWER_LYDDANE = brahe.MeanElementMethod.BROUWER_LYDDANE
 
 
+# Helpers for the Brouwer-Lyddane regression tests of issue #651 (radians throughout)
+def _bl_position(x):
+    """ECI position (m) of the Keplerian state x."""
+    return brahe.state_koe_to_eci(
+        np.asarray(x, dtype=float), brahe.AngleFormat.RADIANS
+    )[:3]
+
+
+def _bl_m2o(x):
+    return brahe.state_koe_mean_to_osc(
+        np.asarray(x, dtype=float), BROUWER_LYDDANE, brahe.AngleFormat.RADIANS
+    )
+
+
+def _bl_o2m(x):
+    return brahe.state_koe_osc_to_mean(
+        np.asarray(x, dtype=float), BROUWER_LYDDANE, brahe.AngleFormat.RADIANS
+    )
+
+
+def _bl_position_at(f, x, m):
+    """Position after the map f of the state x with its mean anomaly set to m."""
+    y = np.array(x, dtype=float)
+    y[5] = m
+    return _bl_position(f(y))
+
+
 class TestMeanOsculatingConversions:
     """Tests for mean-osculating Keplerian element conversions."""
 
@@ -398,6 +425,25 @@ class TestMeanOsculatingConversions:
             brahe.WindowEdgeHandling.TRUNCATE
             != brahe.WindowEdgeHandling.PRESERVE_WINDOW
         )
+
+    def test_brouwer_lyddane_continuous_in_mean_anomaly(self):
+        """No jump across M = π; M and M ± 2π agree, in both directions (issue #651)."""
+        # Before f - M was wrapped, M in (π, 2π) gave errors of 6.5-133 km in position.
+        for a, e, i in [(6878e3, 0.01, 45.0), (24400e3, 0.73, 7.0)]:
+            x = np.array([a, e, np.radians(i), 0.3, 1.1, 0.0])
+            for f in (_bl_m2o, _bl_o2m):
+                jump = np.linalg.norm(
+                    _bl_position_at(f, x, np.pi - 1e-9)
+                    - _bl_position_at(f, x, np.pi + 1e-9)
+                )
+                assert jump < 1.0, f"jump across M = pi: {jump} m"
+                for m in [1.0, 4.0, 5.5]:
+                    p = _bl_position_at(f, x, m)
+                    d1 = np.linalg.norm(p - _bl_position_at(f, x, m + 2.0 * np.pi))
+                    d2 = np.linalg.norm(p - _bl_position_at(f, x, m - 2.0 * np.pi))
+                    assert d1 < 1e-3 and d2 < 1e-3, (
+                        f"M and M +- 2pi differ: {d1}, {d2} m"
+                    )
 
 
 class TestBatchMeanOsculatingConversions:

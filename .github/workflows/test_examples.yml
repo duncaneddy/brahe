@@ -331,18 +331,18 @@ jobs:
       # second each, and at roughly 10 MB apiece the several hundred of them
       # outweigh the shared dependency build several times over. Each example
       # is a cargo package named `examples__<path>_<hash>`, so its artifacts
-      # are the top-level executable, the `deps/` executable and dep-info
-      # cargo links from, and its `.fingerprint/` directory. The shared
-      # dependency build is what is worth carrying between runs.
+      # are the top-level executable and dep-info, and its build directory
+      # `build/examples__<path>_<hash>/`, which holds the linked executable
+      # and its fingerprint. The shared dependency build is what is worth
+      # carrying between runs.
       - name: Prune per-example binaries from the rust-script cache
         if: github.ref == 'refs/heads/main'
         run: |
           release=~/.cache/rust-script/binaries/release
           [ -d "$release" ] || exit 0
           find "$release" -maxdepth 1 -type f -delete
-          find "$release/deps" -maxdepth 1 -type f -name 'examples__*' -delete
-          find "$release/.fingerprint" -maxdepth 1 -type d -name 'examples__*' \
-            -exec rm -rf {} + 2>/dev/null || true
+          find "$release/build" -mindepth 1 -maxdepth 1 -type d \
+            -name 'examples__*' -exec rm -rf {} +
           rm -rf ~/.cache/rust-script/projects
           du -sh ~/.cache/rust-script
 

@@ -13,7 +13,7 @@
  * # References
  *
  * 1. Brouwer, D., "Solution of the Problem of Artificial Satellite Theory Without Drag,"
- *    Astronautical Journal, Vol. 64, No. 1274, 1959, pp. 378-397.
+ *    Astronomical Journal, Vol. 64, No. 1274, 1959, pp. 378-396.
  * 2. Lyddane, R. H., "Small Eccentricities or Inclinations in the Brouwer Theory of the
  *    Artificial Satellite," Astronomical Journal, Vol. 68, No. 8, 1963, pp. 555-558.
  */
@@ -132,6 +132,13 @@ enum TransformDirection {
 /// first-order truncation of the infinite series. Small errors of order J₂²
 /// are expected.
 ///
+/// The Brouwer-Lyddane method differs from a literal transcription of Appendix F
+/// of Ref. 1 (4th edition) in three points (see
+/// <https://github.com/duncaneddy/brahe/issues/651>): f - M (true minus mean
+/// anomaly) is wrapped to [-π, π], so that it is the equation of the centre for
+/// any M; the long-period terms carry the factor sin(2ω) of the book's errata;
+/// and the short-period term Δz, which (F.11) omits, is included.
+///
 /// # Example
 ///
 /// ```
@@ -213,6 +220,13 @@ pub fn state_koe_osc_to_mean(
 /// The forward and inverse transformations are not perfectly inverse due to
 /// first-order truncation of the infinite series. Small errors of order J₂²
 /// are expected.
+///
+/// The Brouwer-Lyddane method differs from a literal transcription of Appendix F
+/// of Ref. 1 (4th edition) in three points (see
+/// <https://github.com/duncaneddy/brahe/issues/651>): f - M (true minus mean
+/// anomaly) is wrapped to [-π, π], so that it is the equation of the centre for
+/// any M; the long-period terms carry the factor sin(2ω) of the book's errata;
+/// and the short-period term Δz, which (F.11) omits, is included.
 ///
 /// # Example
 ///
@@ -435,6 +449,16 @@ fn convert_pairs_out(
 /// - The long-period terms of (F.11), (F.12) and (F.13) are multiplied by sin(2ω), which the
 ///   printed 4th edition omits. The book's errata list corrects this (Ref. 2, entries for
 ///   p. 885 of the book), and Izzo et al. note it as well (Ref. 3).
+/// - (F.11) is extended by the short-period term Δz = -e/(η(1+η))·(eδM)_sp, where (eδM)_sp is
+///   the short-period part of (F.12). It is part of the Poisson bracket of M + ω + Ω (Lyddane's
+///   variable, Ref. 5) with Brouwer's short-period generating function (Ref. 4). Written in
+///   terms of e, that function enters the brackets of M and ω through ∂e/∂L = η²/(eL) and
+///   ∂e/∂G = -η/(eL), with L = √(μa) and G = ηL. In the sum their 1/e parts cancel, and the
+///   O(e) remainder that survives is Δz. The term is absent from (F.11) of the 4th edition and
+///   from its errata list (Ref. 2). GMAT includes it
+///   (StateConversionUtil::BrouwerMeanShortToOsculatingElements), and so does PATRIUS
+///   (AbstractLyddanePropagator). It is derived in Section 6 of the note attached to brahe
+///   issue #651 (Ref. 6).
 ///
 /// # References
 ///
@@ -446,6 +470,11 @@ fn convert_pairs_out(
 /// 3. P. Izzo, L. Dell'Elce, P. Gurfil, and A. J. Rosengren, "Nonsingular vectorial
 ///    reformulation of the short-period corrections in Kozai's oblateness solution," Celestial
 ///    Mechanics and Dynamical Astronomy, Vol. 134, No. 2, 2022, Article 12.
+/// 4. D. Brouwer, "Solution of the Problem of Artificial Satellite Theory Without Drag,"
+///    Astronomical Journal, Vol. 64, No. 1274, 1959, pp. 378-396.
+/// 5. R. H. Lyddane, "Small Eccentricities or Inclinations in the Brouwer Theory of the
+///    Artificial Satellite," Astronomical Journal, Vol. 68, No. 8, 1963, pp. 555-558.
+/// 6. <https://github.com/duncaneddy/brahe/issues/651>
 fn transform_koe(oe: &SVector<f64, 6>, direction: TransformDirection) -> SVector<f64, 6> {
     // Extract orbital elements: [a, e, i, Ω, ω, M]
     let a = oe[0]; // Semi-major axis (m)
@@ -647,8 +676,18 @@ fn transform_koe(oe: &SVector<f64, 6>, direction: TransformDirection) -> SVector
             - 3.0 * e * sin_2argp_f
             - e * sin_2argp_3f);
 
+    // Short-period term missing from (F.11): Δz = -e/(η(1+η))·(eδM)_sp, where (eδM)_sp is the
+    // short-period part of (F.12), its second term. It comes from the Poisson bracket of
+    // M + ω + Ω with Brouwer's short-period generating function (see the docstring). Written out,
+    // Δz = (γ'₂/4)·η²e/(1+η)·{3(1 - cos²i)[(1/3 + w)sin(2ω + 3f) + (1 - w)sin(2ω + f)]
+    //                          + 2(3cos²i - 1)(1 + w)sin(f)},   w = (aη/r)² + a/r
+    let w_dz = a_over_r * a_over_r * eta2 + a_over_r;
+    let delta_z = (gamma2_prime / 4.0) * eta2 * e / (1.0 + eta)
+        * (3.0 * (1.0 - cos2_i) * ((1.0 / 3.0 + w_dz) * sin_2argp_3f + (1.0 - w_dz) * sin_2argp_f)
+            + 2.0 * (3.0 * cos2_i - 1.0) * (1.0 + w_dz) * sin_f);
+
     let m_prime_plus_argp_prime_plus_raan_prime =
-        mpo_line1 + mpo_line2 + mpo_line3 + mpo_line4 + mpo_line5;
+        mpo_line1 + mpo_line2 + mpo_line3 + mpo_line4 + mpo_line5 + delta_z;
 
     // =========================================================================
     // (F.12) e·δM term
@@ -1469,6 +1508,80 @@ mod tests {
                     q[k]
                 );
             }
+        }
+    }
+
+    #[test]
+    #[parallel]
+    fn test_brouwer_lyddane_reference_values() {
+        // Osculating elements for the given mean elements, from an implementation of the
+        // first-order Brouwer-Lyddane theory in Lyddane's form that shares no code with
+        // Appendix F: checks/bl_numpy.py in brahe_note_v01-01.zip, attached to issue #651
+        // (transcribed from Orekit's Brouwer-Lyddane model, with the five coefficient
+        // corrections described in the note). bl_coeffs(a [km], e, i [rad], mu=398600.4415,
+        // re=6378.1363, j2=1.0826261738522227e-3, j3=0, j4=0, j5=0, t2='brouwer') and
+        // bl_mean_to_osc(c, M, ω, Ω) give these values up to the unit of a (km) and multiples
+        // of 2π in ω and M (J2 only, brahe's constants, raw 1/(1-5cos²i) divisor).
+        // transform_koe matches them only with all three Brouwer-Lyddane fixes of issue #651;
+        // without Δz the four cases differ from them by 234 m, 491 m, 30 m and 200 m.
+        let cases: [([f64; 6], [f64; 6]); 4] = [
+            (
+                [20000e3, 0.5, 30.0, 0.3, 1.1, 2.0],
+                [
+                    19998539.33168174,
+                    0.4999279260267584,
+                    0.5236187614636613,
+                    0.29980626886616657,
+                    1.100405394932448,
+                    1.9999500747462153,
+                ],
+            ),
+            (
+                [24400e3, 0.73, 7.0, 0.3, 1.1, 4.0],
+                [
+                    24394864.980987035,
+                    0.7299326666307553,
+                    0.12217310046038117,
+                    0.3003579001320915,
+                    1.0992054355320988,
+                    4.000026806982839,
+                ],
+            ),
+            (
+                [6878e3, 0.01, 45.0, 0.3, 1.1, 5.0],
+                [
+                    6882463.7828287,
+                    0.010189342225144183,
+                    0.7857211705723803,
+                    0.29983628864092415,
+                    1.0133148280359503,
+                    5.086582457941022,
+                ],
+            ),
+            (
+                [26600e3, 0.74, 55.0, 1.0, 4.5, 3.5],
+                [
+                    26599719.573707044,
+                    0.739975497670429,
+                    0.9599554619459719,
+                    1.0000291914244295,
+                    4.499922358360095,
+                    3.5000187001711276,
+                ],
+            ),
+        ];
+        for (mean, osc_ref) in cases.iter() {
+            let x = SVector::<f64, 6>::new(
+                mean[0],
+                mean[1],
+                mean[2].to_radians(),
+                mean[3],
+                mean[4],
+                mean[5],
+            );
+            let r = SVector::<f64, 6>::from_column_slice(osc_ref);
+            let d = (bl_position(&bl_m2o(&x)) - bl_position(&r)).norm();
+            assert!(d < 1e-3, "differs from the reference by {d} m for {mean:?}");
         }
     }
 }

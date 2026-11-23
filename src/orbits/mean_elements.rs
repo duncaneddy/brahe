@@ -426,7 +426,17 @@ fn convert_pairs_out(
 /// orbital elements. The direction of the transformation is controlled by the
 /// sign of γ₂: positive for mean-to-osculating, negative for osculating-to-mean.
 ///
-/// Reference: "Analytical Mechanics of Space Systems" Appendix F, Equations F.1-F.22
+/// # Implementation notes and corrections to the printed equations
+///
+/// - f - M in (F.11) and (F.13) is the equation of the centre, |f - M| < π, and is wrapped to
+///   [-π, π]. f comes from atan2, in (-π, π], while M is used as given, so the plain
+///   difference is off by a multiple of 2π whenever M is outside (-π, π], for example for M in
+///   (π, 2π).
+///
+/// # References
+///
+/// 1. H. Schaub and J. L. Junkins, "Analytical Mechanics of Space Systems," 4th ed., AIAA
+///    Education Series, AIAA, Reston, VA, 2018, Appendix F, Equations F.1-F.22.
 fn transform_koe(oe: &SVector<f64, 6>, direction: TransformDirection) -> SVector<f64, 6> {
     // Extract orbital elements: [a, e, i, Ω, ω, M]
     let a = oe[0]; // Semi-major axis (m)
@@ -489,6 +499,12 @@ fn transform_koe(oe: &SVector<f64, 6>, direction: TransformDirection) -> SVector
     let sin_f = f.sin();
     let cos2_f = cos_f * cos_f;
     let cos3_f = cos2_f * cos_f;
+
+    // f - M, the equation of the centre, wrapped to [-π, π]. f comes from atan2, in (-π, π],
+    // while M is used as given, so f - M would be off by a multiple of 2π whenever M is outside
+    // (-π, π].
+    let pi = std::f64::consts::PI;
+    let f_minus_m = (f - m_anom + pi).rem_euclid(2.0 * pi) - pi;
 
     // Combined angle terms: 2ω, 2ω + f, 2ω + 2f, 2ω + 3f
     let two_argp = 2.0 * argp;
@@ -593,7 +609,7 @@ fn transform_koe(oe: &SVector<f64, 6>, direction: TransformDirection) -> SVector
     // Line 3: +(γ'₂/4)(-6(1 - 5cos²i)(f - M + e·sin(f))
     //         + (3 - 5cos²i)(3sin(2ω + 2f) + 3e·sin(2ω + f) + e·sin(2ω + 3f)))
     let mpo_line3 = (gamma2_prime / 4.0)
-        * (-6.0 * one_minus_5cos2_i * (f - m_anom + e * sin_f)
+        * (-6.0 * one_minus_5cos2_i * (f_minus_m + e * sin_f)
             + (3.0 - 5.0 * cos2_i)
                 * (3.0 * sin_2argp_2f + 3.0 * e * sin_2argp_f + e * sin_2argp_3f));
 
@@ -607,7 +623,7 @@ fn transform_koe(oe: &SVector<f64, 6>, direction: TransformDirection) -> SVector
     // Line 5: -(γ'₂/2)cos(i)(6(f - M + e·sin(f)) - 3sin(2ω + 2f) - 3e·sin(2ω + f) - e·sin(2ω + 3f))
     let mpo_line5 = -(gamma2_prime / 2.0)
         * cos_i
-        * (6.0 * (f - m_anom + e * sin_f)
+        * (6.0 * (f_minus_m + e * sin_f)
             - 3.0 * sin_2argp_2f
             - 3.0 * e * sin_2argp_f
             - e * sin_2argp_3f);
@@ -657,7 +673,7 @@ fn transform_koe(oe: &SVector<f64, 6>, direction: TransformDirection) -> SVector
     // Second line
     let do_line2 = -(gamma2_prime / 2.0)
         * cos_i
-        * (6.0 * (f - m_anom + e * sin_f)
+        * (6.0 * (f_minus_m + e * sin_f)
             - 3.0 * sin_2argp_2f
             - 3.0 * e * sin_2argp_f
             - e * sin_2argp_3f);
@@ -722,6 +738,7 @@ mod tests {
     use super::*;
     use approx::assert_abs_diff_eq;
     use serial_test::{parallel, serial};
+    use std::f64::consts::PI;
 
     /// Test round-trip: mean → osc → mean ≈ original (radians)
     #[test]
@@ -1356,6 +1373,45 @@ mod tests {
         for (t, o) in epochs.iter().zip(out.iter()) {
             assert_eq!(o.0, *t);
             assert_abs_diff_eq!(o.1[0], single[0], epsilon = 1e-9);
+        }
+    }
+
+    // Brouwer-Lyddane helpers for the regression tests of issue #651 (radians throughout)
+    type BlMap = fn(&SVector<f64, 6>) -> SVector<f64, 6>;
+
+    fn bl_position(x: &SVector<f64, 6>) -> nalgebra::Vector3<f64> {
+        let s = crate::coordinates::state_koe_to_eci(*x, AngleFormat::Radians);
+        nalgebra::Vector3::new(s[0], s[1], s[2])
+    }
+
+    fn bl_m2o(x: &SVector<f64, 6>) -> SVector<f64, 6> {
+        state_koe_mean_to_osc(x, MeanElementMethod::BrouwerLyddane, AngleFormat::Radians).unwrap()
+    }
+
+    fn bl_o2m(x: &SVector<f64, 6>) -> SVector<f64, 6> {
+        state_koe_osc_to_mean(x, MeanElementMethod::BrouwerLyddane, AngleFormat::Radians).unwrap()
+    }
+
+    #[test]
+    #[parallel]
+    fn test_brouwer_lyddane_continuous_in_mean_anomaly() {
+        // No jump across M = π, and the same result for M and M ± 2π, in both directions.
+        // Before f - M was wrapped, M in (π, 2π) gave errors of 6.5-133 km in position.
+        for &(a, e, i) in &[(6878e3, 0.01, 45.0_f64), (24400e3, 0.73, 7.0)] {
+            let x = |m: f64| SVector::<f64, 6>::new(a, e, i.to_radians(), 0.3, 1.1, m);
+            let maps: [BlMap; 2] = [bl_m2o, bl_o2m];
+            for f in maps {
+                let jump = (bl_position(&f(&x(PI - 1e-9))) - bl_position(&f(&x(PI + 1e-9)))).norm();
+                assert!(jump < 1.0, "jump across M = pi: {jump} m");
+                for &m in &[1.0, 4.0, 5.5] {
+                    let d1 = (bl_position(&f(&x(m))) - bl_position(&f(&x(m + 2.0 * PI)))).norm();
+                    let d2 = (bl_position(&f(&x(m))) - bl_position(&f(&x(m - 2.0 * PI)))).norm();
+                    assert!(
+                        d1 < 1e-3 && d2 < 1e-3,
+                        "M and M +- 2pi differ: {d1}, {d2} m"
+                    );
+                }
+            }
         }
     }
 }

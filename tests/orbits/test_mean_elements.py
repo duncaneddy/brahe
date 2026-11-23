@@ -463,6 +463,70 @@ class TestMeanOsculatingConversions:
                 wrapped = (p[k] + q[k] + np.pi) % (2.0 * np.pi) - np.pi
                 assert abs(wrapped) < 1e-12, f"element {k}: {p[k]} {q[k]}"
 
+    def test_brouwer_lyddane_reference_values(self):
+        """Osculating elements from an independent implementation (issue #651)."""
+        # Osculating elements for the given mean elements, from an implementation of
+        # the first-order Brouwer-Lyddane theory in Lyddane's form that shares no code
+        # with Appendix F: checks/bl_numpy.py in brahe_note_v01-01.zip, attached to
+        # issue #651 (transcribed from Orekit's Brouwer-Lyddane model, with the five
+        # coefficient corrections described in the note). bl_coeffs(a [km], e,
+        # i [rad], mu=398600.4415, re=6378.1363, j2=1.0826261738522227e-3, j3=0, j4=0,
+        # j5=0, t2='brouwer') and bl_mean_to_osc(c, M, ω, Ω) give these values up to
+        # the unit of a (km) and multiples of 2π in ω and M (J2 only, brahe's
+        # constants, raw 1/(1-5cos²i) divisor). brahe matches them only with all three
+        # Brouwer-Lyddane fixes of issue #651; without Δz the four cases differ from
+        # them by 234 m, 491 m, 30 m and 200 m.
+        cases = [
+            (
+                [20000e3, 0.5, 30.0, 0.3, 1.1, 2.0],
+                [
+                    19998539.33168174,
+                    0.4999279260267584,
+                    0.5236187614636613,
+                    0.29980626886616657,
+                    1.100405394932448,
+                    1.9999500747462153,
+                ],
+            ),
+            (
+                [24400e3, 0.73, 7.0, 0.3, 1.1, 4.0],
+                [
+                    24394864.980987035,
+                    0.7299326666307553,
+                    0.12217310046038117,
+                    0.3003579001320915,
+                    1.0992054355320988,
+                    4.000026806982839,
+                ],
+            ),
+            (
+                [6878e3, 0.01, 45.0, 0.3, 1.1, 5.0],
+                [
+                    6882463.7828287,
+                    0.010189342225144183,
+                    0.7857211705723803,
+                    0.29983628864092415,
+                    1.0133148280359503,
+                    5.086582457941022,
+                ],
+            ),
+            (
+                [26600e3, 0.74, 55.0, 1.0, 4.5, 3.5],
+                [
+                    26599719.573707044,
+                    0.739975497670429,
+                    0.9599554619459719,
+                    1.0000291914244295,
+                    4.499922358360095,
+                    3.5000187001711276,
+                ],
+            ),
+        ]
+        for mean, osc_ref in cases:
+            x = [mean[0], mean[1], np.radians(mean[2]), mean[3], mean[4], mean[5]]
+            d = np.linalg.norm(_bl_position(_bl_m2o(x)) - _bl_position(osc_ref))
+            assert d < 1e-3, f"differs from the reference by {d} m for {mean}"
+
 
 class TestBatchMeanOsculatingConversions:
     """Tests for batch mean-osculating Keplerian element conversions."""

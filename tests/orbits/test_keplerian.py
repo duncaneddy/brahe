@@ -233,6 +233,59 @@ def test_anomaly_mean_to_eccentric():
     assert E == 180.0
 
 
+def test_anomaly_mean_to_eccentric_all_mean_anomalies():
+    """M on a 2001-point grid in [-4π, 4π] and edge values, e up to 0.999999 (#651)."""
+    # E solves Kepler's equation for M reduced with the remainder, on the same branch
+    # (|E - M| <= e). The residual is checked relative to |E| + |M|, so that tiny M is
+    # checked as well. Mirrors the Rust test of the same name.
+    eps = np.finfo(float).eps
+    es = [0.0, 0.5, 0.79, 0.8, 0.9, 0.975, 0.99, 0.999999]
+    ms = [-4.0 * math.pi + 8.0 * math.pi * j / 2000.0 for j in range(2001)]
+    ms += [0.0, -0.0, math.pi, -math.pi, 2.0 * math.pi, -2.0 * math.pi]
+    ms += [1e-300, -1e-300, 1e-3, -1e-3, 2.0 * math.pi - 1e-3, 1e3, -1e3]
+    for e in es:
+        for m in ms:
+            ea = brahe.anomaly_mean_to_eccentric(m, e, angle_format=AngleFormat.RADIANS)
+            mrem = math.fmod(m, 2.0 * math.pi)  # same as Rust's % on f64
+            res = abs(ea - e * math.sin(ea) - mrem)
+            assert res <= 8.0 * eps * (abs(ea) + abs(mrem)), f"M {m}, e {e}: {res}"
+            assert abs(ea - mrem) <= e + 1e-14, f"branch: M {m}, e {e}"
+            nu = brahe.anomaly_mean_to_true(m, e, angle_format=AngleFormat.RADIANS)
+            assert math.isfinite(nu)
+
+
+def test_anomaly_mean_to_eccentric_cases_that_failed_in_1_9_0():
+    """Negative M with e >= 0.8, and M near 0 with e >= 0.975 (issue #651)."""
+    ea = brahe.anomaly_mean_to_eccentric(-5.36, 0.9, angle_format=AngleFormat.RADIANS)
+    assert ea - 0.9 * math.sin(ea) == pytest.approx(-5.36, abs=1e-14)
+    assert ea < 0.0 and ea > -2.0 * math.pi
+    ea = brahe.anomaly_mean_to_eccentric(
+        1e-3, 0.999999, angle_format=AngleFormat.RADIANS
+    )
+    assert ea - 0.999999 * math.sin(ea) == pytest.approx(1e-3, abs=1e-15)
+    ea = brahe.anomaly_mean_to_eccentric(-307.1, 0.9, angle_format=AngleFormat.DEGREES)
+    ea_rad = ea * brahe.DEG2RAD
+    assert ea_rad - 0.9 * math.sin(ea_rad) == pytest.approx(
+        -307.1 * brahe.DEG2RAD, abs=1e-13
+    )
+    nu = brahe.anomaly_mean_to_true(-5.36, 0.9, angle_format=AngleFormat.RADIANS)
+    assert math.isfinite(nu)
+    nu = brahe.anomaly_mean_to_true(1e-3, 0.98, angle_format=AngleFormat.RADIANS)
+    assert math.isfinite(nu)
+
+
+def test_anomaly_mean_to_eccentric_exact_zero_and_nonfinite():
+    """E = 0 exactly at M = 0, and NaN for non-finite input (issue #651)."""
+    for e in [0.0, 0.5, 0.9, 0.999999]:
+        E = brahe.anomaly_mean_to_eccentric(0.0, e, angle_format=AngleFormat.RADIANS)
+        assert E == 0.0
+    for m, e in [(math.nan, 0.1), (math.inf, 0.1), (1.0, math.nan)]:
+        E = brahe.anomaly_mean_to_eccentric(m, e, angle_format=AngleFormat.RADIANS)
+        assert math.isnan(E)
+    nu = brahe.anomaly_mean_to_true(math.nan, 0.1, angle_format=AngleFormat.RADIANS)
+    assert math.isnan(nu)
+
+
 def test_anomaly_true_to_eccentric():
     # 0 degrees
     anm_ecc = brahe.anomaly_true_to_eccentric(

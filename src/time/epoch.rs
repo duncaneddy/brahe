@@ -616,24 +616,26 @@ impl Epoch {
     pub fn from_gps_date(week: u32, seconds: f64) -> Self {
         // Get time system offset based on days and fractional days using SOFA
         let jd = MJD_ZERO + GPS_ZERO + 7.0 * f64::from(week) + (seconds / SECONDS_PER_DAY).floor();
-        let mut days = f64::trunc(jd);
-        let fd = (seconds % SECONDS_PER_DAY) / SECONDS_PER_DAY;
+        let days = f64::trunc(jd);
+        let fd = seconds.rem_euclid(SECONDS_PER_DAY) / SECONDS_PER_DAY;
         let time_system_offset = time_system_offset(days, fd, TimeSystem::GPS, TimeSystem::TAI);
 
         // Get days, seconds, nanoseconds
-        let mut seconds =
-            seconds % SECONDS_PER_DAY + f64::fract(jd) * SECONDS_PER_DAY + time_system_offset;
+        let seconds = seconds.rem_euclid(SECONDS_PER_DAY)
+            + f64::fract(jd) * SECONDS_PER_DAY
+            + time_system_offset;
 
-        while seconds < 0.0 {
-            days -= 1.0;
-            seconds += SECONDS_PER_DAY;
-        }
+        let (days, seconds, nanoseconds) = align_epoch_data(
+            days as u64,
+            f64::floor(seconds) as i64,
+            (seconds - f64::floor(seconds)) * NANOSECONDS_PER_SECOND_FLOAT,
+        );
 
         Epoch {
             time_system: TimeSystem::GPS,
-            days: days as u64,
-            seconds: f64::trunc(seconds) as u32,
-            nanoseconds: f64::fract(seconds) * NANOSECONDS_PER_SECOND_FLOAT,
+            days,
+            seconds,
+            nanoseconds,
             nanoseconds_kc: 0.0,
         }
     }
@@ -665,24 +667,26 @@ impl Epoch {
     pub fn from_gps_seconds(gps_seconds: f64) -> Self {
         // Get time system offset based on days and fractional days using SOFA
         let jd = MJD_ZERO + GPS_ZERO + (gps_seconds / SECONDS_PER_DAY).floor();
-        let mut days = f64::trunc(jd);
-        let fd = (gps_seconds % SECONDS_PER_DAY) / SECONDS_PER_DAY + f64::fract(jd);
+        let days = f64::trunc(jd);
+        let fd = gps_seconds.rem_euclid(SECONDS_PER_DAY) / SECONDS_PER_DAY + f64::fract(jd);
         let time_system_offset = time_system_offset(days, fd, TimeSystem::GPS, TimeSystem::TAI);
 
         // Get days, seconds, nanoseconds
-        let mut seconds =
-            gps_seconds % SECONDS_PER_DAY + f64::fract(jd) * SECONDS_PER_DAY + time_system_offset;
+        let seconds = gps_seconds.rem_euclid(SECONDS_PER_DAY)
+            + f64::fract(jd) * SECONDS_PER_DAY
+            + time_system_offset;
 
-        while seconds < 0.0 {
-            days -= 1.0;
-            seconds += SECONDS_PER_DAY;
-        }
+        let (days, seconds, nanoseconds) = align_epoch_data(
+            days as u64,
+            f64::floor(seconds) as i64,
+            (seconds - f64::floor(seconds)) * NANOSECONDS_PER_SECOND_FLOAT,
+        );
 
         Epoch {
             time_system: TimeSystem::GPS,
-            days: days as u64,
-            seconds: f64::trunc(seconds) as u32,
-            nanoseconds: f64::fract(seconds) * NANOSECONDS_PER_SECOND_FLOAT,
+            days,
+            seconds,
+            nanoseconds,
             nanoseconds_kc: 0.0,
         }
     }
@@ -713,29 +717,26 @@ impl Epoch {
     pub fn from_gps_nanoseconds(gps_nanoseconds: u64) -> Self {
         let gps_seconds = (gps_nanoseconds / 1_000_000_000) as f64;
         let jd = MJD_ZERO + GPS_ZERO + (gps_seconds / SECONDS_PER_DAY).floor();
-        let mut days = f64::trunc(jd);
-        let fd = (gps_seconds % SECONDS_PER_DAY) / SECONDS_PER_DAY + f64::fract(jd);
+        let days = f64::trunc(jd);
+        let fd = gps_seconds.rem_euclid(SECONDS_PER_DAY) / SECONDS_PER_DAY + f64::fract(jd);
         let time_system_offset = time_system_offset(days, fd, TimeSystem::GPS, TimeSystem::TAI);
 
         // Get days, seconds, nanoseconds
-        let mut seconds =
-            gps_seconds % SECONDS_PER_DAY + f64::fract(jd) * SECONDS_PER_DAY + time_system_offset;
+        let seconds = gps_seconds.rem_euclid(SECONDS_PER_DAY)
+            + f64::fract(jd) * SECONDS_PER_DAY
+            + time_system_offset;
 
-        while seconds < 0.0 {
-            days -= 1.0;
-            seconds += SECONDS_PER_DAY;
-        }
+        let ns = (seconds - f64::floor(seconds)) * NANOSECONDS_PER_SECOND_FLOAT
+            + (gps_nanoseconds % NANOSECONDS_PER_SECOND_INT) as f64;
 
-        let mut ns = f64::fract(seconds) * NANOSECONDS_PER_SECOND_FLOAT;
-        if gps_nanoseconds > NANOSECONDS_PER_SECOND_INT {
-            ns += (gps_nanoseconds % NANOSECONDS_PER_SECOND_INT) as f64;
-        }
+        let (days, seconds, nanoseconds) =
+            align_epoch_data(days as u64, f64::floor(seconds) as i64, ns);
 
         Epoch {
             time_system: TimeSystem::GPS,
-            days: days as u64,
-            seconds: f64::trunc(seconds) as u32,
-            nanoseconds: ns,
+            days,
+            seconds,
+            nanoseconds,
             nanoseconds_kc: 0.0,
         }
     }
@@ -762,23 +763,25 @@ impl Epoch {
     /// ```
     pub fn from_unix_timestamp(timestamp: f64) -> Self {
         let jd = UNIX_EPOCH_JD + (timestamp / SECONDS_PER_DAY).floor();
-        let mut days = f64::trunc(jd);
-        let fd = (timestamp % SECONDS_PER_DAY) / SECONDS_PER_DAY + f64::fract(jd);
+        let days = f64::trunc(jd);
+        let fd = timestamp.rem_euclid(SECONDS_PER_DAY) / SECONDS_PER_DAY + f64::fract(jd);
         let time_system_offset = time_system_offset(days, fd, TimeSystem::UTC, TimeSystem::TAI);
 
-        let mut seconds =
-            timestamp % SECONDS_PER_DAY + f64::fract(jd) * SECONDS_PER_DAY + time_system_offset;
+        let seconds = timestamp.rem_euclid(SECONDS_PER_DAY)
+            + f64::fract(jd) * SECONDS_PER_DAY
+            + time_system_offset;
 
-        while seconds < 0.0 {
-            days -= 1.0;
-            seconds += SECONDS_PER_DAY;
-        }
+        let (days, seconds, nanoseconds) = align_epoch_data(
+            days as u64,
+            f64::floor(seconds) as i64,
+            (seconds - f64::floor(seconds)) * NANOSECONDS_PER_SECOND_FLOAT,
+        );
 
         Epoch {
             time_system: TimeSystem::UTC,
-            days: days as u64,
-            seconds: f64::trunc(seconds) as u32,
-            nanoseconds: f64::fract(seconds) * NANOSECONDS_PER_SECOND_FLOAT,
+            days,
+            seconds,
+            nanoseconds,
             nanoseconds_kc: 0.0,
         }
     }
@@ -2169,6 +2172,7 @@ impl Ord for Epoch {
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use crate::utils::testing::GlobalEOPGuard;
+    use rstest::rstest;
     use serial_test::{parallel, serial};
     use std::f64::consts::PI;
 
@@ -2894,6 +2898,118 @@ mod tests {
         let ts = 1609459200.123456;
         let epc = Epoch::from_unix_timestamp(ts);
         assert_abs_diff_eq!(epc.unix_timestamp(), ts, epsilon = 1e-3);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_from_unix_timestamp_afternoon_normalizes_seconds() {
+        setup_global_test_eop();
+
+        // 2024-01-01 15:30:00 UTC. Unix midnight falls half way through a
+        // Julian day, so an afternoon timestamp lands past the end of the
+        // internal day and must carry into the next one.
+        let epc = Epoch::from_unix_timestamp(1704123000.0);
+        let expected = Epoch::from_datetime(2024, 1, 1, 15, 30, 0.0, 0.0, TimeSystem::UTC);
+
+        assert!(epc.seconds < SECONDS_PER_DAY as u32);
+        assert_eq!(epc.days, expected.days);
+        assert_eq!(epc.seconds, expected.seconds);
+        assert_eq!(epc, expected);
+
+        // An epoch one second earlier must compare as earlier
+        assert!(expected - 1.0 < epc);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_from_gps_afternoon_normalizes_seconds() {
+        setup_global_test_eop();
+
+        // 2024-01-07 15:30:00 GPS: GPS week 2296, 55800 s into the week. GPS
+        // weeks start at midnight, half way through a Julian day.
+        let expected = Epoch::from_datetime(2024, 1, 7, 15, 30, 0.0, 0.0, TimeSystem::GPS);
+        let sow = 15.0 * 3600.0 + 30.0 * 60.0;
+        let gps_seconds = 2296.0 * 7.0 * SECONDS_PER_DAY + sow;
+
+        let epochs = [
+            Epoch::from_gps_date(2296, sow),
+            Epoch::from_gps_seconds(gps_seconds),
+            Epoch::from_gps_nanoseconds(gps_seconds as u64 * 1_000_000_000),
+        ];
+
+        for epc in epochs {
+            assert!(epc.seconds < SECONDS_PER_DAY as u32);
+            assert_eq!(epc.days, expected.days);
+            assert_eq!(epc.seconds, expected.seconds);
+            assert_eq!(epc, expected);
+        }
+    }
+
+    #[rstest]
+    #[case(-3600.0, (1969, 12, 31, 23, 0, 0.0, 0.0))]
+    #[case(-0.25, (1969, 12, 31, 23, 59, 59.0, 750_000_000.0))]
+    #[case(-86400.0, (1969, 12, 31, 0, 0, 0.0, 0.0))]
+    #[case(-90000.0, (1969, 12, 30, 23, 0, 0.0, 0.0))]
+    #[parallel]
+    fn test_from_unix_timestamp_negative(
+        #[case] timestamp: f64,
+        #[case] expected: (u32, u8, u8, u8, u8, f64, f64),
+    ) {
+        setup_global_test_eop();
+
+        let epc = Epoch::from_unix_timestamp(timestamp);
+        let (year, month, day, hour, minute, second, nanosecond) = epc.to_datetime();
+
+        assert_eq!(
+            (year, month, day, hour, minute),
+            (expected.0, expected.1, expected.2, expected.3, expected.4)
+        );
+        assert_eq!(second, expected.5);
+        assert_abs_diff_eq!(nanosecond, expected.6, epsilon = 1.0);
+        assert_abs_diff_eq!(epc.unix_timestamp(), timestamp, epsilon = 1e-3);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_from_gps_negative_seconds() {
+        setup_global_test_eop();
+
+        // 1980-01-05 23:00:00 GPS, one hour before the GPS epoch
+        let expected = Epoch::from_datetime(1980, 1, 5, 23, 0, 0.0, 0.0, TimeSystem::GPS);
+
+        let epochs = [
+            Epoch::from_gps_date(0, -3600.0),
+            Epoch::from_gps_seconds(-3600.0),
+        ];
+
+        for epc in epochs {
+            assert_eq!(epc, expected);
+        }
+    }
+
+    #[rstest]
+    #[case(1)]
+    #[case(500_000_000)]
+    #[case(999_999_999)]
+    #[case(1_000_000_000)]
+    #[case(1_500_000_000)]
+    #[parallel]
+    fn test_from_gps_nanoseconds_subsecond(#[case] gps_nanoseconds: u64) {
+        setup_global_test_eop();
+
+        let epc = Epoch::from_gps_nanoseconds(gps_nanoseconds);
+        let expected = Epoch::from_datetime(
+            1980,
+            1,
+            6,
+            0,
+            0,
+            0.0,
+            gps_nanoseconds as f64,
+            TimeSystem::GPS,
+        );
+
+        assert_eq!(epc, expected);
     }
 
     #[test]

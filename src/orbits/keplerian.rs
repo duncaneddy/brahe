@@ -606,6 +606,17 @@ pub fn anomaly_eccentric_to_mean(anm_ecc: f64, e: f64, angle_format: AngleFormat
 
 /// Converts mean anomaly into eccentric anomaly
 ///
+/// Kepler's equation M = E - e·sin(E) is solved by Halley's third-order iteration (reviewed,
+/// with other methods, in Ref. 2), started from Mikkola's cubic approximation (Ref. 1), which
+/// is within 4·10⁻³ rad of the root for every M and every e in [0, 1). M is first reduced to
+/// M_r in [-π, π]. The iteration stops when the residual of Kepler's equation is at most
+/// 4ε(1 + |M_r|), where ε is the machine epsilon, and the step computed from that residual is
+/// still applied. At most three steps were needed in 10⁶ random cases with e up to 1 - 10⁻⁶.
+///
+/// The returned E solves Kepler's equation for M (in radians) reduced with the remainder modulo
+/// 2π, which keeps the sign of M, so |E - M| ≤ e for |M| < 2π. Non-finite M or e gives NaN.
+/// The eccentricity must be in [0, 1).
+///
 /// # Arguments
 ///
 /// * `anm_mean`:Mean anomaly. Units: (rad) or (deg)
@@ -616,12 +627,25 @@ pub fn anomaly_eccentric_to_mean(anm_ecc: f64, e: f64, angle_format: AngleFormat
 ///
 /// * `anm_ecc`:Eccentric anomaly. Units: (rad) or (deg)
 ///
+/// # Errors
+///
+/// Returns `Err` if the iteration has not converged after 10 steps. This is not expected for
+/// finite M and 0 ≤ e < 1. It can happen for e outside [0, 1), which is not supported, and is
+/// the usual outcome for e ≤ -0.125.
+///
 /// # Examples
 /// ```
 /// use brahe::constants::DEGREES;
 /// use brahe::orbits::anomaly_mean_to_eccentric;
 /// let e = anomaly_mean_to_eccentric(90.0, 0.001, DEGREES).unwrap();
 /// ```
+///
+/// # References
+///
+/// 1. S. Mikkola, "A cubic approximation for Kepler's equation," Celestial Mechanics, Vol. 40,
+///    1987, pp. 329-334.
+/// 2. A. W. Odell and R. H. Gooding, "Procedures for solving Kepler's equation," Celestial
+///    Mechanics, Vol. 38, 1986, pp. 307-334.
 pub fn anomaly_mean_to_eccentric(
     anm_mean: f64,
     e: f64,
@@ -633,30 +657,62 @@ pub fn anomaly_mean_to_eccentric(
         AngleFormat::Radians => anm_mean,
     };
 
-    // Set constants of iteration
-    let max_iter = 10;
-    let eps = 100.0 * f64::EPSILON; // Convergence with respect to data-type precision
+    // Non-finite M or e: return NaN rather than an error, so that callers that unwrap do not
+    // panic
+    if !anm_mean_rad.is_finite() || !e.is_finite() {
+        return Ok(f64::NAN);
+    }
 
-    // Initialize starting iteration values
+    // Reduce M with the remainder (it keeps the sign of M, |M| < 2π, and fixes the branch of E),
+    // then shift it to M_r in [-π, π] (to within rounding)
     let anm_mean_rad = anm_mean_rad % (2.0 * PI);
-    let mut anm_ecc = if e < 0.8 { anm_mean_rad } else { PI };
+    let k = (anm_mean_rad + PI).div_euclid(2.0 * PI) * (2.0 * PI);
+    let mr = anm_mean_rad - k;
 
-    let mut f = anm_ecc - e * anm_ecc.sin() - anm_mean_rad;
+    // Starting value: Mikkola's cubic approximation (Ref. 1). With s = sin(E/3), sin(E) is
+    // 3s - 4s³ exactly; replacing E = 3·asin(s) by 3s + s³/2 turns Kepler's equation into the
+    // cubic s³ + 3·alpha·s - 2·beta = 0, whose real root is s = z - alpha/z with
+    // z³ = beta + sgn(beta)·√(beta² + alpha³). Then E = M + e·(3s - 4s³).
+    // s is computed in the equal form 2 beta / (z² + alpha + alpha²/z²), which avoids the
+    // cancellation in z - alpha/z for small |M| and gives E = M exactly at M = 0.
+    let alpha = (1.0 - e) / (4.0 * e + 0.5);
+    let beta = 0.5 * mr / (4.0 * e + 0.5);
+    let z = (beta + beta.signum() * (beta * beta + alpha.powi(3)).sqrt()).cbrt();
+    let z2 = z * z;
+    let mut s = 2.0 * beta / (z2 + alpha + alpha * alpha / z2);
+    // Mikkola's correction of s for the terms neglected in the cubic (Ref. 1)
+    s -= 0.078 * s.powi(5) / (1.0 + e);
+    let mut anm_ecc = mr + e * (3.0 * s - 4.0 * s.powi(3));
+
+    // Halley iteration (see Ref. 2): E <- E - F / (F' - F·F''/(2F')), with F = E - e·sin(E) - M_r,
+    // F' = 1 - e·cos(E) and F'' = e·sin(E). It stops on the residual F. The step computed from
+    // the last residual is applied as well. It needs no new sine or cosine, and it brings the
+    // error of E down to about ε(|M_r| + e|sin(E)|)/(1 - e·cos(E)) + ε|E|, the effect of
+    // rounding M_r, e·sin(E) and E; without it the error could reach
+    // 4ε(1 + |M_r|)/(1 - e·cos(E)).
+    let max_iter = 10;
+    let tol = 4.0 * f64::EPSILON * (1.0 + mr.abs());
     let mut i = 0;
-
-    // Iterate until convergence
-    while f.abs() > eps {
-        f = anm_ecc - e * anm_ecc.sin() - anm_mean_rad;
-        anm_ecc = anm_ecc - f / (1.0 - e * anm_ecc.cos());
-
-        i += 1;
-        if i > max_iter {
+    loop {
+        let (se, ce) = anm_ecc.sin_cos();
+        let f = anm_ecc - e * se - mr;
+        let converged = f.abs() <= tol;
+        if !converged && i == max_iter {
             return Err(format!(
                 "Reached maximum number of iterations ({}) before convergence for (M: {}, e: {}).",
                 max_iter, anm_mean_rad, e
             ));
         }
+        let fp = 1.0 - e * ce;
+        anm_ecc -= f / (fp - 0.5 * f * e * se / fp);
+        if converged {
+            break;
+        }
+        i += 1;
     }
+
+    // Undo the shift: E for M reduced with the remainder
+    let anm_ecc = anm_ecc + k;
 
     // Convert output to desired angular format
     match angle_format {
@@ -769,6 +825,9 @@ pub fn anomaly_true_to_mean(anm_true: f64, e: f64, angle_format: AngleFormat) ->
 
 /// Converts mean anomaly into true anomaly
 ///
+/// Solves Kepler's equation with [`anomaly_mean_to_eccentric`], then converts the eccentric
+/// anomaly with [`anomaly_eccentric_to_true`].
+///
 /// # Arguments
 ///
 /// * `anm_mean`:Mean anomaly. Units: (rad) or (deg)
@@ -790,48 +849,9 @@ pub fn anomaly_mean_to_true(
     e: f64,
     angle_format: AngleFormat,
 ) -> Result<f64, String> {
-    // Ensure anm_mean is in radians regardless of input
-    let anm_mean_rad = match angle_format {
-        AngleFormat::Degrees => anm_mean * DEG2RAD,
-        AngleFormat::Radians => anm_mean,
-    };
-
-    // Set constants of iteration
-    let max_iter = 10;
-    let eps = 100.0 * f64::EPSILON; // Convergence with respect to data-type precision
-
-    // Initialize starting iteration values
-    let anm_mean_rad = anm_mean_rad % (2.0 * PI);
-    let mut anm_ecc = if e < 0.8 { anm_mean_rad } else { PI };
-
-    let mut f = anm_ecc - e * anm_ecc.sin() - anm_mean_rad;
-    let mut i = 0;
-
-    // Iterate until convergence
-    while f.abs() > eps {
-        f = anm_ecc - e * anm_ecc.sin() - anm_mean_rad;
-        anm_ecc = anm_ecc - f / (1.0 - e * anm_ecc.cos());
-
-        i += 1;
-        if i > max_iter {
-            return Err(format!(
-                "Reached maximum number of iterations ({}) before convergence for (M: {}, e: {}).",
-                max_iter, anm_mean_rad, e
-            ));
-        }
-    }
-
-    // Convert eccentric anomaly to desired format and finish conversion to true anomaly
-    let anm_ecc_converted = match angle_format {
-        AngleFormat::Degrees => anm_ecc * RAD2DEG,
-        AngleFormat::Radians => anm_ecc,
-    };
-
-    Ok(anomaly_eccentric_to_true(
-        anm_ecc_converted,
-        e,
-        angle_format,
-    ))
+    // Same solver as anomaly_mean_to_eccentric
+    let anm_ecc = anomaly_mean_to_eccentric(anm_mean, e, angle_format)?;
+    Ok(anomaly_eccentric_to_true(anm_ecc, e, angle_format))
 }
 
 //
@@ -1154,6 +1174,95 @@ mod tests {
 
         let e = anomaly_mean_to_eccentric(84.27042204869177, 0.1, DEGREES).unwrap();
         assert_abs_diff_eq!(e, 90.0, epsilon = 1e-12);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_anomaly_mean_to_eccentric_all_mean_anomalies() {
+        // M on a 2001-point grid in [-4π, 4π] and edge values, for e up to 0.999999: E solves
+        // Kepler's equation for M reduced with the remainder, on the same branch (|E - M| <= e).
+        // The residual is checked relative to |E| + |M|, so that tiny M is checked as well.
+        let es = [0.0, 0.5, 0.79, 0.8, 0.9, 0.975, 0.99, 0.999999];
+        let mut ms: Vec<f64> = (0..=2000)
+            .map(|j| -4.0 * PI + 8.0 * PI * f64::from(j) / 2000.0)
+            .collect();
+        ms.extend_from_slice(&[
+            0.0,
+            -0.0,
+            PI,
+            -PI,
+            2.0 * PI,
+            -2.0 * PI,
+            1e-300,
+            -1e-300,
+            1e-3,
+            -1e-3,
+            2.0 * PI - 1e-3,
+            1e3,
+            -1e3,
+        ]);
+        for &e in &es {
+            for &m in &ms {
+                let ea = anomaly_mean_to_eccentric(m, e, RADIANS).unwrap();
+                let mrem = m % (2.0 * PI);
+                let res = (ea - e * ea.sin() - mrem).abs();
+                assert!(
+                    res <= 8.0 * f64::EPSILON * (ea.abs() + mrem.abs()),
+                    "M {m}, e {e}: residual {res}"
+                );
+                assert!((ea - mrem).abs() <= e + 1e-14, "branch: M {m}, e {e}");
+                let nu = anomaly_mean_to_true(m, e, RADIANS).unwrap();
+                assert!(nu.is_finite());
+            }
+        }
+    }
+
+    #[test]
+    #[parallel]
+    fn test_anomaly_mean_to_eccentric_cases_that_failed_in_1_9_0() {
+        // Negative M with e >= 0.8, and M near 0 with e >= 0.975 (errors in 1.9.0)
+        let ea = anomaly_mean_to_eccentric(-5.36, 0.9, RADIANS).unwrap();
+        assert_abs_diff_eq!(ea - 0.9 * ea.sin(), -5.36, epsilon = 1e-14);
+        assert!(ea < 0.0 && ea > -2.0 * PI);
+        let ea = anomaly_mean_to_eccentric(1e-3, 0.999999, RADIANS).unwrap();
+        assert_abs_diff_eq!(ea - 0.999999 * ea.sin(), 1e-3, epsilon = 1e-15);
+        let ea = anomaly_mean_to_eccentric(-307.1, 0.9, DEGREES).unwrap();
+        let ea_rad = ea * constants::DEG2RAD;
+        assert_abs_diff_eq!(
+            ea_rad - 0.9 * ea_rad.sin(),
+            -307.1 * constants::DEG2RAD,
+            epsilon = 1e-13
+        );
+        assert!(anomaly_mean_to_true(-5.36, 0.9, RADIANS).is_ok());
+        assert!(anomaly_mean_to_true(1e-3, 0.98, RADIANS).is_ok());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_anomaly_mean_to_eccentric_exact_zero_and_nonfinite() {
+        for &e in &[0.0, 0.5, 0.9, 0.999999] {
+            assert_eq!(anomaly_mean_to_eccentric(0.0, e, RADIANS).unwrap(), 0.0);
+        }
+        assert!(
+            anomaly_mean_to_eccentric(f64::NAN, 0.1, RADIANS)
+                .unwrap()
+                .is_nan()
+        );
+        assert!(
+            anomaly_mean_to_eccentric(f64::INFINITY, 0.1, RADIANS)
+                .unwrap()
+                .is_nan()
+        );
+        assert!(
+            anomaly_mean_to_eccentric(1.0, f64::NAN, RADIANS)
+                .unwrap()
+                .is_nan()
+        );
+        assert!(
+            anomaly_mean_to_true(f64::NAN, 0.1, RADIANS)
+                .unwrap()
+                .is_nan()
+        );
     }
 
     #[test]

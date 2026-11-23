@@ -445,6 +445,24 @@ class TestMeanOsculatingConversions:
                         f"M and M +- 2pi differ: {d1}, {d2} m"
                     )
 
+    def test_brouwer_lyddane_reflection_symmetry(self):
+        """(Ω, ω, M) -> (-Ω, -ω, -M) negates the osculating angles (issue #651)."""
+        # The angle corrections are odd in the angles. Without sin(2ω) on the
+        # long-period terms this fails.
+        for a, e, i, raan, argp, m in [
+            (20000e3, 0.5, 30.0, 0.3, 1.1, 2.0),
+            (7000e3, 0.01, 51.6, 2.0, 0.4, 5.0),
+            (26600e3, 0.74, 55.0, 1.0, 4.5, 3.5),
+        ]:
+            p = _bl_m2o([a, e, np.radians(i), raan, argp, m])
+            q = _bl_m2o([a, e, np.radians(i), -raan, -argp, -m])
+            assert p[0] == pytest.approx(q[0], abs=1e-6)
+            assert p[1] == pytest.approx(q[1], abs=1e-14)
+            assert p[2] == pytest.approx(q[2], abs=1e-14)
+            for k in range(3, 6):
+                wrapped = (p[k] + q[k] + np.pi) % (2.0 * np.pi) - np.pi
+                assert abs(wrapped) < 1e-12, f"element {k}: {p[k]} {q[k]}"
+
 
 class TestBatchMeanOsculatingConversions:
     """Tests for batch mean-osculating Keplerian element conversions."""

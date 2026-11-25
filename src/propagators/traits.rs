@@ -387,6 +387,49 @@ pub trait DStatePropagator {
     /// Set eviction policy to keep states within a maximum age
     fn set_eviction_policy_max_age(&mut self, max_age: f64) -> Result<(), BraheError>;
 
+    /// Process events that occur at the current epoch before any step is taken.
+    ///
+    /// `propagate_to` and `step_by` run this first, so an event at the current
+    /// epoch takes effect before the propagator advances; a terminal event stops
+    /// the propagator where it is. Calling it ahead of propagation does not
+    /// change the result, because each detector is processed at most once.
+    /// [`share_precomputed_inputs`](crate::propagators::share_precomputed_inputs)
+    /// calls it so that a propagator stopped at its current epoch is left out of
+    /// table sharing. The default implementation does nothing.
+    ///
+    /// # Returns
+    /// `Ok(())` once the events at the current epoch are processed, or the
+    /// error raised while processing them.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use brahe::eop::{StaticEOPProvider, set_global_eop_provider};
+    /// use brahe::events::DTimeEvent;
+    /// use brahe::propagators::{DNumericalOrbitPropagator, ForceModelConfig};
+    /// use brahe::time::{Epoch, TimeSystem};
+    /// use brahe::traits::DStatePropagator;
+    /// use brahe::constants::R_EARTH;
+    /// use nalgebra::DVector;
+    ///
+    /// set_global_eop_provider(StaticEOPProvider::from_zero());
+    ///
+    /// let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+    /// let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0]);
+    /// let mut prop =
+    ///     DNumericalOrbitPropagator::builder(epoch, state, ForceModelConfig::earth_gravity())
+    ///         .build()
+    ///         .unwrap();
+    /// prop.add_event_detector(Box::new(DTimeEvent::new(epoch, "Stop").set_terminal()));
+    ///
+    /// prop.process_current_epoch_events().unwrap();
+    /// assert!(prop.is_terminated());
+    /// assert_eq!(prop.current_epoch(), epoch);
+    /// ```
+    fn process_current_epoch_events(&mut self) -> Result<(), BraheError> {
+        Ok(())
+    }
+
     /// Identity of the precomputed force-model inputs this propagator uses.
     ///
     /// Propagators returning equal keys can share one [`PrecomputedInputs`]
@@ -396,7 +439,9 @@ pub trait DStatePropagator {
     /// `None`.
     ///
     /// # Returns
-    /// `Some(key)` when the propagator uses precomputed inputs, `None` otherwise.
+    /// `Some(key)` when the propagator uses precomputed inputs and is not
+    /// terminated, `None` when it has no precomputed inputs or is stopped by a
+    /// terminal event.
     ///
     /// # Examples
     ///

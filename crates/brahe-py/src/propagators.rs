@@ -3543,11 +3543,13 @@ impl PyKeplerianPropagator {
 /// group is propagated in parallel; results are written back to the original objects
 /// in place, preserving their order.
 ///
-/// Before propagating, `NumericalOrbitPropagator` instances with matching precompute
-/// settings are grouped, and each group shares one set of precomputed tables
-/// covering its members' spans, so the group evaluates each table node once. A
-/// propagator stopped by a terminal event is left out of the grouping and remains at
-/// the epoch where it stopped; every other propagator reaches the target epoch.
+/// Before propagating, each `NumericalOrbitPropagator` processes the events at its
+/// current epoch, then instances with matching precompute settings are grouped, and
+/// each group shares one set of precomputed tables covering its members' spans, so
+/// the group evaluates each table node once. Propagators already terminated when the
+/// call starts, including those stopped by an event at their current epoch, are left
+/// out of the grouping, build no tables, and remain at the epoch where they stopped;
+/// every other propagator reaches the target epoch.
 ///
 /// Note: `NumericalPropagator` (with user-defined Python dynamics) is NOT supported because
 /// Python callbacks cannot safely execute in parallel due to the GIL. Use `NumericalOrbitPropagator`
@@ -3750,9 +3752,9 @@ fn py_par_propagate_to(propagators: &Bound<'_, PyAny>, target_epoch: &PyEpoch) -
             borrow_guards.push(item.cast::<PyNumericalOrbitPropagator>()?.borrow_mut());
         }
 
-        // Build one set of precomputed tables per group of matching propagators
-        // before the parallel loop; propagators without precompute, or stopped by a
-        // terminal event, are skipped.
+        // Process events at each current epoch, then build one set of precomputed
+        // tables per group of matching propagators before the parallel loop;
+        // propagators without precompute, or stopped by a terminal event, are skipped.
         propagators::share_precomputed_inputs(
             borrow_guards.iter_mut().map(|guard| &mut guard.propagator),
             target_epoch.obj,

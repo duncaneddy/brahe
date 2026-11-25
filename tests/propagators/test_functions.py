@@ -529,3 +529,33 @@ def test_par_propagate_to_terminated_propagator_not_shared():
     for prop in props[1:]:
         assert prop.current_epoch() == target
         assert np.array_equal(prop.current_state(), serial.current_state())
+
+
+def test_par_propagate_to_terminal_event_at_start_matches_serial():
+    """A terminal event at the initial epoch stops the propagator before any
+    tables are shared, and every propagator matches serial propagation"""
+    t0 = Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem.UTC)
+    target = t0 + 7200.0
+
+    def build():
+        stopped = _precompute_propagator(t0)
+        stopped.add_event_detector(TimeEvent(t0, "Stop").set_terminal())
+        return [
+            stopped,
+            _precompute_propagator(t0 + 3600.0),
+            _precompute_propagator(t0 + 3600.0),
+        ]
+
+    parallel_props = build()
+    serial_props = build()
+
+    par_propagate_to(parallel_props, target)
+    for prop in serial_props:
+        prop.propagate_to(target)
+
+    assert parallel_props[0].terminated()
+    assert parallel_props[0].current_epoch() == t0
+    assert parallel_props[1].current_epoch() == target
+    for par, ser in zip(parallel_props, serial_props):
+        assert par.current_epoch() == ser.current_epoch()
+        assert np.array_equal(par.current_state(), ser.current_state())

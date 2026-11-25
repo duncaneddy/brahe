@@ -3282,6 +3282,20 @@ impl DNumericalOrbitPropagator {
 // =============================================================================
 
 impl super::traits::DStatePropagator for DNumericalOrbitPropagator {
+    /// Process events that occur at the current epoch before any step is taken.
+    ///
+    /// Detectors already processed are skipped, and a terminated propagator
+    /// returns at once, so the same call at the start of `propagate_to` or
+    /// `step_by` does nothing further.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` once the events at the current epoch are processed, or the
+    /// error raised while processing them.
+    fn process_current_epoch_events(&mut self) -> Result<(), BraheError> {
+        self.process_initial_events()
+    }
+
     /// Identity of the precomputed force-model inputs this propagator uses.
     ///
     /// A propagator stopped by a terminal event does not propagate further, so

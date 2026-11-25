@@ -86,9 +86,12 @@ pub fn par_propagate_to_s<P: SStatePropagator + Send>(
 /// that implement `DStatePropagator` (dynamic state vectors) instead of
 /// `SStatePropagator` (static 6D vectors).
 ///
-/// Before propagating, [`share_precomputed_inputs`] builds one precomputed-input
-/// bundle per group of propagators with equal precompute keys and attaches it
-/// to every member, so the group evaluates each table node once.
+/// Before propagating, [`share_precomputed_inputs`] processes the events at each
+/// propagator's current epoch, then builds one precomputed-input bundle per group
+/// of propagators with equal precompute keys and attaches it to every member, so
+/// the group evaluates each table node once. Propagators already terminated when
+/// the call starts, including those stopped by an event at their current epoch,
+/// are left out of the grouping and build no tables.
 ///
 /// This is useful for:
 /// - Numerical orbit propagators with STM/sensitivity matrices
@@ -165,8 +168,11 @@ struct PrecomputeGroup<'a, P> {
 
 /// Build one precomputed-input bundle per group of compatible propagators and attach it.
 ///
-/// Propagators are grouped by equal [`DStatePropagator::precompute_key`];
-/// propagators without a key are left unchanged. Each group's bundle covers the
+/// Each propagator first processes the events at its current epoch with
+/// [`DStatePropagator::process_current_epoch_events`], as `propagate_to` would,
+/// so one stopped by a terminal event there reports no key. Propagators are then
+/// grouped by equal [`DStatePropagator::precompute_key`]; propagators without a
+/// key, including terminated ones, get no bundle. Each group's bundle covers the
 /// span from the earliest to the latest of the members' current epochs and
 /// `target_epoch`. Its table nodes are computed in parallel on the brahe thread
 /// pool before the bundle is attached to every member with
@@ -181,7 +187,7 @@ struct PrecomputeGroup<'a, P> {
 /// # Returns
 ///
 /// `Ok(())` once every group has its bundle, or the first error raised while
-/// evaluating a table node or attaching a bundle.
+/// processing initial events, evaluating a table node, or attaching a bundle.
 ///
 /// # Examples
 ///
@@ -226,6 +232,7 @@ pub fn share_precomputed_inputs<'a, P: DStatePropagator + 'a>(
 ) -> Result<(), BraheError> {
     let mut groups: Vec<PrecomputeGroup<'a, P>> = Vec::new();
     for prop in propagators {
+        prop.process_current_epoch_events()?;
         let Some(key) = prop.precompute_key() else {
             continue;
         };
@@ -1048,5 +1055,46 @@ mod tests {
         for prop in &props[1..] {
             assert_eq!(prop.current_epoch(), target);
         }
+    }
+
+    #[test]
+    #[parallel]
+    fn test_par_propagate_to_d_terminal_event_at_start_builds_nothing() {
+        setup_global_test_eop();
+        let t0 = precompute_epoch();
+        let target = t0 + 7200.0;
+        let build = || -> Vec<DNumericalOrbitPropagator> {
+            let mut stopped = precompute_prop(t0, rotation_step(600.0));
+            stopped.add_event_detector(Box::new(DTimeEvent::new(t0, "Stop").set_terminal()));
+            vec![
+                stopped,
+                precompute_prop(t0 + 3600.0, rotation_step(600.0)),
+                precompute_prop(t0 + 3600.0, rotation_step(600.0)),
+            ]
+        };
+        let mut parallel_props = build();
+        let mut serial_props = build();
+
+        par_propagate_to_d(&mut parallel_props, target).unwrap();
+        for prop in &mut serial_props {
+            prop.propagate_to(target).unwrap();
+        }
+
+        assert!(parallel_props[0].is_terminated());
+        assert_eq!(parallel_props[0].current_epoch(), t0);
+        assert_eq!(parallel_props[0].precomputed_nodes_computed(), 0);
+
+        let shared = parallel_props[1].precomputed_inputs().unwrap();
+        assert!(Arc::ptr_eq(
+            &parallel_props[2].precomputed_inputs().unwrap(),
+            &shared
+        ));
+        assert!(shared.covers_span(t0 + 3600.0, target));
+        assert!(!shared.covers(t0));
+        for (par, ser) in parallel_props.iter().zip(&serial_props) {
+            assert_eq!(par.current_epoch(), ser.current_epoch());
+            assert_eq!(par.current_state(), ser.current_state());
+        }
+        assert_eq!(parallel_props[1].current_epoch(), target);
     }
 }

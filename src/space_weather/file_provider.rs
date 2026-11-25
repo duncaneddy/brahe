@@ -364,7 +364,7 @@ impl FileSpaceWeatherProvider {
     }
 
     /// Get the 3-hour interval index (0-7) from the fractional MJD.
-    fn get_interval_index(mjd: f64) -> usize {
+    pub(crate) fn get_interval_index(mjd: f64) -> usize {
         let fraction = mjd - mjd.floor();
         let hours = fraction * 24.0;
         let index = (hours / 3.0).floor() as usize;

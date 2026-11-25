@@ -2773,12 +2773,40 @@ pub fn density_nrlmsise00<P: IntoPosition>(
     x_ecef: P,
     config: &NRLMSISE00Config,
 ) -> Result<f64, BraheError> {
+    density_nrlmsise00_with(epoch, x_ecef, config, &GlobalSpaceWeather)
+}
+
+/// Compute NRLMSISE-00 density at an ECEF position, reading space weather
+/// from `sw`.
+///
+/// # Arguments
+///
+/// * `epoch` - Epoch of the evaluation
+/// * `x_ecef` - Position in ECEF frame. Units: (m)
+/// * `config` - Model switch configuration
+/// * `sw` - Space weather source
+///
+/// # Returns
+///
+/// * `Result<f64, BraheError>` - Atmospheric density in kg/m³
+///
+/// # Examples
+///
+/// ```ignore
+/// let rho = density_nrlmsise00_with(&epoch, x_ecef, &NRLMSISE00Config::default(), &GlobalSpaceWeather)?;
+/// ```
+pub(crate) fn density_nrlmsise00_with<P: IntoPosition>(
+    epoch: &Epoch,
+    x_ecef: P,
+    config: &NRLMSISE00Config,
+    sw: &impl SpaceWeatherLookup,
+) -> Result<f64, BraheError> {
     // Extract position and convert to geodetic coordinates
     let position = x_ecef.position();
     let geod = position_ecef_to_geodetic(position, AngleFormat::Degrees);
 
     // Call the geodetic version
-    density_nrlmsise00_geod(epoch, &[geod[0], geod[1], geod[2]], config)
+    density_nrlmsise00_geod_with(epoch, &[geod[0], geod[1], geod[2]], config, sw)
 }
 
 #[cfg(test)]

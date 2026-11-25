@@ -14,7 +14,7 @@ use std::sync::{Arc, Mutex};
 
 use nalgebra::{DMatrix, DVector, Vector3, Vector6};
 
-use crate::earth_models::{density_harris_priester, density_nrlmsise00};
+use crate::earth_models::{density_harris_priester, density_nrlmsise00, density_nrlmsise00_with};
 use crate::frames::{
     CelestialFrame, OrbitRelativeFrameVariant, earth_rotation, rotate_covariance,
     rotation_eci_to_ecef, rotation_frame_to_frame, rotation_lci_to_lfpa, rotation_mci_to_mcmf,
@@ -41,7 +41,9 @@ use crate::orbit_dynamics::{
     eclipse_cylindrical_for_body, get_global_gravity_model, sun_position,
 };
 use crate::propagators::force_model_config::{EphemerisSource, PermanentTideConfig};
-use crate::propagators::precomputed_inputs::{ChannelRole, resolve_sun_moon_eci};
+use crate::propagators::precomputed_inputs::{
+    CachedSpaceWeather, ChannelRole, SpaceWeatherCache, resolve_sun_moon_eci,
+};
 use crate::propagators::tide_field::TideField;
 use crate::propagators::{
     AtmosphericModel, CentralBody, EclipseModel, ForceModelConfig, FrameTransformationModel,
@@ -1044,6 +1046,8 @@ impl DNumericalOrbitPropagator {
             force_config.central_body.clone(),
             force_config.frame_transform.clone(),
         )));
+        let space_weather = SpaceWeatherCache::applies(&force_config)
+            .then(|| Arc::new(Mutex::new(SpaceWeatherCache::new())));
 
         // Build shared dynamics function (includes additional_dynamics)
         let shared_dynamics = Self::build_shared_dynamics(
@@ -1056,6 +1060,7 @@ impl DNumericalOrbitPropagator {
             third_body_gravity_models,
             precomputed.clone(),
             Arc::clone(&rotation_cache),
+            space_weather,
         );
 
         // Wrap for main integrator
@@ -1743,6 +1748,9 @@ impl DNumericalOrbitPropagator {
     /// not bracket the evaluation epoch, then reads the central-body rotation
     /// from it through `rotation_cache` and the tabulated ephemerides through
     /// `compute_dynamics`.
+    ///
+    /// `space_weather` is the propagator's space-weather cache, present when
+    /// the force model caches space weather and drag uses NRLMSISE-00.
     #[allow(clippy::too_many_arguments)]
     fn build_shared_dynamics(
         epoch_initial: Epoch,
@@ -1754,6 +1762,7 @@ impl DNumericalOrbitPropagator {
         third_body_gravity_models: Vec<Option<Arc<GravityModel>>>,
         precomputed: Option<Arc<Mutex<Arc<PrecomputedInputs>>>>,
         rotation_cache: Arc<Mutex<RotationCache>>,
+        space_weather: Option<Arc<Mutex<SpaceWeatherCache>>>,
     ) -> SharedDynamics {
         // Rotation caches for bodies that carry a body-fixed force model but
         // are not the central body: third-body entries with extended gravity,
@@ -1833,6 +1842,7 @@ impl DNumericalOrbitPropagator {
                     r_i2b,
                     &attributed_caches,
                     inputs.as_deref(),
+                    space_weather.as_deref(),
                 )?;
 
                 // Widen the orbital derivative to the full state dimension.
@@ -1994,7 +2004,8 @@ impl DNumericalOrbitPropagator {
     ///
     /// When `precomputed` holds an ephemeris channel for a force-model site,
     /// that site uses the channel's interpolated value; every other site
-    /// queries its ephemeris directly.
+    /// queries its ephemeris directly. When `space_weather` is present,
+    /// NRLMSISE-00 drag reads space weather through it.
     #[allow(clippy::too_many_arguments)]
     fn compute_dynamics(
         t: f64,
@@ -2008,6 +2019,7 @@ impl DNumericalOrbitPropagator {
         r_i2b: SMatrix3,
         attributed_caches: &[(i32, Arc<Mutex<RotationCache>>)],
         precomputed: Option<&PrecomputedInputs>,
+        space_weather: Option<&Mutex<SpaceWeatherCache>>,
     ) -> Result<Vector6<f64>, BraheError> {
         // Convert relative time to absolute Epoch
         let epoch = epoch_initial + t;
@@ -2206,7 +2218,15 @@ impl DNumericalOrbitPropagator {
                 AtmosphericModel::NRLMSISE00(cfg) => {
                     // NRLMSISE00 requires ECEF position
                     let r_ecef = r_i2b_drag * r_drag;
-                    density_nrlmsise00(&epoch, r_ecef, cfg).unwrap_or(0.0)
+                    match space_weather {
+                        Some(cache) => {
+                            let mut cache = cache.lock().unwrap();
+                            let sw = CachedSpaceWeather::new(&mut cache);
+                            density_nrlmsise00_with(&epoch, r_ecef, cfg, &sw)
+                        }
+                        None => density_nrlmsise00(&epoch, r_ecef, cfg),
+                    }
+                    .unwrap_or(0.0)
                 }
                 AtmosphericModel::Exponential {
                     scale_height,
@@ -16164,5 +16184,39 @@ mod tests {
         assert!(dr_60 < 0.05, "position difference {dr_60} m at 60 s");
         assert!(dr_6 < 1e-3, "position difference {dr_6} m at 6 s");
         assert!(dr_6 < dr_60 / 50.0, "no quadratic convergence");
+    }
+
+    #[test]
+    #[serial]
+    fn test_precompute_space_weather_propagation_bitwise() {
+        setup_global_test_eop();
+        setup_global_test_space_weather();
+        crate::utils::testing::setup_global_test_spice();
+        let (epoch, state) = precompute_test_epoch_state();
+        let run = |precompute: Option<PrecomputeConfig>| {
+            let mut prop = DNumericalOrbitPropagator::new(
+                epoch,
+                state.clone(),
+                NumericalPropagationConfig::default(),
+                ForceModelConfig {
+                    precompute,
+                    ..ForceModelConfig::default()
+                },
+                Some(default_test_params()),
+                None,
+                None,
+                None,
+            )
+            .unwrap();
+            prop.propagate_to(epoch + 86400.0).unwrap();
+            prop.current_state()
+        };
+        let cached = run(Some(PrecomputeConfig {
+            frame_rotation_step: None,
+            ephemeris_step: None,
+            cache_space_weather: true,
+        }));
+        let uncached = run(None);
+        assert_eq!(cached, uncached);
     }
 }

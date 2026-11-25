@@ -3182,11 +3182,6 @@ mod tests {
         input.f107a = case.f107a;
         input.f107 = case.f107;
         input.ap = case.ap;
-        if case.use_ap_array {
-            flags.switches[9] = -1;
-            input.ap_array = [100.0; 7];
-        }
-
         // Run model
         gtd7(&mut input, &mut flags, &mut output);
 

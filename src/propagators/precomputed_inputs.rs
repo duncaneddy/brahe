@@ -403,9 +403,29 @@ impl ChannelQuery {
         }
     }
 
+    /// Load the kernels an SPK query's bodies need, as the dynamics do before
+    /// querying the registry.
+    ///
+    /// Does nothing for the other queries, whose ephemeris functions load
+    /// their kernels themselves.
+    ///
+    /// # Returns
+    /// - `Result<(), BraheError>`: The kernel load error, if any
+    pub(crate) fn load_kernels(&self) -> Result<(), BraheError> {
+        match self {
+            ChannelQuery::SpkPosition { target, center }
+            | ChannelQuery::SpkState { target, center } => {
+                ensure_bodies_loadable(&[*target, *center])
+            }
+            ChannelQuery::GeocentricThirdBody { .. }
+            | ChannelQuery::ThirdBodyPosition { .. }
+            | ChannelQuery::SunMoon { .. } => Ok(()),
+        }
+    }
+
     /// Evaluate the query at an epoch.
     ///
-    /// SPK queries first load the kernels their bodies need, as the dynamics do.
+    /// SPK queries expect [`ChannelQuery::load_kernels`] to have run.
     ///
     /// # Arguments
     /// - `epoch`: Epoch to evaluate
@@ -431,20 +451,14 @@ impl ChannelQuery {
                 let (r_sun, r_moon) = resolve_sun_moon_eci(*source, epoch)?;
                 r_sun.iter().chain(r_moon.iter()).copied().collect()
             }
-            ChannelQuery::SpkPosition { target, center } => {
-                ensure_bodies_loadable(&[*target, *center])?;
-                spk_position(*target, *center, epoch)?
-                    .iter()
-                    .copied()
-                    .collect()
-            }
-            ChannelQuery::SpkState { target, center } => {
-                ensure_bodies_loadable(&[*target, *center])?;
-                spk_state(*target, *center, epoch)?
-                    .iter()
-                    .copied()
-                    .collect()
-            }
+            ChannelQuery::SpkPosition { target, center } => spk_position(*target, *center, epoch)?
+                .iter()
+                .copied()
+                .collect(),
+            ChannelQuery::SpkState { target, center } => spk_state(*target, *center, epoch)?
+                .iter()
+                .copied()
+                .collect(),
         })
     }
 }
@@ -605,19 +619,24 @@ impl EphemerisTable {
 
     /// Extend the table to cover `need`, computing only missing nodes.
     ///
-    /// Follows the extension rules of [`FrameRotationTable::ensure`]. Nodes are
-    /// computed in parallel on the brahe thread pool.
+    /// Follows the extension rules of [`FrameRotationTable::ensure`]. Each
+    /// batch of missing nodes first loads the kernels of every query once,
+    /// then computes the nodes in parallel on the brahe thread pool.
     ///
     /// # Arguments
     /// - `need`: Node range that must be held after the call
     ///
     /// # Returns
-    /// - `Result<(), BraheError>`: The error of the first failing query, ordered by node index
-    ///   and then by channel, in which case the nodes of that batch are not stored
+    /// - `Result<(), BraheError>`: The first kernel load error in channel order, else the error
+    ///   of the first failing query, ordered by node index and then by channel; the nodes of a
+    ///   failing batch are not stored
     pub(crate) fn ensure(&mut self, need: NodeRange) -> Result<(), BraheError> {
         let queries = &self.queries;
         let stride = self.stride;
         self.store.ensure(need, |range| {
+            for query in queries {
+                query.load_kernels()?;
+            }
             compute_parallel(range, |e| {
                 let mut node = Vec::with_capacity(stride);
                 for query in queries {

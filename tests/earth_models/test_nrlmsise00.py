@@ -49,7 +49,7 @@ class TestNrlmsise00:
         density_geod = bh.density_nrlmsise00_geod(epc, geod)
 
         # Should match within numerical precision
-        assert density_ecef == pytest.approx(density_geod, rel=1e-10)
+        assert density_ecef == pytest.approx(density_geod, rel=1e-10, abs=0.0)
 
     @pytest.mark.integration
     def test_nrlmsise00_geod_basic(self, eop):
@@ -316,13 +316,13 @@ def test_density_nrlmsise00_geod_daily_ap_matches_reference(eop, sw_test):
     epc = bh.Epoch.from_datetime(2024, 5, 10, 21, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     cfg = bh.NRLMSISE00Config(ap_mode=bh.NRLMSISE00ApMode.DAILY)
     rho = bh.density_nrlmsise00_geod(epc, np.array([-74.0, 40.7, 400e3]), cfg)
-    assert rho == pytest.approx(1.067412479194915e-11, rel=1e-9)
+    assert rho == pytest.approx(1.067412479194915e-11, rel=1e-9, abs=0.0)
 
 
 def test_density_nrlmsise00_geod_default_is_three_hourly(eop, sw_test):
     epc = bh.Epoch.from_datetime(2024, 5, 10, 21, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     rho = bh.density_nrlmsise00_geod(epc, np.array([-74.0, 40.7, 400e3]))
-    assert rho == pytest.approx(1.157892733789963e-11, rel=1e-9)
+    assert rho == pytest.approx(1.157892733789963e-11, rel=1e-9, abs=0.0)
 
 
 def test_density_nrlmsise00_config_matches_geod(eop, sw_test):

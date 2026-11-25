@@ -7059,3 +7059,30 @@ def test_precompute_ephemeris_lowprecision_bitwise():
     )
     on, off = _precompute_ephemeris_pair(force_config, None, 21600.0)
     assert np.array_equal(on, off)
+
+
+def test_precompute_space_weather_propagation_bitwise():
+    epoch = Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem.UTC)
+    oe = np.array([R_EARTH + 500e3, 0.001, 97.8, 15.0, 30.0, 45.0])
+    state = state_koe_to_eci(oe, AngleFormat.DEGREES)
+
+    def final_state(precompute):
+        force_config = ForceModelConfig.default()
+        force_config.precompute = precompute
+        prop = NumericalOrbitPropagator(
+            epoch,
+            state,
+            NumericalPropagationConfig.default(),
+            force_config,
+            create_test_params(),
+        )
+        prop.propagate_to(epoch + 86400.0)
+        return prop.current_state()
+
+    cached = final_state(
+        PrecomputeConfig(
+            frame_rotation_step=None, ephemeris_step=None, cache_space_weather=True
+        )
+    )
+    uncached = final_state(None)
+    assert np.array_equal(cached, uncached)

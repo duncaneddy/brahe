@@ -8,61 +8,58 @@ a complete .pyi stub file for IDE support and documentation with proper type ann
 
 import ast
 import inspect
+import math
 import re
 import sys
+import types
 from pathlib import Path
 from typing import Any
 
+RETURN_TYPE_MAP = {
+    "OrbitalTrajectory": "SOrbitTrajectory",  # Fix typo in docstring
+    "tuple": "Tuple",
+    "list": "List",
+}
+
+# One member of a documented type union: a dotted name with optional
+# subscript, e.g. "float", "numpy.ndarray", "dict[str, list[Epoch]]".
+TYPE_MEMBER = re.compile(r"[\w.]+(?:\[[\w.\[\], |]*\])?")
+
 
 def parse_return_type_from_docstring(doc: str) -> str:
-    """Extract return type from docstring Returns section."""
+    """Extract return type from docstring Returns section.
+
+    The type is the text before the first top-level colon on the first line
+    of the Returns section. Unions may be written ``A | B``, ``A or B``,
+    ``Optional[A]`` or ``Union[A, B]``; the description may wrap onto
+    following lines.
+    """
     if not doc:
         return "Any"
 
-    # Look for Returns: section - match type including dots for numpy.ndarray, etc.
-    returns_match = re.search(
-        r"Returns:\s*\n\s*([\w.]+(?:\[[\w\[\], ]+\])?(?: or [\w.]+)*)(?=:)",
-        doc,
-        re.MULTILINE,
+    returns_match = re.search(r"Returns:[ \t]*\n\s*(\S.*)", doc)
+    if not returns_match:
+        return "Any"
+    head = split_top_level(returns_match.group(1), ":")
+    if len(head) < 2:
+        return "Any"
+    type_str = head[0]
+
+    separator = " or " if " or " in type_str else "|"
+    members = split_top_level(type_str, separator)
+    if not all(TYPE_MEMBER.fullmatch(member) for member in members):
+        return "Any"
+    mapped = [RETURN_TYPE_MAP.get(member, member) for member in members]
+    py_type = (
+        f"Union[{', '.join(mapped)}]" if separator == " or " else " | ".join(mapped)
     )
-    if returns_match:
-        type_str = returns_match.group(1).strip()
-
-        # Handle "A or B" union syntax from docstrings
-        if " or " in type_str:
-            types = [t.strip() for t in type_str.split(" or ")]
-            mapped_types = []
-            for t in types:
-                if t == "numpy.ndarray" or t == "ndarray":
-                    mapped_types.append("np.ndarray")
-                elif t == "list":
-                    mapped_types.append("List")
-                elif t == "tuple":
-                    mapped_types.append("Tuple")
-                else:
-                    mapped_types.append(t)
-            return f"Union[{', '.join(mapped_types)}]"
-
-        # Map common types
-        type_map = {
-            "str": "str",
-            "int": "int",
-            "float": "float",
-            "bool": "bool",
-            "ndarray": "np.ndarray",
-            "numpy.ndarray": "np.ndarray",  # Map numpy.ndarray to np.ndarray
-            "Epoch": "Epoch",
-            "Quaternion": "Quaternion",
-            "RotationMatrix": "RotationMatrix",
-            "EulerAngle": "EulerAngle",
-            "EulerAxis": "EulerAxis",
-            "OrbitalTrajectory": "SOrbitTrajectory",  # Fix typo in docstring
-            "tuple": "Tuple",
-            "list": "List",
-        }
-        return type_map.get(type_str, type_str)
-
-    return "Any"
+    # The stub imports numpy as ``np``.
+    py_type = re.sub(r"(?<![\w.])(?:numpy\.)?ndarray\b", "np.ndarray", py_type)
+    try:
+        ast.parse(py_type, mode="eval")
+    except SyntaxError:
+        return "Any"
+    return py_type
 
 
 def infer_return_type_from_name(name: str, doc: str) -> str:
@@ -394,15 +391,118 @@ def format_docstring(doc: str, indent: int = 4) -> str:
     return "\n".join(result)
 
 
-def is_classmethod(cls: type, name: str, member: Any) -> bool:
-    """Check if a member is a classmethod."""
-    # For PyO3 classes, classmethods typically start with 'from_' or are constructors
-    if name.startswith("from_"):
-        return True
-    # Check if it's a builtin_function_or_method (static/class methods in PyO3)
-    if hasattr(member, "__self__"):
-        return member.__self__ is cls
-    return False
+def format_default(value: Any) -> str:
+    """Render a runtime default value as stub source.
+
+    Args:
+        value (Any): Default value reported by ``inspect.signature``.
+
+    Returns:
+        str: The literal for None, bool, int, str and finite float values,
+            otherwise ``...``.
+    """
+    if value is None or type(value) in (bool, int, str):
+        return repr(value)
+    if type(value) is float and math.isfinite(value):
+        return repr(value)
+    return "..."
+
+
+def format_signature_params(
+    sig: inspect.Signature, doc: str, receiver: str | None
+) -> str:
+    """Render a parameter list from a runtime signature and docstring types.
+
+    Parameter names, kinds and defaults come from the signature; annotations
+    come from the docstring Args section, or ``Any`` when undocumented.
+
+    Args:
+        sig (inspect.Signature): Runtime signature of the callable.
+        doc (str): Docstring whose Args section supplies the parameter types.
+        receiver (str | None): Implicit first parameter (``self`` or ``cls``),
+            or None for static methods and functions. A leading ``self``
+            parameter in the signature is replaced by it.
+
+    Returns:
+        str: Comma-separated parameter list, without parentheses.
+    """
+    doc_types = {
+        name: py_type for name, py_type, _, _ in parse_params_from_docstring(doc)
+    }
+    params = list(sig.parameters.values())
+    if receiver is not None and params and params[0].name == "self":
+        params = params[1:]
+
+    parts = [] if receiver is None else [receiver]
+    previous_kind = None
+    star_emitted = False
+    for param in params:
+        if (
+            previous_kind is inspect.Parameter.POSITIONAL_ONLY
+            and param.kind is not inspect.Parameter.POSITIONAL_ONLY
+        ):
+            parts.append("/")
+        annotation = doc_types.get(param.name, "Any")
+        if param.kind is inspect.Parameter.VAR_POSITIONAL:
+            parts.append(f"*{param.name}: {annotation}")
+            star_emitted = True
+        elif param.kind is inspect.Parameter.VAR_KEYWORD:
+            parts.append(f"**{param.name}: {annotation}")
+        else:
+            if param.kind is inspect.Parameter.KEYWORD_ONLY and not star_emitted:
+                parts.append("*")
+                star_emitted = True
+            text = f"{param.name}: {annotation}"
+            if param.default is not inspect.Parameter.empty:
+                text += f" = {format_default(param.default)}"
+            parts.append(text)
+        previous_kind = param.kind
+    if previous_kind is inspect.Parameter.POSITIONAL_ONLY:
+        parts.append("/")
+    return ", ".join(parts)
+
+
+def runtime_signature(obj: Any) -> inspect.Signature | None:
+    """Return the runtime signature of a callable, or None if unavailable."""
+    try:
+        return inspect.signature(obj)
+    except (ValueError, TypeError):
+        return None
+
+
+def member_kind(cls: type, name: str, member: Any) -> str:
+    """Classify a class member for stub rendering.
+
+    Args:
+        cls (type): Class that owns the member.
+        name (str): Attribute name of the member.
+        member (Any): Value returned by ``getattr(cls, name)``.
+
+    Returns:
+        str: One of ``"attribute"`` (a class attribute holding an instance of
+            ``cls``, such as an enum member), ``"classmethod"``,
+            ``"staticmethod"``, ``"method"`` or ``"property"``.
+    """
+    if isinstance(member, cls):
+        return "attribute"
+    raw = inspect.getattr_static(cls, name, None)
+    if isinstance(raw, staticmethod):
+        return "staticmethod"
+    if isinstance(raw, (classmethod, types.ClassMethodDescriptorType)):
+        return "classmethod"
+    if callable(member):
+        return "method"
+    return "property"
+
+
+# Parameter lists for container-protocol methods whose docstrings document no
+# arguments.
+DUNDER_PARAMS = {
+    "__setitem__": "self, key: str, value: Any",
+    "__getitem__": "self, key: str",
+    "__delitem__": "self, key: str",
+    "__contains__": "self, key: str",
+}
 
 
 def generate_class_stub(name: str, cls: type, errors: list) -> str:
@@ -424,41 +524,10 @@ def generate_class_stub(name: str, cls: type, errors: list) -> str:
     # First add __init__ if it exists
     if hasattr(cls, "__init__"):
         try:
-            # Try to get actual signature from inspect first (captures defaults from pyo3)
-            try:
-                sig = inspect.signature(cls)
-                params = []
-                for param_name, param in sig.parameters.items():
-                    if param_name == "self":
-                        continue
-                    # Get type from docstring if available
-                    param_type = "Any"
-                    docstring_params = parse_params_from_docstring(doc)
-                    for dp_name, dp_type, _, _ in docstring_params:
-                        if dp_name == param_name:
-                            param_type = dp_type
-                            break
-
-                    if param.default is not inspect.Parameter.empty:
-                        # Format default value
-                        default = param.default
-                        if default is None:
-                            default_str = "None"
-                        elif isinstance(default, bool):
-                            default_str = str(default)
-                        elif isinstance(default, str):
-                            default_str = repr(default)
-                        else:
-                            default_str = str(default)
-                        params.append(f"{param_name}: {param_type} = {default_str}")
-                    else:
-                        params.append(f"{param_name}: {param_type}")
-
-                if params:
-                    init_params = "self, " + ", ".join(params)
-                else:
-                    init_params = "self"
-            except (ValueError, TypeError):
+            sig = runtime_signature(cls)
+            if sig is not None:
+                init_params = format_signature_params(sig, doc or "", "self")
+            else:
                 # Fall back to docstring parsing if signature not available
                 init_params = parse_init_params_from_docstring(doc)
                 # If no parameters were found in docstring, use empty signature
@@ -507,36 +576,54 @@ def generate_class_stub(name: str, cls: type, errors: list) -> str:
             print(f"Warning: Could not get {name}.{member_name}: {e}", file=sys.stderr)
             continue
 
-    # Sort: classmethods first, then regular methods, then properties
-    def sort_key(item):
-        member_name, member = item
-        if is_classmethod(cls, member_name, member):
-            return (0, member_name)
-        elif callable(member):
-            return (1, member_name)
-        else:
-            return (2, member_name)
-
-    all_members.sort(key=sort_key)
+    # Sort: enum-like class attributes, class/static methods, regular
+    # methods, then properties.
+    kind_order = {
+        "attribute": 0,
+        "classmethod": 1,
+        "staticmethod": 1,
+        "method": 2,
+        "property": 3,
+    }
+    kinds = {
+        member_name: member_kind(cls, member_name, member)
+        for member_name, member in all_members
+    }
+    all_members.sort(key=lambda item: (kind_order[kinds[item[0]]], item[0]))
 
     # Process each member
     for member_name, member in all_members:
         try:
+            kind = kinds[member_name]
+            if kind == "attribute":
+                lines.append(f"    {member_name}: {name}")
+                lines.append("")
+                continue
+
             member_doc = inspect.getdoc(member)
             if callable(member):
                 check_none_defaults(
                     f"{name}.{member_name}", member, member_doc or "", errors
                 )
+            sig = runtime_signature(member) if callable(member) else None
 
-            # Check if it's a classmethod (PyO3 classmethods are often builtin_function_or_method)
-            if is_classmethod(cls, member_name, member):
-                # Constructor classmethods return an instance of the class
-                # unless the docstring names another return type.
+            if kind in ("classmethod", "staticmethod"):
+                # Constructor class/static methods return an instance of the
+                # class unless the docstring names another return type.
                 doc_type = parse_return_type_from_docstring(member_doc or "")
                 return_type = doc_type if doc_type != "Any" else name
-                # Parse parameters from docstring
-                params_str = parse_classmethod_params_from_docstring(member_doc or "")
-                lines.append("    @classmethod")
+                receiver = "cls" if kind == "classmethod" else None
+                if sig is not None:
+                    params_str = format_signature_params(
+                        sig, member_doc or "", receiver
+                    )
+                elif kind == "classmethod":
+                    params_str = parse_classmethod_params_from_docstring(
+                        member_doc or ""
+                    )
+                else:
+                    params_str = parse_function_params_from_docstring(member_doc or "")
+                lines.append(f"    @{kind}")
                 lines.append(f"    def {member_name}({params_str}) -> {return_type}:")
                 if member_doc:
                     lines.append(format_docstring(member_doc, indent=8))
@@ -546,23 +633,18 @@ def generate_class_stub(name: str, cls: type, errors: list) -> str:
                 lines.append("")
 
             # Regular methods
-            elif callable(member):
+            elif kind == "method":
                 return_type = infer_return_type_from_name(member_name, member_doc or "")
-                # Parse parameters from docstring
-                params_str = parse_method_params_from_docstring(member_doc or "")
-
-                # Special handling for dunder methods with known signatures
-                if member_name == "__setitem__" and params_str == "self":
-                    params_str = "self, key: str, value: Any"
-                elif (
-                    member_name == "__getitem__"
-                    and params_str == "self"
-                    or member_name == "__delitem__"
-                    and params_str == "self"
-                    or member_name == "__contains__"
-                    and params_str == "self"
+                if member_name in DUNDER_PARAMS and not parse_params_from_docstring(
+                    member_doc or ""
                 ):
-                    params_str = "self, key: str"
+                    # Slot wrappers carry no parameter types; use the
+                    # container protocol's conventional key/value types.
+                    params_str = DUNDER_PARAMS[member_name]
+                elif sig is not None:
+                    params_str = format_signature_params(sig, member_doc or "", "self")
+                else:
+                    params_str = parse_method_params_from_docstring(member_doc or "")
 
                 lines.append(f"    def {member_name}({params_str}) -> {return_type}:")
                 if member_doc:
@@ -621,7 +703,11 @@ def generate_function_stub(name: str, func: Any, errors: list) -> str:
     doc = inspect.getdoc(func)
     check_none_defaults(name, func, doc or "", errors)
     return_type = infer_return_type_from_name(name, doc or "")
-    params_str = parse_function_params_from_docstring(doc or "")
+    sig = runtime_signature(func)
+    if sig is not None:
+        params_str = format_signature_params(sig, doc or "", None)
+    else:
+        params_str = parse_function_params_from_docstring(doc or "")
 
     lines = []
     lines.append(f"def {name}({params_str}) -> {return_type}:")

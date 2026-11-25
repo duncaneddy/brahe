@@ -2739,7 +2739,7 @@ impl PyWalkerConstellationGenerator {
     ///     params (np.ndarray | None, optional): Parameter vector [mass, drag_area, Cd, srp_area, Cr]
     ///
     /// Returns:
-    ///     list[DNumericalOrbitPropagator]: List of propagators, one per satellite
+    ///     list[NumericalOrbitPropagator]: List of propagators, one per satellite
     #[pyo3(signature = (propagation_config, force_config, params=None))]
     fn as_numerical_propagators(
         &self,

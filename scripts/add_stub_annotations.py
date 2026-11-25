@@ -7,16 +7,18 @@ a complete .pyi stub file for IDE support and documentation with proper type ann
 """
 
 import ast
+import builtins
+import importlib.util
 import inspect
 import math
 import re
 import sys
+import traceback
 import types
 from pathlib import Path
 from typing import Any
 
 RETURN_TYPE_MAP = {
-    "OrbitalTrajectory": "SOrbitTrajectory",  # Fix typo in docstring
     "tuple": "Tuple",
     "list": "List",
 }
@@ -24,6 +26,15 @@ RETURN_TYPE_MAP = {
 # One member of a documented type union: a dotted name with optional
 # subscript, e.g. "float", "numpy.ndarray", "dict[str, list[Epoch]]".
 TYPE_MEMBER = re.compile(r"[\w.]+(?:\[[\w.\[\], |]*\])?")
+
+# Docstring spellings of the numpy array type: "numpy.ndarray", "ndarray" and
+# "array". The stub imports numpy as ``np``.
+NDARRAY_SPELLING = re.compile(r"(?<![\w.])(?:(?:numpy\.)?ndarray|array)\b(?!\.)")
+
+
+def normalize_ndarray(py_type: str) -> str:
+    """Rewrite every docstring spelling of the numpy array type to ``np.ndarray``."""
+    return NDARRAY_SPELLING.sub("np.ndarray", py_type)
 
 
 def parse_return_type_from_docstring(doc: str) -> str:
@@ -53,8 +64,7 @@ def parse_return_type_from_docstring(doc: str) -> str:
     py_type = (
         f"Union[{', '.join(mapped)}]" if separator == " or " else " | ".join(mapped)
     )
-    # The stub imports numpy as ``np``.
-    py_type = re.sub(r"(?<![\w.])(?:numpy\.)?ndarray\b", "np.ndarray", py_type)
+    py_type = normalize_ndarray(py_type)
     try:
         ast.parse(py_type, mode="eval")
     except SyntaxError:
@@ -84,10 +94,6 @@ def infer_return_type_from_name(name: str, doc: str) -> str:
         return "Any"  # Iterator type
     if name in ["__repr__", "__str__"]:
         return "str"
-
-    # Special case: trajectory property returns SOrbitTrajectory (not OrbitalTrajectory)
-    if name == "trajectory":
-        return "SOrbitTrajectory"
 
     # Special case: metadata property returns a dict; without this, the
     # generic "data" substring heuristic below (meant for methods like
@@ -149,8 +155,6 @@ def infer_return_type_from_name(name: str, doc: str) -> str:
 ACCESS_CONSTRAINT_TYPE = "Union[ElevationConstraint, OffNadirConstraint, LocalTimeConstraint, LookDirectionConstraint, AscDscConstraint, ElevationMaskConstraint, ConstraintAll, ConstraintAny, ConstraintNot]"
 
 PARAM_TYPE_MAP = {
-    "numpy.ndarray": "np.ndarray",
-    "ndarray": "np.ndarray",
     "list": "Sequence",
     "tuple": "Tuple",
     # AccessConstraint is a union of all constraint types
@@ -192,7 +196,7 @@ def map_param_type(param_type: str) -> str:
         types = split_top_level(param_type, "|")
         py_type = " | ".join(PARAM_TYPE_MAP.get(t, t) for t in types)
     # The builtin predicate ``callable`` is not a type.
-    return re.sub(r"\bcallable\b", "Callable[..., Any]", py_type)
+    return re.sub(r"\bcallable\b", "Callable[..., Any]", normalize_ndarray(py_type))
 
 
 def accepts_none(py_type: str) -> bool:
@@ -421,7 +425,8 @@ def format_signature_params(
         doc (str): Docstring whose Args section supplies the parameter types.
         receiver (str | None): Implicit first parameter (``self`` or ``cls``),
             or None for static methods and functions. A leading ``self``
-            parameter in the signature is replaced by it.
+            parameter in the signature is replaced by it and keeps its
+            positional-only marker.
 
     Returns:
         str: Comma-separated parameter list, without parentheses.
@@ -430,11 +435,12 @@ def format_signature_params(
         name: py_type for name, py_type, _, _ in parse_params_from_docstring(doc)
     }
     params = list(sig.parameters.values())
+    previous_kind = None
     if receiver is not None and params and params[0].name == "self":
+        previous_kind = params[0].kind
         params = params[1:]
 
     parts = [] if receiver is None else [receiver]
-    previous_kind = None
     star_emitted = False
     for param in params:
         if (
@@ -608,10 +614,11 @@ def generate_class_stub(name: str, cls: type, errors: list) -> str:
             sig = runtime_signature(member) if callable(member) else None
 
             if kind in ("classmethod", "staticmethod"):
-                # Constructor class/static methods return an instance of the
-                # class unless the docstring names another return type.
-                doc_type = parse_return_type_from_docstring(member_doc or "")
-                return_type = doc_type if doc_type != "Any" else name
+                # Constructor classmethods return an instance of the class
+                # unless the docstring names another return type.
+                return_type = parse_return_type_from_docstring(member_doc or "")
+                if return_type == "Any" and kind == "classmethod":
+                    return_type = name
                 receiver = "cls" if kind == "classmethod" else None
                 if sig is not None:
                     params_str = format_signature_params(
@@ -720,20 +727,114 @@ def generate_function_stub(name: str, func: Any, errors: list) -> str:
     return "\n".join(lines)
 
 
-def main():
-    """Generate the stub file."""
-    repo_root = Path(__file__).parent.parent
-    stub_path = repo_root / "brahe" / "_brahe.pyi"
+class StubGenerationError(Exception):
+    """Raised when the generated stub fails validation."""
 
-    # Import the module
-    sys.path.insert(0, str(repo_root))
-    try:
-        from brahe import _brahe
-    except ImportError as e:
-        print(f"Error: Could not import brahe._brahe: {e}")
-        print("Make sure the package is installed: uv pip install -e .")
-        return 1
 
+def annotation_names(tree: ast.Module) -> tuple[set, set]:
+    """Collect the names that annotations in a stub refer to.
+
+    Args:
+        tree (ast.Module): Parsed stub.
+
+    Returns:
+        tuple[set, set]: Names used directly (``Epoch`` in ``Epoch | None``)
+            and names used only as the root of an attribute chain
+            (``datetime`` in ``datetime.datetime``).
+    """
+    annotations = []
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            args = node.args
+            for arg in [
+                *args.posonlyargs,
+                *args.args,
+                *args.kwonlyargs,
+                args.vararg,
+                args.kwarg,
+            ]:
+                if arg is not None and arg.annotation is not None:
+                    annotations.append(arg.annotation)
+            if node.returns is not None:
+                annotations.append(node.returns)
+        elif isinstance(node, ast.AnnAssign):
+            annotations.append(node.annotation)
+
+    direct, roots = set(), set()
+    for annotation in annotations:
+        attribute_roots = {
+            id(sub.value)
+            for sub in ast.walk(annotation)
+            if isinstance(sub, ast.Attribute) and isinstance(sub.value, ast.Name)
+        }
+        for sub in ast.walk(annotation):
+            if isinstance(sub, ast.Name):
+                (roots if id(sub) in attribute_roots else direct).add(sub.id)
+    return direct, roots - direct
+
+
+def defined_names(tree: ast.Module) -> set:
+    """Return the names a stub defines or imports at module level."""
+    names = set()
+    for node in tree.body:
+        if isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
+            names.add(node.name)
+        elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+            names.add(node.target.id)
+        elif isinstance(node, (ast.Import, ast.ImportFrom)):
+            for alias in node.names:
+                names.add((alias.asname or alias.name).split(".")[0])
+    return names
+
+
+def resolve_annotation_imports(tree: ast.Module, package: Any) -> tuple[list, list]:
+    """Find imports for annotation names that a stub does not define.
+
+    A class in the namespace of ``package`` is imported from the module that
+    defines it (the namespace is read directly, so lazy module attributes are
+    never triggered). A name used only as an attribute root (``polars`` in
+    ``polars.DataFrame``) is imported as a module when it is importable.
+
+    Args:
+        tree (ast.Module): Parsed stub.
+        package (Any): Package whose exported classes may be referenced.
+
+    Returns:
+        tuple[list, list]: Import statements to add, and names that could not
+            be resolved.
+    """
+    known = defined_names(tree) | set(dir(builtins))
+    direct, roots = annotation_names(tree)
+    imports, unresolved = [], []
+    for name in sorted(direct - known):
+        obj = vars(package).get(name)
+        if inspect.isclass(obj):
+            imports.append(f"from {obj.__module__} import {name}")
+        else:
+            unresolved.append(name)
+    for name in sorted(roots - known):
+        if importlib.util.find_spec(name) is not None:
+            imports.append(f"import {name}")
+        else:
+            unresolved.append(name)
+    return imports, unresolved
+
+
+def generate_stub(module: Any, package: Any) -> str:
+    """Generate the complete, validated stub source for an extension module.
+
+    Args:
+        module (Any): Extension module to describe.
+        package (Any): Package whose exported classes annotations may name.
+
+    Returns:
+        str: Stub source.
+
+    Raises:
+        StubGenerationError: If a docstring type omits a None default, the
+            stub is not valid Python, or an annotation names something that
+            is neither defined in the stub nor importable.
+    """
     output_lines = []
     errors = []
 
@@ -744,15 +845,16 @@ def main():
         "from typing import Any, Callable, Iterable, List, Sequence, Tuple, Optional, Union"
     )
     output_lines.append("import numpy as np")
+    import_index = len(output_lines)
     output_lines.append("")
 
     # Process all module members
     module_members = {}
-    for name in dir(_brahe):
+    for name in dir(module):
         if name.startswith("_") and name != "__version__":
             continue
         try:
-            member = getattr(_brahe, name)
+            member = getattr(module, name)
             module_members[name] = member
         except Exception as e:  # noqa: BLE001 - isolate arbitrary failures of the wrapped implementation
             print(f"Warning: Could not get {name}: {e}", file=sys.stderr)
@@ -780,8 +882,6 @@ def main():
             output_lines.append(stub)
         except Exception as e:  # noqa: BLE001 - isolate arbitrary failures of the wrapped implementation
             print(f"Error processing class {name}: {e}", file=sys.stderr)
-            import traceback
-
             traceback.print_exc()
             output_lines.append(f"class {name}: ...")
             output_lines.append("")
@@ -816,37 +916,64 @@ def main():
             else:
                 output_lines.append(f"{name}: Any")
 
+    print(
+        f"Processed {len(classes)} classes, {len(functions)} functions, "
+        f"{len(constants)} constants"
+    )
+
     if errors:
-        print(
-            f"Error: {len(errors)} docstring parameter type(s) omit a None default:",
-            file=sys.stderr,
+        raise StubGenerationError(
+            f"{len(errors)} docstring parameter type(s) omit a None default:\n"
+            + "\n".join(f"    {error}" for error in errors)
         )
-        for error in errors:
-            print(f"    {error}", file=sys.stderr)
-        return 1
 
     # Validate before writing: an unparseable stub is silently discarded by
     # tools like griffe, which then fall back to bare inspection of the
     # compiled module and lose every annotation.
     output = "\n".join(output_lines)
     try:
-        ast.parse(output)
+        tree = ast.parse(output)
     except SyntaxError as e:
-        print(
-            f"Error: generated stub is not valid Python (line {e.lineno}): {e.msg}",
-            file=sys.stderr,
-        )
+        message = f"generated stub is not valid Python (line {e.lineno}): {e.msg}"
         if e.text:
-            print(f"    {e.text.strip()}", file=sys.stderr)
+            message += f"\n    {e.text.strip()}"
+        raise StubGenerationError(message) from e
+
+    imports, unresolved = resolve_annotation_imports(tree, package)
+    if unresolved:
+        raise StubGenerationError(
+            "annotation name(s) neither defined in the stub nor importable: "
+            + ", ".join(unresolved)
+        )
+    output_lines[import_index:import_index] = imports
+    return "\n".join(output_lines)
+
+
+def main():
+    """Generate the stub file."""
+    repo_root = Path(__file__).parent.parent
+    stub_path = repo_root / "brahe" / "_brahe.pyi"
+
+    # Import the module
+    sys.path.insert(0, str(repo_root))
+    try:
+        import brahe
+        from brahe import _brahe
+    except ImportError as e:
+        print(f"Error: Could not import brahe._brahe: {e}")
+        print("Make sure the package is installed: uv pip install -e .")
+        return 1
+
+    try:
+        output = generate_stub(_brahe, brahe)
+    except StubGenerationError as e:
+        print(f"Error: {e}", file=sys.stderr)
         return 1
 
     with open(stub_path, "w") as f:
         f.write(output)
 
     print(f"\n✓ Generated stub file: {stub_path}")
-    print(
-        f"✓ Processed {len(classes)} classes, {len(functions)} functions, {len(constants)} constants"
-    )
     return 0
 
 

@@ -765,7 +765,10 @@ def parse_rust_slot_signatures(sources: list) -> dict:
 @functools.cache
 def rust_slot_signatures() -> dict:
     """Return the container slot signatures defined in the Rust bindings."""
-    sources = [path.read_text() for path in sorted(RUST_BINDINGS_DIR.glob("*.rs"))]
+    sources = [
+        path.read_text(encoding="utf-8")
+        for path in sorted(RUST_BINDINGS_DIR.glob("*.rs"))
+    ]
     return parse_rust_slot_signatures(sources)
 
 
@@ -1288,7 +1291,7 @@ def main():
         print(f"Error: {e}", file=sys.stderr)
         return 1
 
-    with open(stub_path, "w") as f:
+    with open(stub_path, "w", encoding="utf-8") as f:
         f.write(output)
 
     print(f"\n✓ Generated stub file: {stub_path}")

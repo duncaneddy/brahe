@@ -3982,7 +3982,7 @@ impl Identifiable for DNumericalOrbitPropagator {
 mod tests {
     use super::*;
     use crate::constants::units::AngleFormat;
-    use crate::constants::{GM_EARTH, R_EARTH};
+    use crate::constants::{GM_EARTH, GM_MOON, R_EARTH, R_MOON};
     use crate::coordinates::position_ecef_to_geodetic;
     use crate::earth_models::{NRLMSISE00ApMode, NRLMSISE00Config};
     use crate::events::{DAltitudeEvent, DTimeEvent, EventDirection};
@@ -15898,8 +15898,6 @@ mod tests {
     #[test]
     #[serial]
     fn test_precompute_ephemeris_moon_central() {
-        use crate::constants::{GM_MOON, R_MOON};
-
         setup_global_test_eop();
         crate::utils::testing::setup_global_test_spice();
         let force_config = ForceModelConfig::for_body(

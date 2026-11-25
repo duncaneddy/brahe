@@ -1072,6 +1072,7 @@ mod tests {
     use approx::assert_abs_diff_eq;
     use rstest::rstest;
 
+    use crate::utils::testing::setup_global_test_eop;
     use crate::{GM_JUPITER_SYSTEM, GM_MERCURY, GM_SUN, TimeSystem};
 
     use super::*;
@@ -2124,9 +2125,6 @@ mod tests {
     #[test]
     #[serial]
     fn test_accel_third_body_field_at_matches() {
-        use crate::propagators::force_model_config::GravityConfiguration;
-        use crate::utils::testing::setup_global_test_eop;
-
         setup_global_test_eop();
         setup_global_test_spice();
 

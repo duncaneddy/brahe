@@ -3543,12 +3543,14 @@ impl PyKeplerianPropagator {
 /// group is propagated in parallel; results are written back to the original objects
 /// in place, preserving their order.
 ///
-/// Before propagating, each `NumericalOrbitPropagator` processes the events at its
-/// current epoch, then instances with matching precompute settings are grouped, and
-/// each group shares one set of precomputed tables covering its members' spans, so
-/// the group evaluates each table node once. Propagators already terminated when the
-/// call starts, including those stopped by an event at their current epoch, are left
-/// out of the grouping, build no tables, and remain at the epoch where they stopped;
+/// Before propagating, `NumericalOrbitPropagator` instances with matching precompute
+/// settings are grouped, and each group shares one set of precomputed tables
+/// covering its members' spans, so the group evaluates each table node once. Tables
+/// are built over the requested span of every propagator not already terminated when
+/// the call starts, before any propagator processes events, so a propagator that an
+/// event stops at or after its start epoch still contributes its span, and an EOP or
+/// SPICE coverage error for that span can be returned where serial `propagate_to`
+/// would not reach it. A terminated propagator remains at the epoch where it stopped;
 /// every other propagator reaches the target epoch.
 ///
 /// Note: `NumericalPropagator` (with user-defined Python dynamics) is NOT supported because
@@ -3752,9 +3754,9 @@ fn py_par_propagate_to(propagators: &Bound<'_, PyAny>, target_epoch: &PyEpoch) -
             borrow_guards.push(item.cast::<PyNumericalOrbitPropagator>()?.borrow_mut());
         }
 
-        // Process events at each current epoch, then build one set of precomputed
-        // tables per group of matching propagators before the parallel loop;
-        // propagators without precompute, or stopped by a terminal event, are skipped.
+        // Build one set of precomputed tables per group of matching propagators
+        // before the parallel loop; propagators without precompute, or stopped by a
+        // terminal event, are skipped.
         propagators::share_precomputed_inputs(
             borrow_guards.iter_mut().map(|guard| &mut guard.propagator),
             target_epoch.obj,

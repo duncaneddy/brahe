@@ -51,13 +51,11 @@ print(f"Position difference after one day: {difference:.2e} m")
 
 assert difference < 1e-3
 
-# par_propagate_to builds one set of tables for propagators that share the same
-# PrecomputeConfig and force-model settings, and shares it across all of them
+# par_propagate_to builds one set of tables for propagators with matching table
+# steps and force-model settings, and shares it across all of them
 constellation = [
-    bh.NumericalOrbitPropagator(
-        epoch + 3600.0 * i, state, prop_config, precomputed_config, None
-    )
-    for i in range(4)
+    bh.NumericalOrbitPropagator(epoch, state, prop_config, precomputed_config, None)
+    for _ in range(4)
 ]
 bh.par_propagate_to(constellation, epoch + 86400.0)
 

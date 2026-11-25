@@ -67,7 +67,7 @@ For very large constellations (1000s of satellites), consider processing in batc
 
 ## Precomputed Inputs
 
-When numerical orbit propagators enable `precompute` in their `ForceModelConfig`, `par_propagate_to` builds one set of precomputed tables per group of propagators with the same `PrecomputeConfig` and force-model settings, covering the union of their time spans up to the target epoch. All propagators in the group share that set instead of each building its own. Propagators without `precompute` are propagated as before. See [Precomputed Inputs](numerical_propagation/force_models.md#precomputed-inputs) for the configuration and accuracy trade-offs.
+When numerical orbit propagators enable `precompute` in their `ForceModelConfig`, `par_propagate_to` builds one set of precomputed tables per group of propagators whose tables would hold the same values: the same `frame_rotation_step` and `ephemeris_step`, and the same force-model settings that determine table contents, namely the central body, the frame transformation, and the SPICE ephemeris queries of the third-body, tide, solar radiation pressure, and drag models. `cache_space_weather` does not affect grouping, because each propagator keeps its own space-weather cache. The set covers the union of the group's time spans up to the target epoch, and all propagators in the group share it instead of each building its own. A propagator stopped by a terminal event is left out of the grouping. Propagators without `precompute` build no tables. See [Precomputed Inputs](numerical_propagation/force_models.md#precomputed-inputs) for the configuration and accuracy trade-offs.
 
 ## Error Handling
 

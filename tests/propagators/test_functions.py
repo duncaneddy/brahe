@@ -499,3 +499,33 @@ def test_par_propagate_to_precompute_matches_serial():
         assert par.current_epoch() == target
         assert ser.current_epoch() == target
         assert np.array_equal(par.current_state(), ser.current_state())
+
+
+def test_par_propagate_to_terminated_propagator_not_shared():
+    """A propagator stopped by a terminal event stays where it stopped while
+    the others share tables and match serial propagation"""
+    t0 = Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem.UTC)
+    target = t0 + 7200.0
+
+    stopped = _precompute_propagator(t0)
+    stopped.add_event_detector(TimeEvent(t0 + 600.0, "Stop").set_terminal())
+    stopped.propagate_to(t0 + 1200.0)
+    assert stopped.terminated()
+    stopped_epoch = stopped.current_epoch()
+    stopped_state = stopped.current_state()
+
+    props = [
+        stopped,
+        _precompute_propagator(t0 + 3600.0),
+        _precompute_propagator(t0 + 3600.0),
+    ]
+    serial = _precompute_propagator(t0 + 3600.0)
+
+    par_propagate_to(props, target)
+    serial.propagate_to(target)
+
+    assert props[0].current_epoch() == stopped_epoch
+    assert np.array_equal(props[0].current_state(), stopped_state)
+    for prop in props[1:]:
+        assert prop.current_epoch() == target
+        assert np.array_equal(prop.current_state(), serial.current_state())

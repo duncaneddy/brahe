@@ -71,8 +71,8 @@ fn main() {
 
     assert!(difference < 1e-3);
 
-    // par_propagate_to_d builds one set of tables for propagators that share the same
-    // PrecomputeConfig and force-model settings, and shares it across all of them
+    // par_propagate_to_d builds one set of tables for propagators with matching table
+    // steps and force-model settings, and shares it across all of them
     let target = epoch + 86400.0;
     let mut constellation: Vec<bh::DNumericalOrbitPropagator> = (0..4)
         .map(|_| build(precomputed_config.clone()))

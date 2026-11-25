@@ -41,7 +41,7 @@ use crate::propagators::force_model_config::{EphemerisSource, PermanentTideConfi
 use crate::propagators::tide_field::TideField;
 use crate::propagators::{
     AtmosphericModel, CentralBody, EclipseModel, ForceModelConfig, FrameTransformationModel,
-    GravityConfiguration, GravityModelSource, ThirdBody,
+    GravityConfiguration, GravityModelSource, PrecomputeKey, PrecomputedInputs, ThirdBody,
 };
 use crate::relative_motion::jacobian_eci_to_rtn;
 use crate::spice::{SPICEKernel, moon_position_spice, spk_position, spk_state, sun_position_spice};
@@ -142,7 +142,7 @@ const ROTATION_CACHE_CAPACITY: usize = 30;
 ///
 /// # Why this exists
 ///
-/// `rotation_eci_to_ecef` (full IAU 2006/2000A) costs ~170 µs per call. The
+/// `rotation_eci_to_ecef` (full IAU 2006/2000A) costs ~12 µs per call. The
 /// numerical-orbit propagator's dynamics function calls it once per
 /// integrator stage. For most integrators the last stage of step N hits the
 /// same epoch as the first stage of step N+1 (FSAL / "first same as last"),
@@ -182,10 +182,21 @@ impl RotationCache {
 
     /// Return the cached rotation for `t`, or compute and insert it on miss.
     /// `epoch` is the absolute time corresponding to `t` (passed in by the
-    /// caller since the rotation chain operates on `Epoch`).
-    fn get_or_compute(&mut self, t: f64, epoch: Epoch) -> Result<SMatrix3, BraheError> {
+    /// caller since the rotation chain operates on `Epoch`). On a miss the
+    /// rotation comes from `table` when it holds one for `epoch`, and from
+    /// the full rotation chain otherwise.
+    fn get_or_compute(
+        &mut self,
+        t: f64,
+        epoch: Epoch,
+        table: Option<&PrecomputedInputs>,
+    ) -> Result<SMatrix3, BraheError> {
         if let Some(r) = self.entries.get(&t.to_bits()) {
             return Ok(*r);
+        }
+        if let Some(r) = table.and_then(|p| p.rotation(epoch)) {
+            self.entries.put(t.to_bits(), r);
+            return Ok(r);
         }
         let r = match (&self.central_body, &self.model) {
             (CentralBody::Earth, FrameTransformationModel::FullEarthRotation) => {
@@ -421,6 +432,15 @@ pub struct DNumericalOrbitPropagator {
 
     /// Shared dynamics function (for computing accelerations when needed)
     shared_dynamics: SharedDynamics,
+
+    // ===== Precomputed Inputs =====
+    /// Handle on the precomputed-input bundle, shared with the dynamics
+    /// closure. Created at construction when the force model has a
+    /// [`PrecomputeKey`]; the handle itself never changes, only the bundle it
+    /// holds, and every bundle it holds carries that key.
+    precomputed: Option<Arc<Mutex<Arc<PrecomputedInputs>>>>,
+    /// Central-body rotation cache, shared with the dynamics closure.
+    rotation_cache: Arc<Mutex<RotationCache>>,
 
     // ===== Event Detection =====
     /// Event detectors for monitoring propagation
@@ -1023,6 +1043,23 @@ impl DNumericalOrbitPropagator {
             )?;
         }
 
+        // Precomputed-input handle (only when a table applies) and the
+        // central-body rotation cache. Both must exist before the dynamics
+        // closure is built: the integrator, Jacobian and sensitivity providers
+        // and the initial-acceleration evaluation below all share the closure.
+        //
+        // Per-propagator rotation cache. Mutex (not RefCell) because
+        // `SharedDynamics: Send + Sync`: the same closure is shared with the
+        // Jacobian and sensitivity providers, which may drive it from
+        // multiple threads. Lock acquisition on this uncontended Mutex is
+        // ~10 ns; the rotation work it saves dwarfs that.
+        let precomputed = PrecomputeKey::from_force_config(&force_config)
+            .map(|key| Arc::new(Mutex::new(Arc::new(PrecomputedInputs::new(&key)))));
+        let rotation_cache = Arc::new(Mutex::new(RotationCache::new(
+            force_config.central_body.clone(),
+            force_config.frame_transform.clone(),
+        )));
+
         // Build shared dynamics function (includes additional_dynamics)
         let shared_dynamics = Self::build_shared_dynamics(
             epoch,
@@ -1033,6 +1070,8 @@ impl DNumericalOrbitPropagator {
             tide_field,
             sun_moon_cache,
             third_body_gravity_models,
+            precomputed.clone(),
+            Arc::clone(&rotation_cache),
         );
 
         // Wrap for main integrator
@@ -1196,6 +1235,8 @@ impl DNumericalOrbitPropagator {
             covariance_interpolation_method: CovarianceInterpolationMethod::TwoWasserstein,
             store_accelerations: propagation_config.store_accelerations,
             shared_dynamics,
+            precomputed,
+            rotation_cache,
             event_detectors: Vec::new(),
             event_log: Vec::new(),
             terminated: false,
@@ -1712,6 +1753,11 @@ impl DNumericalOrbitPropagator {
     ///
     /// This ensures that all three use the exact same dynamics, including
     /// any `additional_dynamics` that were provided.
+    ///
+    /// `precomputed` is the propagator's precomputed-input handle. When
+    /// present, each evaluation extends the bundle (copy on write) if it does
+    /// not bracket the evaluation epoch, then reads the central-body rotation
+    /// from it through `rotation_cache`.
     #[allow(clippy::too_many_arguments)]
     fn build_shared_dynamics(
         epoch_initial: Epoch,
@@ -1722,17 +1768,9 @@ impl DNumericalOrbitPropagator {
         tide_field: Option<Arc<Mutex<TideField>>>,
         sun_moon_cache: Option<Arc<Mutex<SunMoonCache>>>,
         third_body_gravity_models: Vec<Option<Arc<GravityModel>>>,
+        precomputed: Option<Arc<Mutex<Arc<PrecomputedInputs>>>>,
+        rotation_cache: Arc<Mutex<RotationCache>>,
     ) -> SharedDynamics {
-        // Per-propagator rotation cache. Mutex (not RefCell) because
-        // `SharedDynamics: Send + Sync`: the same closure is shared with the
-        // Jacobian and sensitivity providers, which may drive it from
-        // multiple threads. Lock acquisition on this uncontended Mutex is
-        // ~10 ns; the rotation work it saves dwarfs that.
-        let rotation_cache = Arc::new(Mutex::new(RotationCache::new(
-            force_config.central_body.clone(),
-            force_config.frame_transform.clone(),
-        )));
-
         // Rotation caches for bodies that carry a body-fixed force model but
         // are not the central body: third-body entries with extended gravity,
         // and an attributed drag body. Keyed by NAIF ID; empty for
@@ -1775,7 +1813,22 @@ impl DNumericalOrbitPropagator {
                   params_opt: Option<&DVector<f64>>|
                   -> Result<DVector<f64>, BraheError> {
                 let epoch = epoch_initial + t;
-                let rotation_result = { rotation_cache.lock().unwrap().get_or_compute(t, epoch) };
+                let inputs = match &precomputed {
+                    Some(handle) => {
+                        let mut inner = handle.lock().unwrap();
+                        if !inner.covers(epoch) {
+                            Arc::make_mut(&mut inner).ensure(epoch, epoch)?;
+                        }
+                        Some(Arc::clone(&inner))
+                    }
+                    None => None,
+                };
+                let rotation_result = {
+                    rotation_cache
+                        .lock()
+                        .unwrap()
+                        .get_or_compute(t, epoch, inputs.as_deref())
+                };
                 let r_i2b = rotation_result?;
 
                 // Compute orbital dynamics (first 6 elements) on the stack.
@@ -1942,7 +1995,7 @@ impl DNumericalOrbitPropagator {
         caches
             .iter()
             .find(|(id, _)| *id == naif_id)
-            .map(|(_, cache)| cache.lock().unwrap().get_or_compute(t, epoch))
+            .map(|(_, cache)| cache.lock().unwrap().get_or_compute(t, epoch, None))
             .unwrap_or_else(|| {
                 panic!("no attributed rotation cache registered for NAIF ID {naif_id}")
             })
@@ -2571,6 +2624,73 @@ impl DNumericalOrbitPropagator {
         self.terminated = false;
     }
 
+    /// Extend the precomputed inputs over the span between two epochs.
+    ///
+    /// Does nothing when the propagator has no precomputed inputs or the held
+    /// bundle already covers the span. Otherwise the bundle is copied first if
+    /// another propagator shares it, then extended.
+    ///
+    /// # Arguments
+    ///
+    /// * `start` - One end of the span
+    /// * `end` - The other end of the span
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` once the bundle covers the span, or the error raised while
+    /// evaluating a table node.
+    pub(crate) fn ensure_precomputed(
+        &mut self,
+        start: Epoch,
+        end: Epoch,
+    ) -> Result<(), BraheError> {
+        if let Some(handle) = &self.precomputed {
+            let mut inner = handle.lock().unwrap();
+            if !inner.covers_span(start, end) {
+                Arc::make_mut(&mut inner).ensure(start, end)?;
+            }
+        }
+        Ok(())
+    }
+
+    /// Replace the precomputed-input bundle with one shared from elsewhere.
+    ///
+    /// The rotation cache is cleared so later evaluations read the new bundle.
+    ///
+    /// # Arguments
+    ///
+    /// * `inputs` - Bundle to use; its key must equal this propagator's key
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` when the bundle is attached, or an error when the propagator has
+    /// no precomputed inputs or the bundle's key differs from its own.
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn attach_precomputed(
+        &mut self,
+        inputs: Arc<PrecomputedInputs>,
+    ) -> Result<(), BraheError> {
+        let Some(handle) = &self.precomputed else {
+            return Err(BraheError::PropagatorError(
+                "cannot attach precomputed inputs to a propagator without precomputed inputs"
+                    .to_string(),
+            ));
+        };
+        {
+            let mut inner = handle.lock().unwrap();
+            if inputs.key() != inner.key() {
+                return Err(BraheError::PropagatorError(format!(
+                    "precomputed inputs key {:?} does not match propagator key {:?}",
+                    inputs.key(),
+                    inner.key()
+                )));
+            }
+            *inner = inputs;
+        }
+        self.rotation_cache.lock().unwrap().entries.clear();
+        Ok(())
+    }
+
     /// Get current covariance matrix P(t).
     ///
     /// Returns `None` if covariance propagation was not enabled (no initial
@@ -3144,6 +3264,10 @@ impl super::traits::DStatePropagator for DNumericalOrbitPropagator {
         // Check for events at the current epoch before taking any steps.
         self.process_initial_events()?;
 
+        if !self.terminated {
+            self.ensure_precomputed(self.epoch_current, self.epoch_current + step_size)?;
+        }
+
         // Support both forward and backward propagation
         let is_forward = step_size >= 0.0;
 
@@ -3205,6 +3329,10 @@ impl super::traits::DStatePropagator for DNumericalOrbitPropagator {
         // This handles the edge case where an event is scheduled at the exact
         // propagation start time (e.g., TimeEvent at T+0.0s).
         self.process_initial_events()?;
+
+        if !self.terminated {
+            self.ensure_precomputed(self.epoch_current, target_epoch)?;
+        }
 
         // Support both forward and backward propagation
         let is_forward = target_rel >= self.t_rel;
@@ -3720,6 +3848,21 @@ impl DNumericalOrbitPropagator {
     pub(crate) fn gravity_model_ref(&self) -> Option<&GravityModel> {
         self.gravity_model.as_deref()
     }
+
+    /// Number of frame-rotation nodes computed by the current bundle, or 0
+    /// when the propagator has no precomputed inputs.
+    pub(crate) fn precomputed_nodes_computed(&self) -> usize {
+        self.precomputed
+            .as_ref()
+            .map_or(0, |h| h.lock().unwrap().rotation_nodes_computed())
+    }
+
+    /// The bundle currently held by the precomputed-input handle.
+    pub(crate) fn precomputed_inputs(&self) -> Option<Arc<PrecomputedInputs>> {
+        self.precomputed
+            .as_ref()
+            .map(|h| Arc::clone(&h.lock().unwrap()))
+    }
 }
 
 // =============================================================================
@@ -3811,7 +3954,11 @@ mod tests {
         AtmosphericModel, DragConfiguration, EphemerisSource, GravityConfiguration, OccultingBody,
         ParameterSource, ThirdBody,
     };
+    use crate::propagators::precomputed_inputs::NodeRange;
     use crate::propagators::traits::DStatePropagator;
+    use crate::propagators::{
+        IntegratorMethod, PrecomputeConfig, PrecomputeKey, VariationalConfig,
+    };
     use crate::time::TimeSystem;
     use crate::utils::testing::setup_global_test_eop;
     use crate::utils::testing::setup_global_test_gravity_model;
@@ -4035,8 +4182,8 @@ mod tests {
         );
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
 
-        let first = cache.get_or_compute(0.0, epoch);
-        let second = cache.get_or_compute(0.0, epoch);
+        let first = cache.get_or_compute(0.0, epoch, None);
+        let second = cache.get_or_compute(0.0, epoch, None);
         assert_eq!(
             first, second,
             "cache hit on the same t must return the bit-identical matrix"
@@ -4056,7 +4203,7 @@ mod tests {
         );
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
 
-        let cached = cache.get_or_compute(0.0, epoch).unwrap();
+        let cached = cache.get_or_compute(0.0, epoch, None).unwrap();
         let fresh = rotation_eci_to_ecef(epoch);
         assert_eq!(
             cached, fresh,
@@ -4077,15 +4224,18 @@ mod tests {
         );
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
 
-        let r_at_zero = cache.get_or_compute(0.0, epoch);
-        let r_at_3600 = cache.get_or_compute(3600.0, epoch + 3600.0);
+        let r_at_zero = cache.get_or_compute(0.0, epoch, None);
+        let r_at_3600 = cache.get_or_compute(3600.0, epoch + 3600.0, None);
         assert_ne!(
             r_at_zero, r_at_3600,
             "rotations one hour apart should differ (Earth has rotated ~15 deg)"
         );
         // Both should still be retrievable as cache hits afterwards.
-        assert_eq!(cache.get_or_compute(0.0, epoch), r_at_zero);
-        assert_eq!(cache.get_or_compute(3600.0, epoch + 3600.0), r_at_3600);
+        assert_eq!(cache.get_or_compute(0.0, epoch, None), r_at_zero);
+        assert_eq!(
+            cache.get_or_compute(3600.0, epoch + 3600.0, None),
+            r_at_3600
+        );
     }
 
     #[test]
@@ -4101,7 +4251,7 @@ mod tests {
         );
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
 
-        let cached = cache.get_or_compute(0.0, epoch).unwrap();
+        let cached = cache.get_or_compute(0.0, epoch, None).unwrap();
         let fresh = earth_rotation(epoch);
         assert_eq!(
             cached, fresh,
@@ -4127,17 +4277,17 @@ mod tests {
         let h = 30.0;
 
         // Step 1.
-        let _stage0 = cache.get_or_compute(0.0, epoch);
-        let stage1 = cache.get_or_compute(h / 2.0, epoch + h / 2.0);
-        let stage2 = cache.get_or_compute(h / 2.0, epoch + h / 2.0);
+        let _stage0 = cache.get_or_compute(0.0, epoch, None);
+        let stage1 = cache.get_or_compute(h / 2.0, epoch + h / 2.0, None);
+        let stage2 = cache.get_or_compute(h / 2.0, epoch + h / 2.0, None);
         assert_eq!(
             stage1, stage2,
             "RK4 stage 1 and stage 2 (both at t + h/2) must return the same cached matrix"
         );
-        let stage3 = cache.get_or_compute(h, epoch + h);
+        let stage3 = cache.get_or_compute(h, epoch + h, None);
 
         // Step 2 starts at t = h, sharing an epoch with step 1's last stage.
-        let step2_stage0 = cache.get_or_compute(h, epoch + h);
+        let step2_stage0 = cache.get_or_compute(h, epoch + h, None);
         assert_eq!(
             stage3, step2_stage0,
             "cross-step boundary (stage 3 of step N == stage 0 of step N+1) must be a cache hit"
@@ -4162,7 +4312,7 @@ mod tests {
         let inserts: Vec<(f64, SMatrix3)> = (0..=ROTATION_CACHE_CAPACITY)
             .map(|i| {
                 let t = i as f64;
-                let r = cache.get_or_compute(t, epoch + t).unwrap();
+                let r = cache.get_or_compute(t, epoch + t, None).unwrap();
                 (t, r)
             })
             .collect();
@@ -4174,7 +4324,7 @@ mod tests {
         // a stale or wrong entry, the values would diverge.
         for &(t, expected) in &inserts[1..] {
             assert_eq!(
-                cache.get_or_compute(t, epoch + t).unwrap(),
+                cache.get_or_compute(t, epoch + t, None).unwrap(),
                 expected,
                 "entry at t={t} should still be cached"
             );
@@ -4183,7 +4333,7 @@ mod tests {
         // The oldest entry (t=0) should have been evicted. We can't observe
         // a miss directly without instrumentation, but we can verify the
         // returned value is still correct (recomputed from scratch).
-        let recomputed = cache.get_or_compute(0.0, epoch).unwrap();
+        let recomputed = cache.get_or_compute(0.0, epoch, None).unwrap();
         assert_eq!(
             recomputed, inserts[0].1,
             "post-eviction recompute must still match the original value"
@@ -15210,5 +15360,404 @@ mod tests {
         prop.propagate_to(epoch + 600.0).unwrap();
         let s = prop.current_state();
         assert!(s.iter().all(|v| v.is_finite()));
+    }
+
+    // ----- Precomputed frame rotation -----
+
+    fn precompute_rotation_only() -> PrecomputeConfig {
+        PrecomputeConfig {
+            frame_rotation_step: Some(600.0),
+            ephemeris_step: None,
+            cache_space_weather: false,
+        }
+    }
+
+    fn precompute_test_epoch_state() -> (Epoch, DVector<f64>) {
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let oe = Vector6::new(R_EARTH + 500e3, 0.001, 97.8, 15.0, 30.0, 45.0);
+        let state = state_koe_to_eci(oe, AngleFormat::Degrees);
+        (epoch, DVector::from_column_slice(state.as_slice()))
+    }
+
+    fn precompute_rk4_30s() -> NumericalPropagationConfig {
+        NumericalPropagationConfig {
+            method: IntegratorMethod::RK4,
+            integrator: IntegratorConfig {
+                initial_step: Some(30.0),
+                ..IntegratorConfig::fixed_step(30.0)
+            },
+            ..Default::default()
+        }
+    }
+
+    fn precompute_prop(
+        prop_config: NumericalPropagationConfig,
+        precompute: Option<PrecomputeConfig>,
+    ) -> DNumericalOrbitPropagator {
+        let (epoch, state) = precompute_test_epoch_state();
+        let force_config = ForceModelConfig {
+            precompute,
+            ..ForceModelConfig::earth_gravity()
+        };
+        DNumericalOrbitPropagator::new(
+            epoch,
+            state,
+            prop_config,
+            force_config,
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap()
+    }
+
+    fn position_difference(a: &DVector<f64>, b: &DVector<f64>) -> f64 {
+        (a.rows(0, 3) - b.rows(0, 3)).norm()
+    }
+
+    #[test]
+    #[parallel]
+    fn test_precompute_rotation_fixed_step_accuracy() {
+        setup_global_test_eop();
+        let mut on = precompute_prop(precompute_rk4_30s(), Some(precompute_rotation_only()));
+        let mut off = precompute_prop(precompute_rk4_30s(), None);
+        let target = on.initial_epoch() + 86400.0;
+        on.propagate_to(target).unwrap();
+        off.propagate_to(target).unwrap();
+        let dr = position_difference(&on.current_state(), &off.current_state());
+        println!("fixed-step 1 day on-vs-off position difference: {dr:.3e} m");
+        assert!(dr < 1e-3, "position difference {dr} m");
+    }
+
+    #[test]
+    #[parallel]
+    fn test_precompute_rotation_deterministic_across_entry_points() {
+        setup_global_test_eop();
+        let pre = Some(precompute_rotation_only());
+        let mut single = precompute_prop(precompute_rk4_30s(), pre);
+        let mut stepped = precompute_prop(precompute_rk4_30s(), pre);
+        let mut split = precompute_prop(precompute_rk4_30s(), pre);
+        let t0 = single.initial_epoch();
+        let target = t0 + 86400.0;
+
+        single.propagate_to(target).unwrap();
+        assert_eq!(single.trajectory().len(), 2881);
+        for _ in 0..2880 {
+            stepped.step_by(30.0).unwrap();
+        }
+        split.propagate_to(t0 + 43200.0).unwrap();
+        split.propagate_to(target).unwrap();
+
+        assert_eq!(stepped.current_epoch(), target);
+        assert_eq!(split.current_epoch(), target);
+        assert_eq!(single.current_state(), stepped.current_state());
+        assert_eq!(single.current_state(), split.current_state());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_precompute_rotation_backward() {
+        setup_global_test_eop();
+        let mut on = precompute_prop(precompute_rk4_30s(), Some(precompute_rotation_only()));
+        let mut off = precompute_prop(precompute_rk4_30s(), None);
+        let t0 = on.initial_epoch();
+        for prop in [&mut on, &mut off] {
+            prop.propagate_to(t0 + 86400.0).unwrap();
+            prop.propagate_to(t0).unwrap();
+        }
+        assert_eq!(on.current_epoch(), t0);
+        let dr = position_difference(&on.current_state(), &off.current_state());
+        println!("forward+backward on-vs-off position difference: {dr:.3e} m");
+        assert!(dr < 1e-3, "position difference {dr} m");
+    }
+
+    #[test]
+    #[parallel]
+    fn test_precompute_rotation_after_reinitialize() {
+        setup_global_test_eop();
+        let pre = Some(precompute_rotation_only());
+        let mut reused = precompute_prop(precompute_rk4_30s(), pre);
+        let (t0, x0) = precompute_test_epoch_state();
+        reused.propagate_to(t0 + 86400.0).unwrap();
+
+        let t1 = t0 + 10.0 * 86400.0;
+        reused.reinitialize(t1, x0.clone(), None);
+        reused.propagate_to(t1 + 86400.0).unwrap();
+
+        let mut fresh = DNumericalOrbitPropagator::new(
+            t1,
+            x0,
+            precompute_rk4_30s(),
+            ForceModelConfig {
+                precompute: pre,
+                ..ForceModelConfig::earth_gravity()
+            },
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        fresh.propagate_to(t1 + 86400.0).unwrap();
+
+        assert_eq!(reused.current_epoch(), fresh.current_epoch());
+        assert_eq!(reused.current_state(), fresh.current_state());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_precompute_rotation_events_match() {
+        setup_global_test_eop();
+        let mut on = precompute_prop(precompute_rk4_30s(), Some(precompute_rotation_only()));
+        let mut off = precompute_prop(precompute_rk4_30s(), None);
+        let t0 = on.initial_epoch();
+        for prop in [&mut on, &mut off] {
+            prop.add_event_detector(Box::new(DAltitudeEvent::new(
+                510e3,
+                "Altitude 510 km",
+                EventDirection::Any,
+            )));
+            prop.propagate_to(t0 + 86400.0).unwrap();
+        }
+        assert!(!off.event_log().is_empty(), "expected an altitude crossing");
+        assert_eq!(on.event_log().len(), off.event_log().len());
+        let mut max_dt: f64 = 0.0;
+        for (a, b) in on.event_log().iter().zip(off.event_log()) {
+            max_dt = max_dt.max((a.window_open - b.window_open).abs());
+        }
+        println!(
+            "altitude events: {} crossings, max on-vs-off epoch difference {max_dt:.3e} s",
+            off.event_log().len()
+        );
+        assert!(max_dt < 1e-6, "event epoch difference {max_dt} s");
+    }
+
+    #[test]
+    #[parallel]
+    fn test_precompute_construction_paths_use_table() {
+        setup_global_test_eop();
+        let accel_config = NumericalPropagationConfig {
+            store_accelerations: true,
+            ..precompute_rk4_30s()
+        };
+        let on = precompute_prop(accel_config.clone(), Some(precompute_rotation_only()));
+        let off = precompute_prop(accel_config, None);
+        let a_on = on.trajectory().acceleration_at_idx(0).unwrap();
+        let a_off = off.trajectory().acceleration_at_idx(0).unwrap();
+        let da = (a_on - a_off).norm();
+        println!("initial acceleration on-vs-off difference: {da:.3e} m/s^2");
+        assert!(da < 1e-12, "initial acceleration difference {da} m/s^2");
+        assert!(on.precomputed_nodes_computed() > 0);
+
+        let variational_config = NumericalPropagationConfig {
+            variational: VariationalConfig {
+                enable_stm: true,
+                enable_sensitivity: true,
+                ..Default::default()
+            },
+            ..precompute_rk4_30s()
+        };
+        let (epoch, state) = precompute_test_epoch_state();
+        let build = |precompute: Option<PrecomputeConfig>| {
+            DNumericalOrbitPropagator::new(
+                epoch,
+                state.clone(),
+                variational_config.clone(),
+                ForceModelConfig {
+                    drag: test_force_config_with_params().drag,
+                    mass: test_force_config_with_params().mass,
+                    precompute,
+                    ..ForceModelConfig::earth_gravity()
+                },
+                Some(default_test_params()),
+                None,
+                None,
+                None,
+            )
+            .unwrap()
+        };
+        let relative = |a: &DMatrix<f64>, b: &DMatrix<f64>| (a - b).norm() / b.norm();
+        let mut on = build(Some(precompute_rotation_only()));
+        let mut off = build(None);
+
+        // After one step the finite-difference Jacobian sees bit-level
+        // different inputs only through the rotation, so the STM and
+        // sensitivity agree to 1e-9.
+        on.propagate_to(epoch + 30.0).unwrap();
+        off.propagate_to(epoch + 30.0).unwrap();
+        let stm_rel = relative(on.stm().unwrap(), off.stm().unwrap());
+        let sens_rel = relative(on.sensitivity().unwrap(), off.sensitivity().unwrap());
+        println!("one step: STM relative difference {stm_rel:.3e}, sensitivity {sens_rel:.3e}");
+        assert!(off.sensitivity().unwrap().norm() > 0.0);
+        assert!(stm_rel < 1e-9, "STM relative difference {stm_rel}");
+        assert!(
+            sens_rel < 1e-9,
+            "sensitivity relative difference {sens_rel}"
+        );
+
+        // Over a day the finite-difference noise floor dominates: two
+        // option-off runs whose initial positions differ by 1 um already
+        // differ by ~1e-5 relative in the STM and sensitivity.
+        on.propagate_to(epoch + 86400.0).unwrap();
+        off.propagate_to(epoch + 86400.0).unwrap();
+        let stm_rel = relative(on.stm().unwrap(), off.stm().unwrap());
+        let sens_rel = relative(on.sensitivity().unwrap(), off.sensitivity().unwrap());
+        println!("one day: STM relative difference {stm_rel:.3e}, sensitivity {sens_rel:.3e}");
+        assert!(stm_rel < 1e-4, "STM relative difference {stm_rel}");
+        assert!(
+            sens_rel < 1e-4,
+            "sensitivity relative difference {sens_rel}"
+        );
+    }
+
+    #[test]
+    #[parallel]
+    fn test_precompute_short_arc_builds_only_needed_nodes() {
+        setup_global_test_eop();
+        let mut prop = precompute_prop(
+            NumericalPropagationConfig::default(),
+            Some(precompute_rotation_only()),
+        );
+        assert_eq!(prop.precomputed_nodes_computed(), 0);
+        let t0 = prop.initial_epoch();
+        prop.propagate_to(t0 + 300.0).unwrap();
+        let n = prop.precomputed_nodes_computed();
+        assert!(n > 0 && n <= 2, "computed {n} nodes");
+    }
+
+    #[test]
+    #[parallel]
+    fn test_precompute_repeated_step_by_appends() {
+        setup_global_test_eop();
+        let mut prop = precompute_prop(
+            NumericalPropagationConfig::default(),
+            Some(precompute_rotation_only()),
+        );
+        for _ in 0..144 {
+            prop.step_by(60.0).unwrap();
+        }
+        let coverage = prop
+            .precomputed_inputs()
+            .unwrap()
+            .rotation_coverage()
+            .unwrap();
+        let len = (coverage.k_max - coverage.k_min + 1) as usize;
+        assert_eq!(prop.precomputed_nodes_computed(), len);
+        let expected = NodeRange::bracketing(
+            600.0,
+            prop.initial_epoch(),
+            prop.initial_epoch() + 144.0 * 60.0,
+        );
+        assert_eq!(coverage, expected);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_precompute_terminated_at_start_builds_nothing() {
+        setup_global_test_eop();
+        let mut prop = precompute_prop(
+            NumericalPropagationConfig::default(),
+            Some(precompute_rotation_only()),
+        );
+        let t0 = prop.initial_epoch();
+        prop.add_event_detector(Box::new(DTimeEvent::new(t0, "Stop").set_terminal()));
+        prop.propagate_to(t0 + 86400.0).unwrap();
+        assert!(prop.terminated());
+        assert_eq!(prop.precomputed_nodes_computed(), 0);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_precompute_shared_bundle_copy_on_write() {
+        setup_global_test_eop();
+        let pre = Some(precompute_rotation_only());
+        let mut first = precompute_prop(NumericalPropagationConfig::default(), pre);
+        let mut second = precompute_prop(NumericalPropagationConfig::default(), pre);
+        let t0 = first.initial_epoch();
+
+        first.ensure_precomputed(t0, t0 + 3600.0).unwrap();
+        let shared = first.precomputed_inputs().unwrap();
+        second.attach_precomputed(Arc::clone(&shared)).unwrap();
+        assert!(Arc::ptr_eq(&second.precomputed_inputs().unwrap(), &shared));
+
+        first.propagate_to(t0 + 1800.0).unwrap();
+        assert!(
+            Arc::ptr_eq(&first.precomputed_inputs().unwrap(), &shared),
+            "a covered span must not copy the shared bundle"
+        );
+
+        second.propagate_to(t0 + 86400.0).unwrap();
+        assert!(!Arc::ptr_eq(&second.precomputed_inputs().unwrap(), &shared));
+        assert!(Arc::ptr_eq(&first.precomputed_inputs().unwrap(), &shared));
+        assert_eq!(
+            shared.rotation_coverage(),
+            Some(NodeRange::bracketing(600.0, t0, t0 + 3600.0))
+        );
+
+        let mut other_step = precompute_prop(
+            NumericalPropagationConfig::default(),
+            Some(PrecomputeConfig {
+                frame_rotation_step: Some(300.0),
+                ..precompute_rotation_only()
+            }),
+        );
+        assert!(other_step.attach_precomputed(Arc::clone(&shared)).is_err());
+
+        let mut without = precompute_prop(NumericalPropagationConfig::default(), None);
+        assert!(without.attach_precomputed(shared).is_err());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_precompute_key_none_for_non_earth_or_era_only() {
+        setup_global_test_eop();
+        let pre = Some(precompute_rotation_only());
+        let moon = ForceModelConfig {
+            precompute: pre,
+            ..ForceModelConfig::for_body(
+                CentralBody::Moon,
+                GravityConfiguration::PointMass,
+                None,
+                None,
+                None,
+                false,
+                None,
+            )
+        };
+        assert_eq!(PrecomputeKey::from_force_config(&moon), None);
+
+        let era_config = |precompute: Option<PrecomputeConfig>| ForceModelConfig {
+            frame_transform: FrameTransformationModel::EarthRotationOnly,
+            precompute,
+            ..ForceModelConfig::earth_gravity()
+        };
+        assert_eq!(PrecomputeKey::from_force_config(&era_config(pre)), None);
+        assert!(
+            PrecomputeKey::from_force_config(&ForceModelConfig {
+                precompute: pre,
+                ..ForceModelConfig::earth_gravity()
+            })
+            .is_some()
+        );
+
+        let (epoch, state) = precompute_test_epoch_state();
+        let run = |precompute: Option<PrecomputeConfig>| {
+            let mut prop = DNumericalOrbitPropagator::new(
+                epoch,
+                state.clone(),
+                precompute_rk4_30s(),
+                era_config(precompute),
+                None,
+                None,
+                None,
+                None,
+            )
+            .unwrap();
+            prop.propagate_to(epoch + 21600.0).unwrap();
+            assert_eq!(prop.precomputed_nodes_computed(), 0);
+            prop.current_state()
+        };
+        assert_eq!(run(pre), run(None));
     }
 }

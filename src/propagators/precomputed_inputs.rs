@@ -7,15 +7,15 @@
  * spans and extend contiguously in place.
  */
 
-#![allow(dead_code)]
-
 use std::collections::VecDeque;
 
 use rayon::prelude::*;
 
 use crate::frames::{bias_precession_nutation, earth_rotation, polar_motion};
 use crate::math::SMatrix3;
+use crate::propagators::{CentralBody, ForceModelConfig, FrameTransformationModel};
 use crate::time::{Epoch, TimeSystem};
+use crate::utils::errors::BraheError;
 use crate::utils::threading::get_thread_pool;
 
 /// Epoch of node index zero for every precomputed grid (J2000, TT).
@@ -100,6 +100,10 @@ impl NodeRange {
 
     fn is_empty(&self) -> bool {
         self.k_min > self.k_max
+    }
+
+    fn contains(&self, other: &NodeRange) -> bool {
+        self.k_min <= other.k_min && other.k_max <= self.k_max
     }
 }
 
@@ -202,6 +206,11 @@ impl FrameRotationTable {
         }
     }
 
+    /// Whether the table holds every node of `need`.
+    fn holds(&self, need: &NodeRange) -> bool {
+        self.coverage().is_some_and(|cov| cov.contains(need))
+    }
+
     fn replace(&mut self, need: NodeRange) {
         let new = self.compute_nodes(need.k_min, need.k_max);
         self.nodes = new.into();
@@ -226,6 +235,188 @@ impl FrameRotationTable {
         let (bpn0, pm0) = self.nodes.get(i)?;
         let (bpn1, pm1) = self.nodes.get(i + 1)?;
         Some(lerp(pm0, pm1, s) * earth_rotation(epoch) * lerp(bpn0, bpn1, s))
+    }
+}
+
+/// Identity of a [`PrecomputedInputs`] bundle.
+///
+/// Two propagators whose force models produce equal keys can share one bundle.
+/// The key is derived from [`ForceModelConfig::precompute`] and the parts of the
+/// force model that decide which tables apply; a frame-rotation table applies
+/// only to an Earth central body with
+/// [`FrameTransformationModel::FullEarthRotation`].
+///
+/// # Examples
+///
+/// ```rust
+/// use brahe::propagators::{ForceModelConfig, PrecomputeConfig};
+///
+/// // A force model that opts in to precomputed inputs; the propagator builds
+/// // its `PrecomputeKey` from this configuration at construction.
+/// let config = ForceModelConfig {
+///     precompute: Some(PrecomputeConfig::default()),
+///     ..ForceModelConfig::earth_gravity()
+/// };
+/// assert!(config.validate().is_ok());
+/// ```
+#[derive(Debug, Clone, PartialEq)]
+pub struct PrecomputeKey {
+    frame_rotation_step: Option<f64>,
+}
+
+impl PrecomputeKey {
+    /// Key for the tables a force model uses.
+    ///
+    /// # Arguments
+    /// - `cfg`: Force model configuration
+    ///
+    /// # Returns
+    /// - `Option<PrecomputeKey>`: `None` when `cfg.precompute` is `None` or no table applies
+    pub(crate) fn from_force_config(cfg: &ForceModelConfig) -> Option<PrecomputeKey> {
+        let pre = cfg.precompute.as_ref()?;
+        let frame_rotation_step = match (&cfg.central_body, &cfg.frame_transform) {
+            (CentralBody::Earth, FrameTransformationModel::FullEarthRotation) => {
+                pre.frame_rotation_step
+            }
+            _ => None,
+        };
+        frame_rotation_step.map(|step| PrecomputeKey {
+            frame_rotation_step: Some(step),
+        })
+    }
+}
+
+/// Precomputed time-only force-model inputs for a [`PrecomputeKey`].
+///
+/// Holds the frame-rotation table on the absolute grid. A propagator extends
+/// the tables over each requested span before integrating and on demand when
+/// the dynamics are evaluated at an epoch outside them. Bundles are shared
+/// between propagators through `Arc` and copied on write when one extends them.
+///
+/// # Examples
+///
+/// ```rust
+/// use brahe::eop::{StaticEOPProvider, set_global_eop_provider};
+/// use brahe::propagators::{
+///     DNumericalOrbitPropagator, ForceModelConfig, PrecomputeConfig,
+/// };
+/// use brahe::time::{Epoch, TimeSystem};
+/// use brahe::traits::DStatePropagator;
+/// use brahe::constants::R_EARTH;
+/// use nalgebra::DVector;
+///
+/// set_global_eop_provider(StaticEOPProvider::from_zero());
+///
+/// let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0]);
+/// let force_config = ForceModelConfig {
+///     precompute: Some(PrecomputeConfig::default()),
+///     ..ForceModelConfig::earth_gravity()
+/// };
+///
+/// // The propagator builds and extends its `PrecomputedInputs` internally.
+/// let mut prop = DNumericalOrbitPropagator::builder(epoch, state, force_config)
+///     .build()
+///     .unwrap();
+/// prop.propagate_to(epoch + 3600.0).unwrap();
+/// assert_eq!(prop.current_epoch(), epoch + 3600.0);
+/// ```
+#[derive(Debug, Clone)]
+pub struct PrecomputedInputs {
+    key: PrecomputeKey,
+    rotation: Option<FrameRotationTable>,
+}
+
+impl PrecomputedInputs {
+    /// Create a bundle with empty tables.
+    ///
+    /// # Arguments
+    /// - `key`: Tables to hold and their grid steps
+    ///
+    /// # Returns
+    /// - `PrecomputedInputs`: Bundle holding no nodes
+    pub(crate) fn new(key: &PrecomputeKey) -> Self {
+        PrecomputedInputs {
+            key: key.clone(),
+            rotation: key.frame_rotation_step.map(FrameRotationTable::new),
+        }
+    }
+
+    /// Key this bundle was built for.
+    ///
+    /// # Returns
+    /// - `&PrecomputeKey`: The bundle's key
+    pub(crate) fn key(&self) -> &PrecomputeKey {
+        &self.key
+    }
+
+    /// Whether every table holds the nodes bracketing the span between two epochs.
+    ///
+    /// # Arguments
+    /// - `start`: One end of the span
+    /// - `end`: The other end of the span
+    ///
+    /// # Returns
+    /// - `bool`: `true` when no table needs extending to cover the span
+    pub(crate) fn covers_span(&self, start: Epoch, end: Epoch) -> bool {
+        self.rotation
+            .as_ref()
+            .is_none_or(|t| t.holds(&NodeRange::bracketing(t.step, start, end)))
+    }
+
+    /// Whether every table holds the nodes bracketing an epoch.
+    ///
+    /// # Arguments
+    /// - `epoch`: Epoch to check
+    ///
+    /// # Returns
+    /// - `bool`: `true` when each table holds nodes `k` and `k + 1` around `epoch`
+    pub(crate) fn covers(&self, epoch: Epoch) -> bool {
+        self.covers_span(epoch, epoch)
+    }
+
+    /// Extend every table to hold the nodes bracketing the span between two epochs.
+    ///
+    /// Does nothing when the span is already covered.
+    ///
+    /// # Arguments
+    /// - `start`: One end of the span
+    /// - `end`: The other end of the span
+    ///
+    /// # Returns
+    /// - `Result<(), BraheError>`: `Ok(())` once every table covers the span
+    pub(crate) fn ensure(&mut self, start: Epoch, end: Epoch) -> Result<(), BraheError> {
+        if self.covers_span(start, end) {
+            return Ok(());
+        }
+        if let Some(table) = self.rotation.as_mut() {
+            table.ensure(NodeRange::bracketing(table.step, start, end));
+        }
+        Ok(())
+    }
+
+    /// GCRF to ITRF rotation from the frame-rotation table.
+    ///
+    /// # Arguments
+    /// - `epoch`: Epoch to evaluate
+    ///
+    /// # Returns
+    /// - `Option<SMatrix3>`: Interpolated rotation, or `None` when the bundle has no
+    ///   frame-rotation table or the table does not bracket `epoch`
+    pub(crate) fn rotation(&self, epoch: Epoch) -> Option<SMatrix3> {
+        self.rotation.as_ref()?.rotation(epoch)
+    }
+
+    /// Number of frame-rotation nodes computed over the bundle's lifetime.
+    #[cfg(test)]
+    pub(crate) fn rotation_nodes_computed(&self) -> usize {
+        self.rotation.as_ref().map_or(0, |t| t.nodes_computed)
+    }
+
+    /// Node range held by the frame-rotation table.
+    #[cfg(test)]
+    pub(crate) fn rotation_coverage(&self) -> Option<NodeRange> {
+        self.rotation.as_ref()?.coverage()
     }
 }
 

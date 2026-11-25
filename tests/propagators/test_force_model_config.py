@@ -20,6 +20,7 @@ from brahe import (
     FrameTransformationModel,
     GravityConfiguration,
     GravityModelType,
+    InterpolationMethod,
     OccultingBody,
     ParameterSource,
     PrecomputeConfig,
@@ -1027,3 +1028,104 @@ def test_force_model_config_precompute_roundtrip():
     assert cfg.precompute is None
     cfg.precompute = PrecomputeConfig.default()
     assert cfg.precompute.frame_rotation_step == 600.0
+
+
+def test_precompute_config_default_interpolation():
+    cfg = PrecomputeConfig()
+    assert cfg.frame_rotation_interpolation == InterpolationMethod.LINEAR
+    assert cfg.ephemeris_interpolation == InterpolationMethod.LINEAR
+
+    default = PrecomputeConfig.default()
+    assert default.frame_rotation_interpolation == InterpolationMethod.LINEAR
+    assert default.ephemeris_interpolation == InterpolationMethod.LINEAR
+
+
+def test_precompute_config_interpolation_roundtrip():
+    cfg = PrecomputeConfig(
+        frame_rotation_interpolation=InterpolationMethod.lagrange(3),
+        ephemeris_interpolation=InterpolationMethod.HERMITE_CUBIC,
+    )
+    assert cfg.frame_rotation_interpolation == InterpolationMethod.lagrange(3)
+    assert cfg.ephemeris_interpolation == InterpolationMethod.HERMITE_CUBIC
+
+    cfg.frame_rotation_interpolation = InterpolationMethod.LINEAR
+    cfg.ephemeris_interpolation = InterpolationMethod.lagrange(5)
+    assert cfg.frame_rotation_interpolation == InterpolationMethod.LINEAR
+    assert cfg.ephemeris_interpolation == InterpolationMethod.lagrange(5)
+
+    force_config = ForceModelConfig(precompute=cfg)
+    assert force_config.precompute.ephemeris_interpolation == (
+        InterpolationMethod.lagrange(5)
+    )
+
+
+@pytest.mark.parametrize(
+    "frame_rotation_interpolation, ephemeris_interpolation",
+    [
+        (InterpolationMethod.LINEAR, InterpolationMethod.LINEAR),
+        (InterpolationMethod.lagrange(1), InterpolationMethod.lagrange(5)),
+        (InterpolationMethod.lagrange(3), InterpolationMethod.HERMITE_CUBIC),
+        (InterpolationMethod.lagrange(15), InterpolationMethod.lagrange(15)),
+    ],
+)
+def test_force_model_config_validate_precompute_interpolation_valid(
+    frame_rotation_interpolation, ephemeris_interpolation
+):
+    config = ForceModelConfig.two_body()
+    config.precompute = PrecomputeConfig(
+        frame_rotation_interpolation=frame_rotation_interpolation,
+        ephemeris_interpolation=ephemeris_interpolation,
+    )
+    config.validate()
+
+
+@pytest.mark.parametrize(
+    "frame_rotation_interpolation, ephemeris_interpolation, field",
+    [
+        (
+            InterpolationMethod.HERMITE_CUBIC,
+            InterpolationMethod.LINEAR,
+            "precompute.frame_rotation_interpolation",
+        ),
+        (
+            InterpolationMethod.HERMITE_QUINTIC,
+            InterpolationMethod.LINEAR,
+            "precompute.frame_rotation_interpolation",
+        ),
+        (
+            InterpolationMethod.lagrange(16),
+            InterpolationMethod.LINEAR,
+            "precompute.frame_rotation_interpolation",
+        ),
+        (
+            InterpolationMethod.lagrange(2**64 - 1),
+            InterpolationMethod.LINEAR,
+            "precompute.frame_rotation_interpolation",
+        ),
+        (
+            InterpolationMethod.LINEAR,
+            InterpolationMethod.HERMITE_QUINTIC,
+            "precompute.ephemeris_interpolation",
+        ),
+        (
+            InterpolationMethod.LINEAR,
+            InterpolationMethod.lagrange(16),
+            "precompute.ephemeris_interpolation",
+        ),
+        (
+            InterpolationMethod.LINEAR,
+            InterpolationMethod.lagrange(2**64 - 1),
+            "precompute.ephemeris_interpolation",
+        ),
+    ],
+)
+def test_force_model_config_validate_precompute_interpolation_rejected(
+    frame_rotation_interpolation, ephemeris_interpolation, field
+):
+    config = ForceModelConfig.two_body()
+    config.precompute = PrecomputeConfig(
+        frame_rotation_interpolation=frame_rotation_interpolation,
+        ephemeris_interpolation=ephemeris_interpolation,
+    )
+    with pytest.raises(RuntimeError, match=field):
+        config.validate()

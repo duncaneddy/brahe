@@ -430,9 +430,9 @@ where $c$ is the speed of light, $\mathbf{e}_r$ is the radial unit vector, and $
 
 `ForceModelConfig.precompute` takes a `PrecomputeConfig` that tabulates inputs depending only on time, so the dynamics function interpolates them instead of recomputing them at every call. The default value `None` evaluates every input exactly at each call.
 
-The frame-rotation table applies when the central body is Earth and `frame_transform` is `FULL_EARTH_ROTATION`. It stores the bias-precession-nutation matrix (BPN) and the polar-motion matrix at nodes spaced `frame_rotation_step` seconds apart on a grid anchored at J2000 TT, and interpolates both linearly. The Earth rotation angle changes too quickly to interpolate, so it is computed exactly at the epoch of every call. The table holds only the nodes that bracket the epochs the propagation requests, and `propagate_to` and `step_by` extend it in place. Setting `frame_rotation_step` to `None` disables the table.
+The frame-rotation table applies when the central body is Earth and `frame_transform` is `FULL_EARTH_ROTATION`. It stores the bias-precession-nutation matrix (BPN) and the polar-motion matrix at nodes spaced `frame_rotation_step` seconds apart on a grid anchored at J2000 TT, and interpolates both elementwise with `frame_rotation_interpolation`. The Earth rotation angle changes too quickly to interpolate, so it is computed exactly at the epoch of every call. The table holds only the nodes that bracket the epochs the propagation requests, and `propagate_to` and `step_by` extend it in place. Setting `frame_rotation_step` to `None` disables the table.
 
-For a 600 s step the interpolation error in the rotation is 0.1 microarcseconds. The table below gives the error over one day, queried every 7.3 s.
+For a 600 s step the linear interpolation error in the rotation is 0.1 microarcseconds. The table below gives the linear interpolation error over one day, queried every 7.3 s.
 
 | `frame_rotation_step` [s] | BPN and polar motion interpolation error, exact Earth rotation angle [microarcseconds] |
 |---|---|
@@ -441,9 +441,9 @@ For a 600 s step the interpolation error in the rotation is 0.1 microarcseconds.
 | 600 | 0.1 |
 | 3600 | 4.4 |
 
-The ephemeris table applies when `ephemeris_step` is set. It stores the position of every SPICE-backed query the dynamics function makes and interpolates each one linearly. Tabulated queries are third bodies whose source is DE440s, DE440, or an SPK kernel; the Sun and Moon positions of solid and ocean tides with a SPICE source; the solar radiation pressure Sun position for a non-Earth central body; the position of each solar radiation pressure occulting body that is not co-located with the central body, such as the Moon for an Earth central body, when an eclipse model is set; and the state of an attributed drag body that differs from the central body. Third-body perturbation is evaluated at the interpolated body position. The `LowPrecision` analytic Sun and Moon are not tabulated, so a force model that uses only `LowPrecision` sources gives results identical to a propagation without the table. Setting `ephemeris_step` to `None` disables the table.
+The ephemeris table applies when `ephemeris_step` is set. It stores the position of every SPICE-backed query the dynamics function makes and interpolates each one with `ephemeris_interpolation`. Tabulated queries are third bodies whose source is DE440s, DE440, or an SPK kernel; the Sun and Moon positions of solid and ocean tides with a SPICE source; the solar radiation pressure Sun position for a non-Earth central body; the position of each solar radiation pressure occulting body that is not co-located with the central body, such as the Moon for an Earth central body, when an eclipse model is set; and the state of an attributed drag body that differs from the central body. Third-body perturbation is evaluated at the interpolated body position. The `LowPrecision` analytic Sun and Moon are not tabulated, so a force model that uses only `LowPrecision` sources gives results identical to a propagation without the table. Setting `ephemeris_step` to `None` disables the table.
 
-The table below gives the interpolation error over one day, queried every 7.3 s.
+The table below gives the linear interpolation error over one day, queried every 7.3 s.
 
 | `ephemeris_step` [s] | Moon position error [m] | Moon third-body acceleration, relative error | Sun position error [m] |
 |---|---|---|---|
@@ -452,7 +452,26 @@ The table below gives the interpolation error over one day, queried every 7.3 s.
 | 600 | 117 | 8.9e-7 | 271 |
 | 3600 | 4207 | 3.2e-5 | 9764 |
 
-With a barycentric central body, such as the Earth-Moon barycenter, an object orbiting close to a tabulated body follows that body's tabulated position. The linear-interpolation chord error of the body's orbit about the barycenter then appears directly in the object's position: about 2 cm per LEO orbit near Earth at the default 60 s step, falling with the square of `ephemeris_step` to about $10^{-4}$ m at 6 s. Use a smaller `ephemeris_step` in that case.
+Both tables use `InterpolationMethod`, the type trajectories use for interpolation, set by `frame_rotation_interpolation` and `ephemeris_interpolation`. Both default to linear interpolation. At a node epoch every method returns the stored node value. The table below lists the supported methods by their Python names; the Rust variants are `Linear`, `Lagrange { degree }`, `HermiteCubic`, and `HermiteQuintic`.
+
+| Table | `LINEAR` | `lagrange(degree)` | `HERMITE_CUBIC` | `HERMITE_QUINTIC` |
+|---|---|---|---|---|
+| Frame rotation | yes | yes | no | no |
+| Ephemeris | yes | yes | yes | no |
+
+Lagrange interpolation of degree $d$ reads the $d + 1$ nodes centred on the query epoch, so the table holds $\lfloor d/2 \rfloor$ more nodes on each side of the requested span than linear interpolation does. The degree must be between 1 and 15, because the Lebesgue constant of equally spaced nodes grows exponentially with the degree and amplifies rounding in the node values. An odd degree reads one fixed set of nodes between consecutive nodes, so the interpolant is continuous across the midpoint between nodes. An even degree centres its nodes on the nearest node and switches node sets at that midpoint, where the interpolant can jump. Cubic Hermite interpolation of the ephemeris table stores, next to each value, its time derivative from the same ephemeris source: the velocity for a position and the velocity and acceleration for the drag-body state. `ForceModelConfig.validate()`, which the propagator constructor calls, raises an error naming the field for a method a table does not support or a Lagrange degree above 15.
+
+The table below gives the interpolation error at the default steps over one day, queried every 7.3 s.
+
+| Table and step | Quantity | `LINEAR` | `lagrange(3)` | `HERMITE_CUBIC` |
+|---|---|---|---|---|
+| Frame rotation, 600 s | Rotation error [microarcseconds] | 0.12 | 0.018 | not supported |
+| Ephemeris, 60 s | Moon position error [m] | 1.17 | $< 10^{-5}$ | $< 10^{-5}$ |
+| Ephemeris, 60 s | Sun position error [m] | 2.71 | $< 10^{-5}$ | $< 10^{-5}$ |
+
+A comparison of the interpolated Moon and Sun positions against direct SPICE calls at the query epoch bottoms out near $1.6 \times 10^{-4}$ m for the Moon and $4.9 \times 10^{-3}$ m for the Sun with `lagrange(3)` and `HERMITE_CUBIC`. The query epoch is passed to SPICE as `f64` seconds past J2000, which resolve about $10^{-7}$ s near the present epoch. In $10^{-7}$ s the Moon moves about $10^{-4}$ m and the Sun about $3 \times 10^{-3}$ m relative to Earth.
+
+With a barycentric central body, such as the Earth-Moon barycenter, an object orbiting close to a tabulated body follows that body's tabulated position. The interpolation error of the body's orbit about the barycenter then appears directly in the object's position. With linear interpolation this is about 2 cm per LEO orbit near Earth at the default 60 s step, falling with the square of `ephemeris_step` to about $10^{-4}$ m at 6 s. With `lagrange(3)` or `HERMITE_CUBIC` at 60 s it is about $4 \times 10^{-6}$ m. For an object close to a tabulated body about a barycentric central body, set `ephemeris_interpolation` to `lagrange(3)` or `HERMITE_CUBIC`, or reduce `ephemeris_step`.
 
 The example below propagates a LEO orbit for one day with and without both tables. With a fixed-step integrator both runs take identical steps, so the position difference isolates the interpolation error.
 

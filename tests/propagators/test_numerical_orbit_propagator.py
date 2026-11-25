@@ -31,6 +31,7 @@ from brahe import (
     GravityModelType,
     IntegrationMethod,
     IntegratorConfig,
+    InterpolationMethod,
     NRLMSISE00ApMode,
     NRLMSISE00Config,
     NumericalOrbitPropagator,
@@ -7052,6 +7053,66 @@ def test_precompute_ephemeris_emb_drag_body_and_field(
     assert dr_60 < 0.05
     assert dr_6 < 1e-3
     assert dr_6 < dr_60 / 50.0, "no quadratic convergence"
+
+
+def test_precompute_ephemeris_emb_higher_order_interpolation(
+    naif_cache_setup, sw_test_filepath
+):
+    set_global_space_weather_provider(
+        FileSpaceWeatherProvider.from_file(sw_test_filepath, "Hold")
+    )
+    epoch = Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem.UTC)
+    oe = np.array([R_EARTH + 500e3, 0.001, 97.8, 15.0, 30.0, 45.0])
+    x_emb = state_eci_to_emb(epoch, state_koe_to_eci(oe, AngleFormat.DEGREES))
+    force_config = ForceModelConfig.for_body(
+        CentralBody.EMB,
+        GravityConfiguration.zero(),
+        drag=DragConfiguration(
+            model=AtmosphericModel.nrlmsise00(NRLMSISE00Config()),
+            area=ParameterSource.value(10.0),
+            cd=ParameterSource.value(2.2),
+            body=CentralBody.Earth,
+        ),
+        third_body=[
+            ThirdBodyConfiguration(
+                ThirdBody.EARTH,
+                gravity=GravityConfiguration.spherical_harmonic(
+                    degree=8,
+                    order=8,
+                    model_type=GravityModelType.EGM2008_120,
+                    parallel=ParallelMode.Never,
+                ),
+            ),
+            ThirdBody.MOON,
+            ThirdBody.SUN,
+        ],
+        mass=ParameterSource.value(1000.0),
+    )
+
+    def dr(method):
+        states = []
+        for precompute in (
+            PrecomputeConfig(
+                frame_rotation_step=None,
+                ephemeris_step=60.0,
+                cache_space_weather=False,
+                ephemeris_interpolation=method,
+            ),
+            None,
+        ):
+            force_config.precompute = precompute
+            prop = NumericalOrbitPropagator(
+                epoch, x_emb, _precompute_rk4_30s_config(), force_config, None
+            )
+            prop.propagate_to(epoch + 5400.0)
+            states.append(prop.current_state())
+        return np.linalg.norm(states[0][:3] - states[1][:3])
+
+    assert dr(InterpolationMethod.LINEAR) > 1e-3
+    for method in (InterpolationMethod.lagrange(3), InterpolationMethod.HERMITE_CUBIC):
+        dr_method = dr(method)
+        assert dr_method > 0.0, f"{method}: the propagation did not use the table"
+        assert dr_method < 1e-3, f"{method}: position difference {dr_method} m"
 
 
 def test_precompute_ephemeris_lowprecision_bitwise():

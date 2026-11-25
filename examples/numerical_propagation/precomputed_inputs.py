@@ -51,6 +51,31 @@ print(f"Position difference after one day: {difference:.2e} m")
 
 assert difference < 1e-3
 
+# Interpolate the rotation table with degree-3 Lagrange polynomials and the
+# ephemeris table with cubic Hermite polynomials
+higher_order_config = bh.ForceModelConfig(
+    gravity=gravity,
+    third_body=third_body,
+    precompute=bh.PrecomputeConfig(
+        frame_rotation_step=600.0,
+        ephemeris_step=60.0,
+        cache_space_weather=False,
+        frame_rotation_interpolation=bh.InterpolationMethod.lagrange(3),
+        ephemeris_interpolation=bh.InterpolationMethod.HERMITE_CUBIC,
+    ),
+)
+higher_order = bh.NumericalOrbitPropagator(
+    epoch, state, prop_config, higher_order_config, None
+)
+higher_order.propagate_to(epoch + 86400.0)
+
+difference = np.linalg.norm(
+    exact.current_state()[:3] - higher_order.current_state()[:3]
+)
+print(f"Position difference with higher-order interpolation: {difference:.2e} m")
+
+assert difference < 1e-3
+
 # par_propagate_to builds one set of tables for propagators with matching table
 # steps and force-model settings, and shares it across all of them
 constellation = [

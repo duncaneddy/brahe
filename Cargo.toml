@@ -35,7 +35,6 @@ exclude = [# We need to keep the size down for crates.io these don't need to be 
     "/plots",
     "/joss",
     "/test_assets",
-    "/profiles",
     "/data/textures/world.topo.200410.3x5400x2700.png", # Python-only
     "justfile",
     "zensical.toml",
@@ -110,8 +109,6 @@ anise = { version = "0.10", default-features = false }
 integration = []
 manual = []  # For tests requiring network downloads (run with: cargo test --features manual)
 python = ["dep:pyo3"]
-dhat-heap = []    # if you are doing heap profiling
-dhat-ad-hoc = []  # if you are doing ad hoc profiling
 
 # Build Profiles
 [profile.dev]
@@ -122,10 +119,6 @@ lto = "off"
 opt-level = 3
 codegen-units = 1
 lto = "fat"
-
-[profile.profiling]
-inherits = "release"
-debug = 1
 
 [lints.rust]
 missing_docs = "warn"

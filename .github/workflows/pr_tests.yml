@@ -33,7 +33,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           # Paths that cannot affect the build, tested against the full path of
           # every file the PR changes.
-          IGNORED: '^(CHANGELOG\.md|CITATION\.cff)$|^profiles/'
+          IGNORED: '^(CHANGELOG\.md|CITATION\.cff)$'
         run: |
           set -euo pipefail
           PR="repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}"

@@ -85,8 +85,4 @@ brahe/_brahe.pyi
 joss/jats/
 
 
-# Profiling artifacts (see profiles/README.md)
-profiles/results/*
-!profiles/results/.gitkeep
-profiles/rust/target/
 pocs/

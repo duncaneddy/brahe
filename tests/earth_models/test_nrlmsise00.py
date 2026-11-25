@@ -204,6 +204,22 @@ def test_nrlmsise00config_kwargs_and_setters():
     assert cfg.to_switches()[14] == 2
 
 
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        (-1, bh.NRLMSISE00ApMode.THREE_HOURLY),
+        (0, bh.NRLMSISE00ApMode.OFF),
+        (1, bh.NRLMSISE00ApMode.DAILY),
+    ],
+)
+def test_nrlmsise00config_from_switches_ap_mode(value, expected):
+    switches = [1] * 24
+    switches[9] = value
+    cfg = bh.NRLMSISE00Config.from_switches(switches)
+    assert cfg.ap_mode == expected
+    assert cfg.to_switches()[9] == value
+
+
 def test_nrlmsise00config_from_switches_c_reference_array():
     a = [1] * 24
     a[0] = 0

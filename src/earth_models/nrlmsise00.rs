@@ -3554,6 +3554,22 @@ mod tests {
         );
     }
 
+    #[rstest]
+    #[case(-1, NRLMSISE00ApMode::ThreeHourly)]
+    #[case(0, NRLMSISE00ApMode::Off)]
+    #[case(1, NRLMSISE00ApMode::Daily)]
+    #[parallel]
+    fn test_nrlmsise00config_from_switches_ap_mode(
+        #[case] value: i32,
+        #[case] expected: NRLMSISE00ApMode,
+    ) {
+        let mut switches = [1; 24];
+        switches[9] = value;
+        let cfg = NRLMSISE00Config::from_switches(&switches).unwrap();
+        assert_eq!(cfg.ap_mode, expected);
+        assert_eq!(cfg.to_switches()[9], value);
+    }
+
     #[test]
     #[parallel]
     fn test_nrlmsise00config_from_switches_c_reference_array() {

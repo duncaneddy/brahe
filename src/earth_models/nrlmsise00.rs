@@ -2577,6 +2577,67 @@ pub fn density_nrlmsise00_geod(
     geod: &[f64; 3],
     config: &NRLMSISE00Config,
 ) -> Result<f64, BraheError> {
+    density_nrlmsise00_geod_with(epoch, geod, config, &GlobalSpaceWeather)
+}
+
+/// Source of the space weather inputs read by the NRLMSISE-00 density model.
+///
+/// Each method takes an MJD in UT1 and returns the value the model needs at
+/// that time, with the same semantics as the matching `get_global_*` function.
+pub(crate) trait SpaceWeatherLookup {
+    /// Daily Ap at `mjd_ut1` (MJD, UT1).
+    fn ap_daily(&self, mjd_ut1: f64) -> Result<f64, BraheError>;
+    /// 3-hourly Ap at `mjd_ut1` (MJD, UT1).
+    fn ap(&self, mjd_ut1: f64) -> Result<f64, BraheError>;
+    /// Observed F10.7 at `mjd_ut1` (MJD, UT1), in solar flux units.
+    fn f107_observed(&self, mjd_ut1: f64) -> Result<f64, BraheError>;
+    /// 81-day centered average observed F10.7 at `mjd_ut1` (MJD, UT1), in solar flux units.
+    fn f107_obs_avg81(&self, mjd_ut1: f64) -> Result<f64, BraheError>;
+}
+
+/// Space weather lookup backed by the global space weather provider.
+pub(crate) struct GlobalSpaceWeather;
+
+impl SpaceWeatherLookup for GlobalSpaceWeather {
+    fn ap_daily(&self, mjd_ut1: f64) -> Result<f64, BraheError> {
+        get_global_ap_daily(mjd_ut1)
+    }
+    fn ap(&self, mjd_ut1: f64) -> Result<f64, BraheError> {
+        get_global_ap(mjd_ut1)
+    }
+    fn f107_observed(&self, mjd_ut1: f64) -> Result<f64, BraheError> {
+        get_global_f107_observed(mjd_ut1)
+    }
+    fn f107_obs_avg81(&self, mjd_ut1: f64) -> Result<f64, BraheError> {
+        get_global_f107_obs_avg81(mjd_ut1)
+    }
+}
+
+/// Compute NRLMSISE-00 density at a geodetic position, reading space weather
+/// from `sw`.
+///
+/// # Arguments
+///
+/// * `epoch` - Epoch of the evaluation
+/// * `geod` - Geodetic position `[longitude (deg), latitude (deg), altitude (m)]`
+/// * `config` - Model switch configuration
+/// * `sw` - Space weather source
+///
+/// # Returns
+///
+/// * `Result<f64, BraheError>` - Atmospheric density in kg/m³
+///
+/// # Examples
+///
+/// ```ignore
+/// let rho = density_nrlmsise00_geod_with(&epoch, &geod, &NRLMSISE00Config::default(), &GlobalSpaceWeather)?;
+/// ```
+pub(crate) fn density_nrlmsise00_geod_with(
+    epoch: &Epoch,
+    geod: &[f64; 3],
+    config: &NRLMSISE00Config,
+    sw: &impl SpaceWeatherLookup,
+) -> Result<f64, BraheError> {
     // Create NRLMSISE-00 model structures
     let mut input = NrlmsiseInput::new();
     let mut flags = NrlmsiseFlags::new();
@@ -2607,20 +2668,20 @@ pub fn density_nrlmsise00_geod(
 
     // Build AP array
     let mut ap_array = [0.0; 7];
-    ap_array[0] = get_global_ap_daily(mjd_ut1)?;
-    ap_array[1] = get_global_ap(mjd_ut1)?;
+    ap_array[0] = sw.ap_daily(mjd_ut1)?;
+    ap_array[1] = sw.ap(mjd_ut1)?;
 
     // 3-hour AP indices for previous hours
     let three_hours_mjd = 3.0 * 3600.0 / 86400.0;
-    ap_array[2] = get_global_ap(mjd_ut1 - three_hours_mjd)?;
-    ap_array[3] = get_global_ap(mjd_ut1 - 2.0 * three_hours_mjd)?;
-    ap_array[4] = get_global_ap(mjd_ut1 - 3.0 * three_hours_mjd)?;
+    ap_array[2] = sw.ap(mjd_ut1 - three_hours_mjd)?;
+    ap_array[3] = sw.ap(mjd_ut1 - 2.0 * three_hours_mjd)?;
+    ap_array[4] = sw.ap(mjd_ut1 - 3.0 * three_hours_mjd)?;
 
     // Average of eight 3-hour AP indices from 12 to 33 hours prior
     let mut sum = 0.0;
     for i in (12..=33).step_by(3) {
         let offset = i as f64 * 3600.0 / 86400.0;
-        sum += get_global_ap(mjd_ut1 - offset)?;
+        sum += sw.ap(mjd_ut1 - offset)?;
     }
     ap_array[5] = sum / 8.0;
 
@@ -2628,7 +2689,7 @@ pub fn density_nrlmsise00_geod(
     sum = 0.0;
     for i in (36..=57).step_by(3) {
         let offset = i as f64 * 3600.0 / 86400.0;
-        sum += get_global_ap(mjd_ut1 - offset)?;
+        sum += sw.ap(mjd_ut1 - offset)?;
     }
     ap_array[6] = sum / 8.0;
 
@@ -2642,9 +2703,9 @@ pub fn density_nrlmsise00_geod(
     input.g_lat = lat;
     input.g_lon = lon;
     input.lst = seconds / 3600.0 + lon / 15.0; // Local solar time
-    input.f107a = get_global_f107_obs_avg81(mjd_ut1)?;
+    input.f107a = sw.f107_obs_avg81(mjd_ut1)?;
     // NRLMSISE-00 requires the previous day's observed F10.7 (1-day MJD offset)
-    input.f107 = get_global_f107_observed(mjd_ut1 - 1.0)?;
+    input.f107 = sw.f107_observed(mjd_ut1 - 1.0)?;
     input.ap = ap_array[0];
     input.ap_array = ap_array;
 

@@ -658,9 +658,6 @@ impl Default for OceanTideConfig {
 /// nodes are linearly interpolated. `None` on [`ForceModelConfig`] disables
 /// all tables.
 ///
-/// The frame-rotation and ephemeris tables are implemented;
-/// `cache_space_weather` currently has no effect.
-///
 /// Steps are checked by [`ForceModelConfig::validate`], which the propagator
 /// constructor calls, so a non-finite or non-positive step is rejected at
 /// propagator construction. Changing global data (EOP provider, SPICE kernels,

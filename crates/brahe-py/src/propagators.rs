@@ -4797,9 +4797,6 @@ impl PyTidesConfiguration {
 /// values must be constant within a UT1 day and its Ap values constant within
 /// each 3-hour bin, as for the file, caching, and static providers.
 ///
-/// The frame-rotation and ephemeris tables are implemented;
-/// ``cache_space_weather`` currently has no effect.
-///
 /// Steps are checked by ``ForceModelConfig.validate()``, which the propagator
 /// constructor calls, so a non-finite or non-positive step is rejected at
 /// propagator construction. Changing global data (EOP provider, SPICE kernels,

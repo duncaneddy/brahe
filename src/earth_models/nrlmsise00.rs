@@ -1149,7 +1149,7 @@ fn globe7(
     t[5] = p[37] * plg[0][1] * cd39;
 
     // Diurnal
-    if flags.sw[6] != 0.0 {
+    if flags.sw[7] != 0.0 {
         let t71 = (p[11] * plg[1][2]) * cd14 * flags.swc[5];
         let t72 = (p[12] * plg[1][2]) * cd14 * flags.swc[5];
         t[6] = f2
@@ -3405,6 +3405,69 @@ mod tests {
         gtd7(&mut input, &mut flags, &mut output);
         assert!(output.d.iter().all(|v| v.is_finite()), "{:?}", output.d);
         assert!(output.t.iter().all(|v| v.is_finite()), "{:?}", output.t);
+    }
+
+    /// Run `gtd7` at the base reference case (400 km, Ap = 4) with the given
+    /// configuration, cgs output units, and local solar time `lst` [hours].
+    fn gtd7_base_case_at_lst(cfg: &NRLMSISE00Config, lst: f64) -> NrlmsiseOutput {
+        let mut input = NrlmsiseInput::new();
+        let mut flags = NrlmsiseFlags::new();
+        let mut output = NrlmsiseOutput::new();
+        flags.switches = cfg.to_switches();
+        flags.switches[0] = 0;
+        input.doy = 172;
+        input.sec = 29000.0;
+        input.alt = 400.0;
+        input.g_lat = 60.0;
+        input.g_lon = -70.0;
+        input.lst = lst;
+        input.f107a = 150.0;
+        input.f107 = 150.0;
+        input.ap = 4.0;
+        gtd7(&mut input, &mut flags, &mut output);
+        output
+    }
+
+    #[test]
+    #[parallel]
+    fn test_gtd7_local_time_terms_off_removes_lst_dependence() {
+        let cfg = NRLMSISE00Config {
+            diurnal: Off,
+            semidiurnal: Off,
+            terdiurnal: Off,
+            ap_mode: NRLMSISE00ApMode::Daily,
+            ..Default::default()
+        };
+        let morning = gtd7_base_case_at_lst(&cfg, 4.0);
+        let afternoon = gtd7_base_case_at_lst(&cfg, 16.0);
+        assert_eq!(morning.d, afternoon.d);
+        assert_eq!(morning.t, afternoon.t);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_gtd7_diurnal_independent_of_asymmetrical_semiannual() {
+        let cfg = NRLMSISE00Config {
+            asymmetrical_semiannual: Off,
+            semidiurnal: Off,
+            terdiurnal: Off,
+            ap_mode: NRLMSISE00ApMode::Daily,
+            ..Default::default()
+        };
+        let morning = gtd7_base_case_at_lst(&cfg, 4.0);
+        let afternoon = gtd7_base_case_at_lst(&cfg, 16.0);
+        assert!(
+            (morning.d[5] - afternoon.d[5]).abs() / afternoon.d[5] > 1e-3,
+            "{} vs {}",
+            morning.d[5],
+            afternoon.d[5]
+        );
+        assert!(
+            (morning.t[0] - afternoon.t[0]).abs() > 1.0,
+            "{} vs {}",
+            morning.t[0],
+            afternoon.t[0]
+        );
     }
 
     #[test]

@@ -710,3 +710,38 @@ def test_rust_type_to_python_option_and_result():
     assert stubs.rust_type_to_python("Result<String, BraheError>", names) == "str"
     assert stubs.rust_type_to_python("Option<Py<PyAny>>", names) == "Any"
     assert stubs.rust_type_to_python("Result<(), PyErr>", names) == "None"
+
+
+@pytest.fixture
+def rust_bindings_dir(tmp_path, monkeypatch):
+    monkeypatch.setattr(stubs, "RUST_BINDINGS_DIR", tmp_path)
+    stubs.rust_slot_signatures.cache_clear()
+    yield tmp_path
+    stubs.rust_slot_signatures.cache_clear()
+
+
+def test_rust_slot_signatures_reads_sources_as_utf8(rust_bindings_dir):
+    source = textwrap.dedent(
+        """
+        /// Density profile ρ(h) samples.
+        #[pyclass(name = "Profile")]
+        pub struct PyProfile {}
+
+        #[pymethods]
+        impl PyProfile {
+            fn __getitem__(&self, index: isize) -> PyResult<f64> {
+                unimplemented!()
+            }
+        }
+        """
+    )
+    (rust_bindings_dir / "profile.rs").write_bytes(source.encode("utf-8"))
+    signatures = stubs.rust_slot_signatures()
+    assert "Profile" in signatures
+    assert "__getitem__" in signatures["Profile"]
+
+
+def test_generate_stub_fails_on_undecodable_rust_source(rust_bindings_dir):
+    (rust_bindings_dir / "bad.rs").write_bytes(b"/// \xcf\x81 \xff\n")
+    with pytest.raises(UnicodeDecodeError):
+        stubs.generate_stub(brahe._brahe, brahe)

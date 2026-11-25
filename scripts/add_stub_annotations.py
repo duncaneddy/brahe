@@ -1155,9 +1155,16 @@ def generate_stub(module: Any, package: Any) -> str:
         StubGenerationError: If a docstring type omits a None default, the
             stub is not valid Python, or an annotation names something that
             is neither defined in the stub nor importable.
+        OSError: If a Rust binding source cannot be read.
+        UnicodeDecodeError: If a Rust binding source is not valid UTF-8.
     """
     output_lines = []
     errors = []
+
+    # Parse the Rust slot signatures before any per-member isolation, so a
+    # source that cannot be read or parsed fails generation instead of
+    # falling back to conventional slot types.
+    rust_slot_signatures()
 
     # Header
     output_lines.append('"""Type stubs for brahe._brahe module - AUTO-GENERATED"""')

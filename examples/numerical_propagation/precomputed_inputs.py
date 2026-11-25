@@ -2,7 +2,7 @@
 # dependencies = ["brahe", "numpy"]
 # ///
 """
-Enable the precomputed frame-rotation table and compare against exact evaluation.
+Enable the precomputed frame-rotation and ephemeris tables and compare against exact evaluation.
 """
 
 import numpy as np
@@ -23,15 +23,18 @@ prop_config = bh.NumericalPropagationConfig(
 )
 
 gravity = bh.GravityConfiguration(degree=20, order=20)
+third_body = [bh.ThirdBody.SUN, bh.ThirdBody.MOON]
 
-# Exact rotation at every dynamics call (the default)
-exact_config = bh.ForceModelConfig(gravity=gravity)
+# Exact rotation and DE440s ephemeris queries at every dynamics call (the default)
+exact_config = bh.ForceModelConfig(gravity=gravity, third_body=third_body)
 
-# Tabulate bias-precession-nutation and polar motion every 600 s
+# Tabulate bias-precession-nutation and polar motion every 600 s and the
+# Sun and Moon positions every 60 s
 precomputed_config = bh.ForceModelConfig(
     gravity=gravity,
+    third_body=third_body,
     precompute=bh.PrecomputeConfig(
-        frame_rotation_step=600.0, ephemeris_step=None, cache_space_weather=False
+        frame_rotation_step=600.0, ephemeris_step=60.0, cache_space_weather=False
     ),
 )
 

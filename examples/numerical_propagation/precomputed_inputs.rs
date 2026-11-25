@@ -1,4 +1,4 @@
-//! Enable the precomputed frame-rotation table and compare against
+//! Enable the precomputed frame-rotation and ephemeris tables and compare against
 //! exact evaluation.
 
 use brahe as bh;
@@ -22,7 +22,7 @@ fn main() {
         ..Default::default()
     };
 
-    // Exact rotation at every dynamics call (the default)
+    // Exact rotation and DE440s ephemeris queries at every dynamics call (the default)
     let exact_config = bh::ForceModelConfig {
         gravity: bh::GravityConfiguration::SphericalHarmonic {
             source: bh::GravityModelSource::ModelType(bh::GravityModelType::EGM2008_120),
@@ -30,14 +30,16 @@ fn main() {
             order: 20,
             parallel: bh::ParallelMode::Auto,
         },
+        third_body: Some(vec![bh::ThirdBody::Sun.into(), bh::ThirdBody::Moon.into()]),
         ..bh::ForceModelConfig::two_body_gravity()
     };
 
-    // Tabulate bias-precession-nutation and polar motion every 600 s
+    // Tabulate bias-precession-nutation and polar motion every 600 s and the
+    // Sun and Moon positions every 60 s
     let precomputed_config = bh::ForceModelConfig {
         precompute: Some(bh::PrecomputeConfig {
             frame_rotation_step: Some(600.0),
-            ephemeris_step: None,
+            ephemeris_step: Some(60.0),
             cache_space_weather: false,
         }),
         ..exact_config.clone()

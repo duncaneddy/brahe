@@ -19,6 +19,7 @@ from brahe import (
     CelestialFrame,
     CentralBody,
     DragConfiguration,
+    EphemerisSource,
     Epoch,
     EventDirection,
     ForceModelConfig,
@@ -32,6 +33,8 @@ from brahe import (
     NumericalPropagationConfig,
     ParameterSource,
     PrecomputeConfig,
+    ThirdBody,
+    ThirdBodyConfiguration,
     TimeSystem,
     VariationalConfig,
     orbital_period,
@@ -6850,3 +6853,49 @@ def test_precompute_key_none_for_non_earth_or_era_only(naif_cache_setup):
             prop.propagate_to(epoch + 21600.0)
             final.append(prop.current_state())
         assert np.array_equal(final[0], final[1])
+
+
+def _precompute_ephemeris_pair(force_config, params, duration):
+    epoch = Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem.UTC)
+    oe = np.array([R_EARTH + 500e3, 0.001, 97.8, 15.0, 30.0, 45.0])
+    state = state_koe_to_eci(oe, AngleFormat.DEGREES)
+    states = []
+    for precompute in (
+        PrecomputeConfig(
+            frame_rotation_step=None, ephemeris_step=60.0, cache_space_weather=False
+        ),
+        None,
+    ):
+        force_config.precompute = precompute
+        prop = NumericalOrbitPropagator(
+            epoch, state, _precompute_rk4_config(), force_config, params
+        )
+        prop.propagate_to(epoch + duration)
+        states.append(prop.current_state())
+    return states
+
+
+def test_precompute_ephemeris_fixed_step_accuracy():
+    force_config = ForceModelConfig.default()
+    force_config.drag = None
+    assert all(
+        tb.ephemeris_source == EphemerisSource.DE440s for tb in force_config.third_body
+    )
+    on, off = _precompute_ephemeris_pair(
+        force_config, np.array([1000.0, 10.0, 2.2, 10.0, 1.3]), 86400.0
+    )
+    dr = np.linalg.norm(on[:3] - off[:3])
+    assert dr > 0.0, "the propagation did not use the ephemeris table"
+    assert dr < 1e-3
+
+
+def test_precompute_ephemeris_lowprecision_bitwise():
+    force_config = ForceModelConfig(
+        gravity=GravityConfiguration(degree=20, order=20),
+        third_body=[
+            ThirdBodyConfiguration(body, ephemeris_source=EphemerisSource.LowPrecision)
+            for body in (ThirdBody.SUN, ThirdBody.MOON)
+        ],
+    )
+    on, off = _precompute_ephemeris_pair(force_config, None, 21600.0)
+    assert np.array_equal(on, off)

@@ -441,7 +441,20 @@ For a 600 s step the interpolation error in the rotation is 0.1 microarcseconds.
 | 600 | 0.1 |
 | 3600 | 4.4 |
 
-The example below propagates a LEO orbit for one day with and without the table. With a fixed-step integrator both runs take identical steps, so the position difference isolates the interpolation error.
+The ephemeris table applies when `ephemeris_step` is set. It stores the position of every SPICE-backed query the dynamics function makes and interpolates each one linearly. Tabulated queries are third bodies whose source is DE440s, DE440, or an SPK kernel, the Sun and Moon positions of solid and ocean tides with a SPICE source, the Sun position and occulting bodies of solar radiation pressure for a non-Earth central body, and the position of an attributed drag body. Third-body perturbation is evaluated at the interpolated body position. The `LowPrecision` analytic Sun and Moon are not tabulated, so a force model that uses only `LowPrecision` sources gives results identical to a propagation without the table. Setting `ephemeris_step` to `None` disables the table.
+
+The table below gives the interpolation error over one day, queried every 7.3 s.
+
+| `ephemeris_step` [s] | Moon position error [m] | Moon third-body acceleration, relative error | Sun position error [m] |
+|---|---|---|---|
+| 60 | 1.2 | 8.9e-9 | 2.7 |
+| 300 | 29 | 2.2e-7 | 68 |
+| 600 | 117 | 8.9e-7 | 271 |
+| 3600 | 4207 | 3.2e-5 | 9764 |
+
+With a barycentric central body, such as the Earth-Moon barycenter, an object orbiting close to a tabulated body follows that body's tabulated position. The linear-interpolation chord error of the body's orbit about the barycenter then appears directly in the object's position: about 2 cm per LEO orbit near Earth at the default 60 s step, falling with the square of `ephemeris_step` to about $10^{-4}$ m at 6 s. Use a smaller `ephemeris_step` in that case.
+
+The example below propagates a LEO orbit for one day with and without both tables. With a fixed-step integrator both runs take identical steps, so the position difference isolates the interpolation error.
 
 === "Python"
 
@@ -466,7 +479,7 @@ The example below propagates a LEO orbit for one day with and without the table.
         --8<-- "./docs/outputs/numerical_propagation/precomputed_inputs.rs.txt"
         ```
 
-`PrecomputeConfig` also carries `ephemeris_step`, the node spacing of a Sun, Moon, and planet ephemeris table, and `cache_space_weather`, which enables a per-propagator space-weather cache for NRLMSISE-00 drag. Both settings currently have no effect.
+`PrecomputeConfig` also carries `cache_space_weather`, which enables a per-propagator space-weather cache for NRLMSISE-00 drag. The cache is not yet active, and the setting has no effect.
 
 !!! warning "Global data during propagation"
     The frame-rotation table reads EOP data from the global provider when a node is built. Changing global data during a propagation is the caller's responsibility. When EOP data does not cover a node, the EOP provider's extrapolation setting decides the outcome, as it does without the option. A table can extend one step past the last epoch the integrator evaluates, because interpolation needs the node after it. With an EOP provider set to raise errors on extrapolation, a propagation that ends within one `frame_rotation_step` of the end of the EOP data can therefore reach the provider's error where the same propagation without the option would not.

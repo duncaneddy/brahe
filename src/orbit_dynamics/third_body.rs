@@ -36,68 +36,29 @@ fn de_kernel_from_source(source: EphemerisSource) -> SPICEKernel {
     SPICEKernel::try_from(source).expect("DE ephemeris source should map to a DE kernel")
 }
 
-/// Unified third-body acceleration with source enumeration.
-///
-/// Calculate gravitational acceleration due to a celestial body using
-/// the specified ephemeris source. This function consolidates all
-/// body-specific and source-specific acceleration functions.
-///
-/// Supports the Sun, the Moon, Mercury, Venus, and both planet flavors for
-/// Mars through Neptune: the `*Barycenter` variants use the system-barycenter
-/// position with the system GM — the standard third-body formulation,
-/// requiring only the DE kernel — while the planet-center variants (`Mars` ..
-/// `Neptune`) use the true body-center position with the planet-only GM,
-/// auto-loading the corresponding satellite-system ephemeris kernel (e.g.
-/// `mar099s`, ~68 MB-1.1 GB depending on the planet) on first use.
+/// Geocentric position and gravitational parameter of a third body, as used
+/// by [`accel_third_body`].
 ///
 /// # Arguments
 ///
-/// * `body` - Celestial body acting as perturber
-/// * `source` - Ephemeris source for body position
+/// * `body` - Perturbing body (Sun, Moon, or a planet / system barycenter)
+/// * `source` - Ephemeris source for the body's position
 /// * `epc` - Epoch for ephemeris lookup
-/// * `r_object` - Position of object in GCRF frame (or 6D state, position only used). Units: [m]
 ///
 /// # Returns
 ///
-/// * Acceleration vector in GCRF frame. Units: [m/s²]
-///
-/// # Errors
-///
-/// Returns `Err(BraheError)` if requesting an unsupported perturber (Earth,
-/// Phobos, Deimos, or a `Custom` body — use `accel_third_body_for_body`
-/// instead), if requesting a planet body with `EphemerisSource::LowPrecision`
-/// (only the Sun and Moon are supported for low-precision), or if the
-/// ephemeris kernel cannot be loaded or queried.
-///
-/// # Example
-///
-/// ```
-/// use brahe::eop::{set_global_eop_provider, FileEOPProvider, EOPExtrapolation};
-/// use brahe::time::Epoch;
-/// use brahe::third_body::accel_third_body;
-/// use brahe::propagators::force_model_config::{ThirdBody, EphemerisSource};
-/// use brahe::constants::R_EARTH;
-/// use nalgebra::Vector3;
-///
-/// let eop = FileEOPProvider::from_default_standard(true, EOPExtrapolation::Hold).unwrap();
-/// set_global_eop_provider(eop);
-///
-/// let epc = Epoch::from_date(2024, 2, 25, brahe::TimeSystem::UTC);
-/// let r_object = Vector3::new(R_EARTH + 500e3, 0.0, 0.0);
-///
-/// // Low-precision Sun
-/// let a_sun = accel_third_body(ThirdBody::Sun, EphemerisSource::LowPrecision, epc, r_object).unwrap();
-///
-/// // High-precision Mars system barycenter (requires DE440s/DE440)
-/// let a_mars = accel_third_body(ThirdBody::MarsBarycenter, EphemerisSource::DE440s, epc, r_object).unwrap();
-/// ```
-pub fn accel_third_body<P: IntoPosition>(
-    body: ThirdBody,
+/// * `Ok((Vector3<f64>, f64))` - Position of the body relative to Earth in
+///   the GCRF frame (Units: [m]) and the body's gravitational parameter
+///   (Units: [m³/s²])
+/// * `Err(BraheError)` - If the body or source combination is unsupported or
+///   the ephemeris kernel cannot be loaded or queried
+pub(crate) fn third_body_position_geocentric(
+    body: &ThirdBody,
     source: EphemerisSource,
     epc: Epoch,
-    r_object: P,
-) -> Result<Vector3<f64>, BraheError> {
-    let (r_body, gm) = match (body, source) {
+) -> Result<(Vector3<f64>, f64), BraheError> {
+    let body = body.clone();
+    Ok(match (body, source) {
         // Low-precision - Sun/Moon only
         (ThirdBody::Sun, EphemerisSource::LowPrecision) => (sun_position(epc), GM_SUN),
         (ThirdBody::Moon, EphemerisSource::LowPrecision) => (moon_position(epc), GM_MOON),
@@ -229,7 +190,71 @@ pub fn accel_third_body<P: IntoPosition>(
                 body
             )));
         }
-    };
+    })
+}
+
+/// Unified third-body acceleration with source enumeration.
+///
+/// Calculate gravitational acceleration due to a celestial body using
+/// the specified ephemeris source. This function consolidates all
+/// body-specific and source-specific acceleration functions.
+///
+/// Supports the Sun, the Moon, Mercury, Venus, and both planet flavors for
+/// Mars through Neptune: the `*Barycenter` variants use the system-barycenter
+/// position with the system GM — the standard third-body formulation,
+/// requiring only the DE kernel — while the planet-center variants (`Mars` ..
+/// `Neptune`) use the true body-center position with the planet-only GM,
+/// auto-loading the corresponding satellite-system ephemeris kernel (e.g.
+/// `mar099s`, ~68 MB-1.1 GB depending on the planet) on first use.
+///
+/// # Arguments
+///
+/// * `body` - Celestial body acting as perturber
+/// * `source` - Ephemeris source for body position
+/// * `epc` - Epoch for ephemeris lookup
+/// * `r_object` - Position of object in GCRF frame (or 6D state, position only used). Units: [m]
+///
+/// # Returns
+///
+/// * Acceleration vector in GCRF frame. Units: [m/s²]
+///
+/// # Errors
+///
+/// Returns `Err(BraheError)` if requesting an unsupported perturber (Earth,
+/// Phobos, Deimos, or a `Custom` body — use `accel_third_body_for_body`
+/// instead), if requesting a planet body with `EphemerisSource::LowPrecision`
+/// (only the Sun and Moon are supported for low-precision), or if the
+/// ephemeris kernel cannot be loaded or queried.
+///
+/// # Example
+///
+/// ```
+/// use brahe::eop::{set_global_eop_provider, FileEOPProvider, EOPExtrapolation};
+/// use brahe::time::Epoch;
+/// use brahe::third_body::accel_third_body;
+/// use brahe::propagators::force_model_config::{ThirdBody, EphemerisSource};
+/// use brahe::constants::R_EARTH;
+/// use nalgebra::Vector3;
+///
+/// let eop = FileEOPProvider::from_default_standard(true, EOPExtrapolation::Hold).unwrap();
+/// set_global_eop_provider(eop);
+///
+/// let epc = Epoch::from_date(2024, 2, 25, brahe::TimeSystem::UTC);
+/// let r_object = Vector3::new(R_EARTH + 500e3, 0.0, 0.0);
+///
+/// // Low-precision Sun
+/// let a_sun = accel_third_body(ThirdBody::Sun, EphemerisSource::LowPrecision, epc, r_object).unwrap();
+///
+/// // High-precision Mars system barycenter (requires DE440s/DE440)
+/// let a_mars = accel_third_body(ThirdBody::MarsBarycenter, EphemerisSource::DE440s, epc, r_object).unwrap();
+/// ```
+pub fn accel_third_body<P: IntoPosition>(
+    body: ThirdBody,
+    source: EphemerisSource,
+    epc: Epoch,
+    r_object: P,
+) -> Result<Vector3<f64>, BraheError> {
+    let (r_body, gm) = third_body_position_geocentric(&body, source, epc)?;
 
     Ok(accel_point_mass_gravity(r_object, r_body, gm))
 }
@@ -355,15 +380,42 @@ pub fn accel_third_body_for_body<P: IntoPosition>(
 
     let s = third_body_position(central_body, body, source, epc)?;
 
+    Ok(accel_third_body_for_body_at(central_body, body, s, r))
+}
+
+/// Third-body point-mass acceleration from a known perturber position.
+///
+/// Evaluates the arithmetic of [`accel_third_body_for_body`] after the
+/// perturber's position has been resolved, so callers holding a tabulated
+/// position can skip the ephemeris query.
+///
+/// # Arguments
+///
+/// * `central_body` - Body the object's position and the returned
+///   acceleration are expressed relative to
+/// * `body` - Perturbing celestial body
+/// * `s` - Position of `body` relative to `central_body`. Units: [m]
+/// * `r_object` - Position of the object relative to `central_body`. Units: [m]
+///
+/// # Returns
+///
+/// * `Vector3<f64>` - Acceleration in the inertial frame centered on
+///   `central_body`. Units: [m/s²]
+pub(crate) fn accel_third_body_for_body_at(
+    central_body: &CentralBody,
+    body: &ThirdBody,
+    s: Vector3<f64>,
+    r_object: Vector3<f64>,
+) -> Vector3<f64> {
     let gm = body.gm();
-    let d = s - r;
+    let d = s - r_object;
     let direct = gm * d / d.norm().powi(3);
 
-    Ok(if third_body_direct_only(central_body, body) {
+    if third_body_direct_only(central_body, body) {
         direct
     } else {
         direct - gm * s / s.norm().powi(3)
-    })
+    }
 }
 
 /// Resolve the position of `body` relative to `central_body` at `epc` using
@@ -481,6 +533,54 @@ pub(crate) fn accel_third_body_field_for_body_with_model(
     }
 
     let s = third_body_position(central_body, body, source, epc)?;
+    accel_third_body_field_at(
+        central_body,
+        body,
+        gravity,
+        gravity_model,
+        r_i2b,
+        s,
+        r_object,
+    )
+}
+
+/// Third-body acceleration with a configured gravity model from a known
+/// perturber position.
+///
+/// Evaluates the arithmetic of
+/// [`accel_third_body_field_for_body_with_model`] after the perturber's
+/// position has been resolved, so callers holding a tabulated position can
+/// skip the ephemeris query. The caller guarantees `body` differs from
+/// `central_body`.
+///
+/// # Arguments
+///
+/// * `central_body` - Body the object's position and the returned
+///   acceleration are expressed relative to
+/// * `body` - Perturbing celestial body carrying the gravity field
+/// * `gravity` - Gravity model for the perturber's direct term
+/// * `gravity_model` - Resolved model for `GravityModelSource::ModelType`
+///   spherical-harmonic sources
+/// * `r_i2b` - Rotation from the ICRF-oriented propagation frame to `body`'s
+///   body-fixed frame
+/// * `s` - Position of `body` relative to `central_body`. Units: [m]
+/// * `r_object` - Position of the object relative to `central_body`. Units: [m]
+///
+/// # Returns
+///
+/// * `Ok(Vector3<f64>)` - Acceleration in the inertial frame centered on
+///   `central_body`. Units: [m/s²]
+/// * `Err(BraheError)` - If a `ModelType` spherical-harmonic entry is missing
+///   its resolved model or the harmonic evaluation fails
+pub(crate) fn accel_third_body_field_at(
+    central_body: &CentralBody,
+    body: &ThirdBody,
+    gravity: &GravityConfiguration,
+    gravity_model: Option<&GravityModel>,
+    r_i2b: SMatrix3,
+    s: Vector3<f64>,
+    r_object: Vector3<f64>,
+) -> Result<Vector3<f64>, BraheError> {
     // Object position relative to the perturbing body.
     let d = r_object - s;
 
@@ -2034,6 +2134,96 @@ mod tests {
         let a_direct = accel_third_body(ThirdBody::Mars, EphemerisSource::DE440s, epc, r).unwrap();
         for i in 0..3 {
             assert_abs_diff_eq!(a_direct[i], a_planet[i], epsilon = 1e-18);
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_accel_third_body_for_body_at_matches() {
+        setup_global_test_spice();
+
+        let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let r_object = Vector3::new(7.0e6, 1.0e6, -2.0e6);
+
+        for central in [CentralBody::Earth, CentralBody::Moon, CentralBody::Mars] {
+            for body in [ThirdBody::Sun, ThirdBody::Moon, ThirdBody::Jupiter] {
+                if body.naif_id() == central.naif_id() {
+                    continue;
+                }
+                let expected = accel_third_body_for_body(
+                    &central,
+                    &body,
+                    EphemerisSource::DE440s,
+                    epc,
+                    r_object,
+                )
+                .unwrap();
+                let s = third_body_position(&central, &body, EphemerisSource::DE440s, epc).unwrap();
+                let actual = accel_third_body_for_body_at(&central, &body, s, r_object);
+                assert_eq!(actual, expected, "{central:?} / {body:?}");
+            }
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_accel_third_body_field_at_matches() {
+        use crate::propagators::force_model_config::GravityConfiguration;
+        use crate::utils::testing::setup_global_test_eop;
+
+        setup_global_test_eop();
+        setup_global_test_spice();
+
+        let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let r_object = Vector3::new(7.0e6, 1.0e6, -2.0e6);
+        let r_i2b = SMatrix3::identity();
+
+        for central in [CentralBody::Earth, CentralBody::Moon, CentralBody::Mars] {
+            for body in [ThirdBody::Sun, ThirdBody::Moon, ThirdBody::Jupiter] {
+                if body.naif_id() == central.naif_id() {
+                    continue;
+                }
+                let expected = accel_third_body_field_for_body_with_model(
+                    &central,
+                    &body,
+                    &GravityConfiguration::PointMass,
+                    None,
+                    r_i2b,
+                    EphemerisSource::DE440s,
+                    epc,
+                    r_object,
+                )
+                .unwrap();
+                let s = third_body_position(&central, &body, EphemerisSource::DE440s, epc).unwrap();
+                let actual = accel_third_body_field_at(
+                    &central,
+                    &body,
+                    &GravityConfiguration::PointMass,
+                    None,
+                    r_i2b,
+                    s,
+                    r_object,
+                )
+                .unwrap();
+                assert_eq!(actual, expected, "{central:?} / {body:?}");
+            }
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_third_body_position_geocentric_matches_accel_third_body() {
+        setup_global_test_spice();
+
+        let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let r_object = Vector3::new(7.0e6, 1.0e6, -2.0e6);
+
+        for body in [ThirdBody::Sun, ThirdBody::Moon, ThirdBody::Jupiter] {
+            let (r_body, gm) =
+                third_body_position_geocentric(&body, EphemerisSource::DE440s, epc).unwrap();
+            let expected =
+                accel_third_body(body.clone(), EphemerisSource::DE440s, epc, r_object).unwrap();
+            assert_eq!(accel_point_mass_gravity(r_object, r_body, gm), expected);
         }
     }
 

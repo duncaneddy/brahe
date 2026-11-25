@@ -39,25 +39,38 @@ def test_atmosphericmodel_classattrs():
 
 
 def test_atmosphericmodel_nrlmsise00_default_and_config():
-    assert "NRLMSISE00" in repr(AtmosphericModel.nrlmsise00())
+    assert AtmosphericModel.nrlmsise00().nrlmsise00_config == brahe.NRLMSISE00Config()
     assert not hasattr(AtmosphericModel, "NRLMSISE00")
     cfg = brahe.NRLMSISE00Config(ap_mode=brahe.NRLMSISE00ApMode.DAILY)
-    assert "Daily" in repr(AtmosphericModel.nrlmsise00(cfg))
-    assert "Daily" in repr(AtmosphericModel.nrlmsise00(config=cfg))
+    assert AtmosphericModel.nrlmsise00(cfg).nrlmsise00_config == cfg
+    assert AtmosphericModel.nrlmsise00(config=cfg).nrlmsise00_config == cfg
+
+
+def test_atmosphericmodel_nrlmsise00_config():
+    """Mirrors test_atmosphericmodel_nrlmsise00_config"""
+    cfg = brahe.NRLMSISE00Config(
+        ap_mode=brahe.NRLMSISE00ApMode.DAILY, diurnal=brahe.NRLMSISE00Switch.OFF
+    )
+    assert AtmosphericModel.nrlmsise00(cfg).nrlmsise00_config == cfg
+    assert AtmosphericModel.HARRIS_PRIESTER.nrlmsise00_config is None
+    exponential = AtmosphericModel.exponential(60e3, 3.6e-10, 400e3)
+    assert exponential.nrlmsise00_config is None
 
 
 def test_forcemodelconfig_presets_use_default_nrlmsise00_config():
-    expected = repr(AtmosphericModel.nrlmsise00())
-    assert repr(ForceModelConfig.leo_default().drag.model) == expected
-    assert repr(ForceModelConfig.high_fidelity().drag.model) == expected
+    expected = brahe.NRLMSISE00Config()
+    assert ForceModelConfig.leo_default().drag.model.nrlmsise00_config == expected
+    assert ForceModelConfig.high_fidelity().drag.model.nrlmsise00_config == expected
 
 
 def test_atmosphericmodel_nrlmsise00_copies_config():
     cfg = brahe.NRLMSISE00Config()
     m = AtmosphericModel.nrlmsise00(cfg)
-    before = repr(m)
     cfg.ap_mode = brahe.NRLMSISE00ApMode.DAILY
-    assert repr(m) == before
+    assert m.nrlmsise00_config == brahe.NRLMSISE00Config()
+    returned = m.nrlmsise00_config
+    returned.diurnal = brahe.NRLMSISE00Switch.OFF
+    assert m.nrlmsise00_config == brahe.NRLMSISE00Config()
 
 
 def test_atmosphericmodel_exponential():

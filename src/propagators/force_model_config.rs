@@ -1479,6 +1479,33 @@ pub enum AtmosphericModel {
     },
 }
 
+impl AtmosphericModel {
+    /// NRLMSISE-00 switch configuration carried by this model.
+    ///
+    /// # Returns
+    ///
+    /// `Some(&NRLMSISE00Config)` for [`AtmosphericModel::NRLMSISE00`], `None`
+    /// for every other model.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use brahe::earth_models::{NRLMSISE00ApMode, NRLMSISE00Config};
+    /// use brahe::propagators::AtmosphericModel;
+    ///
+    /// let cfg = NRLMSISE00Config { ap_mode: NRLMSISE00ApMode::Daily, ..Default::default() };
+    /// let model = AtmosphericModel::NRLMSISE00(cfg);
+    /// assert_eq!(model.nrlmsise00_config(), Some(&cfg));
+    /// assert_eq!(AtmosphericModel::HarrisPriester.nrlmsise00_config(), None);
+    /// ```
+    pub fn nrlmsise00_config(&self) -> Option<&NRLMSISE00Config> {
+        match self {
+            AtmosphericModel::NRLMSISE00(config) => Some(config),
+            _ => None,
+        }
+    }
+}
+
 // =============================================================================
 // Solar Radiation Pressure Configuration
 // =============================================================================
@@ -2139,6 +2166,27 @@ mod tests {
         let back: AtmosphericModel =
             serde_json::from_str(&serde_json::to_string(&m).unwrap()).unwrap();
         assert_eq!(back, m);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_atmosphericmodel_nrlmsise00_config() {
+        let cfg = NRLMSISE00Config {
+            ap_mode: NRLMSISE00ApMode::Daily,
+            diurnal: NRLMSISE00Switch::Off,
+            ..Default::default()
+        };
+        assert_eq!(
+            AtmosphericModel::NRLMSISE00(cfg).nrlmsise00_config(),
+            Some(&cfg)
+        );
+        assert_eq!(AtmosphericModel::HarrisPriester.nrlmsise00_config(), None);
+        let exponential = AtmosphericModel::Exponential {
+            scale_height: 60e3,
+            rho0: 3.6e-10,
+            h0: 400e3,
+        };
+        assert_eq!(exponential.nrlmsise00_config(), None);
     }
 
     #[test]

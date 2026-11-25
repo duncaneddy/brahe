@@ -4057,6 +4057,28 @@ impl PyAtmosphericModel {
         }
     }
 
+    /// NRLMSISE-00 switch configuration carried by this model.
+    ///
+    /// Returns:
+    ///     NRLMSISE00Config | None: A copy of the configuration for an
+    ///         NRLMSISE-00 model, or None for every other model.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     cfg = bh.NRLMSISE00Config(ap_mode=bh.NRLMSISE00ApMode.DAILY)
+    ///     model = bh.AtmosphericModel.nrlmsise00(cfg)
+    ///     assert model.nrlmsise00_config == cfg
+    ///     assert bh.AtmosphericModel.HARRIS_PRIESTER.nrlmsise00_config is None
+    ///     ```
+    #[getter]
+    fn nrlmsise00_config(&self) -> Option<PyNRLMSISE00Config> {
+        self.model
+            .nrlmsise00_config()
+            .map(|config| PyNRLMSISE00Config { config: *config })
+    }
+
     fn __repr__(&self) -> String {
         format!("AtmosphericModel({:?})", self.model)
     }

@@ -2526,6 +2526,8 @@ pub fn gtd7d(input: &mut NrlmsiseInput, flags: &mut NrlmsiseFlags, output: &mut 
 /// * `epoch` - Epoch of computation (used to lookup space weather data)
 /// * `geod` - Geodetic position as [longitude, latitude, altitude] where
 ///   longitude and latitude are in degrees, and altitude is in meters
+/// * `config` - Model switch configuration. [`NRLMSISE00Config::default()`] enables
+///   all variations and uses the 3-hourly Ap array
 ///
 /// # Returns
 ///
@@ -2540,7 +2542,7 @@ pub fn gtd7d(input: &mut NrlmsiseInput, flags: &mut NrlmsiseFlags, output: &mut 
 /// # Example
 ///
 /// ```no_run
-/// use brahe::earth_models::density_nrlmsise00_geod;
+/// use brahe::earth_models::{NRLMSISE00Config, density_nrlmsise00_geod};
 /// use brahe::time::{Epoch, TimeSystem};
 /// use brahe::{initialize_eop, initialize_sw};
 ///
@@ -2553,7 +2555,7 @@ pub fn gtd7d(input: &mut NrlmsiseInput, flags: &mut NrlmsiseFlags, output: &mut 
 /// let geod = [-74.0, 40.7, 400e3]; // New York area, 400 km altitude
 ///
 /// // Compute density
-/// let rho = density_nrlmsise00_geod(&epoch, &geod).unwrap();
+/// let rho = density_nrlmsise00_geod(&epoch, &geod, &NRLMSISE00Config::default()).unwrap();
 /// println!("Density: {:.3e} kg/m³", rho);
 /// ```
 ///
@@ -2562,7 +2564,11 @@ pub fn gtd7d(input: &mut NrlmsiseInput, flags: &mut NrlmsiseFlags, output: &mut 
 /// Picone, J.M., et al. "NRLMSISE-00 empirical model of the atmosphere:
 /// Statistical comparisons and scientific issues", Journal of Geophysical
 /// Research: Space Physics, 2002.
-pub fn density_nrlmsise00_geod(epoch: &Epoch, geod: &[f64; 3]) -> Result<f64, BraheError> {
+pub fn density_nrlmsise00_geod(
+    epoch: &Epoch,
+    geod: &[f64; 3],
+    config: &NRLMSISE00Config,
+) -> Result<f64, BraheError> {
     // Create NRLMSISE-00 model structures
     let mut input = NrlmsiseInput::new();
     let mut flags = NrlmsiseFlags::new();
@@ -2605,10 +2611,7 @@ pub fn density_nrlmsise00_geod(epoch: &Epoch, geod: &[f64; 3]) -> Result<f64, Br
     }
     ap_array[6] = sum / 8.0;
 
-    // Set model flags to default (all on)
-    for i in 0..24 {
-        flags.switches[i] = 1;
-    }
+    flags.switches = config.to_switches();
 
     // Set input values
     input.year = 0; // Unused in model
@@ -2641,6 +2644,8 @@ pub fn density_nrlmsise00_geod(epoch: &Epoch, geod: &[f64; 3]) -> Result<f64, Br
 /// * `epoch` - Epoch of computation (used to lookup space weather data)
 /// * `x_ecef` - Position in ECEF frame. Units: (m). Accepts any type implementing
 ///   [`IntoPosition`] (e.g., `Vector3<f64>` or `SVector<f64, 6>`)
+/// * `config` - Model switch configuration. [`NRLMSISE00Config::default()`] enables
+///   all variations and uses the 3-hourly Ap array
 ///
 /// # Returns
 ///
@@ -2656,7 +2661,7 @@ pub fn density_nrlmsise00_geod(epoch: &Epoch, geod: &[f64; 3]) -> Result<f64, Br
 /// # Example
 ///
 /// ```no_run
-/// use brahe::earth_models::density_nrlmsise00;
+/// use brahe::earth_models::{NRLMSISE00Config, density_nrlmsise00};
 /// use brahe::time::{Epoch, TimeSystem};
 /// use brahe::{initialize_eop, initialize_sw};
 /// use nalgebra::Vector3;
@@ -2670,7 +2675,7 @@ pub fn density_nrlmsise00_geod(epoch: &Epoch, geod: &[f64; 3]) -> Result<f64, Br
 /// let x_ecef = Vector3::new(6778137.0, 0.0, 0.0);
 ///
 /// // Compute density
-/// let rho = density_nrlmsise00(&epoch, x_ecef).unwrap();
+/// let rho = density_nrlmsise00(&epoch, x_ecef, &NRLMSISE00Config::default()).unwrap();
 /// println!("Density: {:.3e} kg/m³", rho);
 /// ```
 ///
@@ -2679,19 +2684,24 @@ pub fn density_nrlmsise00_geod(epoch: &Epoch, geod: &[f64; 3]) -> Result<f64, Br
 /// Picone, J.M., et al. "NRLMSISE-00 empirical model of the atmosphere:
 /// Statistical comparisons and scientific issues", Journal of Geophysical
 /// Research: Space Physics, 2002.
-pub fn density_nrlmsise00<P: IntoPosition>(epoch: &Epoch, x_ecef: P) -> Result<f64, BraheError> {
+pub fn density_nrlmsise00<P: IntoPosition>(
+    epoch: &Epoch,
+    x_ecef: P,
+    config: &NRLMSISE00Config,
+) -> Result<f64, BraheError> {
     // Extract position and convert to geodetic coordinates
     let position = x_ecef.position();
     let geod = position_ecef_to_geodetic(position, AngleFormat::Degrees);
 
     // Call the geodetic version
-    density_nrlmsise00_geod(epoch, &[geod[0], geod[1], geod[2]])
+    density_nrlmsise00_geod(epoch, &[geod[0], geod[1], geod[2]], config)
 }
 
 #[cfg(test)]
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
+    use NRLMSISE00Switch::{CrossTermsOnly, Off};
     use approx::assert_abs_diff_eq;
     use rstest::rstest;
     use serial_test::{parallel, serial};
@@ -3290,7 +3300,7 @@ mod tests {
 
         let epoch = Epoch::from_datetime(2020, 6, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let x_ecef = Vector3::new(3.8e8, 0.0, 0.0); // ~lunar distance
-        let rho = density_nrlmsise00(&epoch, x_ecef).unwrap();
+        let rho = density_nrlmsise00(&epoch, x_ecef, &NRLMSISE00Config::default()).unwrap();
         assert!(rho.is_finite());
         assert!(
             rho < 1e-15,
@@ -3298,8 +3308,96 @@ mod tests {
         );
     }
 
+    fn reference_epoch_geod() -> (Epoch, [f64; 3]) {
+        crate::utils::testing::setup_global_test_eop();
+        crate::utils::testing::setup_global_test_space_weather();
+        (
+            Epoch::from_datetime(2024, 5, 10, 21, 0, 0.0, 0.0, TimeSystem::UTC),
+            [-74.0, 40.7, 400e3],
+        )
+    }
+
+    #[test]
+    #[serial]
+    fn test_density_nrlmsise00_geod_daily_ap_matches_reference() {
+        let (epc, geod) = reference_epoch_geod();
+        let cfg = NRLMSISE00Config {
+            ap_mode: NRLMSISE00ApMode::Daily,
+            ..Default::default()
+        };
+        let rho = density_nrlmsise00_geod(&epc, &geod, &cfg).unwrap();
+        assert!(
+            (rho - 1.067412479194915e-11).abs() / 1.067412479194915e-11 < 1e-10,
+            "{rho}"
+        );
+    }
+
+    #[test]
+    #[serial]
+    fn test_density_nrlmsise00_geod_default_is_three_hourly() {
+        let (epc, geod) = reference_epoch_geod();
+        let rho = density_nrlmsise00_geod(&epc, &geod, &NRLMSISE00Config::default()).unwrap();
+        assert!(
+            (rho - 1.157892733789963e-11).abs() / 1.157892733789963e-11 < 1e-10,
+            "{rho}"
+        );
+    }
+
+    #[test]
+    #[serial]
+    fn test_density_nrlmsise00_all_switches_off_is_finite() {
+        let (epc, geod) = reference_epoch_geod();
+        let cfg = NRLMSISE00Config {
+            f107_mean: Off,
+            time_independent: Off,
+            symmetrical_annual: Off,
+            symmetrical_semiannual: Off,
+            asymmetrical_annual: Off,
+            asymmetrical_semiannual: Off,
+            diurnal: Off,
+            semidiurnal: Off,
+            ap_mode: NRLMSISE00ApMode::Off,
+            all_ut_longitude: Off,
+            longitudinal: Off,
+            ut_mixed_ut_longitude: Off,
+            mixed_ap_ut_longitude: Off,
+            terdiurnal: Off,
+            diffusive_equilibrium_departures: Off,
+            tinf_variations: Off,
+            tlb_variations: Off,
+            tn1_variations: Off,
+            s_variations: Off,
+            tn2_variations: Off,
+            nlb_variations: Off,
+            tn3_variations: Off,
+            turbopause_scale_height_variations: Off,
+        };
+        let rho = density_nrlmsise00_geod(&epc, &geod, &cfg).unwrap();
+        assert!(rho.is_finite() && rho > 0.0, "{rho}");
+    }
+
+    #[test]
+    #[serial]
+    fn test_density_nrlmsise00_ecef_matches_geod_with_config() {
+        let (epc, geod) = reference_epoch_geod();
+        let cfg = NRLMSISE00Config {
+            ap_mode: NRLMSISE00ApMode::Daily,
+            ..Default::default()
+        };
+        let x_ecef = crate::coordinates::position_geodetic_to_ecef(
+            nalgebra::Vector3::new(geod[0], geod[1], geod[2]),
+            AngleFormat::Degrees,
+        )
+        .unwrap();
+        let rho_geod = density_nrlmsise00_geod(&epc, &geod, &cfg).unwrap();
+        let rho_ecef = density_nrlmsise00(&epc, x_ecef, &cfg).unwrap();
+        assert!(
+            (rho_ecef - rho_geod).abs() / rho_geod < 1e-10,
+            "{rho_ecef} {rho_geod}"
+        );
+    }
+
     fn all_non_default_config() -> NRLMSISE00Config {
-        use NRLMSISE00Switch::{CrossTermsOnly, Off};
         NRLMSISE00Config {
             f107_mean: Off,
             time_independent: CrossTermsOnly,

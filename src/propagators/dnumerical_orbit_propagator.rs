@@ -14,7 +14,7 @@ use std::sync::{Arc, Mutex};
 
 use nalgebra::{DMatrix, DVector, Vector3, Vector6};
 
-use crate::earth_models::{density_harris_priester, density_nrlmsise00};
+use crate::earth_models::{NRLMSISE00Config, density_harris_priester, density_nrlmsise00};
 use crate::frames::{
     CelestialFrame, OrbitRelativeFrameVariant, earth_rotation, rotate_covariance,
     rotation_eci_to_ecef, rotation_frame_to_frame, rotation_lci_to_lfpa, rotation_mci_to_mcmf,
@@ -2154,7 +2154,7 @@ impl DNumericalOrbitPropagator {
                 AtmosphericModel::NRLMSISE00 => {
                     // NRLMSISE00 requires ECEF position
                     let r_ecef = r_i2b_drag * r_drag;
-                    density_nrlmsise00(&epoch, r_ecef).unwrap_or(0.0)
+                    density_nrlmsise00(&epoch, r_ecef, &NRLMSISE00Config::default()).unwrap_or(0.0)
                 }
                 AtmosphericModel::Exponential {
                     scale_height,

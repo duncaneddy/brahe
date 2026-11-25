@@ -77,7 +77,11 @@ fn py_density_nrlmsise00(epc: &PyEpoch, x_ecef: PyReadonlyArray1<f64>) -> PyResu
     }
     let pos = numpy_to_vector3!(x_ecef);
 
-    brahe::earth_models::density_nrlmsise00(&epc.obj, pos)
+    brahe::earth_models::density_nrlmsise00(
+        &epc.obj,
+        pos,
+        &brahe::earth_models::NRLMSISE00Config::default(),
+    )
         .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))
 }
 
@@ -123,7 +127,11 @@ fn py_density_nrlmsise00_geod(epc: &PyEpoch, geod: PyReadonlyArray1<f64>) -> PyR
     let g = geod.as_array();
     let geod_arr = [g[0], g[1], g[2]];
 
-    brahe::earth_models::density_nrlmsise00_geod(&epc.obj, &geod_arr)
+    brahe::earth_models::density_nrlmsise00_geod(
+        &epc.obj,
+        &geod_arr,
+        &brahe::earth_models::NRLMSISE00Config::default(),
+    )
         .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))
 }
 

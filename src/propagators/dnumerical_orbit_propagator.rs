@@ -3852,6 +3852,7 @@ mod tests {
             mass: Some(ParameterSource::ParameterIndex(0)),
             frame_transform: FrameTransformationModel::default(),
             tides: None,
+            precompute: None,
         }
     }
 
@@ -3916,6 +3917,7 @@ mod tests {
             mass: None,
             frame_transform: FrameTransformationModel::default(),
             tides: None,
+            precompute: None,
         }
     }
 
@@ -9211,6 +9213,7 @@ mod tests {
             mass: None,
             frame_transform: FrameTransformationModel::default(),
             tides: None,
+            precompute: None,
         };
 
         let mut prop = DNumericalOrbitPropagator::new(
@@ -9430,6 +9433,7 @@ mod tests {
             srp: None,
             third_body: None,
             relativity: false,
+            precompute: None,
         };
 
         let mut prop = DNumericalOrbitPropagator::new(
@@ -9491,6 +9495,7 @@ mod tests {
             srp: None,
             third_body: None,
             relativity: false,
+            precompute: None,
         };
 
         // Note: Spherical harmonic gravity requires loading model data files
@@ -9548,6 +9553,7 @@ mod tests {
             srp: None,
             third_body: None,
             relativity: false,
+            precompute: None,
         };
 
         let mut prop = DNumericalOrbitPropagator::new(
@@ -9619,6 +9625,7 @@ mod tests {
                 srp: None,
                 third_body: None,
                 relativity: false,
+                precompute: None,
             };
 
             let mut prop = DNumericalOrbitPropagator::new(
@@ -9681,6 +9688,7 @@ mod tests {
             srp: None,
             third_body: None,
             relativity: false,
+            precompute: None,
         };
 
         let mut prop_modeltype = DNumericalOrbitPropagator::new(
@@ -9711,6 +9719,7 @@ mod tests {
             srp: None,
             third_body: None,
             relativity: false,
+            precompute: None,
         };
 
         // The global source test may fail if gravity model not properly loaded
@@ -9784,6 +9793,7 @@ mod tests {
             srp: None,
             third_body: None,
             relativity: false,
+            precompute: None,
         };
 
         let mut prop = DNumericalOrbitPropagator::new(
@@ -9842,6 +9852,7 @@ mod tests {
             srp: None,
             third_body: None,
             relativity: false,
+            precompute: None,
         };
 
         let mut prop = DNumericalOrbitPropagator::new(
@@ -9893,6 +9904,7 @@ mod tests {
             srp: None,
             third_body: None,
             relativity: false,
+            precompute: None,
         };
 
         // NRLMSISE00 requires space weather data
@@ -9955,6 +9967,7 @@ mod tests {
                 srp: None,
                 third_body: None,
                 relativity: false,
+                precompute: None,
             };
             let mut prop = DNumericalOrbitPropagator::new(
                 epoch,
@@ -10013,6 +10026,7 @@ mod tests {
             srp: None,
             third_body: None,
             relativity: false,
+            precompute: None,
         };
 
         let mut prop = DNumericalOrbitPropagator::new(
@@ -10079,6 +10093,7 @@ mod tests {
             srp: None,
             third_body: None,
             relativity: false,
+            precompute: None,
         };
 
         let mut prop = DNumericalOrbitPropagator::new(
@@ -10154,6 +10169,7 @@ mod tests {
             }),
             third_body: None,
             relativity: false,
+            precompute: None,
         };
 
         let mut prop = DNumericalOrbitPropagator::new(
@@ -10202,6 +10218,7 @@ mod tests {
             }),
             third_body: None,
             relativity: false,
+            precompute: None,
         };
 
         let mut prop = DNumericalOrbitPropagator::new(
@@ -10247,6 +10264,7 @@ mod tests {
             }),
             third_body: None,
             relativity: false,
+            precompute: None,
         };
 
         let mut prop = DNumericalOrbitPropagator::new(
@@ -10293,6 +10311,7 @@ mod tests {
             }),
             third_body: None,
             relativity: false,
+            precompute: None,
         };
 
         let mut prop = DNumericalOrbitPropagator::new(
@@ -10353,6 +10372,7 @@ mod tests {
                 gravity: GravityConfiguration::PointMass,
             }]),
             relativity: false,
+            precompute: None,
         };
 
         let mut prop = DNumericalOrbitPropagator::new(
@@ -10395,6 +10415,7 @@ mod tests {
                 gravity: GravityConfiguration::PointMass,
             }]),
             relativity: false,
+            precompute: None,
         };
 
         let mut prop = DNumericalOrbitPropagator::new(
@@ -10435,6 +10456,7 @@ mod tests {
                 ThirdBody::JupiterBarycenter.into(),
             ]),
             relativity: false,
+            precompute: None,
         };
 
         let mut prop = DNumericalOrbitPropagator::new(
@@ -10471,6 +10493,7 @@ mod tests {
             srp: None,
             third_body: Some(vec![ThirdBody::JupiterBarycenter.into()]),
             relativity: false,
+            precompute: None,
         };
 
         let mut prop = DNumericalOrbitPropagator::new(
@@ -10521,6 +10544,7 @@ mod tests {
             srp: None,
             third_body: Some(vec![ThirdBody::Phobos.into()]),
             relativity: false,
+            precompute: None,
         };
         force_config.validate().unwrap();
 
@@ -10565,6 +10589,7 @@ mod tests {
             srp: None,
             third_body: Some(vec![ThirdBody::MarsBarycenter.into()]),
             relativity: false,
+            precompute: None,
         };
 
         let mut prop = DNumericalOrbitPropagator::new(
@@ -10605,6 +10630,7 @@ mod tests {
             srp: None,
             third_body: None,
             relativity: true, // Enable relativity
+            precompute: None,
         };
 
         let mut prop = DNumericalOrbitPropagator::new(
@@ -10731,6 +10757,7 @@ mod tests {
                 },
             ]),
             relativity: true, // Enable relativity
+            precompute: None,
         };
 
         let mut prop = DNumericalOrbitPropagator::new(
@@ -10799,6 +10826,7 @@ mod tests {
             srp: None,
             third_body: None,
             relativity: false,
+            precompute: None,
         };
 
         let mut prop1 = DNumericalOrbitPropagator::new(
@@ -11769,6 +11797,7 @@ mod tests {
             srp: None,
             third_body: None,
             relativity: false,
+            precompute: None,
         };
 
         let mut prop_j2 = DNumericalOrbitPropagator::new(
@@ -14468,6 +14497,7 @@ mod tests {
             mass: None,
             frame_transform:
                 crate::propagators::force_model_config::FrameTransformationModel::default(),
+            precompute: None,
         };
 
         // Force config WITH solid tides enabled
@@ -14490,6 +14520,7 @@ mod tests {
             mass: None,
             frame_transform:
                 crate::propagators::force_model_config::FrameTransformationModel::default(),
+            precompute: None,
         };
 
         // Propagate one orbit with tides OFF
@@ -14761,6 +14792,7 @@ mod tests {
             mass: None,
             frame_transform: FrameTransformationModel::default(),
             tides: None,
+            precompute: None,
         };
 
         let config_emb = ForceModelConfig {
@@ -14780,6 +14812,7 @@ mod tests {
             mass: None,
             frame_transform: FrameTransformationModel::default(),
             tides: None,
+            precompute: None,
         };
 
         let earth_wrt_emb = crate::spice::spk_state(399, 3, epoch).unwrap();
@@ -14860,6 +14893,7 @@ mod tests {
             mass: None,
             frame_transform: FrameTransformationModel::default(),
             tides: None,
+            precompute: None,
         };
 
         let config_emb = ForceModelConfig {
@@ -14881,6 +14915,7 @@ mod tests {
             mass: None,
             frame_transform: FrameTransformationModel::default(),
             tides: None,
+            precompute: None,
         };
 
         let earth_wrt_emb = crate::spice::spk_state(399, 3, epoch).unwrap();
@@ -14974,6 +15009,7 @@ mod tests {
             mass: Some(ParameterSource::Value(1000.0)),
             frame_transform: FrameTransformationModel::default(),
             tides: None,
+            precompute: None,
         };
 
         let earth_wrt_emb = crate::spice::spk_state(399, 3, epoch).unwrap();
@@ -15069,6 +15105,7 @@ mod tests {
             mass: Some(ParameterSource::Value(1000.0)),
             frame_transform: FrameTransformationModel::default(),
             tides: None,
+            precompute: None,
         };
         let config_emb = ForceModelConfig {
             central_body: CentralBody::EMB,
@@ -15087,6 +15124,7 @@ mod tests {
             mass: Some(ParameterSource::Value(1000.0)),
             frame_transform: FrameTransformationModel::default(),
             tides: None,
+            precompute: None,
         };
 
         let x_emb = crate::frames::state_eci_to_emb(epoch, x_earth);
@@ -15154,6 +15192,7 @@ mod tests {
             mass: None,
             frame_transform: FrameTransformationModel::default(),
             tides: None,
+            precompute: None,
         };
 
         let mut prop = DNumericalOrbitPropagator::new(

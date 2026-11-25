@@ -76,5 +76,6 @@ fn main() {
         mass: None,
         frame_transform: bh::FrameTransformationModel::default(),
         tides: None,
+        precompute: None,
     };
 }

@@ -43,6 +43,7 @@ fn main() {
         frame_transform: bh::FrameTransformationModel::FullEarthRotation,
         // Tidal corrections to the gravity field (None disables tides)
         tides: None,
+        precompute: None,
     };
 
     println!("Gravity: {:?}", force_config.gravity);

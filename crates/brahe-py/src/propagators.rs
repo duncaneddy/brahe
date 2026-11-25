@@ -6415,6 +6415,7 @@ impl PyForceModelConfig {
                 mass: mass.map(|m| m.source.clone()),
                 frame_transform: frame_transform.map(|f| f.model.clone()).unwrap_or_default(),
                 tides: tides.map(|t| t.config.clone()),
+                precompute: None,
             },
         }
     }

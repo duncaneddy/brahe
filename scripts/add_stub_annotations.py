@@ -553,6 +553,42 @@ RUST_ITEM = re.compile(
 )
 
 
+# A receiver written with an explicit type, such as ``slf: PyRef<'_, Self>``.
+RUST_TYPED_RECEIVER = re.compile(
+    r"&?\s*(?:(?:PyRef|PyRefMut|Bound|Borrowed|Py)\s*<\s*(?:'\w+\s*,\s*)?)?Self\s*>?"
+)
+
+
+def merge_slot_definitions(definitions: list) -> tuple:
+    """Combine the definitions of one slot method into a single signature.
+
+    A method defined more than once, for example in alternative
+    ``#[cfg(...)]`` branches, keeps the annotations its definitions agree on
+    and uses ``Any`` for the rest. The result does not depend on the order of
+    the definitions.
+
+    Args:
+        definitions (list): ``(params, return_type)`` pairs, where ``params``
+            lists ``(name, annotation)`` pairs.
+
+    Returns:
+        tuple: The merged ``(params, return_type)`` pair.
+    """
+    definitions = sorted(definitions)
+    params, return_type = definitions[0]
+    for other_params, other_return in definitions[1:]:
+        if len(other_params) != len(params):
+            params = [(name, "Any") for name, _ in params]
+        else:
+            params = [
+                (name, py_type if py_type == other_type else "Any")
+                for (name, py_type), (_, other_type) in zip(params, other_params)
+            ]
+        if other_return != return_type:
+            return_type = "Any"
+    return params, return_type
+
+
 def split_rust_top_level(text: str) -> list:
     """Split Rust source text on commas outside any brackets.
 
@@ -581,7 +617,7 @@ def rust_type_to_python(rust_type: str, class_names: dict) -> str:
     Args:
         rust_type (str): Rust type as written in the binding source.
         class_names (dict): Rust pyclass type names mapped to Python class
-            names.
+            names, including ``Self`` for the type whose method is parsed.
 
     Returns:
         str: The Python annotation, or ``Any`` when the type has no specific
@@ -612,12 +648,18 @@ def rust_type_to_python(rust_type: str, class_names: dict) -> str:
             return class_names[head]
     if head.startswith(("PyArray", "PyReadonlyArray")):
         return "np.ndarray"
-    if head in RUST_TRANSPARENT_WRAPPERS and args is not None:
-        type_args = [
-            arg for arg in split_rust_top_level(args) if not arg.startswith("'")
-        ]
-        if type_args:
-            return rust_type_to_python(type_args[-1], class_names)
+    type_args = [
+        arg for arg in split_rust_top_level(args or "") if not arg.startswith("'")
+    ]
+    if not type_args:
+        return "Any"
+    if head in RUST_TRANSPARENT_WRAPPERS:
+        return rust_type_to_python(type_args[-1], class_names)
+    if head == "Result":
+        return rust_type_to_python(type_args[0], class_names)
+    if head == "Option":
+        inner = rust_type_to_python(type_args[0], class_names)
+        return "Any" if inner == "Any" else f"{inner} | None"
     return "Any"
 
 
@@ -629,8 +671,9 @@ def parse_rust_fn_signature(source: str, start: int) -> tuple[list, str]:
         start (int): Index just past the function name.
 
     Returns:
-        tuple[list, str]: The ``(name, rust_type)`` pairs of the explicit
-            parameters, and the return type text (``()`` when omitted).
+        tuple[list, str]: The ``(name, rust_type)`` pairs of the parameters
+            other than the receiver and the ``Python`` token, and the return
+            type text (``()`` when omitted).
     """
     open_paren = source.index("(", start)
     depth = 0
@@ -643,12 +686,14 @@ def parse_rust_fn_signature(source: str, start: int) -> tuple[list, str]:
                 close_paren = i
                 break
     params = []
-    for param in split_rust_top_level(source[open_paren + 1 : close_paren]):
+    for position, param in enumerate(
+        split_rust_top_level(source[open_paren + 1 : close_paren])
+    ):
         match = re.fullmatch(r"(?:mut\s+)?(\w+)\s*:(?!:)\s*(.+)", param, re.DOTALL)
         if match is None:
             continue
         name, rust_type = match.groups()
-        if re.search(r"\bSelf\b", rust_type):
+        if position == 0 and RUST_TYPED_RECEIVER.fullmatch(rust_type.strip()):
             continue
         if re.fullmatch(r"(?:\w+::)*Python\s*(?:<[^>]*>)?", rust_type.strip()):
             continue
@@ -666,7 +711,7 @@ def parse_rust_slot_signatures(sources: list) -> dict:
     Each ``#[pymethods] impl`` block is attributed to the Python class name of
     its type: the ``name`` given in ``#[pyclass(...)]`` or ``#[pyo3(...)]``,
     otherwise the Rust type name. Receiver and ``Python`` token parameters are
-    omitted.
+    omitted, and ``Self`` in other parameters names the class itself.
 
     Args:
         sources (list): Rust source texts, parsed together so that a pyclass
@@ -685,7 +730,7 @@ def parse_rust_slot_signatures(sources: list) -> dict:
             rust = match.group("rust")
             class_names[rust] = name.group(1) if name else rust
 
-    slots = {}
+    definitions = {}
     for source in sources:
         current = None
         for match in RUST_ITEM.finditer(source):
@@ -696,20 +741,34 @@ def parse_rust_slot_signatures(sources: list) -> dict:
             elif current is not None:
                 params, return_type = parse_rust_fn_signature(source, match.end())
                 py_class = class_names.get(current, current)
-                slots.setdefault(py_class, {})[match.group("slot")] = (
-                    [
-                        (name, rust_type_to_python(rust_type, class_names))
-                        for name, rust_type in params
-                    ],
-                    rust_type_to_python(return_type, class_names),
+                names = {**class_names, "Self": py_class}
+                definitions.setdefault(py_class, {}).setdefault(
+                    match.group("slot"), []
+                ).append(
+                    (
+                        [
+                            (name, rust_type_to_python(rust_type, names))
+                            for name, rust_type in params
+                        ],
+                        rust_type_to_python(return_type, names),
+                    )
                 )
-    return slots
+    return {
+        py_class: {
+            slot: merge_slot_definitions(slot_definitions)
+            for slot, slot_definitions in class_slots.items()
+        }
+        for py_class, class_slots in definitions.items()
+    }
 
 
 @functools.cache
 def rust_slot_signatures() -> dict:
     """Return the container slot signatures defined in the Rust bindings."""
-    sources = [path.read_text() for path in sorted(RUST_BINDINGS_DIR.glob("*.rs"))]
+    sources = [
+        path.read_text(encoding="utf-8")
+        for path in sorted(RUST_BINDINGS_DIR.glob("*.rs"))
+    ]
     return parse_rust_slot_signatures(sources)
 
 
@@ -749,7 +808,8 @@ def generate_class_stub(name: str, cls: type, errors: list) -> str:
     doc = inspect.getdoc(cls)
     check_none_defaults(name, cls, doc or "", errors)
 
-    lines.append(f"class {name}:")
+    bases = [base.__name__ for base in cls.__bases__ if base is not object]
+    lines.append(f"class {name}({', '.join(bases)}):" if bases else f"class {name}:")
     if doc:
         lines.append(format_docstring(doc))
     else:
@@ -991,7 +1051,7 @@ class StubGenerationError(Exception):
 
 
 def annotation_names(tree: ast.Module) -> tuple[set, set]:
-    """Collect the names that annotations in a stub refer to.
+    """Collect the names that annotations and class bases in a stub refer to.
 
     Args:
         tree (ast.Module): Parsed stub.
@@ -1018,6 +1078,8 @@ def annotation_names(tree: ast.Module) -> tuple[set, set]:
                 annotations.append(node.returns)
         elif isinstance(node, ast.AnnAssign):
             annotations.append(node.annotation)
+        elif isinstance(node, ast.ClassDef):
+            annotations.extend(node.bases)
 
     direct, roots = set(), set()
     for annotation in annotations:
@@ -1093,9 +1155,16 @@ def generate_stub(module: Any, package: Any) -> str:
         StubGenerationError: If a docstring type omits a None default, the
             stub is not valid Python, or an annotation names something that
             is neither defined in the stub nor importable.
+        OSError: If a Rust binding source cannot be read.
+        UnicodeDecodeError: If a Rust binding source is not valid UTF-8.
     """
     output_lines = []
     errors = []
+
+    # Parse the Rust slot signatures before any per-member isolation, so a
+    # source that cannot be read or parsed fails generation instead of
+    # falling back to conventional slot types.
+    rust_slot_signatures()
 
     # Header
     output_lines.append('"""Type stubs for brahe._brahe module - AUTO-GENERATED"""')
@@ -1229,7 +1298,7 @@ def main():
         print(f"Error: {e}", file=sys.stderr)
         return 1
 
-    with open(stub_path, "w") as f:
+    with open(stub_path, "w", encoding="utf-8") as f:
         f.write(output)
 
     print(f"\n✓ Generated stub file: {stub_path}")

@@ -613,3 +613,135 @@ def test_generated_stub_exceptions_omit_builtin_members(generated_stub):
     for node in exceptions:
         methods = {item.name for item in node.body if isinstance(item, ast.FunctionDef)}
         assert methods.isdisjoint({"add_note", "with_traceback"}), node.name
+    assert "class BraheError(Exception):" in generated_stub
+    assert "class PanicException(BaseException):" in generated_stub
+
+
+class Fault(SensorFault):
+    """Specialized sensor fault."""
+
+
+def test_class_stub_renders_runtime_bases():
+    assert _class_stub(SensorFault).startswith("class SensorFault(Exception):")
+    assert _class_stub(Fault).startswith("class Fault(SensorFault):")
+    assert _class_stub(Config).startswith("class Config:")
+
+
+def test_generate_stub_rejects_unresolved_bases():
+    class Base:
+        """Base outside the stub."""
+
+    class Derived(Base):
+        """Derived."""
+
+    class Module:
+        pass
+
+    Module.Derived = Derived
+    with pytest.raises(stubs.StubGenerationError, match="Base"):
+        stubs.generate_stub(Module, brahe)
+
+
+RUST_SELF_AND_CFG = textwrap.dedent(
+    """\
+    #[pyclass(name = "Interval")]
+    pub struct PyInterval {}
+
+    #[pymethods]
+    impl PyInterval {
+        fn __contains__(slf: PyRef<'_, Self>, other: &Self) -> bool {
+            true
+        }
+
+        fn __getitem__(slf: &Bound<'_, Self>, index: Option<usize>) -> PyResult<Option<PyRef<'_, Self>>> {
+            Ok(None)
+        }
+
+        #[cfg(feature = "wide")]
+        fn __delitem__(&mut self, index: i64) -> Result<(), String> {
+            Ok(())
+        }
+
+        #[cfg(not(feature = "wide"))]
+        fn __delitem__(&mut self, index: String) -> Result<(), String> {
+            Ok(())
+        }
+
+        #[cfg(feature = "wide")]
+        fn __setitem__(&mut self, index: usize, value: Option<f64>) -> Result<(), String> {
+            Ok(())
+        }
+    }
+    """
+)
+
+
+def test_parse_rust_slot_signatures_self_option_and_cfg():
+    slots = stubs.parse_rust_slot_signatures([RUST_SELF_AND_CFG])
+    assert slots == {
+        "Interval": {
+            "__contains__": ([("other", "Interval")], "bool"),
+            "__getitem__": ([("index", "int | None")], "Interval | None"),
+            "__delitem__": ([("index", "Any")], "None"),
+            "__setitem__": ([("index", "int"), ("value", "float | None")], "None"),
+        }
+    }
+    wide, narrow = (
+        f"    #[cfg({cfg})]\n"
+        f"    fn __delitem__(&mut self, index: {index}) -> Result<(), String> {{\n"
+        "        Ok(())\n"
+        "    }\n"
+        for cfg, index in [
+            ('feature = "wide"', "i64"),
+            ('not(feature = "wide")', "String"),
+        ]
+    )
+    assert wide + "\n" + narrow in RUST_SELF_AND_CFG
+    reordered = RUST_SELF_AND_CFG.replace(wide + "\n" + narrow, narrow + "\n" + wide)
+    assert stubs.parse_rust_slot_signatures([reordered]) == slots
+
+
+def test_rust_type_to_python_option_and_result():
+    names = {"PyEntry": "Entry"}
+    assert stubs.rust_type_to_python("Option<f64>", names) == "float | None"
+    assert stubs.rust_type_to_python("PyResult<Option<PyEntry>>", names) == (
+        "Entry | None"
+    )
+    assert stubs.rust_type_to_python("Result<String, BraheError>", names) == "str"
+    assert stubs.rust_type_to_python("Option<Py<PyAny>>", names) == "Any"
+    assert stubs.rust_type_to_python("Result<(), PyErr>", names) == "None"
+
+
+@pytest.fixture
+def rust_bindings_dir(tmp_path, monkeypatch):
+    monkeypatch.setattr(stubs, "RUST_BINDINGS_DIR", tmp_path)
+    stubs.rust_slot_signatures.cache_clear()
+    yield tmp_path
+    stubs.rust_slot_signatures.cache_clear()
+
+
+def test_rust_slot_signatures_reads_sources_as_utf8(rust_bindings_dir):
+    source = textwrap.dedent(
+        """
+        /// Density profile ρ(h) samples.
+        #[pyclass(name = "Profile")]
+        pub struct PyProfile {}
+
+        #[pymethods]
+        impl PyProfile {
+            fn __getitem__(&self, index: isize) -> PyResult<f64> {
+                unimplemented!()
+            }
+        }
+        """
+    )
+    (rust_bindings_dir / "profile.rs").write_bytes(source.encode("utf-8"))
+    signatures = stubs.rust_slot_signatures()
+    assert "Profile" in signatures
+    assert "__getitem__" in signatures["Profile"]
+
+
+def test_generate_stub_fails_on_undecodable_rust_source(rust_bindings_dir):
+    (rust_bindings_dir / "bad.rs").write_bytes(b"/// \xcf\x81 \xff\n")
+    with pytest.raises(UnicodeDecodeError):
+        stubs.generate_stub(brahe._brahe, brahe)

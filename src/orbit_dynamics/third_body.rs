@@ -1883,6 +1883,47 @@ mod tests {
 
     #[test]
     #[serial]
+    fn test_third_body_position_velocity_custom_body_uses_global_resolution() {
+        // A bring-your-own-SPK body resolves position and velocity across all
+        // loaded kernels. The synthetic segment holds a constant position, so
+        // the velocity is zero.
+        setup_global_test_spice();
+        without_spice_kernels(|| {
+            let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+            let body = ThirdBody::Custom {
+                name: "Ceres".to_string(),
+                naif_id: 2000001,
+                gm: 6.26325e10,
+            };
+
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("ceres.bsp");
+            std::fs::write(&path, synthetic_spk_kernel_bytes(&[(2000001, 0, 77.0)])).unwrap();
+            let path = path.to_str().unwrap();
+
+            load_spice_kernel("de440s").unwrap();
+            load_spice_kernel(path).unwrap();
+
+            let (r, v) = third_body_position_velocity(
+                &CentralBody::SSB,
+                &body,
+                EphemerisSource::DE440s,
+                epc,
+            )
+            .unwrap();
+            let r_position =
+                third_body_position(&CentralBody::SSB, &body, EphemerisSource::DE440s, epc)
+                    .unwrap();
+            assert_eq!(r, r_position);
+            assert_abs_diff_eq!(r, Vector3::new(77.0e3, 0.0, 0.0), epsilon = 1e-6);
+            assert_eq!(v, Vector3::zeros());
+
+            let _ = unload_spice_kernel(path);
+        });
+    }
+
+    #[test]
+    #[serial]
     fn test_accel_third_body_for_body_satellite_range_id_falls_back_to_global() {
         // A Custom body with a satellite-range NAIF ID (Pluto system, 950)
         // that the mapped system kernel (plu060) does NOT carry must fall

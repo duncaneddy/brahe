@@ -1452,7 +1452,6 @@ mod tests {
         density_nrlmsise00_geod_with, density_nrlmsise00_with,
     };
     use crate::frames::rotation_eci_to_ecef;
-    use crate::math::interpolation::InterpolationMethod;
     use crate::orbit_dynamics::tides::SolidTideConfig;
     use crate::propagators::{
         AtmosphericModel, DragConfiguration, EclipseModel, GravityConfiguration, OccultingBody,
@@ -2292,6 +2291,23 @@ mod tests {
         });
         queries.push(ChannelQuery::GeocentricThirdBody {
             body: ThirdBody::JupiterBarycenter,
+            source: EphemerisSource::DE440s,
+        });
+        // Planet centres resolve through a satellite-system kernel (mar099s)
+        // leg: Mars as target and as centre on the kernel-scoped path, and
+        // the geocentric planet-centre ephemeris.
+        queries.push(ChannelQuery::ThirdBodyPosition {
+            central: CentralBody::Earth,
+            body: ThirdBody::Mars,
+            source: EphemerisSource::DE440s,
+        });
+        queries.push(ChannelQuery::ThirdBodyPosition {
+            central: CentralBody::Mars,
+            body: ThirdBody::Sun,
+            source: EphemerisSource::DE440s,
+        });
+        queries.push(ChannelQuery::GeocentricThirdBody {
+            body: ThirdBody::Mars,
             source: EphemerisSource::DE440s,
         });
         for query in queries {

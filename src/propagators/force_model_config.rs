@@ -651,6 +651,9 @@ impl Default for OceanTideConfig {
     }
 }
 
+/// Highest `Lagrange { degree }` the precompute tables accept.
+const PRECOMPUTE_MAX_LAGRANGE_DEGREE: usize = 15;
+
 /// Opt-in precomputed tables for force-model inputs that depend only on time.
 ///
 /// Each table holds the nodes its interpolation method reads for the spans
@@ -668,7 +671,14 @@ impl Default for OceanTideConfig {
 ///
 /// `Lagrange { degree }` interpolates through the `degree + 1` nodes centred
 /// on the query epoch, so the table holds `degree / 2` (rounded down) more
-/// nodes on each side of a span than `Linear` does. `HermiteCubic` stores each
+/// nodes on each side of a span than `Linear` does. `degree` must be in
+/// `1..=15`: the Lebesgue constant of equally spaced nodes grows
+/// exponentially with the degree, so higher degrees amplify rounding in the
+/// node values. An odd degree reads
+/// one fixed node set between consecutive nodes, so the interpolant is
+/// continuous across node midpoints; an even degree centres its nodes on the
+/// nearest node and switches node sets at the midpoint between nodes, where
+/// the interpolant may jump. `HermiteCubic` stores each
 /// ephemeris channel's time derivative from the same ephemeris source next
 /// to its value: velocity for positions, and velocity and acceleration for
 /// states.
@@ -676,7 +686,8 @@ impl Default for OceanTideConfig {
 /// Steps and interpolation methods are checked by
 /// [`ForceModelConfig::validate`], which the propagator constructor calls, so
 /// a non-finite or non-positive step, a method a table does not support, or
-/// `Lagrange { degree: 0 }` is rejected at propagator construction. Changing
+/// a `Lagrange { degree }` outside `1..=15` is rejected at propagator
+/// construction. Changing
 /// global data (EOP provider, SPICE kernels, space-weather provider) during
 /// propagation is the caller's responsibility.
 ///
@@ -732,11 +743,11 @@ pub struct PrecomputeConfig {
     /// and Ap values constant within each 3-hour bin.
     pub cache_space_weather: bool,
     /// Interpolation of the frame-rotation table: `Linear` or
-    /// `Lagrange { degree }` with `degree >= 1`.
+    /// `Lagrange { degree }` with `1 <= degree <= 15`.
     #[serde(default)]
     pub frame_rotation_interpolation: InterpolationMethod,
     /// Interpolation of the ephemeris table: `Linear`, `Lagrange { degree }`
-    /// with `degree >= 1`, or `HermiteCubic`.
+    /// with `1 <= degree <= 15`, or `HermiteCubic`.
     #[serde(default)]
     pub ephemeris_interpolation: InterpolationMethod,
 }
@@ -994,7 +1005,7 @@ impl ForceModelConfig {
     /// It also checks [`PrecomputeConfig`]: table steps must be finite and positive,
     /// `frame_rotation_interpolation` must be `Linear` or `Lagrange`, and
     /// `ephemeris_interpolation` must be `Linear`, `Lagrange` or `HermiteCubic`, with
-    /// `Lagrange { degree }` requiring `degree >= 1`.
+    /// `Lagrange { degree }` requiring `1 <= degree <= 15`.
     ///
     /// This method is called automatically at propagator construction (e.g.
     /// `DNumericalOrbitPropagator::new`); it may also be called explicitly ahead
@@ -1036,19 +1047,21 @@ impl ForceModelConfig {
             ] {
                 let supported = match method {
                     InterpolationMethod::Linear => true,
-                    InterpolationMethod::Lagrange { degree } => degree >= 1,
+                    InterpolationMethod::Lagrange { degree } => {
+                        (1..=PRECOMPUTE_MAX_LAGRANGE_DEGREE).contains(&degree)
+                    }
                     InterpolationMethod::HermiteCubic => hermite_cubic,
                     InterpolationMethod::HermiteQuintic => false,
                 };
                 if !supported {
                     let allowed = if hermite_cubic {
-                        "Linear, Lagrange { degree >= 1 } or HermiteCubic"
+                        "Linear, Lagrange or HermiteCubic"
                     } else {
-                        "Linear or Lagrange { degree >= 1 }"
+                        "Linear or Lagrange"
                     };
                     return Err(BraheError::Error(format!(
-                        "precompute.{} must be {}, got {:?}",
-                        name, allowed, method
+                        "precompute.{} must be {} (Lagrange degree in 1..={}), got {:?}",
+                        name, allowed, PRECOMPUTE_MAX_LAGRANGE_DEGREE, method
                     )));
                 }
             }
@@ -2389,6 +2402,10 @@ mod tests {
         InterpolationMethod::Lagrange { degree: 5 }
     )]
     #[case(InterpolationMethod::Lagrange { degree: 3 }, InterpolationMethod::HermiteCubic)]
+    #[case(
+        InterpolationMethod::Lagrange { degree: 15 },
+        InterpolationMethod::Lagrange { degree: 15 }
+    )]
     #[parallel]
     fn test_ForceModelConfig_validate_precompute_interpolation_valid(
         #[case] frame_rotation_interpolation: InterpolationMethod,
@@ -2427,6 +2444,26 @@ mod tests {
     #[case(
         InterpolationMethod::Linear,
         InterpolationMethod::Lagrange { degree: 0 },
+        "precompute.ephemeris_interpolation"
+    )]
+    #[case(
+        InterpolationMethod::Lagrange { degree: 16 },
+        InterpolationMethod::Linear,
+        "precompute.frame_rotation_interpolation"
+    )]
+    #[case(
+        InterpolationMethod::Lagrange { degree: usize::MAX },
+        InterpolationMethod::Linear,
+        "precompute.frame_rotation_interpolation"
+    )]
+    #[case(
+        InterpolationMethod::Linear,
+        InterpolationMethod::Lagrange { degree: 16 },
+        "precompute.ephemeris_interpolation"
+    )]
+    #[case(
+        InterpolationMethod::Linear,
+        InterpolationMethod::Lagrange { degree: usize::MAX },
         "precompute.ephemeris_interpolation"
     )]
     #[parallel]

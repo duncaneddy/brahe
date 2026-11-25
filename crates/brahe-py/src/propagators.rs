@@ -1112,7 +1112,7 @@ impl PySGPPropagator {
     /// Get accumulated trajectory.
     ///
     /// Returns:
-    ///     OrbitalTrajectory: The accumulated trajectory.
+    ///     OrbitTrajectory: The accumulated trajectory.
     ///
     /// Example:
     ///     ```python
@@ -3271,7 +3271,7 @@ impl PyKeplerianPropagator {
     /// Get accumulated trajectory.
     ///
     /// Returns:
-    ///     OrbitalTrajectory: The accumulated trajectory.
+    ///     OrbitTrajectory: The accumulated trajectory.
     ///
     /// Example:
     ///     ```python
@@ -9268,6 +9268,9 @@ impl PyNumericalPropagator {
     // =========================================================================
 
     /// Get accumulated trajectory.
+    ///
+    /// Returns:
+    ///     Trajectory: The accumulated trajectory.
     #[getter]
     pub fn trajectory(&self) -> PyTrajectory {
         PyTrajectory {

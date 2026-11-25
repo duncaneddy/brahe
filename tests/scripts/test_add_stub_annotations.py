@@ -1,9 +1,13 @@
 """Tests for scripts/add_stub_annotations.py's stub rendering."""
 
 import ast
+import builtins
 import importlib.util
+import inspect
 import textwrap
 from pathlib import Path
+
+import pytest
 
 import brahe
 
@@ -48,6 +52,15 @@ class Config:
         """
         return Config()
 
+    @staticmethod
+    def checksum(values):
+        """Checksum raw values.
+
+        Args:
+            values (list[int]): Raw values.
+        """
+        return sum(values)
+
     @classmethod
     def from_default(cls):
         """Build the default configuration.
@@ -67,6 +80,25 @@ class Config:
 
         Returns:
             Config: Scaled configuration.
+        """
+        return self
+
+    def offset_by(self, /, offset=0):
+        """Offset the configuration.
+
+        Args:
+            offset (int, optional): Additive offset.
+
+        Returns:
+            Config: Offset configuration.
+        """
+        return self
+
+    def reset(self, /):
+        """Reset the configuration.
+
+        Returns:
+            Config: Reset configuration.
         """
         return self
 
@@ -260,3 +292,135 @@ def test_density_nrlmsise00_stub():
     )
     assert errors == []
     assert "config: NRLMSISE00Config | None = None" in stub
+
+
+def test_method_keeps_positional_only_receiver_marker():
+    stub = _class_stub(Config)
+    assert "def offset_by(self, /, offset: int = 0) -> Config:" in stub
+    assert "def reset(self, /) -> Config:" in stub
+    assert "def combine(self, *others: Config, **options: bool) -> Config:" in stub
+
+
+def test_aem_to_json_string_keeps_positional_only_receiver():
+    stub = _class_stub(brahe._brahe.AEM)
+    assert "def to_json_string(self, /, uppercase_keys: bool = False) -> str:" in stub
+
+
+def test_staticmethod_without_documented_return_is_any():
+    stub = _class_stub(Config)
+    assert "    @staticmethod\n    def checksum(values: list[int]) -> Any:" in stub
+
+
+@pytest.fixture
+def no_runtime_signatures(monkeypatch):
+    def fail(obj, *args, **kwargs):
+        raise ValueError(f"no signature found for {obj!r}")
+
+    monkeypatch.setattr(stubs.inspect, "signature", fail)
+
+
+def test_docstring_fallback_renders_class(no_runtime_signatures):
+    stub = _class_stub(Config)
+    assert (
+        "def __init__(self, mode: Switch = ..., scale: float = ..., "
+        "label: str | None = ...) -> None:" in stub
+    )
+    assert (
+        "    @staticmethod\n    def from_values(values: list[int]) -> Config:" in stub
+    )
+    assert "    @classmethod\n    def from_default(cls) -> Config:" in stub
+    assert (
+        "def scaled(self, factor: float, offset: int = ..., clip: bool = ...)"
+        " -> Config:" in stub
+    )
+
+
+def test_docstring_fallback_renders_function(no_runtime_signatures):
+    def convert(value, scale=1.0, *, angle_format=None):
+        """Convert a value.
+
+        Args:
+            value (float or array): Input value.
+            scale (float, optional): Scale factor.
+            angle_format (AngleFormat | None, optional): (keyword-only) Angle format.
+
+        Returns:
+            numpy.ndarray: Converted value.
+        """
+
+    errors = []
+    stub = stubs.generate_function_stub("convert", convert, errors)
+    assert errors == []
+    assert (
+        "def convert(value: Union[float, np.ndarray], scale: float = ..., *, "
+        "angle_format: AngleFormat | None = ...) -> np.ndarray:" in stub
+    )
+
+
+def test_ndarray_spellings_normalize_to_np_ndarray():
+    assert stubs.map_param_type("float or array") == "Union[float, np.ndarray]"
+    assert stubs.map_param_type("list[numpy.ndarray]") == "list[np.ndarray]"
+    assert stubs.map_param_type("ndarray | None") == "np.ndarray | None"
+    assert stubs.map_param_type("np.ndarray") == "np.ndarray"
+    assert stubs.map_param_type("array_like") == "array_like"
+
+
+def test_resolve_annotation_imports():
+    tree = ast.parse(
+        textwrap.dedent(
+            """\
+            import numpy as np
+
+            class Local: ...
+
+            def f(a: Local, b: NAIFId | None, c: np.ndarray) -> datetime.datetime: ...
+            def g(a: MissingType) -> missingmodule.Thing: ...
+            """
+        )
+    )
+    imports, unresolved = stubs.resolve_annotation_imports(tree, brahe)
+    assert imports == ["from brahe.spice import NAIFId", "import datetime"]
+    assert unresolved == ["MissingType", "missingmodule"]
+
+
+def test_generate_stub_rejects_unresolved_names(monkeypatch):
+    class Holder:
+        """Holder.
+
+        Returns:
+            UndefinedThing: Never defined.
+        """
+
+        @property
+        def thing(self):
+            """Thing.
+
+            Returns:
+                UndefinedThing: Never defined.
+            """
+
+    class Module:
+        pass
+
+    Module.Holder = Holder
+    with pytest.raises(stubs.StubGenerationError, match="UndefinedThing"):
+        stubs.generate_stub(Module, brahe)
+
+
+@pytest.fixture(scope="module")
+def generated_stub():
+    return stubs.generate_stub(brahe._brahe, brahe)
+
+
+def test_generated_stub_annotation_names_resolve(generated_stub):
+    tree = ast.parse(generated_stub)
+    defined = stubs.defined_names(tree) | set(dir(builtins))
+    direct, roots = stubs.annotation_names(tree)
+    assert direct - defined == set()
+    assert roots - defined == set()
+
+
+def test_generated_stub_frame_center_body(generated_stub):
+    assert "from brahe.spice import NAIFId" in generated_stub
+    assert "def body(self) -> NAIFId | int | None:" in generated_stub
+    assert inspect.isclass(brahe.NAIFId)

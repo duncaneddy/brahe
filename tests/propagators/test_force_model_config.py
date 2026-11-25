@@ -35,7 +35,23 @@ from brahe import (
 def test_atmosphericmodel_classattrs():
     """Test AtmosphericModel class attributes"""
     assert AtmosphericModel.HARRIS_PRIESTER is not None
-    assert AtmosphericModel.NRLMSISE00 is not None
+    assert AtmosphericModel.nrlmsise00() is not None
+
+
+def test_atmosphericmodel_nrlmsise00_default_and_config():
+    assert "NRLMSISE00" in repr(AtmosphericModel.nrlmsise00())
+    assert not hasattr(AtmosphericModel, "NRLMSISE00")
+    cfg = brahe.NRLMSISE00Config(ap_mode=brahe.NRLMSISE00ApMode.DAILY)
+    assert "Daily" in repr(AtmosphericModel.nrlmsise00(cfg))
+    assert "Daily" in repr(AtmosphericModel.nrlmsise00(config=cfg))
+
+
+def test_atmosphericmodel_nrlmsise00_copies_config():
+    cfg = brahe.NRLMSISE00Config()
+    m = AtmosphericModel.nrlmsise00(cfg)
+    before = repr(m)
+    cfg.ap_mode = brahe.NRLMSISE00ApMode.DAILY
+    assert repr(m) == before
 
 
 def test_atmosphericmodel_exponential():
@@ -324,7 +340,7 @@ def test_forcemodelconfig_validate_rejects_nrlmsise00_non_earth():
     """Mirrors test_validate_rejects_nrlmsise00_non_earth"""
     config = ForceModelConfig(
         drag=DragConfiguration(
-            model=AtmosphericModel.NRLMSISE00,
+            model=AtmosphericModel.nrlmsise00(),
             area=ParameterSource.parameter_index(1),
             cd=ParameterSource.parameter_index(2),
         ),
@@ -863,7 +879,7 @@ def test_validate_attributed_drag_body():
     config = ForceModelConfig.cislunar_default()
     config.mass = ParameterSource.value(1000.0)
     config.drag = DragConfiguration(
-        model=AtmosphericModel.NRLMSISE00,
+        model=AtmosphericModel.nrlmsise00(),
         area=ParameterSource.value(10.0),
         cd=ParameterSource.value(2.2),
         body=CentralBody.Earth,
@@ -872,7 +888,7 @@ def test_validate_attributed_drag_body():
 
     # EMB central + drag with no attributed body: rejected (barycenter)
     config.drag = DragConfiguration(
-        model=AtmosphericModel.NRLMSISE00,
+        model=AtmosphericModel.nrlmsise00(),
         area=ParameterSource.value(10.0),
         cd=ParameterSource.value(2.2),
     )

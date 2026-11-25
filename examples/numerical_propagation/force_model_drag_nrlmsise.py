@@ -20,7 +20,7 @@ bh.initialize_sw()
 
 # Create drag configuration with NRLMSISE-00
 drag_config = bh.DragConfiguration(
-    model=bh.AtmosphericModel.NRLMSISE00,
+    model=bh.AtmosphericModel.nrlmsise00(),
     area=bh.ParameterSource.parameter_index(1),  # drag_area from params[1]
     cd=bh.ParameterSource.parameter_index(2),  # Cd from params[2]
 )

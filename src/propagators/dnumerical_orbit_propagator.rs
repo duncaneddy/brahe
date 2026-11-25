@@ -3797,7 +3797,7 @@ mod tests {
     use crate::constants::units::AngleFormat;
     use crate::constants::{GM_EARTH, R_EARTH};
     use crate::coordinates::position_ecef_to_geodetic;
-    use crate::earth_models::NRLMSISE00Config;
+    use crate::earth_models::{NRLMSISE00ApMode, NRLMSISE00Config};
     use crate::events::{DAltitudeEvent, DTimeEvent, EventDirection};
     use crate::frames::position_eci_to_ecef;
     use crate::integrators::IntegratorConfig;
@@ -9929,9 +9929,6 @@ mod tests {
     #[test]
     #[serial]
     fn test_dnumericalorbitpropagator_force_drag_nrlmsise00_config_changes_trajectory() {
-        use crate::earth_models::NRLMSISE00ApMode;
-        use crate::propagators::force_model_config::{DragConfiguration, ParameterSource};
-
         setup_global_test_eop();
         setup_global_test_space_weather();
 
@@ -9980,7 +9977,6 @@ mod tests {
             ..Default::default()
         });
         let diff = (default_pos - daily_pos).norm();
-        println!("position difference [m]: {diff}");
         assert!(diff > 1e-3, "position difference {diff} m");
     }
 

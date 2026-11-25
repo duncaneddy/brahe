@@ -281,7 +281,7 @@ def _force_model_from_params(params: dict) -> "brahe.ForceModelConfig":
     drag = None
     if params.get("drag"):
         drag = brahe.DragConfiguration(
-            model=brahe.AtmosphericModel.NRLMSISE00,
+            model=brahe.AtmosphericModel.nrlmsise00(),
             area=brahe.ParameterSource.parameter_index(1),
             cd=brahe.ParameterSource.parameter_index(2),
         )

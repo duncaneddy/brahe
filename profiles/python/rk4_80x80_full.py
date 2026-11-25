@@ -31,7 +31,7 @@ def main() -> None:
     force = bh.ForceModelConfig(
         gravity=bh.GravityConfiguration(degree=80, order=80),
         drag=bh.DragConfiguration(
-            model=bh.AtmosphericModel.NRLMSISE00,
+            model=bh.AtmosphericModel.nrlmsise00(),
             area=bh.ParameterSource.parameter_index(1),
             cd=bh.ParameterSource.parameter_index(2),
         ),

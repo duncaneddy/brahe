@@ -2715,44 +2715,6 @@ impl DNumericalOrbitPropagator {
         Ok(())
     }
 
-    /// Replace the precomputed-input bundle with one shared from elsewhere.
-    ///
-    /// The rotation cache is cleared so later evaluations read the new bundle.
-    ///
-    /// # Arguments
-    ///
-    /// * `inputs` - Bundle to use; its key must equal this propagator's key
-    ///
-    /// # Returns
-    ///
-    /// `Ok(())` when the bundle is attached, or an error when the propagator has
-    /// no precomputed inputs or the bundle's key differs from its own.
-    #[cfg_attr(not(test), allow(dead_code))]
-    pub(crate) fn attach_precomputed(
-        &mut self,
-        inputs: Arc<PrecomputedInputs>,
-    ) -> Result<(), BraheError> {
-        let Some(handle) = &self.precomputed else {
-            return Err(BraheError::PropagatorError(
-                "cannot attach precomputed inputs to a propagator without precomputed inputs"
-                    .to_string(),
-            ));
-        };
-        {
-            let mut inner = handle.lock().unwrap();
-            if inputs.key() != inner.key() {
-                return Err(BraheError::PropagatorError(format!(
-                    "precomputed inputs key {:?} does not match propagator key {:?}",
-                    inputs.key(),
-                    inner.key()
-                )));
-            }
-            *inner = inputs;
-        }
-        self.rotation_cache.lock().unwrap().entries.clear();
-        Ok(())
-    }
-
     /// Get current covariance matrix P(t).
     ///
     /// Returns `None` if covariance propagation was not enabled (no initial
@@ -3320,6 +3282,48 @@ impl DNumericalOrbitPropagator {
 // =============================================================================
 
 impl super::traits::DStatePropagator for DNumericalOrbitPropagator {
+    fn precompute_key(&self) -> Option<PrecomputeKey> {
+        self.precomputed
+            .as_ref()
+            .map(|handle| handle.lock().unwrap().key().clone())
+    }
+
+    /// Replace the precomputed-input bundle with one shared from elsewhere.
+    ///
+    /// The rotation cache is cleared so later evaluations read the new bundle.
+    /// The tidal Sun/Moon cache holds only directly evaluated positions, which
+    /// do not depend on the bundle, so it is kept.
+    ///
+    /// # Arguments
+    ///
+    /// * `inputs` - Bundle to use; its key must equal this propagator's key
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` when the bundle is attached, or an error when the propagator has
+    /// no precomputed inputs or the bundle's key differs from its own.
+    fn attach_precomputed(&mut self, inputs: Arc<PrecomputedInputs>) -> Result<(), BraheError> {
+        let Some(handle) = &self.precomputed else {
+            return Err(BraheError::PropagatorError(
+                "cannot attach precomputed inputs to a propagator without precomputed inputs"
+                    .to_string(),
+            ));
+        };
+        {
+            let mut inner = handle.lock().unwrap();
+            if inputs.key() != inner.key() {
+                return Err(BraheError::PropagatorError(format!(
+                    "precomputed inputs key {:?} does not match propagator key {:?}",
+                    inputs.key(),
+                    inner.key()
+                )));
+            }
+            *inner = inputs;
+        }
+        self.rotation_cache.lock().unwrap().entries.clear();
+        Ok(())
+    }
+
     fn step_by(&mut self, step_size: f64) -> Result<(), BraheError> {
         let target_t = self.t_rel + step_size;
 

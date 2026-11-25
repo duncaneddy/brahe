@@ -2,10 +2,13 @@
  * Propagator traits with clean interfaces and vector-based operations
  */
 
+use std::sync::Arc;
+
 use nalgebra::{DVector, Vector6};
 
 use crate::constants::AngleFormat;
 use crate::frames::ReferenceFrame;
+use crate::propagators::{PrecomputeKey, PrecomputedInputs};
 use crate::time::Epoch;
 use crate::trajectories::traits::OrbitRepresentation;
 use crate::utils::BraheError;
@@ -383,6 +386,69 @@ pub trait DStatePropagator {
 
     /// Set eviction policy to keep states within a maximum age
     fn set_eviction_policy_max_age(&mut self, max_age: f64) -> Result<(), BraheError>;
+
+    /// Identity of the precomputed force-model inputs this propagator uses.
+    ///
+    /// Propagators returning equal keys can share one [`PrecomputedInputs`]
+    /// bundle through [`attach_precomputed`](Self::attach_precomputed). The
+    /// default implementation returns `None`.
+    ///
+    /// # Returns
+    /// `Some(key)` when the propagator uses precomputed inputs, `None` otherwise.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use brahe::eop::{StaticEOPProvider, set_global_eop_provider};
+    /// use brahe::propagators::{DNumericalOrbitPropagator, ForceModelConfig, PrecomputeConfig};
+    /// use brahe::time::{Epoch, TimeSystem};
+    /// use brahe::traits::DStatePropagator;
+    /// use brahe::constants::R_EARTH;
+    /// use nalgebra::DVector;
+    ///
+    /// set_global_eop_provider(StaticEOPProvider::from_zero());
+    ///
+    /// let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+    /// let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0]);
+    /// let with = DNumericalOrbitPropagator::builder(
+    ///     epoch,
+    ///     state.clone(),
+    ///     ForceModelConfig {
+    ///         precompute: Some(PrecomputeConfig::default()),
+    ///         ..ForceModelConfig::earth_gravity()
+    ///     },
+    /// )
+    /// .build()
+    /// .unwrap();
+    /// let without =
+    ///     DNumericalOrbitPropagator::builder(epoch, state, ForceModelConfig::earth_gravity())
+    ///         .build()
+    ///         .unwrap();
+    ///
+    /// assert!(with.precompute_key().is_some());
+    /// assert!(without.precompute_key().is_none());
+    /// ```
+    fn precompute_key(&self) -> Option<PrecomputeKey> {
+        None
+    }
+
+    /// Use a precomputed-input bundle shared with other propagators.
+    ///
+    /// Bundles are built by [`share_precomputed_inputs`](crate::propagators::share_precomputed_inputs),
+    /// which calls this method on every propagator of a group with equal
+    /// [`precompute_key`](Self::precompute_key)s. The default implementation
+    /// ignores the bundle and returns `Ok(())`.
+    ///
+    /// # Arguments
+    /// * `inputs` - Bundle to use; its key equals this propagator's key
+    ///
+    /// # Returns
+    /// `Ok(())` when the bundle is attached or ignored, or an error when the
+    /// propagator cannot use the bundle.
+    fn attach_precomputed(&mut self, inputs: Arc<PrecomputedInputs>) -> Result<(), BraheError> {
+        let _ = inputs;
+        Ok(())
+    }
 }
 
 /// Orbit-specific propagator trait that extends [`SStatePropagator`] with orbital initialization

@@ -36,6 +36,7 @@ This module provides:
 - OceanTideConfig: FES2004 ocean tide configuration
 - PermanentTideConfig: Permanent (zero-frequency) tide handling
 - TidesConfiguration: Tidal correction configuration
+- PrecomputeConfig: Precomputed force-model input tables
 
 **Functions:**
 - par_propagate_to: Propagate multiple propagators in parallel to a target epoch
@@ -66,6 +67,7 @@ from brahe._brahe import (
     ParallelMode,
     ParameterSource,
     PermanentTideConfig,
+    PrecomputeConfig,
     # Propagators
     SGPPropagator,
     SGPPropagatorBuilder,
@@ -102,6 +104,7 @@ __all__ = [
     "ParallelMode",
     "ParameterSource",
     "PermanentTideConfig",
+    "PrecomputeConfig",
     # Propagators
     "SGPPropagator",
     "SGPPropagatorBuilder",

@@ -28,6 +28,7 @@ from brahe import (
     NumericalOrbitPropagator,
     NumericalPropagationConfig,
     ParameterSource,
+    PrecomputeConfig,
     TimeSystem,
     VariationalConfig,
     orbital_period,
@@ -6640,3 +6641,47 @@ def test_numericalorbitpropagator_tolerances_affect_slow_orbit():
     assert difference > 0.0, (
         f"Tolerances must affect the propagated state, diff = {difference:.6e} m"
     )
+
+
+# =============================================================================
+# Precomputed force inputs
+# =============================================================================
+
+
+def _precompute_rk4_config():
+    return NumericalPropagationConfig(
+        IntegrationMethod.RK4,
+        IntegratorConfig.fixed_step(30.0),
+        VariationalConfig(),
+    )
+
+
+def _precompute_propagator(precompute):
+    epoch = Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem.UTC)
+    oe = np.array([R_EARTH + 500e3, 0.001, 97.8, 15.0, 30.0, 45.0])
+    state = state_koe_to_eci(oe, AngleFormat.DEGREES)
+    force_config = ForceModelConfig(
+        gravity=GravityConfiguration(degree=20, order=20), precompute=precompute
+    )
+    return NumericalOrbitPropagator(
+        epoch, state, _precompute_rk4_config(), force_config, None
+    )
+
+
+def test_precompute_rotation_fixed_step_accuracy():
+    on = _precompute_propagator(
+        PrecomputeConfig(
+            frame_rotation_step=600.0, ephemeris_step=None, cache_space_weather=False
+        )
+    )
+    off = _precompute_propagator(None)
+    target = on.initial_epoch + 86400.0
+    on.propagate_to(target)
+    off.propagate_to(target)
+    dr = np.linalg.norm(on.current_state()[:3] - off.current_state()[:3])
+    assert dr < 1e-3
+
+
+def test_precompute_invalid_step_raises():
+    with pytest.raises(RuntimeError):
+        _precompute_propagator(PrecomputeConfig(frame_rotation_step=0.0))

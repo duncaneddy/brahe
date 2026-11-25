@@ -22,6 +22,7 @@ from brahe import (
     GravityModelType,
     OccultingBody,
     ParameterSource,
+    PrecomputeConfig,
     ThirdBody,
     ThirdBodyConfiguration,
     ZonalHarmonicsDegree,
@@ -983,3 +984,46 @@ def test_gravity_configuration_zero():
     ]
     with pytest.raises(RuntimeError, match="Zero"):
         config.validate()
+
+
+# =============================================================================
+# PrecomputeConfig Tests
+# =============================================================================
+
+
+def test_precompute_config_defaults():
+    cfg = PrecomputeConfig()
+    assert cfg.frame_rotation_step == 600.0
+    assert cfg.ephemeris_step == 60.0
+    assert cfg.cache_space_weather is True
+
+    default = PrecomputeConfig.default()
+    assert default.frame_rotation_step == 600.0
+    assert default.ephemeris_step == 60.0
+    assert default.cache_space_weather is True
+
+
+def test_precompute_config_disable_tables():
+    cfg = PrecomputeConfig(
+        frame_rotation_step=None, ephemeris_step=None, cache_space_weather=False
+    )
+    assert cfg.frame_rotation_step is None
+    assert cfg.ephemeris_step is None
+    assert cfg.cache_space_weather is False
+
+
+def test_force_model_config_precompute_roundtrip():
+    assert ForceModelConfig.default().precompute is None
+
+    cfg = ForceModelConfig(
+        gravity=GravityConfiguration(degree=4, order=4),
+        precompute=PrecomputeConfig(frame_rotation_step=300.0),
+    )
+    assert cfg.precompute is not None
+    assert cfg.precompute.frame_rotation_step == 300.0
+    assert cfg.precompute.ephemeris_step == 60.0
+
+    cfg.precompute = None
+    assert cfg.precompute is None
+    cfg.precompute = PrecomputeConfig.default()
+    assert cfg.precompute.frame_rotation_step == 600.0

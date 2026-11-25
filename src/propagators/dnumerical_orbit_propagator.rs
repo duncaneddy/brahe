@@ -38,13 +38,14 @@ use crate::orbit_dynamics::{
     eclipse_cylindrical_for_body, get_global_gravity_model, moon_position, sun_position,
 };
 use crate::propagators::force_model_config::{EphemerisSource, PermanentTideConfig};
+use crate::propagators::precomputed_inputs::resolve_sun_moon_eci;
 use crate::propagators::tide_field::TideField;
 use crate::propagators::{
     AtmosphericModel, CentralBody, EclipseModel, ForceModelConfig, FrameTransformationModel,
     GravityConfiguration, GravityModelSource, PrecomputeKey, PrecomputedInputs, ThirdBody,
 };
 use crate::relative_motion::jacobian_eci_to_rtn;
-use crate::spice::{SPICEKernel, moon_position_spice, spk_position, spk_state, sun_position_spice};
+use crate::spice::{spk_position, spk_state};
 use crate::time::Epoch;
 use crate::traits::OrbitRepresentation;
 use crate::trajectories::DOrbitTrajectory;
@@ -226,31 +227,6 @@ impl RotationCache {
 // =============================================================================
 // Shared Sun/Moon position cache
 // =============================================================================
-
-/// Resolve the Sun and Moon ECI positions from an ephemeris source.
-///
-/// Mirrors the third-body block's resolution: [`EphemerisSource::LowPrecision`]
-/// uses the analytic geocentric ephemerides; a SPICE source resolves through
-/// the kernel it names (`sun_position_spice`/`moon_position_spice`, which
-/// auto-load the kernel).
-///
-/// # Returns
-/// `(r_sun_eci, r_moon_eci)` in meters.
-fn resolve_sun_moon_eci(
-    source: EphemerisSource,
-    epoch: Epoch,
-) -> Result<(Vector3<f64>, Vector3<f64>), BraheError> {
-    match source {
-        EphemerisSource::LowPrecision => Ok((sun_position(epoch), moon_position(epoch))),
-        spice_source => {
-            let kernel = SPICEKernel::try_from(spice_source)?;
-            Ok((
-                sun_position_spice(epoch, kernel)?,
-                moon_position_spice(epoch, kernel)?,
-            ))
-        }
-    }
-}
 
 /// Per-propagator cache of the Sun and Moon ECI positions at each integrator
 /// epoch, keyed on the relative time's bit pattern like [`RotationCache`].

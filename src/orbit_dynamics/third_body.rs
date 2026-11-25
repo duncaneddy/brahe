@@ -2103,7 +2103,12 @@ mod tests {
         let r_object = Vector3::new(7.0e6, 1.0e6, -2.0e6);
 
         for central in [CentralBody::Earth, CentralBody::Moon, CentralBody::Mars] {
-            for body in [ThirdBody::Sun, ThirdBody::Moon, ThirdBody::Jupiter] {
+            for body in [
+                ThirdBody::Sun,
+                ThirdBody::Moon,
+                ThirdBody::Mars,
+                ThirdBody::JupiterBarycenter,
+            ] {
                 if body.naif_id() == central.naif_id() {
                     continue;
                 }
@@ -2133,7 +2138,12 @@ mod tests {
         let r_i2b = SMatrix3::identity();
 
         for central in [CentralBody::Earth, CentralBody::Moon, CentralBody::Mars] {
-            for body in [ThirdBody::Sun, ThirdBody::Moon, ThirdBody::Jupiter] {
+            for body in [
+                ThirdBody::Sun,
+                ThirdBody::Moon,
+                ThirdBody::Mars,
+                ThirdBody::JupiterBarycenter,
+            ] {
                 if body.naif_id() == central.naif_id() {
                     continue;
                 }
@@ -2172,7 +2182,12 @@ mod tests {
         let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let r_object = Vector3::new(7.0e6, 1.0e6, -2.0e6);
 
-        for body in [ThirdBody::Sun, ThirdBody::Moon, ThirdBody::Jupiter] {
+        for body in [
+            ThirdBody::Sun,
+            ThirdBody::Moon,
+            ThirdBody::Mars,
+            ThirdBody::JupiterBarycenter,
+        ] {
             let (r_body, gm) =
                 third_body_position_geocentric(&body, EphemerisSource::DE440s, epc).unwrap();
             let expected =

@@ -374,3 +374,32 @@ def test_density_nrlmsise00_geod_at_zn3_boundary_is_finite(eop, sw_test):
     below = bh.density_nrlmsise00_geod(epc, np.array([-74.0, 40.7, 32499.9]))
     assert np.isfinite(rho) and rho > 0.0
     assert abs(rho - below) / below < 1e-3
+
+
+@pytest.mark.parametrize(
+    "setting", [bh.NRLMSISE00Switch.OFF, bh.NRLMSISE00Switch.CROSS_TERMS_ONLY]
+)
+def test_density_nrlmsise00_geod_below_mesosphere_requires_diffusive_switch(
+    eop, sw_test, setting
+):
+    """Mirrors test_density_nrlmsise00_geod_below_mesosphere_requires_diffusive_switch"""
+    epc = bh.Epoch.from_datetime(2024, 5, 10, 21, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    cfg = bh.NRLMSISE00Config(diffusive_equilibrium_departures=setting)
+    with pytest.raises(RuntimeError, match="switch 15"):
+        bh.density_nrlmsise00_geod(epc, np.array([-74.0, 40.7, 50e3]), cfg)
+    x_ecef = bh.position_geodetic_to_ecef(
+        np.array([-74.0, 40.7, 50e3]), bh.AngleFormat.DEGREES
+    )
+    with pytest.raises(RuntimeError, match="switch 15"):
+        bh.density_nrlmsise00(epc, x_ecef, cfg)
+    rho_boundary = bh.density_nrlmsise00_geod(epc, np.array([-74.0, 40.7, 72.5e3]), cfg)
+    assert np.isfinite(rho_boundary) and rho_boundary > 0.0
+
+
+def test_density_nrlmsise00_geod_below_mesosphere_with_diffusive_switch_on(
+    eop, sw_test
+):
+    """Mirrors test_density_nrlmsise00_geod_below_mesosphere_with_diffusive_switch_on"""
+    epc = bh.Epoch.from_datetime(2024, 5, 10, 21, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    rho = bh.density_nrlmsise00_geod(epc, np.array([-74.0, 40.7, 50e3]))
+    assert np.isfinite(rho) and rho > 0.0

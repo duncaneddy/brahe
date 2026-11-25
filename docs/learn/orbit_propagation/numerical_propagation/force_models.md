@@ -245,7 +245,7 @@ Three atmospheric models are available:
         --8<-- "./docs/outputs/numerical_propagation/force_model_drag_harris_priester.rs.txt"
         ```
 
-**NRLMSISE-00**: High-fidelity empirical model using space weather data. Valid from ground to thermosphere (~1000 km). More computationally intensive.
+**NRLMSISE-00**: High-fidelity empirical model using space weather data. Valid from ground to thermosphere (~1000 km). More computationally intensive. Select it with `AtmosphericModel.nrlmsise00()`, which accepts an optional `NRLMSISE00Config` to change the model switches and the Ap input mode (see [Atmospheric Drag](../../orbital_dynamics/drag.md)).
 
 === "Python"
 

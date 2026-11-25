@@ -657,6 +657,14 @@ impl Default for OceanTideConfig {
 /// nodes are linearly interpolated. `None` on [`ForceModelConfig`] disables
 /// all tables.
 ///
+/// The frame-rotation table is the only implemented table: `ephemeris_step`
+/// and `cache_space_weather` currently have no effect.
+///
+/// Steps are checked by [`ForceModelConfig::validate`], which the propagator
+/// constructor calls, so a non-finite or non-positive step is rejected at
+/// propagator construction. Changing global data (EOP provider, SPICE kernels,
+/// space-weather provider) during propagation is the caller's responsibility.
+///
 /// # Arguments
 ///
 /// * `frame_rotation_step` - Grid spacing of the frame-rotation table [s].

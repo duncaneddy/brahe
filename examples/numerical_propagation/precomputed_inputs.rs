@@ -1,7 +1,8 @@
-//! Enable the precomputed frame-rotation table and compare against exact evaluation.
+//! Enable the precomputed frame-rotation table and compare against
+//! exact evaluation.
 
-use bh::traits::DStatePropagator;
 use brahe as bh;
+use bh::traits::DStatePropagator;
 use nalgebra as na;
 
 fn main() {

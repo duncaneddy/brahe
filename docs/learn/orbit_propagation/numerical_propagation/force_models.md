@@ -466,10 +466,10 @@ The example below propagates a LEO orbit for one day with and without the table.
         --8<-- "./docs/outputs/numerical_propagation/precomputed_inputs.rs.txt"
         ```
 
-`PrecomputeConfig` also carries `ephemeris_step`, the node spacing of a Sun, Moon, and planet ephemeris table, and `cache_space_weather`, which enables a per-propagator space-weather cache for NRLMSISE-00 drag.
+`PrecomputeConfig` also carries `ephemeris_step`, the node spacing of a Sun, Moon, and planet ephemeris table, and `cache_space_weather`, which enables a per-propagator space-weather cache for NRLMSISE-00 drag. Both settings currently have no effect.
 
 !!! warning "Global data during propagation"
-    The tables read EOP, SPICE kernels, and space weather from the global providers when a node is built. Changing any of this global data during a propagation is the caller's responsibility. When EOP data does not cover a node, the EOP provider's extrapolation setting decides the outcome, as it does without the option. A table can extend one step past the last epoch the integrator evaluates, because interpolation needs the node after it. With an EOP provider set to raise errors on extrapolation, a propagation that ends within one `frame_rotation_step` of the end of the EOP data can therefore reach the provider's error where the same propagation without the option would not.
+    The frame-rotation table reads EOP data from the global provider when a node is built. Changing global data during a propagation is the caller's responsibility. When EOP data does not cover a node, the EOP provider's extrapolation setting decides the outcome, as it does without the option. A table can extend one step past the last epoch the integrator evaluates, because interpolation needs the node after it. With an EOP provider set to raise errors on extrapolation, a propagation that ends within one `frame_rotation_step` of the end of the EOP data can therefore reach the provider's error where the same propagation without the option would not.
 
 ## Parameter Configuration
 

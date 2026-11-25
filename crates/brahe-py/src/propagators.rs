@@ -4792,6 +4792,14 @@ impl PyTidesConfiguration {
 /// ephemeris table, and ``cache_space_weather`` enables a per-propagator
 /// space-weather cache for NRLMSISE-00 drag.
 ///
+/// The frame-rotation table is the only implemented table: ``ephemeris_step``
+/// and ``cache_space_weather`` currently have no effect.
+///
+/// Steps are checked by ``ForceModelConfig.validate()``, which the propagator
+/// constructor calls, so a non-finite or non-positive step is rejected at
+/// propagator construction. Changing global data (EOP provider, SPICE kernels,
+/// space-weather provider) during propagation is the caller's responsibility.
+///
 /// Args:
 ///     frame_rotation_step (float | None, optional): Node spacing of the frame-rotation
 ///         table [s]. Must be finite and positive. None disables the table. Default is 600.0.

@@ -46,6 +46,12 @@ def test_atmosphericmodel_nrlmsise00_default_and_config():
     assert "Daily" in repr(AtmosphericModel.nrlmsise00(config=cfg))
 
 
+def test_forcemodelconfig_presets_use_default_nrlmsise00_config():
+    expected = repr(AtmosphericModel.nrlmsise00())
+    assert repr(ForceModelConfig.leo_default().drag.model) == expected
+    assert repr(ForceModelConfig.high_fidelity().drag.model) == expected
+
+
 def test_atmosphericmodel_nrlmsise00_copies_config():
     cfg = brahe.NRLMSISE00Config()
     m = AtmosphericModel.nrlmsise00(cfg)

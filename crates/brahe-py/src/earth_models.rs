@@ -255,7 +255,6 @@ pub struct PyNRLMSISE00Config {
 impl PyNRLMSISE00Config {
     #[new]
     #[pyo3(signature = (*, f107_mean=PyNRLMSISE00Switch::On, time_independent=PyNRLMSISE00Switch::On, symmetrical_annual=PyNRLMSISE00Switch::On, symmetrical_semiannual=PyNRLMSISE00Switch::On, asymmetrical_annual=PyNRLMSISE00Switch::On, asymmetrical_semiannual=PyNRLMSISE00Switch::On, diurnal=PyNRLMSISE00Switch::On, semidiurnal=PyNRLMSISE00Switch::On, ap_mode=PyNRLMSISE00ApMode::ThreeHourly, all_ut_longitude=PyNRLMSISE00Switch::On, longitudinal=PyNRLMSISE00Switch::On, ut_mixed_ut_longitude=PyNRLMSISE00Switch::On, mixed_ap_ut_longitude=PyNRLMSISE00Switch::On, terdiurnal=PyNRLMSISE00Switch::On, diffusive_equilibrium_departures=PyNRLMSISE00Switch::On, tinf_variations=PyNRLMSISE00Switch::On, tlb_variations=PyNRLMSISE00Switch::On, tn1_variations=PyNRLMSISE00Switch::On, s_variations=PyNRLMSISE00Switch::On, tn2_variations=PyNRLMSISE00Switch::On, nlb_variations=PyNRLMSISE00Switch::On, tn3_variations=PyNRLMSISE00Switch::On, turbopause_scale_height_variations=PyNRLMSISE00Switch::On))]
-    #[pyo3(text_signature = "(*, f107_mean=NRLMSISE00Switch.ON, time_independent=NRLMSISE00Switch.ON, symmetrical_annual=NRLMSISE00Switch.ON, symmetrical_semiannual=NRLMSISE00Switch.ON, asymmetrical_annual=NRLMSISE00Switch.ON, asymmetrical_semiannual=NRLMSISE00Switch.ON, diurnal=NRLMSISE00Switch.ON, semidiurnal=NRLMSISE00Switch.ON, ap_mode=NRLMSISE00ApMode.THREE_HOURLY, all_ut_longitude=NRLMSISE00Switch.ON, longitudinal=NRLMSISE00Switch.ON, ut_mixed_ut_longitude=NRLMSISE00Switch.ON, mixed_ap_ut_longitude=NRLMSISE00Switch.ON, terdiurnal=NRLMSISE00Switch.ON, diffusive_equilibrium_departures=NRLMSISE00Switch.ON, tinf_variations=NRLMSISE00Switch.ON, tlb_variations=NRLMSISE00Switch.ON, tn1_variations=NRLMSISE00Switch.ON, s_variations=NRLMSISE00Switch.ON, tn2_variations=NRLMSISE00Switch.ON, nlb_variations=NRLMSISE00Switch.ON, tn3_variations=NRLMSISE00Switch.ON, turbopause_scale_height_variations=NRLMSISE00Switch.ON)")]
     #[allow(clippy::too_many_arguments)]
     fn new(
         f107_mean: PyNRLMSISE00Switch,
@@ -324,6 +323,7 @@ impl PyNRLMSISE00Config {
     /// Raises:
     ///     ValueError: If the array does not have 24 elements or any value is invalid.
     ///     TypeError: If any element is not an integer (floats, including float arrays, are rejected).
+    ///     OverflowError: If any element exceeds the 64-bit integer range.
     ///
     /// Example:
     ///     ```python

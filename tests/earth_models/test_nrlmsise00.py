@@ -4,6 +4,8 @@ Tests for NRLMSISE-00 atmospheric density model.
 Tests mirror the Rust implementation in src/earth_models/nrlmsise00.rs
 """
 
+import inspect
+
 import numpy as np
 import pytest
 
@@ -287,9 +289,9 @@ def test_nrlmsise00config_field_maps_to_switch_index(name, idx):
 
 
 def test_nrlmsise00config_constructor_signature_lists_keywords():
-    sig = str(bh.NRLMSISE00Config.__text_signature__)
-    for name, _ in FIELD_INDEX:
-        assert name in sig
+    params = inspect.signature(bh.NRLMSISE00Config).parameters
+    assert list(params) == [name for name, _ in FIELD_INDEX]
+    assert all(p.kind is inspect.Parameter.KEYWORD_ONLY for p in params.values())
 
 
 def test_nrlmsise00config_wrong_enum_type():

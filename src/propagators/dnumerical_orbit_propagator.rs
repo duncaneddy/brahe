@@ -15465,6 +15465,8 @@ mod tests {
             frame_rotation_step: Some(600.0),
             ephemeris_step: None,
             cache_space_weather: false,
+            frame_rotation_interpolation: InterpolationMethod::Linear,
+            ephemeris_interpolation: InterpolationMethod::Linear,
         }
     }
 
@@ -15876,6 +15878,8 @@ mod tests {
             frame_rotation_step: None,
             ephemeris_step: Some(60.0),
             cache_space_weather: false,
+            frame_rotation_interpolation: InterpolationMethod::Linear,
+            ephemeris_interpolation: InterpolationMethod::Linear,
         }
     }
 
@@ -15913,6 +15917,36 @@ mod tests {
             ..precompute_ephemeris_only()
         };
         (run(Some(on)), run(None))
+    }
+
+    /// Final states of RK4 30 s propagations over `duration` seconds of
+    /// `force_config` with `precompute` and without precomputed inputs.
+    fn precompute_on_off(
+        epoch: Epoch,
+        state: DVector<f64>,
+        force_config: ForceModelConfig,
+        duration: f64,
+        precompute: PrecomputeConfig,
+    ) -> (DVector<f64>, DVector<f64>) {
+        let run = |precompute: Option<PrecomputeConfig>| {
+            let mut prop = DNumericalOrbitPropagator::new(
+                epoch,
+                state.clone(),
+                precompute_rk4_30s(),
+                ForceModelConfig {
+                    precompute,
+                    ..force_config.clone()
+                },
+                None,
+                None,
+                None,
+                None,
+            )
+            .unwrap();
+            prop.propagate_to(epoch + duration).unwrap();
+            prop.current_state()
+        };
+        (run(Some(precompute)), run(None))
     }
 
     #[test]
@@ -16221,6 +16255,73 @@ mod tests {
 
     #[test]
     #[serial]
+    fn test_precompute_ephemeris_emb_higher_order_interpolation() {
+        setup_global_test_eop();
+        setup_global_test_space_weather();
+        crate::utils::testing::setup_global_test_spice();
+        let (epoch, x_earth) = precompute_test_epoch_state();
+        let force_config = ForceModelConfig {
+            central_body: CentralBody::EMB,
+            gravity: GravityConfiguration::Zero,
+            drag: Some(DragConfiguration {
+                model: AtmosphericModel::NRLMSISE00(NRLMSISE00Config::default()),
+                area: ParameterSource::Value(10.0),
+                cd: ParameterSource::Value(2.2),
+                body: Some(CentralBody::Earth),
+            }),
+            srp: None,
+            third_body: Some(vec![
+                ThirdBodyConfiguration {
+                    gravity: GravityConfiguration::SphericalHarmonic {
+                        source: GravityModelSource::ModelType(GravityModelType::EGM2008_120),
+                        degree: 8,
+                        order: 8,
+                        parallel: ParallelMode::Never,
+                    },
+                    ..ThirdBody::Earth.into()
+                },
+                ThirdBody::Moon.into(),
+                ThirdBody::Sun.into(),
+            ]),
+            relativity: false,
+            mass: Some(ParameterSource::Value(1000.0)),
+            frame_transform: FrameTransformationModel::default(),
+            tides: None,
+            precompute: None,
+        };
+        let x_emb = DVector::from_column_slice(
+            crate::frames::state_eci_to_emb(epoch, Vector6::from_column_slice(x_earth.as_slice()))
+                .as_slice(),
+        );
+        for method in [
+            InterpolationMethod::Lagrange { degree: 3 },
+            InterpolationMethod::HermiteCubic,
+        ] {
+            let (on, off) = precompute_on_off(
+                epoch,
+                x_emb.clone(),
+                force_config.clone(),
+                5400.0,
+                PrecomputeConfig {
+                    ephemeris_interpolation: method,
+                    ..precompute_ephemeris_only()
+                },
+            );
+            let dr = position_difference(&on, &off);
+            println!(
+                "EMB-central ephemeris table, {method:?}, 5400 s on-vs-off position \
+                 difference at 60 s: {dr:.3e} m"
+            );
+            assert!(
+                dr > 0.0,
+                "{method:?}: the propagation did not use the table"
+            );
+            assert!(dr < 1e-3, "{method:?}: position difference {dr} m at 60 s");
+        }
+    }
+
+    #[test]
+    #[serial]
     fn test_precompute_space_weather_propagation_bitwise() {
         setup_global_test_eop();
         setup_global_test_space_weather();
@@ -16248,6 +16349,8 @@ mod tests {
             frame_rotation_step: None,
             ephemeris_step: None,
             cache_space_weather: true,
+            frame_rotation_interpolation: InterpolationMethod::Linear,
+            ephemeris_interpolation: InterpolationMethod::Linear,
         }));
         let uncached = run(None);
         assert_eq!(cached, uncached);

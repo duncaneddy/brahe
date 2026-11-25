@@ -173,11 +173,37 @@ pub(crate) const fn spk_strictly_resolvable(id: i32) -> bool {
     de_kernel_covers(id) || (400 <= id && id <= 999 && satellite_system_kernel(id / 100).is_some())
 }
 
+/// Query of one SPK leg from a single kernel: `(kernel, target, center, epoch)`
+/// to a 3-vector.
+type LegQuery = fn(SPICEKernel, i32, i32, Epoch) -> Result<Vector3<f64>, BraheError>;
+
+fn position_leg(
+    kernel: SPICEKernel,
+    target: i32,
+    center: i32,
+    epc: Epoch,
+) -> Result<Vector3<f64>, BraheError> {
+    spk_position_from_kernel(kernel, target, center, epc)
+}
+
+fn velocity_leg(
+    kernel: SPICEKernel,
+    target: i32,
+    center: i32,
+    epc: Epoch,
+) -> Result<Vector3<f64>, BraheError> {
+    spk_velocity_from_kernel(kernel, target, center, epc)
+}
+
 /// Anchor `id` to a body the DE kernel carries: DE-covered IDs anchor to
 /// themselves with a zero leg; satellite-system bodies anchor to their
-/// system barycenter with the body-rel-barycenter leg queried from that
-/// system's satellite ephemeris kernel (kernel-scoped, auto-loaded).
-fn strict_anchor_and_leg(id: i32, epc: Epoch) -> Result<(i32, Vector3<f64>), BraheError> {
+/// system barycenter with the body-rel-barycenter leg queried by `leg` from
+/// that system's satellite ephemeris kernel (kernel-scoped, auto-loaded).
+fn strict_anchor_and_leg(
+    id: i32,
+    epc: Epoch,
+    leg: LegQuery,
+) -> Result<(i32, Vector3<f64>), BraheError> {
     if de_kernel_covers(id) {
         return Ok((id, Vector3::zeros()));
     }
@@ -188,10 +214,27 @@ fn strict_anchor_and_leg(id: i32, epc: Epoch) -> Result<(i32, Vector3<f64>), Bra
             id
         ))
     })?;
-    Ok((
-        barycenter,
-        spk_position_from_kernel(kernel, id, barycenter, epc)?,
-    ))
+    Ok((barycenter, leg(kernel, id, barycenter, epc)?))
+}
+
+/// Sum of the legs from `center` to `target` resolved strictly from
+/// `de_kernel` plus (for satellite-system bodies) their system ephemeris
+/// kernels, each leg queried by `leg`.
+fn spk_pair_from_kernels(
+    de_kernel: SPICEKernel,
+    target: i32,
+    center: i32,
+    epc: Epoch,
+    leg: LegQuery,
+) -> Result<Vector3<f64>, BraheError> {
+    let (target_anchor, target_leg) = strict_anchor_and_leg(target, epc, leg)?;
+    let (center_anchor, center_leg) = strict_anchor_and_leg(center, epc, leg)?;
+    let de_leg = if target_anchor == center_anchor {
+        Vector3::zeros()
+    } else {
+        leg(de_kernel, target_anchor, center_anchor, epc)?
+    };
+    Ok(target_leg + de_leg - center_leg)
 }
 
 /// Position of `target` relative to `center` resolved strictly from
@@ -220,14 +263,32 @@ pub(crate) fn spk_pair_position_from_kernels(
     center: i32,
     epc: Epoch,
 ) -> Result<Vector3<f64>, BraheError> {
-    let (target_anchor, target_leg) = strict_anchor_and_leg(target, epc)?;
-    let (center_anchor, center_leg) = strict_anchor_and_leg(center, epc)?;
-    let de_leg = if target_anchor == center_anchor {
-        Vector3::zeros()
-    } else {
-        spk_position_from_kernel(de_kernel, target_anchor, center_anchor, epc)?
-    };
-    Ok(target_leg + de_leg - center_leg)
+    spk_pair_from_kernels(de_kernel, target, center, epc, position_leg)
+}
+
+/// Velocity of `target` relative to `center` resolved from the same kernels
+/// and legs as [`spk_pair_position_from_kernels`].
+///
+/// Both `target` and `center` must satisfy [`spk_strictly_resolvable`].
+///
+/// # Arguments
+/// - `de_kernel`: DE kernel providing every leg between DE-covered bodies
+/// - `target`: NAIF ID of the target body
+/// - `center`: NAIF ID of the center body
+/// - `epc`: Epoch at which to evaluate the velocity
+///
+/// # Returns
+/// - `Ok(Vector3<f64>)`: Velocity of `target` relative to `center` in the
+///   kernel's inertial frame (ICRF axes). Units: [m/s]
+/// - `Err(BraheError)`: If either ID is not strictly resolvable or a kernel
+///   cannot be loaded or queried
+pub(crate) fn spk_pair_velocity_from_kernels(
+    de_kernel: SPICEKernel,
+    target: i32,
+    center: i32,
+    epc: Epoch,
+) -> Result<Vector3<f64>, BraheError> {
+    spk_pair_from_kernels(de_kernel, target, center, epc, velocity_leg)
 }
 
 macro_rules! body_center_spice_functions {

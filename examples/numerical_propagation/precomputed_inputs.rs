@@ -41,6 +41,7 @@ fn main() {
             frame_rotation_step: Some(600.0),
             ephemeris_step: Some(60.0),
             cache_space_weather: false,
+            ..bh::PrecomputeConfig::default()
         }),
         ..exact_config.clone()
     };

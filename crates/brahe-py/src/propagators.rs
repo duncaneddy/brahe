@@ -4833,6 +4833,7 @@ impl PyPrecomputeConfig {
                 frame_rotation_step,
                 ephemeris_step,
                 cache_space_weather,
+                ..propagators::PrecomputeConfig::default()
             },
         }
     }

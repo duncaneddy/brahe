@@ -3736,16 +3736,9 @@ fn py_par_propagate_to(propagators: &Bound<'_, PyAny>, target_epoch: &PyEpoch) -
 
     // Process NumericalOrbitPropagator instances as a group.
     if !num_orbit_idx.is_empty() {
-        // Note: DNumericalOrbitPropagator cannot be cloned (has Box<dyn DIntegrator>),
-        // so we work directly with mutable references using raw pointers
-
-        // Wrapper for raw pointer that implements Send
-        // SAFETY: We ensure that each pointer is accessed by only one thread
-        struct SendPtr(*mut propagators::DNumericalOrbitPropagator);
-        unsafe impl Send for SendPtr {}
-        unsafe impl Sync for SendPtr {}
-
-        // Collect borrow guards (must stay alive while we use raw pointers)
+        // DNumericalOrbitPropagator cannot be cloned (it holds a Box<dyn DIntegrator>),
+        // so the propagators are updated in place through the Python objects' borrows,
+        // which stay held until the group is finished.
         let mut borrow_guards: Vec<PyRefMut<'_, PyNumericalOrbitPropagator>> =
             Vec::with_capacity(num_orbit_idx.len());
 
@@ -3754,33 +3747,10 @@ fn py_par_propagate_to(propagators: &Bound<'_, PyAny>, target_epoch: &PyEpoch) -
             borrow_guards.push(item.cast::<PyNumericalOrbitPropagator>()?.borrow_mut());
         }
 
-        // Build one set of precomputed tables per group of matching propagators
-        // before the parallel loop; propagators without precompute, or stopped by a
-        // terminal event, are skipped.
-        propagators::share_precomputed_inputs(
+        let result = propagators::par_propagate_to_d(
             borrow_guards.iter_mut().map(|guard| &mut guard.propagator),
             target_epoch.obj,
-        )?;
-
-        // Create wrapped raw pointers from the borrow guards
-        let prop_ptrs: Vec<SendPtr> = borrow_guards
-            .iter_mut()
-            .map(|guard| SendPtr(&mut guard.propagator as *mut _))
-            .collect();
-
-        // Use rayon scoped parallelism with wrapped raw pointers
-        // SAFETY: No Python objects are involved in the parallel execution.
-        // Each propagator (DNumericalOrbitPropagator) is accessed by exactly one thread,
-        // and the borrow_guards are kept alive throughout this scope to ensure validity.
-        let target = target_epoch.obj;
-        let result: Result<(), RustBraheError> = brahe::utils::threading::get_thread_pool()
-            .install(|| {
-                prop_ptrs.par_iter().try_for_each(|SendPtr(ptr)| {
-                    // SAFETY: ptr is valid because it points to data owned by borrow_guards
-                    // which are still alive in the outer scope
-                    unsafe { (*(*ptr)).propagate_to(target) }
-                })
-            });
+        );
 
         // On failure, re-raise the original Python exception stashed by whichever
         // propagator's additional-dynamics/control callback raised it, falling
@@ -3800,8 +3770,6 @@ fn py_par_propagate_to(propagators: &Bound<'_, PyAny>, target_epoch: &PyEpoch) -
             }
             return Err(first_py_err.unwrap_or_else(|| PyErr::from(e)));
         }
-
-        // borrow_guards are dropped here, releasing the borrows
     }
 
     Ok(())

@@ -2,12 +2,14 @@
  * Utility functions for orbit propagation operations
  */
 
+use std::any::Any;
 use std::sync::Arc;
 
 use rayon::prelude::*;
 
+use crate::propagators::DNumericalOrbitPropagator;
+use crate::propagators::precomputed_inputs::{PrecomputeKey, PrecomputedInputs};
 use crate::propagators::traits::{DStatePropagator, SStatePropagator};
-use crate::propagators::{PrecomputeKey, PrecomputedInputs};
 use crate::time::Epoch;
 use crate::utils::BraheError;
 use crate::utils::threading::get_thread_pool;
@@ -86,14 +88,16 @@ pub fn par_propagate_to_s<P: SStatePropagator + Send>(
 /// that implement `DStatePropagator` (dynamic state vectors) instead of
 /// `SStatePropagator` (static 6D vectors).
 ///
-/// Before propagating, [`share_precomputed_inputs`] builds one precomputed-input
-/// bundle per group of propagators with equal precompute keys and attaches it
-/// to every member, so the group evaluates each table node once. Tables are
-/// built over the requested span of every propagator not already terminated
-/// when the call starts, before any propagator processes events, so a
-/// propagator that an event stops at or after its start epoch still contributes
-/// its span, and an EOP or SPICE coverage error for that span can be returned
-/// where serial `propagate_to` would not reach it.
+/// Before propagating, [`DNumericalOrbitPropagator`] members whose
+/// [`PrecomputeConfig`](crate::propagators::PrecomputeConfig) settings produce
+/// tables holding the same values are grouped, and each group shares one set of
+/// precomputed tables covering its members' spans, so the group evaluates each
+/// table node once. Tables are built over the requested span of every
+/// propagator not already terminated when the call starts, before any
+/// propagator processes events, so a propagator that an event stops at or
+/// after its start epoch still contributes its span, and an EOP or SPICE
+/// coverage error for that span can be returned where serial `propagate_to`
+/// would not reach it. Other propagator types build no shared tables.
 ///
 /// This is useful for:
 /// - Numerical orbit propagators with STM/sensitivity matrices
@@ -102,7 +106,8 @@ pub fn par_propagate_to_s<P: SStatePropagator + Send>(
 ///
 /// # Arguments
 ///
-/// * `propagators` - Mutable slice of propagators to update
+/// * `propagators` - Mutable references to the propagators to update, such as
+///   `&mut Vec<P>`, `&mut [P]`, or an iterator of `&mut P`
 /// * `target_epoch` - The epoch to propagate all propagators to
 ///
 /// # Returns
@@ -147,12 +152,24 @@ pub fn par_propagate_to_s<P: SStatePropagator + Send>(
 /// for prop in &propagators {
 ///     assert_eq!(prop.current_epoch(), target);
 /// }
+///
+/// // Any iterator of mutable references is accepted.
+/// let later = target + 600.0;
+/// par_propagate_to_d(propagators.iter_mut().take(2), later).unwrap();
+/// assert_eq!(propagators[1].current_epoch(), later);
+/// assert_eq!(propagators[2].current_epoch(), target);
 /// ```
-pub fn par_propagate_to_d<P: DStatePropagator + Send>(
-    propagators: &mut [P],
+pub fn par_propagate_to_d<'a, P: DStatePropagator + Send + 'static>(
+    propagators: impl IntoIterator<Item = &'a mut P>,
     target_epoch: Epoch,
 ) -> Result<(), BraheError> {
-    share_precomputed_inputs(propagators.iter_mut(), target_epoch)?;
+    let mut propagators: Vec<&'a mut P> = propagators.into_iter().collect();
+    share_precomputed_inputs(
+        propagators.iter_mut().filter_map(|prop| {
+            (&mut **prop as &mut dyn Any).downcast_mut::<DNumericalOrbitPropagator>()
+        }),
+        target_epoch,
+    )?;
     get_thread_pool().install(|| {
         propagators
             .par_iter_mut()
@@ -161,26 +178,26 @@ pub fn par_propagate_to_d<P: DStatePropagator + Send>(
 }
 
 /// Propagators sharing one precompute key, and the span their bundle covers.
-struct PrecomputeGroup<'a, P> {
+struct PrecomputeGroup<'a> {
     key: PrecomputeKey,
     start: Epoch,
     end: Epoch,
-    members: Vec<&'a mut P>,
+    members: Vec<&'a mut DNumericalOrbitPropagator>,
 }
 
 /// Build one precomputed-input bundle per group of compatible propagators and attach it.
 ///
-/// Propagators are grouped by equal [`DStatePropagator::precompute_key`];
-/// propagators without a key, including those already terminated, are left
-/// unchanged. No events are processed here, so a propagator that an event stops
-/// at or after its current epoch still contributes its span, and an EOP or SPICE
-/// coverage error for that span can be returned where serial `propagate_to`
-/// would not reach it. Each group's bundle covers the
-/// span from the earliest to the latest of the members' current epochs and
-/// `target_epoch`. Its table nodes are computed in parallel on the brahe thread
-/// pool before the bundle is attached to every member with
-/// [`DStatePropagator::attach_precomputed`]. Propagating a member within that
-/// span then reads the shared bundle without copying it.
+/// Propagators are grouped by equal
+/// [`DNumericalOrbitPropagator::precompute_key`]; propagators without a key,
+/// including those already terminated, are left unchanged. No events are
+/// processed here, so a propagator that an event stops at or after its current
+/// epoch still contributes its span, and an EOP or SPICE coverage error for that
+/// span can be returned where serial `propagate_to` would not reach it. Each
+/// group's bundle covers the span from the earliest to the latest of the
+/// members' current epochs and `target_epoch`. Its table nodes are computed in
+/// parallel on the brahe thread pool before the bundle is attached to every
+/// member with [`DNumericalOrbitPropagator::attach_precomputed`]. Propagating a
+/// member within that span then reads the shared bundle without copying it.
 ///
 /// # Arguments
 ///
@@ -191,49 +208,11 @@ struct PrecomputeGroup<'a, P> {
 ///
 /// `Ok(())` once every group has its bundle, or the first error raised while
 /// evaluating a table node or attaching a bundle.
-///
-/// # Examples
-///
-/// ```rust
-/// use brahe::eop::{StaticEOPProvider, set_global_eop_provider};
-/// use brahe::propagators::{
-///     DNumericalOrbitPropagator, ForceModelConfig, PrecomputeConfig, share_precomputed_inputs,
-/// };
-/// use brahe::time::{Epoch, TimeSystem};
-/// use brahe::traits::DStatePropagator;
-/// use brahe::constants::R_EARTH;
-/// use nalgebra::DVector;
-///
-/// set_global_eop_provider(StaticEOPProvider::from_zero());
-///
-/// let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
-/// let force_config = ForceModelConfig {
-///     precompute: Some(PrecomputeConfig::default()),
-///     ..ForceModelConfig::earth_gravity()
-/// };
-/// let mut propagators: Vec<DNumericalOrbitPropagator> = [500e3, 600e3]
-///     .iter()
-///     .map(|altitude| {
-///         let state = DVector::from_vec(vec![R_EARTH + altitude, 0.0, 0.0, 0.0, 7600.0, 0.0]);
-///         DNumericalOrbitPropagator::builder(epoch, state, force_config.clone())
-///             .build()
-///             .unwrap()
-///     })
-///     .collect();
-///
-/// // Both propagators now hold one bundle covering the next hour.
-/// let target = epoch + 3600.0;
-/// share_precomputed_inputs(propagators.iter_mut(), target).unwrap();
-/// for prop in &mut propagators {
-///     prop.propagate_to(target).unwrap();
-/// }
-/// assert_eq!(propagators[1].current_epoch(), target);
-/// ```
-pub fn share_precomputed_inputs<'a, P: DStatePropagator + 'a>(
-    propagators: impl IntoIterator<Item = &'a mut P>,
+pub(crate) fn share_precomputed_inputs<'a>(
+    propagators: impl IntoIterator<Item = &'a mut DNumericalOrbitPropagator>,
     target_epoch: Epoch,
 ) -> Result<(), BraheError> {
-    let mut groups: Vec<PrecomputeGroup<'a, P>> = Vec::new();
+    let mut groups: Vec<PrecomputeGroup<'a>> = Vec::new();
     for prop in propagators {
         let Some(key) = prop.precompute_key() else {
             continue;

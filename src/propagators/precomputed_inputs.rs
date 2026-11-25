@@ -756,44 +756,8 @@ impl EphemerisTable {
 /// list of those queries together with the force-model site each one feeds, so
 /// force models querying the same bodies for different purposes get different
 /// keys.
-///
-/// # Examples
-///
-/// ```rust
-/// use brahe::eop::{StaticEOPProvider, set_global_eop_provider};
-/// use brahe::propagators::{
-///     DNumericalOrbitPropagator, ForceModelConfig, PrecomputeConfig,
-/// };
-/// use brahe::time::{Epoch, TimeSystem};
-/// use brahe::traits::DStatePropagator;
-/// use brahe::constants::R_EARTH;
-/// use nalgebra::DVector;
-///
-/// set_global_eop_provider(StaticEOPProvider::from_zero());
-///
-/// let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
-/// let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0]);
-///
-/// let build = |frame_rotation_step: f64| {
-///     let force_config = ForceModelConfig {
-///         precompute: Some(PrecomputeConfig {
-///             frame_rotation_step: Some(frame_rotation_step),
-///             ..PrecomputeConfig::default()
-///         }),
-///         ..ForceModelConfig::earth_gravity()
-///     };
-///     DNumericalOrbitPropagator::builder(epoch, state.clone(), force_config)
-///         .build()
-///         .unwrap()
-/// };
-///
-/// // Equal table steps give equal keys; a different step gives a different key.
-/// let key = build(600.0).precompute_key().unwrap();
-/// assert_eq!(build(600.0).precompute_key(), Some(key.clone()));
-/// assert_ne!(build(300.0).precompute_key(), Some(key));
-/// ```
 #[derive(Debug, Clone, PartialEq)]
-pub struct PrecomputeKey {
+pub(crate) struct PrecomputeKey {
     frame_rotation_step: Option<f64>,
     ephemeris: Option<(f64, Vec<(ChannelRole, ChannelQuery)>)>,
 }
@@ -835,37 +799,8 @@ impl PrecomputeKey {
 /// and on demand when the dynamics are evaluated at an epoch outside them.
 /// Bundles are shared between propagators through `Arc` and copied on write
 /// when one extends them.
-///
-/// # Examples
-///
-/// ```rust
-/// use brahe::eop::{StaticEOPProvider, set_global_eop_provider};
-/// use brahe::propagators::{
-///     DNumericalOrbitPropagator, ForceModelConfig, PrecomputeConfig,
-/// };
-/// use brahe::time::{Epoch, TimeSystem};
-/// use brahe::traits::DStatePropagator;
-/// use brahe::constants::R_EARTH;
-/// use nalgebra::DVector;
-///
-/// set_global_eop_provider(StaticEOPProvider::from_zero());
-///
-/// let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
-/// let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0]);
-/// let force_config = ForceModelConfig {
-///     precompute: Some(PrecomputeConfig::default()),
-///     ..ForceModelConfig::earth_gravity()
-/// };
-///
-/// // The propagator builds and extends its `PrecomputedInputs` internally.
-/// let mut prop = DNumericalOrbitPropagator::builder(epoch, state, force_config)
-///     .build()
-///     .unwrap();
-/// prop.propagate_to(epoch + 3600.0).unwrap();
-/// assert_eq!(prop.current_epoch(), epoch + 3600.0);
-/// ```
 #[derive(Debug, Clone)]
-pub struct PrecomputedInputs {
+pub(crate) struct PrecomputedInputs {
     key: PrecomputeKey,
     rotation: Option<FrameRotationTable>,
     ephemeris: Option<EphemerisTable>,

@@ -21,5 +21,4 @@ pub use force_model_config::*;
 pub use functions::*;
 pub use keplerian_propagator::*;
 pub use numerical_propagation_config::*;
-pub use precomputed_inputs::{PrecomputeKey, PrecomputedInputs};
 pub use sgp_propagator::*;

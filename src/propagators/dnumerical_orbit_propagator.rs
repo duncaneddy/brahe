@@ -42,12 +42,13 @@ use crate::orbit_dynamics::{
 };
 use crate::propagators::force_model_config::{EphemerisSource, PermanentTideConfig};
 use crate::propagators::precomputed_inputs::{
-    CachedSpaceWeather, ChannelRole, SpaceWeatherCache, resolve_sun_moon_eci,
+    CachedSpaceWeather, ChannelRole, PrecomputeKey, PrecomputedInputs, SpaceWeatherCache,
+    resolve_sun_moon_eci,
 };
 use crate::propagators::tide_field::TideField;
 use crate::propagators::{
     AtmosphericModel, CentralBody, EclipseModel, ForceModelConfig, FrameTransformationModel,
-    GravityConfiguration, GravityModelSource, PrecomputeKey, PrecomputedInputs, ThirdBody,
+    GravityConfiguration, GravityModelSource, ThirdBody,
 };
 use crate::relative_motion::jacobian_eci_to_rtn;
 use crate::spice::{spk_position, spk_state};
@@ -3275,18 +3276,12 @@ impl DNumericalOrbitPropagator {
             TrajectoryMode::Disabled => false,
         }
     }
-}
 
-// =============================================================================
-// DStatePropagator Trait Implementation
-// =============================================================================
-
-impl super::traits::DStatePropagator for DNumericalOrbitPropagator {
     /// Identity of the precomputed force-model inputs this propagator uses.
     ///
     /// A propagator stopped by a terminal event does not propagate further, so
     /// it returns `None` until its termination is reset. Grouping by key (see
-    /// [`share_precomputed_inputs`](crate::propagators::share_precomputed_inputs))
+    /// [`share_precomputed_inputs`](crate::propagators::functions::share_precomputed_inputs))
     /// then neither widens a shared span to its epoch nor attaches a shared
     /// bundle to it.
     ///
@@ -3294,7 +3289,7 @@ impl super::traits::DStatePropagator for DNumericalOrbitPropagator {
     ///
     /// `Some(key)` when the force model uses precomputed inputs and the
     /// propagator is not terminated, `None` otherwise.
-    fn precompute_key(&self) -> Option<PrecomputeKey> {
+    pub(crate) fn precompute_key(&self) -> Option<PrecomputeKey> {
         if self.terminated {
             return None;
         }
@@ -3317,7 +3312,10 @@ impl super::traits::DStatePropagator for DNumericalOrbitPropagator {
     ///
     /// `Ok(())` when the bundle is attached, or an error when the propagator has
     /// no precomputed inputs or the bundle's key differs from its own.
-    fn attach_precomputed(&mut self, inputs: Arc<PrecomputedInputs>) -> Result<(), BraheError> {
+    pub(crate) fn attach_precomputed(
+        &mut self,
+        inputs: Arc<PrecomputedInputs>,
+    ) -> Result<(), BraheError> {
         let Some(handle) = &self.precomputed else {
             return Err(BraheError::PropagatorError(
                 "cannot attach precomputed inputs to a propagator without precomputed inputs"
@@ -3338,7 +3336,13 @@ impl super::traits::DStatePropagator for DNumericalOrbitPropagator {
         self.rotation_cache.lock().unwrap().entries.clear();
         Ok(())
     }
+}
 
+// =============================================================================
+// DStatePropagator Trait Implementation
+// =============================================================================
+
+impl super::traits::DStatePropagator for DNumericalOrbitPropagator {
     fn step_by(&mut self, step_size: f64) -> Result<(), BraheError> {
         let target_t = self.t_rel + step_size;
 
@@ -4036,11 +4040,9 @@ mod tests {
         ParameterSource, SolarRadiationPressureConfiguration, ThirdBody, ThirdBodyConfiguration,
         TidesConfiguration,
     };
-    use crate::propagators::precomputed_inputs::NodeRange;
+    use crate::propagators::precomputed_inputs::{NodeRange, PrecomputeKey};
     use crate::propagators::traits::DStatePropagator;
-    use crate::propagators::{
-        IntegratorMethod, PrecomputeConfig, PrecomputeKey, VariationalConfig,
-    };
+    use crate::propagators::{IntegratorMethod, PrecomputeConfig, VariationalConfig};
     use crate::time::TimeSystem;
     use crate::utils::testing::setup_global_test_eop;
     use crate::utils::testing::setup_global_test_gravity_model;

@@ -18,6 +18,8 @@ model of the atmosphere: Statistical comparisons and scientific issues",
 Journal of Geophysical Research: Space Physics, 107(A12), 2002.
 */
 
+use serde::{Deserialize, Serialize};
+
 use crate::AngleFormat;
 use crate::coordinates::geodetic::position_ecef_to_geodetic;
 use crate::earth_models::nrlmsise00_data::*;
@@ -99,6 +101,280 @@ impl NrlmsiseFlags {
                 self.swc[i] = self.switches[i] as f64;
             }
         }
+    }
+}
+
+/// Setting of a single NRLMSISE-00 model switch.
+///
+/// Values follow the reference implementation: `0` disables the term, `1`
+/// enables it, and `2` disables the main effect while keeping the cross terms
+/// that couple it to other variations.
+#[repr(i32)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum NRLMSISE00Switch {
+    /// Term disabled (reference value 0).
+    Off = 0,
+    /// Term enabled (reference value 1).
+    On = 1,
+    /// Main effect disabled, cross terms enabled (reference value 2).
+    CrossTermsOnly = 2,
+}
+
+/// Magnetic activity input mode of the NRLMSISE-00 model (switch 9).
+///
+/// The reference value 2 is not representable: the model weights the
+/// magnetic activity terms by `|sw|`, so a value of 2 would double their
+/// contribution instead of selecting a distinct mode.
+#[repr(i32)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum NRLMSISE00ApMode {
+    /// Magnetic activity effects disabled (reference value 0).
+    Off = 0,
+    /// Daily Ap index (reference value 1).
+    Daily = 1,
+    /// Ap array with 3-hourly indices and averages (reference value -1).
+    ThreeHourly = -1,
+}
+
+/// Typed configuration of the 24 NRLMSISE-00 model switches.
+///
+/// Fields are in the order of the reference switch array. Switch 0 (output
+/// units) is not configurable: densities are always returned in SI units.
+///
+/// # Examples
+///
+/// ```
+/// use brahe::earth_models::{NRLMSISE00ApMode, NRLMSISE00Config, NRLMSISE00Switch};
+///
+/// // All terms enabled, 3-hourly Ap array
+/// let default = NRLMSISE00Config::default();
+/// assert_eq!(default.ap_mode, NRLMSISE00ApMode::ThreeHourly);
+///
+/// // Disable the diurnal variation and use the daily Ap index
+/// let cfg = NRLMSISE00Config {
+///     diurnal: NRLMSISE00Switch::Off,
+///     ap_mode: NRLMSISE00ApMode::Daily,
+///     ..Default::default()
+/// };
+///
+/// // Convert to and from the reference 24-element switch array
+/// let switches = cfg.to_switches();
+/// assert_eq!(switches[7], 0);
+/// assert_eq!(switches[9], 1);
+/// assert_eq!(NRLMSISE00Config::from_switches(&switches).unwrap(), cfg);
+/// ```
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct NRLMSISE00Config {
+    /// Effect of the F10.7 deviation from its 81-day average on the mean (switch 1).
+    pub f107_mean: NRLMSISE00Switch,
+    /// Time independent (switch 2).
+    pub time_independent: NRLMSISE00Switch,
+    /// Symmetrical annual variation (switch 3).
+    pub symmetrical_annual: NRLMSISE00Switch,
+    /// Symmetrical semiannual variation (switch 4).
+    pub symmetrical_semiannual: NRLMSISE00Switch,
+    /// Asymmetrical annual variation (switch 5).
+    pub asymmetrical_annual: NRLMSISE00Switch,
+    /// Asymmetrical semiannual variation (switch 6).
+    pub asymmetrical_semiannual: NRLMSISE00Switch,
+    /// Diurnal variation (switch 7).
+    pub diurnal: NRLMSISE00Switch,
+    /// Semidiurnal variation (switch 8).
+    pub semidiurnal: NRLMSISE00Switch,
+    /// Magnetic activity model (switch 9).
+    pub ap_mode: NRLMSISE00ApMode,
+    /// All UT/longitude effects (switch 10).
+    pub all_ut_longitude: NRLMSISE00Switch,
+    /// Longitudinal variation (switch 11).
+    pub longitudinal: NRLMSISE00Switch,
+    /// UT and mixed UT/longitude variation (switch 12).
+    pub ut_mixed_ut_longitude: NRLMSISE00Switch,
+    /// Mixed magnetic activity/UT/longitude variation (switch 13).
+    pub mixed_ap_ut_longitude: NRLMSISE00Switch,
+    /// Terdiurnal variation (switch 14).
+    pub terdiurnal: NRLMSISE00Switch,
+    /// Departures from diffusive equilibrium (switch 15).
+    pub diffusive_equilibrium_departures: NRLMSISE00Switch,
+    /// All TINF variations (switch 16).
+    pub tinf_variations: NRLMSISE00Switch,
+    /// All TLB variations (switch 17).
+    pub tlb_variations: NRLMSISE00Switch,
+    /// All TN1 variations (switch 18).
+    pub tn1_variations: NRLMSISE00Switch,
+    /// All S variations (switch 19).
+    pub s_variations: NRLMSISE00Switch,
+    /// All TN2 variations (switch 20).
+    pub tn2_variations: NRLMSISE00Switch,
+    /// All NLB variations (switch 21).
+    pub nlb_variations: NRLMSISE00Switch,
+    /// All TN3 variations (switch 22).
+    pub tn3_variations: NRLMSISE00Switch,
+    /// Turbopause scale height variations (switch 23).
+    pub turbopause_scale_height_variations: NRLMSISE00Switch,
+}
+
+impl Default for NRLMSISE00Config {
+    fn default() -> Self {
+        let on = NRLMSISE00Switch::On;
+        Self {
+            f107_mean: on,
+            time_independent: on,
+            symmetrical_annual: on,
+            symmetrical_semiannual: on,
+            asymmetrical_annual: on,
+            asymmetrical_semiannual: on,
+            diurnal: on,
+            semidiurnal: on,
+            ap_mode: NRLMSISE00ApMode::ThreeHourly,
+            all_ut_longitude: on,
+            longitudinal: on,
+            ut_mixed_ut_longitude: on,
+            mixed_ap_ut_longitude: on,
+            terdiurnal: on,
+            diffusive_equilibrium_departures: on,
+            tinf_variations: on,
+            tlb_variations: on,
+            tn1_variations: on,
+            s_variations: on,
+            tn2_variations: on,
+            nlb_variations: on,
+            tn3_variations: on,
+            turbopause_scale_height_variations: on,
+        }
+    }
+}
+
+impl NRLMSISE00Config {
+    /// Convert to the reference 24-element switch array.
+    ///
+    /// # Returns
+    ///
+    /// * `[i32; 24]` - Switch values by reference index. Index 0 (output units) is always 1.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::earth_models::NRLMSISE00Config;
+    ///
+    /// let switches = NRLMSISE00Config::default().to_switches();
+    /// assert_eq!(switches[0], 1);
+    /// assert_eq!(switches[9], -1);
+    /// ```
+    pub fn to_switches(&self) -> [i32; 24] {
+        [
+            1,
+            self.f107_mean as i32,
+            self.time_independent as i32,
+            self.symmetrical_annual as i32,
+            self.symmetrical_semiannual as i32,
+            self.asymmetrical_annual as i32,
+            self.asymmetrical_semiannual as i32,
+            self.diurnal as i32,
+            self.semidiurnal as i32,
+            self.ap_mode as i32,
+            self.all_ut_longitude as i32,
+            self.longitudinal as i32,
+            self.ut_mixed_ut_longitude as i32,
+            self.mixed_ap_ut_longitude as i32,
+            self.terdiurnal as i32,
+            self.diffusive_equilibrium_departures as i32,
+            self.tinf_variations as i32,
+            self.tlb_variations as i32,
+            self.tn1_variations as i32,
+            self.s_variations as i32,
+            self.tn2_variations as i32,
+            self.nlb_variations as i32,
+            self.tn3_variations as i32,
+            self.turbopause_scale_height_variations as i32,
+        ]
+    }
+
+    /// Build a configuration from the reference 24-element switch array.
+    ///
+    /// # Arguments
+    ///
+    /// * `switches` - Switch values by reference index. Index 0 (output units) accepts 0 or 1 and is ignored. Index 9 accepts -1, 0, or 1. All other indices accept 0, 1, or 2.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<NRLMSISE00Config, BraheError>` - Configuration, or an error if the length or any value is invalid
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::earth_models::NRLMSISE00Config;
+    ///
+    /// let mut switches = [1; 24];
+    /// switches[0] = 0;
+    /// switches[9] = -1;
+    /// let cfg = NRLMSISE00Config::from_switches(&switches).unwrap();
+    /// assert_eq!(cfg, NRLMSISE00Config::default());
+    ///
+    /// switches[9] = 2;
+    /// assert!(NRLMSISE00Config::from_switches(&switches).is_err());
+    /// ```
+    pub fn from_switches(switches: &[i32]) -> Result<Self, BraheError> {
+        if switches.len() != 24 {
+            return Err(BraheError::Error(format!(
+                "NRLMSISE-00 switch array must have 24 elements, got {}",
+                switches.len()
+            )));
+        }
+
+        let switch = |i: usize| -> Result<NRLMSISE00Switch, BraheError> {
+            match switches[i] {
+                0 => Ok(NRLMSISE00Switch::Off),
+                1 => Ok(NRLMSISE00Switch::On),
+                2 => Ok(NRLMSISE00Switch::CrossTermsOnly),
+                v => Err(BraheError::Error(format!(
+                    "NRLMSISE-00 switch {i} must be 0, 1, or 2, got {v}"
+                ))),
+            }
+        };
+
+        if !matches!(switches[0], 0 | 1) {
+            return Err(BraheError::Error(format!(
+                "NRLMSISE-00 switch 0 must be 0 or 1, got {}",
+                switches[0]
+            )));
+        }
+
+        let ap_mode = match switches[9] {
+            0 => NRLMSISE00ApMode::Off,
+            1 => NRLMSISE00ApMode::Daily,
+            -1 => NRLMSISE00ApMode::ThreeHourly,
+            v => {
+                return Err(BraheError::Error(format!(
+                    "NRLMSISE-00 switch 9 must be -1, 0, or 1, got {v}"
+                )));
+            }
+        };
+
+        Ok(Self {
+            f107_mean: switch(1)?,
+            time_independent: switch(2)?,
+            symmetrical_annual: switch(3)?,
+            symmetrical_semiannual: switch(4)?,
+            asymmetrical_annual: switch(5)?,
+            asymmetrical_semiannual: switch(6)?,
+            diurnal: switch(7)?,
+            semidiurnal: switch(8)?,
+            ap_mode,
+            all_ut_longitude: switch(10)?,
+            longitudinal: switch(11)?,
+            ut_mixed_ut_longitude: switch(12)?,
+            mixed_ap_ut_longitude: switch(13)?,
+            terdiurnal: switch(14)?,
+            diffusive_equilibrium_departures: switch(15)?,
+            tinf_variations: switch(16)?,
+            tlb_variations: switch(17)?,
+            tn1_variations: switch(18)?,
+            s_variations: switch(19)?,
+            tn2_variations: switch(20)?,
+            nlb_variations: switch(21)?,
+            tn3_variations: switch(22)?,
+            turbopause_scale_height_variations: switch(23)?,
+        })
     }
 }
 
@@ -3020,5 +3296,102 @@ mod tests {
             rho < 1e-15,
             "density at lunar distance should be negligible, got {rho}"
         );
+    }
+
+    fn all_non_default_config() -> NRLMSISE00Config {
+        use NRLMSISE00Switch::{CrossTermsOnly, Off};
+        NRLMSISE00Config {
+            f107_mean: Off,
+            time_independent: CrossTermsOnly,
+            symmetrical_annual: Off,
+            symmetrical_semiannual: CrossTermsOnly,
+            asymmetrical_annual: Off,
+            asymmetrical_semiannual: CrossTermsOnly,
+            diurnal: Off,
+            semidiurnal: CrossTermsOnly,
+            ap_mode: NRLMSISE00ApMode::Daily,
+            all_ut_longitude: Off,
+            longitudinal: CrossTermsOnly,
+            ut_mixed_ut_longitude: Off,
+            mixed_ap_ut_longitude: CrossTermsOnly,
+            terdiurnal: Off,
+            diffusive_equilibrium_departures: CrossTermsOnly,
+            tinf_variations: Off,
+            tlb_variations: CrossTermsOnly,
+            tn1_variations: Off,
+            s_variations: CrossTermsOnly,
+            tn2_variations: Off,
+            nlb_variations: CrossTermsOnly,
+            tn3_variations: Off,
+            turbopause_scale_height_variations: CrossTermsOnly,
+        }
+    }
+
+    #[test]
+    #[parallel]
+    fn test_nrlmsise00config_default() {
+        let s = NRLMSISE00Config::default().to_switches();
+        assert_eq!(s[0], 1);
+        assert_eq!(s[9], -1);
+        for i in (1..24).filter(|&i| i != 9) {
+            assert_eq!(s[i], 1);
+        }
+    }
+
+    #[test]
+    #[parallel]
+    fn test_nrlmsise00config_to_switches_index_order() {
+        let cfg = NRLMSISE00Config {
+            f107_mean: NRLMSISE00Switch::Off,
+            diurnal: NRLMSISE00Switch::CrossTermsOnly,
+            ap_mode: NRLMSISE00ApMode::Daily,
+            turbopause_scale_height_variations: NRLMSISE00Switch::Off,
+            ..Default::default()
+        };
+        let s = cfg.to_switches();
+        assert_eq!((s[1], s[7], s[9], s[23]), (0, 2, 1, 0));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_nrlmsise00config_from_switches_roundtrip() {
+        let cfg = all_non_default_config();
+        assert_eq!(
+            NRLMSISE00Config::from_switches(&cfg.to_switches()).unwrap(),
+            cfg
+        );
+    }
+
+    #[test]
+    #[parallel]
+    fn test_nrlmsise00config_from_switches_c_reference_array() {
+        let mut a = [1; 24];
+        a[0] = 0;
+        a[9] = -1;
+        let cfg = NRLMSISE00Config::from_switches(&a).unwrap();
+        assert_eq!(cfg, NRLMSISE00Config::default());
+        assert_eq!(cfg.to_switches()[0], 1);
+    }
+
+    #[rstest]
+    #[case(&[1; 23][..])]
+    #[case(&[1; 25][..])]
+    #[case(&{let mut a = [1; 24]; a[0] = 2; a}[..])]
+    #[case(&{let mut a = [1; 24]; a[9] = 2; a}[..])]
+    #[case(&{let mut a = [1; 24]; a[9] = -2; a}[..])]
+    #[case(&{let mut a = [1; 24]; a[5] = -1; a}[..])]
+    #[case(&{let mut a = [1; 24]; a[23] = 3; a}[..])]
+    #[parallel]
+    fn test_nrlmsise00config_from_switches_rejects(#[case] s: &[i32]) {
+        assert!(NRLMSISE00Config::from_switches(s).is_err());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_nrlmsise00config_serde_roundtrip() {
+        let cfg = all_non_default_config();
+        let json = serde_json::to_string(&cfg).unwrap();
+        let back: NRLMSISE00Config = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, cfg);
     }
 }

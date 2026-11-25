@@ -7403,6 +7403,12 @@ impl PyNumericalOrbitPropagator {
     }
 
     /// Compute state at a specific epoch in GCRF coordinates.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Target epoch for state computation.
+    ///
+    /// Returns:
+    ///     numpy.ndarray: State vector [x, y, z, vx, vy, vz] in GCRF frame (meters, m/s).
     #[pyo3(text_signature = "(epoch)")]
     pub fn state_gcrf<'a>(
         &self,
@@ -7415,6 +7421,12 @@ impl PyNumericalOrbitPropagator {
     }
 
     /// Compute state at a specific epoch in ITRF coordinates.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Target epoch for state computation.
+    ///
+    /// Returns:
+    ///     numpy.ndarray: State vector [x, y, z, vx, vy, vz] in ITRF frame (meters, m/s).
     #[pyo3(text_signature = "(epoch)")]
     pub fn state_itrf<'a>(
         &self,
@@ -7854,12 +7866,24 @@ impl PyNumericalOrbitPropagator {
     // =========================================================================
 
     /// Set the name and return self.
+    ///
+    /// Args:
+    ///     name (str): Name to assign to this propagator.
+    ///
+    /// Returns:
+    ///     NumericalOrbitPropagator: Self with name set.
     pub fn with_name(mut slf: PyRefMut<'_, Self>, name: String) -> PyRefMut<'_, Self> {
         slf.propagator.name = Some(name);
         slf
     }
 
     /// Set the UUID and return self.
+    ///
+    /// Args:
+    ///     uuid_str (str): UUID string to assign to this propagator.
+    ///
+    /// Returns:
+    ///     NumericalOrbitPropagator: Self with UUID set.
     pub fn with_uuid(
         mut slf: PyRefMut<'_, Self>,
         uuid_str: String,
@@ -7871,12 +7895,21 @@ impl PyNumericalOrbitPropagator {
     }
 
     /// Generate a new UUID, set it, and return self.
+    ///
+    /// Returns:
+    ///     NumericalOrbitPropagator: Self with new UUID set.
     pub fn with_new_uuid(mut slf: PyRefMut<'_, Self>) -> PyRefMut<'_, Self> {
         slf.propagator.uuid = Some(uuid::Uuid::now_v7());
         slf
     }
 
     /// Set the numeric ID and return self.
+    ///
+    /// Args:
+    ///     id (int): Numeric ID to assign to this propagator.
+    ///
+    /// Returns:
+    ///     NumericalOrbitPropagator: Self with ID set.
     pub fn with_id(mut slf: PyRefMut<'_, Self>, id: u64) -> PyRefMut<'_, Self> {
         slf.propagator.id = Some(id);
         slf
@@ -9177,6 +9210,9 @@ impl PyNumericalPropagator {
 
     /// Step forward by a specified time duration.
     ///
+    /// Args:
+    ///     step_size (float): Time step in seconds.
+    ///
     /// Raises:
     ///     Exception: Propagates the original exception raised by the dynamics
     ///         or control-input callback, or a BraheError if propagation fails.
@@ -9187,6 +9223,9 @@ impl PyNumericalPropagator {
     }
 
     /// Step past a specified target epoch.
+    ///
+    /// Args:
+    ///     target_epoch (Epoch): The epoch to step past.
     ///
     /// Raises:
     ///     Exception: Propagates the original exception raised by the dynamics
@@ -9199,6 +9238,9 @@ impl PyNumericalPropagator {
 
     /// Propagate forward by specified number of steps.
     ///
+    /// Args:
+    ///     num_steps (int): Number of steps to take.
+    ///
     /// Raises:
     ///     Exception: Propagates the original exception raised by the dynamics
     ///         or control-input callback, or a BraheError if propagation fails.
@@ -9209,6 +9251,9 @@ impl PyNumericalPropagator {
     }
 
     /// Propagate to a specific target epoch.
+    ///
+    /// Args:
+    ///     target_epoch (Epoch): The epoch to propagate to.
     ///
     /// Raises:
     ///     Exception: Propagates the original exception raised by the dynamics
@@ -9230,6 +9275,12 @@ impl PyNumericalPropagator {
     // =========================================================================
 
     /// Compute state at a specific epoch.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Target epoch for state computation.
+    ///
+    /// Returns:
+    ///     numpy.ndarray: State vector at the requested epoch.
     #[pyo3(text_signature = "(epoch)")]
     pub fn state<'a>(
         &self,
@@ -9333,6 +9384,13 @@ impl PyNumericalPropagator {
     }
 
     /// Get covariance at a specific epoch.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Target epoch for covariance computation.
+    ///
+    /// Returns:
+    ///     numpy.ndarray: Covariance matrix of shape `(n, n)` for an `n`-element state. Entry
+    ///         `(i, j)` has units equal to the product of the units of state components `i` and `j`.
     #[pyo3(text_signature = "(epoch)")]
     pub fn covariance<'a>(
         &self,
@@ -9356,6 +9414,9 @@ impl PyNumericalPropagator {
     // =========================================================================
 
     /// Set trajectory eviction policy based on maximum size.
+    ///
+    /// Args:
+    ///     max_size (int): Maximum number of states to keep in trajectory.
     #[pyo3(text_signature = "(max_size)")]
     pub fn set_eviction_policy_max_size(&mut self, max_size: usize) -> PyResult<()> {
         DStatePropagator::set_eviction_policy_max_size(&mut self.propagator, max_size)
@@ -9363,6 +9424,9 @@ impl PyNumericalPropagator {
     }
 
     /// Set trajectory eviction policy based on maximum age.
+    ///
+    /// Args:
+    ///     max_age (float): Maximum age in seconds to keep states in trajectory.
     #[pyo3(text_signature = "(max_age)")]
     pub fn set_eviction_policy_max_age(&mut self, max_age: f64) -> PyResult<()> {
         DStatePropagator::set_eviction_policy_max_age(&mut self.propagator, max_age)
@@ -9429,12 +9493,24 @@ impl PyNumericalPropagator {
     // =========================================================================
 
     /// Set the name and return self.
+    ///
+    /// Args:
+    ///     name (str): Name to assign to this propagator.
+    ///
+    /// Returns:
+    ///     NumericalPropagator: Self with name set.
     pub fn with_name(mut slf: PyRefMut<'_, Self>, name: String) -> PyRefMut<'_, Self> {
         slf.propagator.name = Some(name);
         slf
     }
 
     /// Set the UUID and return self.
+    ///
+    /// Args:
+    ///     uuid_str (str): UUID string to assign to this propagator.
+    ///
+    /// Returns:
+    ///     NumericalPropagator: Self with UUID set.
     pub fn with_uuid(
         mut slf: PyRefMut<'_, Self>,
         uuid_str: String,
@@ -9446,12 +9522,21 @@ impl PyNumericalPropagator {
     }
 
     /// Generate a new UUID, set it, and return self.
+    ///
+    /// Returns:
+    ///     NumericalPropagator: Self with new UUID set.
     pub fn with_new_uuid(mut slf: PyRefMut<'_, Self>) -> PyRefMut<'_, Self> {
         slf.propagator.uuid = Some(uuid::Uuid::now_v7());
         slf
     }
 
     /// Set the numeric ID and return self.
+    ///
+    /// Args:
+    ///     id (int): Numeric ID to assign to this propagator.
+    ///
+    /// Returns:
+    ///     NumericalPropagator: Self with ID set.
     pub fn with_id(mut slf: PyRefMut<'_, Self>, id: u64) -> PyRefMut<'_, Self> {
         slf.propagator.id = Some(id);
         slf

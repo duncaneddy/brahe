@@ -49,7 +49,7 @@ fn py_orbital_period<'py>(
 ///     a_or_oe (float or array): The semi-major axis in meters, as a scalar or an array
 ///         evaluated element-wise; or a 2-D array of shape `(n, 6)` of Keplerian element
 ///         sets [a, e, i, Ω, ω, ν] from which `a` is taken row by row.
-///     gm (float): (keyword-only) The standard gravitational parameter of primary body in m³/s².
+///     gm (float): The standard gravitational parameter of primary body in m³/s².
 ///
 /// Returns:
 ///     float or numpy.ndarray: The orbital period of the astronomical object in seconds.
@@ -196,7 +196,7 @@ fn py_ascending_node_direction<'py>(
 ///     a_or_oe (float or array): The semi-major axis in meters, as a scalar or an array
 ///         evaluated element-wise; or a 2-D array of shape `(n, 6)` of Keplerian element
 ///         sets [a, e, i, Ω, ω, ν] from which `a` is taken row by row.
-///     angle_format (AngleFormat): (keyword-only) Return output in AngleFormat.DEGREES or AngleFormat.RADIANS.
+///     angle_format (AngleFormat): Return output in AngleFormat.DEGREES or AngleFormat.RADIANS.
 ///
 /// Returns:
 ///     float or numpy.ndarray: The mean motion of the astronomical object in radians or degrees.
@@ -243,8 +243,8 @@ fn py_mean_motion<'py>(
 ///     a_or_oe (float or array): The semi-major axis in meters, as a scalar or an array
 ///         evaluated element-wise; or a 2-D array of shape `(n, 6)` of Keplerian element
 ///         sets [a, e, i, Ω, ω, ν] from which `a` is taken row by row.
-///     gm (float): (keyword-only) The standard gravitational parameter of primary body in m³/s².
-///     angle_format (AngleFormat): (keyword-only) Return output in AngleFormat.DEGREES or AngleFormat.RADIANS.
+///     gm (float): The standard gravitational parameter of primary body in m³/s².
+///     angle_format (AngleFormat): Return output in AngleFormat.DEGREES or AngleFormat.RADIANS.
 ///
 /// Returns:
 ///     float or numpy.ndarray: The mean motion of the astronomical object in radians or degrees.
@@ -324,7 +324,7 @@ fn py_semimajor_axis<'py>(
 /// Args:
 ///     n (float or array): The mean motion of the astronomical object in radians or degrees.
 ///         An array is evaluated element-wise.
-///     gm (float): (keyword-only) The standard gravitational parameter of primary body in m³/s².
+///     gm (float): The standard gravitational parameter of primary body in m³/s².
 ///     angle_format (AngleFormat): Interpret mean motion as AngleFormat.DEGREES or AngleFormat.RADIANS.
 ///
 /// Returns:
@@ -358,7 +358,7 @@ fn py_semimajor_axis_general<'py>(
 /// Args:
 ///     period (float or array): The orbital period in seconds.
 ///         An array is evaluated element-wise.
-///     gm (float): (keyword-only) The standard gravitational parameter of primary body in m³/s².
+///     gm (float): The standard gravitational parameter of primary body in m³/s².
 ///
 /// Returns:
 ///     float or numpy.ndarray: The semi-major axis in meters.

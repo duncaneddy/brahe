@@ -2300,6 +2300,12 @@ impl PySemiMajorAxisEvent {
     }
 
     /// Set instance number for display name.
+    ///
+    /// Args:
+    ///     instance (int): Instance number appended to the event name
+    ///
+    /// Returns:
+    ///     SemiMajorAxisEvent: Self for method chaining
     fn with_instance(mut slf: PyRefMut<'_, Self>, instance: usize) -> Self {
         if let Some(event) = slf.event.take() {
             slf.event = Some(event.with_instance(instance));
@@ -2308,6 +2314,13 @@ impl PySemiMajorAxisEvent {
     }
 
     /// Set custom tolerances for event detection.
+    ///
+    /// Args:
+    ///     time_tol (float): Time tolerance in seconds (default: 1e-6)
+    ///     value_tol (float): Semi-major axis tolerance in meters (default: 1e-9)
+    ///
+    /// Returns:
+    ///     SemiMajorAxisEvent: Self for method chaining
     fn with_tolerances(mut slf: PyRefMut<'_, Self>, time_tol: f64, value_tol: f64) -> Self {
         if let Some(event) = slf.event.take() {
             slf.event = Some(event.with_tolerances(time_tol, value_tol));
@@ -2316,6 +2329,9 @@ impl PySemiMajorAxisEvent {
     }
 
     /// Mark this event as terminal (stops propagation).
+    ///
+    /// Returns:
+    ///     SemiMajorAxisEvent: Self for method chaining
     fn set_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
         if let Some(event) = slf.event.take() {
             slf.event = Some(event.set_terminal());
@@ -2360,6 +2376,12 @@ impl PyEccentricityEvent {
     }
 
     /// Set instance number for display name.
+    ///
+    /// Args:
+    ///     instance (int): Instance number appended to the event name
+    ///
+    /// Returns:
+    ///     EccentricityEvent: Self for method chaining
     fn with_instance(mut slf: PyRefMut<'_, Self>, instance: usize) -> Self {
         if let Some(event) = slf.event.take() {
             slf.event = Some(event.with_instance(instance));
@@ -2368,6 +2390,13 @@ impl PyEccentricityEvent {
     }
 
     /// Set custom tolerances for event detection.
+    ///
+    /// Args:
+    ///     time_tol (float): Time tolerance in seconds (default: 1e-6)
+    ///     value_tol (float): Eccentricity tolerance, dimensionless (default: 1e-9)
+    ///
+    /// Returns:
+    ///     EccentricityEvent: Self for method chaining
     fn with_tolerances(mut slf: PyRefMut<'_, Self>, time_tol: f64, value_tol: f64) -> Self {
         if let Some(event) = slf.event.take() {
             slf.event = Some(event.with_tolerances(time_tol, value_tol));
@@ -2376,6 +2405,9 @@ impl PyEccentricityEvent {
     }
 
     /// Mark this event as terminal (stops propagation).
+    ///
+    /// Returns:
+    ///     EccentricityEvent: Self for method chaining
     fn set_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
         if let Some(event) = slf.event.take() {
             slf.event = Some(event.set_terminal());
@@ -2428,6 +2460,12 @@ impl PyInclinationEvent {
     }
 
     /// Set instance number for display name.
+    ///
+    /// Args:
+    ///     instance (int): Instance number appended to the event name
+    ///
+    /// Returns:
+    ///     InclinationEvent: Self for method chaining
     fn with_instance(mut slf: PyRefMut<'_, Self>, instance: usize) -> Self {
         if let Some(event) = slf.event.take() {
             slf.event = Some(event.with_instance(instance));
@@ -2436,6 +2474,13 @@ impl PyInclinationEvent {
     }
 
     /// Set custom tolerances for event detection.
+    ///
+    /// Args:
+    ///     time_tol (float): Time tolerance in seconds (default: 1e-6)
+    ///     value_tol (float): Inclination tolerance in radians, independent of the `angle_format` used to construct the event (default: 1e-9)
+    ///
+    /// Returns:
+    ///     InclinationEvent: Self for method chaining
     fn with_tolerances(mut slf: PyRefMut<'_, Self>, time_tol: f64, value_tol: f64) -> Self {
         if let Some(event) = slf.event.take() {
             slf.event = Some(event.with_tolerances(time_tol, value_tol));
@@ -2444,6 +2489,9 @@ impl PyInclinationEvent {
     }
 
     /// Mark this event as terminal (stops propagation).
+    ///
+    /// Returns:
+    ///     InclinationEvent: Self for method chaining
     fn set_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
         if let Some(event) = slf.event.take() {
             slf.event = Some(event.set_terminal());
@@ -2487,6 +2535,12 @@ impl PyArgumentOfPerigeeEvent {
     }
 
     /// Set instance number for display name.
+    ///
+    /// Args:
+    ///     instance (int): Instance number appended to the event name
+    ///
+    /// Returns:
+    ///     ArgumentOfPerigeeEvent: Self for method chaining
     fn with_instance(mut slf: PyRefMut<'_, Self>, instance: usize) -> Self {
         if let Some(event) = slf.event.take() {
             slf.event = Some(event.with_instance(instance));
@@ -2495,6 +2549,13 @@ impl PyArgumentOfPerigeeEvent {
     }
 
     /// Set custom tolerances for event detection.
+    ///
+    /// Args:
+    ///     time_tol (float): Time tolerance in seconds (default: 1e-6)
+    ///     value_tol (float): Argument of perigee tolerance in radians, independent of the `angle_format` used to construct the event (default: 1e-9)
+    ///
+    /// Returns:
+    ///     ArgumentOfPerigeeEvent: Self for method chaining
     fn with_tolerances(mut slf: PyRefMut<'_, Self>, time_tol: f64, value_tol: f64) -> Self {
         if let Some(event) = slf.event.take() {
             slf.event = Some(event.with_tolerances(time_tol, value_tol));
@@ -2503,6 +2564,9 @@ impl PyArgumentOfPerigeeEvent {
     }
 
     /// Mark this event as terminal (stops propagation).
+    ///
+    /// Returns:
+    ///     ArgumentOfPerigeeEvent: Self for method chaining
     fn set_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
         if let Some(event) = slf.event.take() {
             slf.event = Some(event.set_terminal());
@@ -2542,6 +2606,12 @@ impl PyMeanAnomalyEvent {
     }
 
     /// Set instance number for display name.
+    ///
+    /// Args:
+    ///     instance (int): Instance number appended to the event name
+    ///
+    /// Returns:
+    ///     MeanAnomalyEvent: Self for method chaining
     fn with_instance(mut slf: PyRefMut<'_, Self>, instance: usize) -> Self {
         if let Some(event) = slf.event.take() {
             slf.event = Some(event.with_instance(instance));
@@ -2550,6 +2620,13 @@ impl PyMeanAnomalyEvent {
     }
 
     /// Set custom tolerances for event detection.
+    ///
+    /// Args:
+    ///     time_tol (float): Time tolerance in seconds (default: 1e-6)
+    ///     value_tol (float): Mean anomaly tolerance in radians, independent of the `angle_format` used to construct the event (default: 1e-9)
+    ///
+    /// Returns:
+    ///     MeanAnomalyEvent: Self for method chaining
     fn with_tolerances(mut slf: PyRefMut<'_, Self>, time_tol: f64, value_tol: f64) -> Self {
         if let Some(event) = slf.event.take() {
             slf.event = Some(event.with_tolerances(time_tol, value_tol));
@@ -2558,6 +2635,9 @@ impl PyMeanAnomalyEvent {
     }
 
     /// Mark this event as terminal (stops propagation).
+    ///
+    /// Returns:
+    ///     MeanAnomalyEvent: Self for method chaining
     fn set_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
         if let Some(event) = slf.event.take() {
             slf.event = Some(event.set_terminal());
@@ -2608,6 +2688,12 @@ impl PyEccentricAnomalyEvent {
     }
 
     /// Set instance number for display name.
+    ///
+    /// Args:
+    ///     instance (int): Instance number appended to the event name
+    ///
+    /// Returns:
+    ///     EccentricAnomalyEvent: Self for method chaining
     fn with_instance(mut slf: PyRefMut<'_, Self>, instance: usize) -> Self {
         if let Some(event) = slf.event.take() {
             slf.event = Some(event.with_instance(instance));
@@ -2616,6 +2702,13 @@ impl PyEccentricAnomalyEvent {
     }
 
     /// Set custom tolerances for event detection.
+    ///
+    /// Args:
+    ///     time_tol (float): Time tolerance in seconds (default: 1e-6)
+    ///     value_tol (float): Eccentric anomaly tolerance in radians, independent of the `angle_format` used to construct the event (default: 1e-9)
+    ///
+    /// Returns:
+    ///     EccentricAnomalyEvent: Self for method chaining
     fn with_tolerances(mut slf: PyRefMut<'_, Self>, time_tol: f64, value_tol: f64) -> Self {
         if let Some(event) = slf.event.take() {
             slf.event = Some(event.with_tolerances(time_tol, value_tol));
@@ -2624,6 +2717,9 @@ impl PyEccentricAnomalyEvent {
     }
 
     /// Mark this event as terminal (stops propagation).
+    ///
+    /// Returns:
+    ///     EccentricAnomalyEvent: Self for method chaining
     fn set_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
         if let Some(event) = slf.event.take() {
             slf.event = Some(event.set_terminal());
@@ -2674,6 +2770,12 @@ impl PyTrueAnomalyEvent {
     }
 
     /// Set instance number for display name.
+    ///
+    /// Args:
+    ///     instance (int): Instance number appended to the event name
+    ///
+    /// Returns:
+    ///     TrueAnomalyEvent: Self for method chaining
     fn with_instance(mut slf: PyRefMut<'_, Self>, instance: usize) -> Self {
         if let Some(event) = slf.event.take() {
             slf.event = Some(event.with_instance(instance));
@@ -2682,6 +2784,13 @@ impl PyTrueAnomalyEvent {
     }
 
     /// Set custom tolerances for event detection.
+    ///
+    /// Args:
+    ///     time_tol (float): Time tolerance in seconds (default: 1e-6)
+    ///     value_tol (float): True anomaly tolerance in radians, independent of the `angle_format` used to construct the event (default: 1e-9)
+    ///
+    /// Returns:
+    ///     TrueAnomalyEvent: Self for method chaining
     fn with_tolerances(mut slf: PyRefMut<'_, Self>, time_tol: f64, value_tol: f64) -> Self {
         if let Some(event) = slf.event.take() {
             slf.event = Some(event.with_tolerances(time_tol, value_tol));
@@ -2690,6 +2799,9 @@ impl PyTrueAnomalyEvent {
     }
 
     /// Mark this event as terminal (stops propagation).
+    ///
+    /// Returns:
+    ///     TrueAnomalyEvent: Self for method chaining
     fn set_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
         if let Some(event) = slf.event.take() {
             slf.event = Some(event.set_terminal());
@@ -2740,6 +2852,12 @@ impl PyArgumentOfLatitudeEvent {
     }
 
     /// Set instance number for display name.
+    ///
+    /// Args:
+    ///     instance (int): Instance number appended to the event name
+    ///
+    /// Returns:
+    ///     ArgumentOfLatitudeEvent: Self for method chaining
     fn with_instance(mut slf: PyRefMut<'_, Self>, instance: usize) -> Self {
         if let Some(event) = slf.event.take() {
             slf.event = Some(event.with_instance(instance));
@@ -2748,6 +2866,13 @@ impl PyArgumentOfLatitudeEvent {
     }
 
     /// Set custom tolerances for event detection.
+    ///
+    /// Args:
+    ///     time_tol (float): Time tolerance in seconds (default: 1e-6)
+    ///     value_tol (float): Argument of latitude tolerance in radians, independent of the `angle_format` used to construct the event (default: 1e-9)
+    ///
+    /// Returns:
+    ///     ArgumentOfLatitudeEvent: Self for method chaining
     fn with_tolerances(mut slf: PyRefMut<'_, Self>, time_tol: f64, value_tol: f64) -> Self {
         if let Some(event) = slf.event.take() {
             slf.event = Some(event.with_tolerances(time_tol, value_tol));
@@ -2756,6 +2881,9 @@ impl PyArgumentOfLatitudeEvent {
     }
 
     /// Mark this event as terminal (stops propagation).
+    ///
+    /// Returns:
+    ///     ArgumentOfLatitudeEvent: Self for method chaining
     fn set_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
         if let Some(event) = slf.event.take() {
             slf.event = Some(event.set_terminal());
@@ -2805,6 +2933,12 @@ impl PyAscendingNodeEvent {
     }
 
     /// Set instance number for display name.
+    ///
+    /// Args:
+    ///     instance (int): Instance number appended to the event name
+    ///
+    /// Returns:
+    ///     AscendingNodeEvent: Self for method chaining
     fn with_instance(mut slf: PyRefMut<'_, Self>, instance: usize) -> Self {
         if let Some(event) = slf.event.take() {
             slf.event = Some(event.with_instance(instance));
@@ -2813,6 +2947,13 @@ impl PyAscendingNodeEvent {
     }
 
     /// Set custom tolerances for event detection.
+    ///
+    /// Args:
+    ///     time_tol (float): Time tolerance in seconds (default: 1e-6)
+    ///     value_tol (float): Argument of latitude tolerance in radians (default: 1e-9)
+    ///
+    /// Returns:
+    ///     AscendingNodeEvent: Self for method chaining
     fn with_tolerances(mut slf: PyRefMut<'_, Self>, time_tol: f64, value_tol: f64) -> Self {
         if let Some(event) = slf.event.take() {
             slf.event = Some(event.with_tolerances(time_tol, value_tol));
@@ -2821,6 +2962,9 @@ impl PyAscendingNodeEvent {
     }
 
     /// Mark this event as terminal (stops propagation).
+    ///
+    /// Returns:
+    ///     AscendingNodeEvent: Self for method chaining
     fn set_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
         if let Some(event) = slf.event.take() {
             slf.event = Some(event.set_terminal());
@@ -2866,6 +3010,12 @@ impl PyDescendingNodeEvent {
     }
 
     /// Set instance number for display name.
+    ///
+    /// Args:
+    ///     instance (int): Instance number appended to the event name
+    ///
+    /// Returns:
+    ///     DescendingNodeEvent: Self for method chaining
     fn with_instance(mut slf: PyRefMut<'_, Self>, instance: usize) -> Self {
         if let Some(event) = slf.event.take() {
             slf.event = Some(event.with_instance(instance));
@@ -2874,6 +3024,13 @@ impl PyDescendingNodeEvent {
     }
 
     /// Set custom tolerances for event detection.
+    ///
+    /// Args:
+    ///     time_tol (float): Time tolerance in seconds (default: 1e-6)
+    ///     value_tol (float): Argument of latitude tolerance in radians (default: 1e-9)
+    ///
+    /// Returns:
+    ///     DescendingNodeEvent: Self for method chaining
     fn with_tolerances(mut slf: PyRefMut<'_, Self>, time_tol: f64, value_tol: f64) -> Self {
         if let Some(event) = slf.event.take() {
             slf.event = Some(event.with_tolerances(time_tol, value_tol));
@@ -2882,6 +3039,9 @@ impl PyDescendingNodeEvent {
     }
 
     /// Mark this event as terminal (stops propagation).
+    ///
+    /// Returns:
+    ///     DescendingNodeEvent: Self for method chaining
     fn set_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
         if let Some(event) = slf.event.take() {
             slf.event = Some(event.set_terminal());
@@ -2937,6 +3097,12 @@ impl PySpeedEvent {
     }
 
     /// Set instance number for display name.
+    ///
+    /// Args:
+    ///     instance (int): Instance number appended to the event name
+    ///
+    /// Returns:
+    ///     SpeedEvent: Self for method chaining
     fn with_instance(mut slf: PyRefMut<'_, Self>, instance: usize) -> Self {
         if let Some(event) = slf.event.take() {
             slf.event = Some(event.with_instance(instance));
@@ -2945,6 +3111,13 @@ impl PySpeedEvent {
     }
 
     /// Set custom tolerances for event detection.
+    ///
+    /// Args:
+    ///     time_tol (float): Time tolerance in seconds (default: 1e-6)
+    ///     value_tol (float): Speed tolerance in m/s (default: 1e-9)
+    ///
+    /// Returns:
+    ///     SpeedEvent: Self for method chaining
     fn with_tolerances(mut slf: PyRefMut<'_, Self>, time_tol: f64, value_tol: f64) -> Self {
         if let Some(event) = slf.event.take() {
             slf.event = Some(event.with_tolerances(time_tol, value_tol));
@@ -2953,6 +3126,9 @@ impl PySpeedEvent {
     }
 
     /// Mark this event as terminal (stops propagation).
+    ///
+    /// Returns:
+    ///     SpeedEvent: Self for method chaining
     fn set_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
         if let Some(event) = slf.event.take() {
             slf.event = Some(event.set_terminal());
@@ -3006,6 +3182,12 @@ impl PyLongitudeEvent {
     }
 
     /// Set instance number for display name.
+    ///
+    /// Args:
+    ///     instance (int): Instance number appended to the event name
+    ///
+    /// Returns:
+    ///     LongitudeEvent: Self for method chaining
     fn with_instance(mut slf: PyRefMut<'_, Self>, instance: usize) -> Self {
         if let Some(event) = slf.event.take() {
             slf.event = Some(event.with_instance(instance));
@@ -3014,6 +3196,13 @@ impl PyLongitudeEvent {
     }
 
     /// Set custom tolerances for event detection.
+    ///
+    /// Args:
+    ///     time_tol (float): Time tolerance in seconds (default: 1e-6)
+    ///     value_tol (float): Geodetic longitude tolerance in radians, independent of the `angle_format` used to construct the event (default: 1e-9)
+    ///
+    /// Returns:
+    ///     LongitudeEvent: Self for method chaining
     fn with_tolerances(mut slf: PyRefMut<'_, Self>, time_tol: f64, value_tol: f64) -> Self {
         if let Some(event) = slf.event.take() {
             slf.event = Some(event.with_tolerances(time_tol, value_tol));
@@ -3022,6 +3211,9 @@ impl PyLongitudeEvent {
     }
 
     /// Mark this event as terminal (stops propagation).
+    ///
+    /// Returns:
+    ///     LongitudeEvent: Self for method chaining
     fn set_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
         if let Some(event) = slf.event.take() {
             slf.event = Some(event.set_terminal());
@@ -3075,6 +3267,12 @@ impl PyLatitudeEvent {
     }
 
     /// Set instance number for display name.
+    ///
+    /// Args:
+    ///     instance (int): Instance number appended to the event name
+    ///
+    /// Returns:
+    ///     LatitudeEvent: Self for method chaining
     fn with_instance(mut slf: PyRefMut<'_, Self>, instance: usize) -> Self {
         if let Some(event) = slf.event.take() {
             slf.event = Some(event.with_instance(instance));
@@ -3083,6 +3281,13 @@ impl PyLatitudeEvent {
     }
 
     /// Set custom tolerances for event detection.
+    ///
+    /// Args:
+    ///     time_tol (float): Time tolerance in seconds (default: 1e-6)
+    ///     value_tol (float): Geodetic latitude tolerance in radians, independent of the `angle_format` used to construct the event (default: 1e-9)
+    ///
+    /// Returns:
+    ///     LatitudeEvent: Self for method chaining
     fn with_tolerances(mut slf: PyRefMut<'_, Self>, time_tol: f64, value_tol: f64) -> Self {
         if let Some(event) = slf.event.take() {
             slf.event = Some(event.with_tolerances(time_tol, value_tol));
@@ -3091,6 +3296,9 @@ impl PyLatitudeEvent {
     }
 
     /// Mark this event as terminal (stops propagation).
+    ///
+    /// Returns:
+    ///     LatitudeEvent: Self for method chaining
     fn set_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
         if let Some(event) = slf.event.take() {
             slf.event = Some(event.set_terminal());
@@ -3144,6 +3352,12 @@ impl PyUmbraEvent {
     }
 
     /// Set instance number for display name.
+    ///
+    /// Args:
+    ///     instance (int): Instance number appended to the event name
+    ///
+    /// Returns:
+    ///     UmbraEvent: Self for method chaining
     fn with_instance(mut slf: PyRefMut<'_, Self>, instance: usize) -> Self {
         if let Some(event) = slf.event.take() {
             slf.event = Some(event.with_instance(instance));
@@ -3152,6 +3366,13 @@ impl PyUmbraEvent {
     }
 
     /// Set custom tolerances for event detection.
+    ///
+    /// Args:
+    ///     time_tol (float): Time tolerance in seconds (default: 1e-6)
+    ///     value_tol (float): Tolerance on the condition indicator, which is +1 when the condition holds and -1 otherwise (default: 1e-9)
+    ///
+    /// Returns:
+    ///     UmbraEvent: Self for method chaining
     fn with_tolerances(mut slf: PyRefMut<'_, Self>, time_tol: f64, value_tol: f64) -> Self {
         if let Some(event) = slf.event.take() {
             slf.event = Some(event.with_tolerances(time_tol, value_tol));
@@ -3160,6 +3381,9 @@ impl PyUmbraEvent {
     }
 
     /// Mark this event as terminal (stops propagation).
+    ///
+    /// Returns:
+    ///     UmbraEvent: Self for method chaining
     fn set_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
         if let Some(event) = slf.event.take() {
             slf.event = Some(event.set_terminal());
@@ -3206,6 +3430,12 @@ impl PyPenumbraEvent {
     }
 
     /// Set instance number for display name.
+    ///
+    /// Args:
+    ///     instance (int): Instance number appended to the event name
+    ///
+    /// Returns:
+    ///     PenumbraEvent: Self for method chaining
     fn with_instance(mut slf: PyRefMut<'_, Self>, instance: usize) -> Self {
         if let Some(event) = slf.event.take() {
             slf.event = Some(event.with_instance(instance));
@@ -3214,6 +3444,13 @@ impl PyPenumbraEvent {
     }
 
     /// Set custom tolerances for event detection.
+    ///
+    /// Args:
+    ///     time_tol (float): Time tolerance in seconds (default: 1e-6)
+    ///     value_tol (float): Tolerance on the condition indicator, which is +1 when the condition holds and -1 otherwise (default: 1e-9)
+    ///
+    /// Returns:
+    ///     PenumbraEvent: Self for method chaining
     fn with_tolerances(mut slf: PyRefMut<'_, Self>, time_tol: f64, value_tol: f64) -> Self {
         if let Some(event) = slf.event.take() {
             slf.event = Some(event.with_tolerances(time_tol, value_tol));
@@ -3222,6 +3459,9 @@ impl PyPenumbraEvent {
     }
 
     /// Mark this event as terminal (stops propagation).
+    ///
+    /// Returns:
+    ///     PenumbraEvent: Self for method chaining
     fn set_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
         if let Some(event) = slf.event.take() {
             slf.event = Some(event.set_terminal());
@@ -3271,6 +3511,12 @@ impl PyEclipseEvent {
     }
 
     /// Set instance number for display name.
+    ///
+    /// Args:
+    ///     instance (int): Instance number appended to the event name
+    ///
+    /// Returns:
+    ///     EclipseEvent: Self for method chaining
     fn with_instance(mut slf: PyRefMut<'_, Self>, instance: usize) -> Self {
         if let Some(event) = slf.event.take() {
             slf.event = Some(event.with_instance(instance));
@@ -3279,6 +3525,13 @@ impl PyEclipseEvent {
     }
 
     /// Set custom tolerances for event detection.
+    ///
+    /// Args:
+    ///     time_tol (float): Time tolerance in seconds (default: 1e-6)
+    ///     value_tol (float): Tolerance on the condition indicator, which is +1 when the condition holds and -1 otherwise (default: 1e-9)
+    ///
+    /// Returns:
+    ///     EclipseEvent: Self for method chaining
     fn with_tolerances(mut slf: PyRefMut<'_, Self>, time_tol: f64, value_tol: f64) -> Self {
         if let Some(event) = slf.event.take() {
             slf.event = Some(event.with_tolerances(time_tol, value_tol));
@@ -3287,6 +3540,9 @@ impl PyEclipseEvent {
     }
 
     /// Mark this event as terminal (stops propagation).
+    ///
+    /// Returns:
+    ///     EclipseEvent: Self for method chaining
     fn set_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
         if let Some(event) = slf.event.take() {
             slf.event = Some(event.set_terminal());
@@ -3336,6 +3592,12 @@ impl PySunlitEvent {
     }
 
     /// Set instance number for display name.
+    ///
+    /// Args:
+    ///     instance (int): Instance number appended to the event name
+    ///
+    /// Returns:
+    ///     SunlitEvent: Self for method chaining
     fn with_instance(mut slf: PyRefMut<'_, Self>, instance: usize) -> Self {
         if let Some(event) = slf.event.take() {
             slf.event = Some(event.with_instance(instance));
@@ -3344,6 +3606,13 @@ impl PySunlitEvent {
     }
 
     /// Set custom tolerances for event detection.
+    ///
+    /// Args:
+    ///     time_tol (float): Time tolerance in seconds (default: 1e-6)
+    ///     value_tol (float): Tolerance on the condition indicator, which is +1 when the condition holds and -1 otherwise (default: 1e-9)
+    ///
+    /// Returns:
+    ///     SunlitEvent: Self for method chaining
     fn with_tolerances(mut slf: PyRefMut<'_, Self>, time_tol: f64, value_tol: f64) -> Self {
         if let Some(event) = slf.event.take() {
             slf.event = Some(event.with_tolerances(time_tol, value_tol));
@@ -3352,6 +3621,9 @@ impl PySunlitEvent {
     }
 
     /// Mark this event as terminal (stops propagation).
+    ///
+    /// Returns:
+    ///     SunlitEvent: Self for method chaining
     fn set_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
         if let Some(event) = slf.event.take() {
             slf.event = Some(event.set_terminal());

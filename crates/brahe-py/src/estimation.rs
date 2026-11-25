@@ -1953,6 +1953,12 @@ fn py_diagonal_covariance<'py>(
 /// and ``name()``. Override ``jacobian()`` to provide an analytical Jacobian;
 /// return ``None`` to use automatic finite-difference computation.
 ///
+/// Args:
+///     _args (Any): Positional arguments, accepted and ignored so that subclasses
+///         can define their own constructor parameters.
+///     _kwargs (Any): Keyword arguments, accepted and ignored so that subclasses
+///         can define their own constructor parameters.
+///
 /// Example:
 ///     ```python
 ///     import brahe as bh

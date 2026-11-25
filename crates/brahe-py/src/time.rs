@@ -474,7 +474,7 @@ fn py_time_system_offset_for_datetime(
 /// - **Time system**: All constructors accept optional `time_system=` keyword argument (default: UTC)
 ///
 /// Args:
-///     *args: Variable positional arguments supporting:
+///     args (str | float | int | datetime.datetime | Epoch): Variable positional arguments supporting:
 ///         - (str): Date/time string (e.g., "2024-01-01 12:00:00.000 UTC" or "2024-01-01T12:00:00Z")
 ///         - (float/int): Julian Date or Modified Julian Date (auto-detected: < 1000000 is MJD, >= 1000000 is JD)
 ///         - (datetime): Python datetime object

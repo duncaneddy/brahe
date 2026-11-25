@@ -9,6 +9,7 @@ pub mod force_model_config;
 pub mod functions;
 pub mod keplerian_propagator;
 pub mod numerical_propagation_config;
+mod precomputed_inputs;
 pub mod sgp_propagator;
 mod tide_field;
 pub mod traits;

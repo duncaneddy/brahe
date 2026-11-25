@@ -216,11 +216,80 @@ def test_nrlmsise00config_from_switches_numpy():
 
 
 @pytest.mark.parametrize(
-    "bad", [[1] * 23, [1] * 9 + [2] + [1] * 14, [1] * 5 + [-1] + [1] * 18]
+    "bad",
+    [
+        [1] * 23,
+        [1] * 25,
+        [2] + [1] * 23,
+        [1] * 9 + [2] + [1] * 14,
+        [1] * 5 + [-1] + [1] * 18,
+        [1] * 23 + [3],
+        [1] * 8 + [2**40] + [1] * 15,
+    ],
 )
 def test_nrlmsise00config_from_switches_rejects(bad):
     with pytest.raises(ValueError):
         bh.NRLMSISE00Config.from_switches(bad)
+
+
+def test_nrlmsise00config_from_switches_rejects_floats():
+    with pytest.raises(TypeError):
+        bh.NRLMSISE00Config.from_switches(np.ones(24))
+
+
+FIELD_INDEX = [
+    ("f107_mean", 1),
+    ("time_independent", 2),
+    ("symmetrical_annual", 3),
+    ("symmetrical_semiannual", 4),
+    ("asymmetrical_annual", 5),
+    ("asymmetrical_semiannual", 6),
+    ("diurnal", 7),
+    ("semidiurnal", 8),
+    ("ap_mode", 9),
+    ("all_ut_longitude", 10),
+    ("longitudinal", 11),
+    ("ut_mixed_ut_longitude", 12),
+    ("mixed_ap_ut_longitude", 13),
+    ("terdiurnal", 14),
+    ("diffusive_equilibrium_departures", 15),
+    ("tinf_variations", 16),
+    ("tlb_variations", 17),
+    ("tn1_variations", 18),
+    ("s_variations", 19),
+    ("tn2_variations", 20),
+    ("nlb_variations", 21),
+    ("tn3_variations", 22),
+    ("turbopause_scale_height_variations", 23),
+]
+
+
+@pytest.mark.parametrize("name,idx", FIELD_INDEX)
+def test_nrlmsise00config_field_maps_to_switch_index(name, idx):
+    if name == "ap_mode":
+        value, expected = bh.NRLMSISE00ApMode.DAILY, 1
+    else:
+        value, expected = bh.NRLMSISE00Switch.OFF, 0
+
+    cfg = bh.NRLMSISE00Config(**{name: value})
+    switches = cfg.to_switches()
+    assert switches[idx] == expected
+    assert getattr(cfg, name) == value
+    assert all(
+        v == bh.NRLMSISE00Config().to_switches()[i]
+        for i, v in enumerate(switches)
+        if i != idx
+    )
+
+    via_setter = bh.NRLMSISE00Config()
+    setattr(via_setter, name, value)
+    assert via_setter == cfg
+
+
+def test_nrlmsise00config_constructor_signature_lists_keywords():
+    sig = str(bh.NRLMSISE00Config.__text_signature__)
+    for name, _ in FIELD_INDEX:
+        assert name in sig
 
 
 def test_nrlmsise00config_wrong_enum_type():
@@ -266,3 +335,24 @@ def test_density_nrlmsise00_config_matches_geod(eop, sw_test):
     assert rho_daily != pytest.approx(
         bh.density_nrlmsise00(epc, x_ecef), rel=1e-6, abs=0.0
     )
+
+
+def test_density_nrlmsise00_all_switches_off_is_finite(eop, sw_test):
+    epc = bh.Epoch.from_datetime(2024, 5, 10, 21, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    kwargs = {
+        name: (
+            bh.NRLMSISE00ApMode.OFF if name == "ap_mode" else bh.NRLMSISE00Switch.OFF
+        )
+        for name, _ in FIELD_INDEX
+    }
+    cfg = bh.NRLMSISE00Config(**kwargs)
+    rho = bh.density_nrlmsise00_geod(epc, np.array([-74.0, 40.7, 400e3]), cfg)
+    assert np.isfinite(rho) and rho > 0.0
+
+
+def test_density_nrlmsise00_geod_at_zn3_boundary_is_finite(eop, sw_test):
+    epc = bh.Epoch.from_datetime(2024, 5, 10, 21, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    rho = bh.density_nrlmsise00_geod(epc, np.array([-74.0, 40.7, 32500.0]))
+    below = bh.density_nrlmsise00_geod(epc, np.array([-74.0, 40.7, 32499.9]))
+    assert np.isfinite(rho) and rho > 0.0
+    assert abs(rho - below) / below < 1e-3

@@ -102,8 +102,47 @@ pub fn par_propagate_to_s<P: SStatePropagator + Send>(
 ///
 /// # Returns
 ///
-/// `Ok(())` once every propagator reaches the target epoch, or the first error
-/// raised while building the shared precomputed inputs or propagating.
+/// `Ok(())` once every propagator has been propagated toward the target epoch,
+/// or the first error raised while building the shared precomputed inputs or
+/// propagating. A propagator stopped by a terminal event remains at the epoch
+/// where it stopped; every other propagator reaches the target epoch.
+///
+/// # Examples
+///
+/// ```rust
+/// use brahe::eop::{StaticEOPProvider, set_global_eop_provider};
+/// use brahe::propagators::{
+///     DNumericalOrbitPropagator, ForceModelConfig, PrecomputeConfig, par_propagate_to_d,
+/// };
+/// use brahe::time::{Epoch, TimeSystem};
+/// use brahe::traits::DStatePropagator;
+/// use brahe::constants::R_EARTH;
+/// use nalgebra::DVector;
+///
+/// set_global_eop_provider(StaticEOPProvider::from_zero());
+///
+/// let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let force_config = ForceModelConfig {
+///     precompute: Some(PrecomputeConfig::default()),
+///     ..ForceModelConfig::earth_gravity()
+/// };
+/// let mut propagators: Vec<DNumericalOrbitPropagator> = [500e3, 600e3, 700e3]
+///     .iter()
+///     .map(|altitude| {
+///         let state = DVector::from_vec(vec![R_EARTH + altitude, 0.0, 0.0, 0.0, 7500.0, 0.0]);
+///         DNumericalOrbitPropagator::builder(epoch, state, force_config.clone())
+///             .build()
+///             .unwrap()
+///     })
+///     .collect();
+///
+/// // The three propagators share one set of precomputed tables.
+/// let target = epoch + 3600.0;
+/// par_propagate_to_d(&mut propagators, target).unwrap();
+/// for prop in &propagators {
+///     assert_eq!(prop.current_epoch(), target);
+/// }
+/// ```
 pub fn par_propagate_to_d<P: DStatePropagator + Send>(
     propagators: &mut [P],
     target_epoch: Epoch,
@@ -230,8 +269,9 @@ pub fn share_precomputed_inputs<'a, P: DStatePropagator + 'a>(
 mod tests {
     use super::*;
     use crate::constants::AngleFormat;
+    use crate::events::DTimeEvent;
     use crate::integrators::IntegratorConfig;
-    use crate::propagators::{IntegratorMethod, PrecomputeConfig, PrecomputedInputs};
+    use crate::propagators::{IntegratorMethod, PrecomputeConfig};
     use crate::propagators::{KeplerianPropagator, SGPPropagator};
     use crate::time::Epoch;
     use crate::time::TimeSystem;
@@ -240,7 +280,6 @@ mod tests {
     use crate::{R_EARTH, state_koe_to_eci};
     use nalgebra as na;
     use serial_test::{parallel, serial};
-    use std::sync::Arc;
 
     #[test]
     #[parallel]
@@ -896,7 +935,7 @@ mod tests {
 
     #[test]
     #[parallel]
-    fn test_attach_precomputed_clears_caches() {
+    fn test_attach_precomputed_mid_propagation_matches_unattached() {
         setup_global_test_eop();
         let t0 = precompute_epoch();
         let mut attached = precompute_prop(t0, rotation_step(600.0));
@@ -966,6 +1005,48 @@ mod tests {
             assert_eq!(par.current_epoch(), target);
             assert_eq!(ser.current_epoch(), target);
             assert_eq!(par.current_state(), ser.current_state());
+        }
+    }
+
+    #[test]
+    #[parallel]
+    fn test_par_propagate_to_d_terminated_propagator_not_shared() {
+        setup_global_test_eop();
+        let t0 = precompute_epoch();
+        let target = t0 + 7200.0;
+
+        let mut stopped = precompute_prop(t0, rotation_step(600.0));
+        stopped.add_event_detector(Box::new(DTimeEvent::new(t0 + 600.0, "Stop").set_terminal()));
+        stopped.propagate_to(t0 + 1200.0).unwrap();
+        assert!(stopped.is_terminated());
+        assert!(stopped.precompute_key().is_none());
+        let stopped_epoch = stopped.current_epoch();
+        let stopped_inputs = stopped.precomputed_inputs().unwrap();
+        let stopped_nodes = stopped.precomputed_nodes_computed();
+
+        let mut props = vec![
+            stopped,
+            precompute_prop(t0 + 3600.0, rotation_step(600.0)),
+            precompute_prop(t0 + 3600.0, rotation_step(600.0)),
+        ];
+        par_propagate_to_d(&mut props, target).unwrap();
+
+        assert_eq!(props[0].current_epoch(), stopped_epoch);
+        assert!(Arc::ptr_eq(
+            &props[0].precomputed_inputs().unwrap(),
+            &stopped_inputs
+        ));
+        assert_eq!(props[0].precomputed_nodes_computed(), stopped_nodes);
+
+        let shared = props[1].precomputed_inputs().unwrap();
+        assert!(Arc::ptr_eq(
+            &props[2].precomputed_inputs().unwrap(),
+            &shared
+        ));
+        assert!(shared.covers_span(t0 + 3600.0, target));
+        assert!(!shared.covers(stopped_epoch));
+        for prop in &props[1..] {
+            assert_eq!(prop.current_epoch(), target);
         }
     }
 }

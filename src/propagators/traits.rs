@@ -390,8 +390,10 @@ pub trait DStatePropagator {
     /// Identity of the precomputed force-model inputs this propagator uses.
     ///
     /// Propagators returning equal keys can share one [`PrecomputedInputs`]
-    /// bundle through [`attach_precomputed`](Self::attach_precomputed). The
-    /// default implementation returns `None`.
+    /// bundle through [`attach_precomputed`](Self::attach_precomputed). A
+    /// propagator that will not propagate further, such as one stopped by a
+    /// terminal event, returns `None`. The default implementation returns
+    /// `None`.
     ///
     /// # Returns
     /// `Some(key)` when the propagator uses precomputed inputs, `None` otherwise.
@@ -445,8 +447,7 @@ pub trait DStatePropagator {
     /// # Returns
     /// `Ok(())` when the bundle is attached or ignored, or an error when the
     /// propagator cannot use the bundle.
-    fn attach_precomputed(&mut self, inputs: Arc<PrecomputedInputs>) -> Result<(), BraheError> {
-        let _ = inputs;
+    fn attach_precomputed(&mut self, _inputs: Arc<PrecomputedInputs>) -> Result<(), BraheError> {
         Ok(())
     }
 }

@@ -3282,7 +3282,22 @@ impl DNumericalOrbitPropagator {
 // =============================================================================
 
 impl super::traits::DStatePropagator for DNumericalOrbitPropagator {
+    /// Identity of the precomputed force-model inputs this propagator uses.
+    ///
+    /// A propagator stopped by a terminal event does not propagate further, so
+    /// it returns `None` until its termination is reset. Grouping by key (see
+    /// [`share_precomputed_inputs`](crate::propagators::share_precomputed_inputs))
+    /// then neither widens a shared span to its epoch nor attaches a shared
+    /// bundle to it.
+    ///
+    /// # Returns
+    ///
+    /// `Some(key)` when the force model uses precomputed inputs and the
+    /// propagator is not terminated, `None` otherwise.
     fn precompute_key(&self) -> Option<PrecomputeKey> {
+        if self.terminated {
+            return None;
+        }
         self.precomputed
             .as_ref()
             .map(|handle| handle.lock().unwrap().key().clone())

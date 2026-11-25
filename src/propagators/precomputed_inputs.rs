@@ -774,16 +774,23 @@ impl EphemerisTable {
 /// let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
 /// let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0]);
 ///
-/// // An Earth central body with the full Earth rotation model uses the
-/// // frame-rotation table.
-/// let force_config = ForceModelConfig {
-///     precompute: Some(PrecomputeConfig::default()),
-///     ..ForceModelConfig::earth_gravity()
+/// let build = |frame_rotation_step: f64| {
+///     let force_config = ForceModelConfig {
+///         precompute: Some(PrecomputeConfig {
+///             frame_rotation_step: Some(frame_rotation_step),
+///             ..PrecomputeConfig::default()
+///         }),
+///         ..ForceModelConfig::earth_gravity()
+///     };
+///     DNumericalOrbitPropagator::builder(epoch, state.clone(), force_config)
+///         .build()
+///         .unwrap()
 /// };
-/// let prop = DNumericalOrbitPropagator::builder(epoch, state, force_config)
-///     .build()
-///     .unwrap();
-/// assert_eq!(prop.current_epoch(), epoch);
+///
+/// // Equal table steps give equal keys; a different step gives a different key.
+/// let key = build(600.0).precompute_key().unwrap();
+/// assert_eq!(build(600.0).precompute_key(), Some(key.clone()));
+/// assert_ne!(build(300.0).precompute_key(), Some(key));
 /// ```
 #[derive(Debug, Clone, PartialEq)]
 pub struct PrecomputeKey {

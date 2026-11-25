@@ -1,3 +1,4 @@
+use brahe::earth_models::NRLMSISE00Config;
 use brahe::AngleFormat;
 use brahe::coordinates::state_koe_to_eci;
 use brahe::integrators::IntegratorConfig;
@@ -389,7 +390,7 @@ fn force_config_from_params(p: &Rk4ForceParams) -> ForceModelConfig {
 
     let drag = if p.drag {
         Some(DragConfiguration {
-            model: AtmosphericModel::NRLMSISE00,
+            model: AtmosphericModel::NRLMSISE00(NRLMSISE00Config::default()),
             area: ParameterSource::ParameterIndex(1),
             cd: ParameterSource::ParameterIndex(2),
         })

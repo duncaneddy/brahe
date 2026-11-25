@@ -20,6 +20,7 @@ use crate::constants::{
     GM_URANUS, GM_URANUS_SYSTEM, GM_VENUS, R_EARTH, R_MARS, R_MOON,
 };
 use crate::datasets::icgem::ICGEMBody;
+use crate::earth_models::NRLMSISE00Config;
 use crate::orbit_dynamics::ParallelMode;
 use crate::orbit_dynamics::gravity::{GravityModel, GravityModelTideSystem, GravityModelType};
 use crate::orbit_dynamics::tides::SolidTideConfig;
@@ -192,7 +193,7 @@ impl Default for ForceModelConfig {
                 parallel: ParallelMode::Auto,
             },
             drag: Some(DragConfiguration {
-                model: AtmosphericModel::NRLMSISE00,
+                model: AtmosphericModel::NRLMSISE00(NRLMSISE00Config::default()),
                 area: ParameterSource::ParameterIndex(1),
                 cd: ParameterSource::ParameterIndex(2),
                 body: None,
@@ -369,7 +370,7 @@ impl ForceModelConfig {
 
         // Check if NRLMSISE-00 atmospheric model is configured but space weather is not initialized
         if let Some(drag_config) = &self.drag
-            && matches!(drag_config.model, AtmosphericModel::NRLMSISE00)
+            && matches!(drag_config.model, AtmosphericModel::NRLMSISE00(_))
             && !crate::space_weather::get_global_sw_initialization()
         {
             return Err(crate::utils::errors::BraheError::Error(
@@ -413,7 +414,7 @@ impl ForceModelConfig {
                 parallel: ParallelMode::Auto,
             },
             drag: Some(DragConfiguration {
-                model: AtmosphericModel::NRLMSISE00,
+                model: AtmosphericModel::NRLMSISE00(NRLMSISE00Config::default()),
                 area: ParameterSource::ParameterIndex(1),
                 cd: ParameterSource::ParameterIndex(2),
                 body: None,
@@ -530,7 +531,7 @@ impl ForceModelConfig {
                 parallel: ParallelMode::Auto,
             },
             drag: Some(DragConfiguration {
-                model: AtmosphericModel::NRLMSISE00,
+                model: AtmosphericModel::NRLMSISE00(NRLMSISE00Config::default()),
                 area: ParameterSource::ParameterIndex(1),
                 cd: ParameterSource::ParameterIndex(2),
                 body: None,
@@ -1043,7 +1044,7 @@ impl ForceModelConfig {
                         )));
                     }
                 }
-                AtmosphericModel::NRLMSISE00 => {
+                AtmosphericModel::NRLMSISE00(_) => {
                     if !matches!(attributed, CentralBody::Earth) {
                         return Err(BraheError::Error(format!(
                             "AtmosphericModel::NRLMSISE00 models Earth's atmosphere and \
@@ -1459,8 +1460,10 @@ pub enum AtmosphericModel {
     ///
     /// Naval Research Laboratory Mass Spectrometer and Incoherent Scatter Radar
     /// Exosphere model. High-fidelity model requiring space weather data (F10.7, Ap).
-    /// Valid from ground to thermospheric heights.
-    NRLMSISE00,
+    /// Valid from ground to thermospheric heights. The carried
+    /// [`NRLMSISE00Config`] selects the model switches and the Ap input mode;
+    /// `NRLMSISE00Config::default()` enables every switch with 3-hourly Ap.
+    NRLMSISE00(NRLMSISE00Config),
 
     /// Simple exponential atmosphere model
     ///
@@ -2122,7 +2125,35 @@ impl DefaultParameterLayout {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::earth_models::{NRLMSISE00ApMode, NRLMSISE00Switch};
     use serial_test::{parallel, serial};
+
+    #[test]
+    #[parallel]
+    fn test_atmosphericmodel_nrlmsise00_serde_roundtrip() {
+        let m = AtmosphericModel::NRLMSISE00(NRLMSISE00Config {
+            ap_mode: NRLMSISE00ApMode::Daily,
+            diurnal: NRLMSISE00Switch::Off,
+            ..Default::default()
+        });
+        let back: AtmosphericModel =
+            serde_json::from_str(&serde_json::to_string(&m).unwrap()).unwrap();
+        assert_eq!(back, m);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_forcemodelconfig_presets_use_default_nrlmsise00_config() {
+        let expected = AtmosphericModel::NRLMSISE00(NRLMSISE00Config::default());
+        assert_eq!(
+            ForceModelConfig::leo_default().drag.unwrap().model,
+            expected
+        );
+        assert_eq!(
+            ForceModelConfig::high_fidelity().drag.unwrap().model,
+            expected
+        );
+    }
 
     #[test]
     #[parallel]
@@ -2200,7 +2231,7 @@ mod tests {
 
         // Check NRLMSISE-00
         let drag = config.drag.unwrap();
-        assert!(matches!(drag.model, AtmosphericModel::NRLMSISE00));
+        assert!(matches!(drag.model, AtmosphericModel::NRLMSISE00(_)));
 
         // Check DE440s
         let tb = config.third_body.unwrap();
@@ -2703,7 +2734,7 @@ mod tests {
             tides: None,
             central_body: CentralBody::Mars,
             drag: Some(DragConfiguration {
-                model: AtmosphericModel::NRLMSISE00,
+                model: AtmosphericModel::NRLMSISE00(NRLMSISE00Config::default()),
                 area: ParameterSource::ParameterIndex(1),
                 cd: ParameterSource::ParameterIndex(2),
                 body: None,
@@ -3148,7 +3179,7 @@ mod tests {
         let mut config = ForceModelConfig::cislunar_default();
         config.mass = Some(ParameterSource::Value(1000.0));
         config.drag = Some(DragConfiguration {
-            model: AtmosphericModel::NRLMSISE00,
+            model: AtmosphericModel::NRLMSISE00(NRLMSISE00Config::default()),
             area: ParameterSource::Value(10.0),
             cd: ParameterSource::Value(2.2),
             body: Some(CentralBody::Earth),

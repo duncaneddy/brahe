@@ -15,7 +15,7 @@ fn main() {
     // - More computationally expensive than Harris-Priester
 
     let _drag_config = bh::DragConfiguration {
-        model: bh::AtmosphericModel::NRLMSISE00,
+        model: bh::AtmosphericModel::NRLMSISE00(bh::NRLMSISE00Config::default()),
         area: bh::ParameterSource::ParameterIndex(1), // drag_area from params[1]
         cd: bh::ParameterSource::ParameterIndex(2),   // Cd from params[2]
         body: None, // Drag about the central body

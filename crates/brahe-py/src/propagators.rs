@@ -4012,7 +4012,7 @@ impl PyAtmosphericModel {
     #[classattr]
     fn NRLMSISE00() -> Self {
         PyAtmosphericModel {
-            model: propagators::AtmosphericModel::NRLMSISE00,
+            model: propagators::AtmosphericModel::NRLMSISE00(brahe::earth_models::NRLMSISE00Config::default()),
         }
     }
 

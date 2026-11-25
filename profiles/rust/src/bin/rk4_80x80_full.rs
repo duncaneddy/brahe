@@ -5,6 +5,7 @@
 
 #![allow(missing_docs)]
 
+use brahe::earth_models::NRLMSISE00Config;
 use brahe::propagators::{
     AtmosphericModel, DNumericalOrbitPropagator, DragConfiguration, EclipseModel,
     EphemerisSource, ForceModelConfig, GravityConfiguration, GravityModelSource,
@@ -40,7 +41,7 @@ fn main() {
             parallel: brahe::orbit_dynamics::ParallelMode::Auto,
         },
         drag: Some(DragConfiguration {
-            model: AtmosphericModel::NRLMSISE00,
+            model: AtmosphericModel::NRLMSISE00(NRLMSISE00Config::default()),
             area: ParameterSource::ParameterIndex(1),
             cd: ParameterSource::ParameterIndex(2),
         }),

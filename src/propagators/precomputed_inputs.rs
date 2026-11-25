@@ -23,6 +23,9 @@ pub(crate) fn grid_anchor() -> Epoch {
     Epoch::from_jd(2451545.0, TimeSystem::TT)
 }
 
+/// Tolerance, in grid steps, within which an epoch offset snaps to the nearest node.
+const NODE_SNAP_TOLERANCE: f64 = 1e-9;
+
 /// Inclusive range of grid node indices on a uniform step.
 ///
 /// The range is empty when `k_min > k_max`.
@@ -82,9 +85,15 @@ impl NodeRange {
     /// - `epoch`: Epoch to locate
     ///
     /// # Returns
-    /// - `(i64, f64)`: Index `k = floor(x)` and fraction `s = x - k` in `[0, 1)`
+    /// - `(i64, f64)`: Index `k = floor(x)` and fraction `s = x - k` in `[0, 1)`, where `x` is
+    ///   the epoch offset from the grid anchor in steps, snapped to the nearest integer when
+    ///   within `1e-9` steps so node epochs return `s = 0` exactly
     pub(crate) fn locate(step: f64, epoch: Epoch) -> (i64, f64) {
-        let x = (epoch - grid_anchor()) / step;
+        let mut x = (epoch - grid_anchor()) / step;
+        let nearest = x.round();
+        if (x - nearest).abs() <= NODE_SNAP_TOLERANCE {
+            x = nearest;
+        }
         let k = x.floor();
         (k as i64, x - k)
     }
@@ -160,8 +169,10 @@ impl FrameRotationTable {
 
     /// Extend the table to cover `need`, computing only missing nodes.
     ///
-    /// Missing nodes are appended or prepended in place. When `need` neither
-    /// overlaps nor adjoins the current coverage, the contents are replaced.
+    /// Missing nodes are appended or prepended in place. When `need` is disjoint
+    /// from the current coverage, the nodes in the gap are computed too and the
+    /// table stays contiguous, provided the gap is no longer than the current
+    /// coverage (both in nodes). A larger gap replaces the contents.
     ///
     /// # Arguments
     /// - `need`: Node range that must be held after the call
@@ -173,7 +184,8 @@ impl FrameRotationTable {
             self.replace(need);
             return;
         };
-        if need.k_min > cov.k_max + 1 || need.k_max < cov.k_min - 1 {
+        let len = self.nodes.len() as i64;
+        if need.k_min - cov.k_max - 1 > len || cov.k_min - need.k_max - 1 > len {
             self.replace(need);
             return;
         }
@@ -280,6 +292,55 @@ mod tests {
             t += 7.3;
         }
         assert!(max_err < 1e-11, "max error {max_err}");
+    }
+
+    #[test]
+    #[parallel]
+    fn test_NodeRange_locate_roundtrip() {
+        for step in [30.0, 60.0, 600.0, 3600.0] {
+            let range = NodeRange {
+                step,
+                k_min: 0,
+                k_max: 0,
+            };
+            for k in [-1_000_000, -12345, -1, 0, 1, 777, 12345, 1_000_000] {
+                assert_eq!(NodeRange::locate(step, range.epoch(k)), (k, 0.0));
+            }
+        }
+    }
+
+    #[test]
+    #[parallel]
+    fn test_FrameRotationTable_ensure_fills_small_gap() {
+        setup_global_test_eop();
+        let mut table = FrameRotationTable::new(600.0);
+        let base = NodeRange {
+            step: 600.0,
+            k_min: 40000,
+            k_max: 40002,
+        };
+        table.ensure(base);
+        assert_eq!(table.nodes_computed, 3);
+        let need = NodeRange {
+            step: 600.0,
+            k_min: base.k_max + 3,
+            k_max: base.k_max + 4,
+        };
+        table.ensure(need);
+        assert_eq!(table.nodes_computed, 3 + 2 + 2);
+        let cov = table.coverage().unwrap();
+        assert_eq!((cov.k_min, cov.k_max), (base.k_min, need.k_max));
+        let e = base.epoch(base.k_max) + 700.0;
+        assert!(table.rotation(e).is_some());
+
+        let below = NodeRange {
+            step: 600.0,
+            k_min: base.k_min - 5,
+            k_max: base.k_min - 4,
+        };
+        table.ensure(below);
+        let cov = table.coverage().unwrap();
+        assert_eq!((cov.k_min, cov.k_max), (below.k_min, need.k_max));
     }
 
     #[test]

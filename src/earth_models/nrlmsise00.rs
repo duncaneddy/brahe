@@ -30,6 +30,10 @@ use crate::space_weather::{
 use crate::time::{Epoch, TimeSystem};
 use crate::utils::errors::BraheError;
 
+/// Lower boundary of the NRLMSISE-00 thermosphere profile [km]. Below it the
+/// mesosphere and lower atmosphere profiles apply.
+const MESOSPHERE_LOWER_BOUNDARY_KM: f64 = 72.5;
+
 /// NRLMSISE-00 model flags for controlling model behavior.
 ///
 /// The flags structure contains switches that control various aspects of the
@@ -193,7 +197,9 @@ pub struct NRLMSISE00Config {
     pub mixed_ap_ut_longitude: NRLMSISE00Switch,
     /// Terdiurnal variation (switch 14).
     pub terdiurnal: NRLMSISE00Switch,
-    /// Departures from diffusive equilibrium (switch 15).
+    /// Departures from diffusive equilibrium (switch 15). Must be `On` to
+    /// evaluate densities below 72.5 km, where the lower-atmosphere profiles
+    /// are scaled by the mixed N2 density.
     pub diffusive_equilibrium_departures: NRLMSISE00Switch,
     /// All TINF variations (switch 16).
     pub tinf_variations: NRLMSISE00Switch,
@@ -2531,7 +2537,9 @@ pub fn gtd7d(input: &mut NrlmsiseInput, flags: &mut NrlmsiseFlags, output: &mut 
 ///
 /// # Returns
 ///
-/// * `Result<f64, BraheError>` - Atmospheric density in kg/m³
+/// * `Result<f64, BraheError>` - Atmospheric density in kg/m³. Errors when space
+///   weather data is unavailable for the epoch, or when the altitude is below
+///   72.5 km and `config.diffusive_equilibrium_departures` is not `On`
 ///
 /// # Notes
 ///
@@ -2578,6 +2586,19 @@ pub fn density_nrlmsise00_geod(
     let lon = geod[0]; // degrees
     let lat = geod[1]; // degrees
     let alt = geod[2] / 1000.0; // convert m to km
+
+    // Below the lower mesosphere boundary the model scales the mesosphere
+    // density profiles by the mixed N2 density from the thermosphere, which
+    // is only computed when switch 15 is fully on.
+    if alt < MESOSPHERE_LOWER_BOUNDARY_KM
+        && config.diffusive_equilibrium_departures != NRLMSISE00Switch::On
+    {
+        return Err(BraheError::Error(format!(
+            "NRLMSISE-00 requires diffusive_equilibrium_departures (switch 15) to be On \
+             below {MESOSPHERE_LOWER_BOUNDARY_KM} km altitude, got {:?} at {alt} km",
+            config.diffusive_equilibrium_departures
+        )));
+    }
 
     // Get MJD in UT1
     let mjd_ut1 = epoch.mjd_as_time_system(TimeSystem::UT1);
@@ -2649,7 +2670,9 @@ pub fn density_nrlmsise00_geod(
 ///
 /// # Returns
 ///
-/// * `Result<f64, BraheError>` - Atmospheric density in kg/m³
+/// * `Result<f64, BraheError>` - Atmospheric density in kg/m³. Errors when space
+///   weather data is unavailable for the epoch, or when the altitude is below
+///   72.5 km and `config.diffusive_equilibrium_departures` is not `On`
 ///
 /// # Notes
 ///
@@ -3369,6 +3392,41 @@ mod tests {
             turbopause_scale_height_variations: Off,
         };
         let rho = density_nrlmsise00_geod(&epc, &geod, &cfg).unwrap();
+        assert!(rho.is_finite() && rho > 0.0, "{rho}");
+    }
+
+    #[rstest]
+    #[case(NRLMSISE00Switch::Off)]
+    #[case(NRLMSISE00Switch::CrossTermsOnly)]
+    #[serial]
+    fn test_density_nrlmsise00_geod_below_mesosphere_requires_diffusive_switch(
+        #[case] setting: NRLMSISE00Switch,
+    ) {
+        let (epc, _) = reference_epoch_geod();
+        let cfg = NRLMSISE00Config {
+            diffusive_equilibrium_departures: setting,
+            ..Default::default()
+        };
+        let err = density_nrlmsise00_geod(&epc, &[-74.0, 40.7, 50e3], &cfg).unwrap_err();
+        assert!(err.to_string().contains("switch 15"), "{err}");
+
+        let x_ecef = crate::coordinates::position_geodetic_to_ecef(
+            nalgebra::Vector3::new(-74.0, 40.7, 50e3),
+            AngleFormat::Degrees,
+        )
+        .unwrap();
+        assert!(density_nrlmsise00(&epc, x_ecef, &cfg).is_err());
+
+        let rho_boundary = density_nrlmsise00_geod(&epc, &[-74.0, 40.7, 72.5e3], &cfg).unwrap();
+        assert!(rho_boundary.is_finite() && rho_boundary > 0.0);
+    }
+
+    #[test]
+    #[serial]
+    fn test_density_nrlmsise00_geod_below_mesosphere_with_diffusive_switch_on() {
+        let (epc, _) = reference_epoch_geod();
+        let rho = density_nrlmsise00_geod(&epc, &[-74.0, 40.7, 50e3], &NRLMSISE00Config::default())
+            .unwrap();
         assert!(rho.is_finite() && rho > 0.0, "{rho}");
     }
 

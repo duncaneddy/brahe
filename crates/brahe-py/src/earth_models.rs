@@ -211,7 +211,7 @@ impl From<brahe::earth_models::NRLMSISE00ApMode> for PyNRLMSISE00ApMode {
 ///     terdiurnal (NRLMSISE00Switch, optional): Terdiurnal variation (switch 14).
 ///         Defaults to ``NRLMSISE00Switch.ON``.
 ///     diffusive_equilibrium_departures (NRLMSISE00Switch, optional): Departures from diffusive equilibrium (switch 15).
-///         Defaults to ``NRLMSISE00Switch.ON``.
+///         Must be ``ON`` to evaluate densities below 72.5 km. Defaults to ``NRLMSISE00Switch.ON``.
 ///     tinf_variations (NRLMSISE00Switch, optional): All TINF variations (switch 16).
 ///         Defaults to ``NRLMSISE00Switch.ON``.
 ///     tlb_variations (NRLMSISE00Switch, optional): All TLB variations (switch 17).
@@ -565,7 +565,8 @@ impl PyNRLMSISE00Config {
         self.config.terdiurnal = value.into();
     }
 
-    /// Departures from diffusive equilibrium (switch 15).
+    /// Departures from diffusive equilibrium (switch 15). Must be ``ON`` to
+    /// evaluate densities below 72.5 km.
     ///
     /// Returns:
     ///     NRLMSISE00Switch: Setting of switch 15.
@@ -752,6 +753,11 @@ impl PyNRLMSISE00Config {
 /// Returns:
 ///     float: Atmospheric density. Units: (kg/m³)
 ///
+/// Raises:
+///     RuntimeError: If space weather data is unavailable for the epoch, or if the
+///         altitude is below 72.5 km and ``config.diffusive_equilibrium_departures``
+///         is not ``NRLMSISE00Switch.ON``.
+///
 /// Example:
 ///     ```python
 ///     import brahe as bh
@@ -809,6 +815,11 @@ fn py_density_nrlmsise00(
 ///
 /// Returns:
 ///     float: Atmospheric density. Units: (kg/m³)
+///
+/// Raises:
+///     RuntimeError: If space weather data is unavailable for the epoch, or if the
+///         altitude is below 72.5 km and ``config.diffusive_equilibrium_departures``
+///         is not ``NRLMSISE00Switch.ON``.
 ///
 /// Example:
 ///     ```python

@@ -374,3 +374,81 @@ def test_density_nrlmsise00_geod_at_zn3_boundary_is_finite(eop, sw_test):
     below = bh.density_nrlmsise00_geod(epc, np.array([-74.0, 40.7, 32499.9]))
     assert np.isfinite(rho) and rho > 0.0
     assert abs(rho - below) / below < 1e-3
+
+
+@pytest.mark.parametrize(
+    "setting", [bh.NRLMSISE00Switch.OFF, bh.NRLMSISE00Switch.CROSS_TERMS_ONLY]
+)
+def test_density_nrlmsise00_geod_below_mesosphere_requires_diffusive_switch(
+    eop, sw_test, setting
+):
+    """Mirrors test_density_nrlmsise00_geod_below_mesosphere_requires_diffusive_switch"""
+    epc = bh.Epoch.from_datetime(2024, 5, 10, 21, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    cfg = bh.NRLMSISE00Config(diffusive_equilibrium_departures=setting)
+    with pytest.raises(RuntimeError, match="switch 15"):
+        bh.density_nrlmsise00_geod(epc, np.array([-74.0, 40.7, 50e3]), cfg)
+    x_ecef = bh.position_geodetic_to_ecef(
+        np.array([-74.0, 40.7, 50e3]), bh.AngleFormat.DEGREES
+    )
+    with pytest.raises(RuntimeError, match="switch 15"):
+        bh.density_nrlmsise00(epc, x_ecef, cfg)
+    rho_boundary = bh.density_nrlmsise00_geod(epc, np.array([-74.0, 40.7, 72.5e3]), cfg)
+    assert np.isfinite(rho_boundary) and rho_boundary > 0.0
+
+
+def test_density_nrlmsise00_geod_below_mesosphere_with_diffusive_switch_on(
+    eop, sw_test
+):
+    """Mirrors test_density_nrlmsise00_geod_below_mesosphere_with_diffusive_switch_on"""
+    epc = bh.Epoch.from_datetime(2024, 5, 10, 21, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    rho = bh.density_nrlmsise00_geod(epc, np.array([-74.0, 40.7, 50e3]))
+    assert np.isfinite(rho) and rho > 0.0
+
+
+def _densities_at_two_local_times(cfg):
+    """Density at the same place at 12:00 and 18:00 UTC on one day.
+
+    Daily Ap and F10.7 are constant over the day, so with the universal-time
+    terms disabled the two evaluations differ only in local solar time.
+    """
+    geod = np.array([-74.0, 40.7, 400e3])
+    noon = bh.Epoch.from_datetime(2024, 5, 10, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    evening = bh.Epoch.from_datetime(2024, 5, 10, 18, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    return (
+        bh.density_nrlmsise00_geod(noon, geod, cfg),
+        bh.density_nrlmsise00_geod(evening, geod, cfg),
+    )
+
+
+UT_TERMS_OFF = {
+    "ap_mode": bh.NRLMSISE00ApMode.DAILY,
+    "all_ut_longitude": bh.NRLMSISE00Switch.OFF,
+    "ut_mixed_ut_longitude": bh.NRLMSISE00Switch.OFF,
+    "mixed_ap_ut_longitude": bh.NRLMSISE00Switch.OFF,
+}
+
+
+def test_density_nrlmsise00_local_time_terms_off_removes_lst_dependence(eop, sw_test):
+    """Mirrors test_gtd7_local_time_terms_off_removes_lst_dependence"""
+    cfg = bh.NRLMSISE00Config(
+        diurnal=bh.NRLMSISE00Switch.OFF,
+        semidiurnal=bh.NRLMSISE00Switch.OFF,
+        terdiurnal=bh.NRLMSISE00Switch.OFF,
+        **UT_TERMS_OFF,
+    )
+    noon, evening = _densities_at_two_local_times(cfg)
+    assert noon == pytest.approx(evening, rel=1e-12, abs=0.0)
+
+
+def test_density_nrlmsise00_diurnal_independent_of_asymmetrical_semiannual(
+    eop, sw_test
+):
+    """Mirrors test_gtd7_diurnal_independent_of_asymmetrical_semiannual"""
+    cfg = bh.NRLMSISE00Config(
+        asymmetrical_semiannual=bh.NRLMSISE00Switch.OFF,
+        semidiurnal=bh.NRLMSISE00Switch.OFF,
+        terdiurnal=bh.NRLMSISE00Switch.OFF,
+        **UT_TERMS_OFF,
+    )
+    noon, evening = _densities_at_two_local_times(cfg)
+    assert abs(noon - evening) / evening > 1e-3

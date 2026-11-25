@@ -2440,9 +2440,6 @@ mod tests {
     // Test data from Daniel Brodowski's C implementation
     // Reference: https://www.brodo.de/space/nrlmsise/
     fn get_test_cases() -> Vec<TestCase> {
-        // AP array for future testing (currently unused)
-        let _aph = [100.0; 7];
-
         vec![
             // Test case 1: Base case
             TestCase {
@@ -2819,10 +2816,56 @@ mod tests {
                     0.0000000e+00,
                 ],
             },
-            // Test case 16: AP array (100 km altitude) - NOT USED, for case 17
-            // Test case 17: 100 km with AP array
-            // Note: Cases 16 and 17 use ap_array but we'll skip 16 as the Julia test
-            // doesn't actually check case 16's output separately
+            // Test case 16: AP array, 400 km
+            TestCase {
+                doy: 172,
+                sec: 29000.0,
+                alt: 400.0,
+                g_lat: 60.0,
+                g_lon: -70.0,
+                lst: 16.0,
+                f107a: 150.0,
+                f107: 150.0,
+                ap: 4.0,
+                use_ap_array: true,
+                expected_t: [1426.412, 1408.608],
+                expected_d: [
+                    5.196477e+05,
+                    1.274494e+08,
+                    4.850450e+07,
+                    1.720838e+06,
+                    2.354487e+04,
+                    5.881940e-15,
+                    2.500078e+04,
+                    6.279210e+06,
+                    2.667273e+04,
+                ],
+            },
+            // Test case 17: AP array, 100 km
+            TestCase {
+                doy: 172,
+                sec: 29000.0,
+                alt: 100.0,
+                g_lat: 60.0,
+                g_lon: -70.0,
+                lst: 16.0,
+                f107a: 150.0,
+                f107: 150.0,
+                ap: 4.0,
+                use_ap_array: true,
+                expected_t: [1027.318, 193.4071],
+                expected_d: [
+                    4.260860e+07,
+                    1.241342e+11,
+                    4.929562e+12,
+                    1.048407e+12,
+                    4.993465e+10,
+                    2.914304e-10,
+                    8.831229e+06,
+                    2.252516e+05,
+                    2.415246e-42,
+                ],
+            },
         ]
     }
 
@@ -2853,6 +2896,10 @@ mod tests {
         input.f107a = case.f107a;
         input.f107 = case.f107;
         input.ap = case.ap;
+        if case.use_ap_array {
+            flags.switches[9] = -1;
+            input.ap_array = [100.0; 7];
+        }
 
         // Run model
         gtd7(&mut input, &mut flags, &mut output);
@@ -2893,6 +2940,8 @@ mod tests {
     #[case(12)]
     #[case(13)]
     #[case(14)]
+    #[case(15)]
+    #[case(16)]
     #[parallel]
     fn test_nrlmsise00_all_cases(#[case] case_idx: usize) {
         let cases = get_test_cases();
@@ -2919,6 +2968,10 @@ mod tests {
         input.f107a = case.f107a;
         input.f107 = case.f107;
         input.ap = case.ap;
+        if case.use_ap_array {
+            flags.switches[9] = -1;
+            input.ap_array = [100.0; 7];
+        }
 
         // Run model
         gtd7(&mut input, &mut flags, &mut output);

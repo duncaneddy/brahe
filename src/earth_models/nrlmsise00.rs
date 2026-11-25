@@ -1054,6 +1054,8 @@ fn glob7s(
     s2tloc: f64,
     s3tloc: f64,
     c3tloc: f64,
+    apdf: f64,
+    apt: &[f64; 4],
 ) -> f64 {
     // Working variables
     let mut t = [0.0; 14];
@@ -1110,6 +1112,13 @@ fn glob7s(
     }
 
     // Magnetic activity
+    if flags.sw[9] == 1.0 {
+        t[8] = apdf * (p[32] + p[45] * plg[0][2] * flags.swc[2]);
+    } else if flags.sw[9] == -1.0 {
+        t[8] = p[50] * apt[0] + p[96] * plg[0][2] * apt[0] * flags.swc[2];
+    }
+
+    // Longitudinal
     if !((flags.sw[10] == 0.0) || (flags.sw[11] == 0.0) || (input.g_lon <= -1000.0)) {
         t[10] = (1.0
             + plg[0][1]
@@ -1191,8 +1200,21 @@ pub fn gtd7(input: &mut NrlmsiseInput, flags: &mut NrlmsiseFlags, output: &mut N
     let tmp = input.alt;
     input.alt = altt;
 
-    let (dm28, tn1, tgn1, dfa, plg, ctloc, stloc, c2tloc, s2tloc, s3tloc, c3tloc) =
-        gts7(input, flags, output, gsurf, re);
+    let (
+        dm28,
+        tn1,
+        tgn1,
+        dfa,
+        plg,
+        ctloc,
+        stloc,
+        c2tloc,
+        s2tloc,
+        s3tloc,
+        c3tloc,
+        meso_apdf,
+        meso_apt,
+    ) = gts7(input, flags, output, gsurf, re);
     meso_tn1 = tn1;
     meso_tgn1 = tgn1;
 
@@ -1224,12 +1246,14 @@ pub fn gtd7(input: &mut NrlmsiseInput, flags: &mut NrlmsiseFlags, output: &mut N
             - flags.sw[20]
                 * glob7s(
                     &PMA[0], input, flags, dfa, &plg, ctloc, stloc, c2tloc, s2tloc, s3tloc, c3tloc,
+                    meso_apdf, &meso_apt,
                 ));
     meso_tn2[2] = PMA[1][0] * PAVGM[1]
         / (1.0
             - flags.sw[20]
                 * glob7s(
                     &PMA[1], input, flags, dfa, &plg, ctloc, stloc, c2tloc, s2tloc, s3tloc, c3tloc,
+                    meso_apdf, &meso_apt,
                 ));
     meso_tn2[3] = PMA[2][0] * PAVGM[2]
         / (1.0
@@ -1237,6 +1261,7 @@ pub fn gtd7(input: &mut NrlmsiseInput, flags: &mut NrlmsiseFlags, output: &mut N
                 * flags.sw[22]
                 * glob7s(
                     &PMA[2], input, flags, dfa, &plg, ctloc, stloc, c2tloc, s2tloc, s3tloc, c3tloc,
+                    meso_apdf, &meso_apt,
                 ));
     meso_tgn2[1] = PAVGM[8]
         * PMA[9][0]
@@ -1245,6 +1270,7 @@ pub fn gtd7(input: &mut NrlmsiseInput, flags: &mut NrlmsiseFlags, output: &mut N
                 * flags.sw[22]
                 * glob7s(
                     &PMA[9], input, flags, dfa, &plg, ctloc, stloc, c2tloc, s2tloc, s3tloc, c3tloc,
+                    meso_apdf, &meso_apt,
                 ))
         * meso_tn2[3]
         * meso_tn2[3]
@@ -1259,28 +1285,28 @@ pub fn gtd7(input: &mut NrlmsiseInput, flags: &mut NrlmsiseFlags, output: &mut N
                 - flags.sw[22]
                     * glob7s(
                         &PMA[3], input, flags, dfa, &plg, ctloc, stloc, c2tloc, s2tloc, s3tloc,
-                        c3tloc,
+                        c3tloc, meso_apdf, &meso_apt,
                     ));
         meso_tn3[2] = PMA[4][0] * PAVGM[4]
             / (1.0
                 - flags.sw[22]
                     * glob7s(
                         &PMA[4], input, flags, dfa, &plg, ctloc, stloc, c2tloc, s2tloc, s3tloc,
-                        c3tloc,
+                        c3tloc, meso_apdf, &meso_apt,
                     ));
         meso_tn3[3] = PMA[5][0] * PAVGM[5]
             / (1.0
                 - flags.sw[22]
                     * glob7s(
                         &PMA[5], input, flags, dfa, &plg, ctloc, stloc, c2tloc, s2tloc, s3tloc,
-                        c3tloc,
+                        c3tloc, meso_apdf, &meso_apt,
                     ));
         meso_tn3[4] = PMA[6][0] * PAVGM[6]
             / (1.0
                 - flags.sw[22]
                     * glob7s(
                         &PMA[6], input, flags, dfa, &plg, ctloc, stloc, c2tloc, s2tloc, s3tloc,
-                        c3tloc,
+                        c3tloc, meso_apdf, &meso_apt,
                     ));
         meso_tgn3[1] = PMA[7][0]
             * PAVGM[7]
@@ -1288,7 +1314,7 @@ pub fn gtd7(input: &mut NrlmsiseInput, flags: &mut NrlmsiseFlags, output: &mut N
                 + flags.sw[22]
                     * glob7s(
                         &PMA[7], input, flags, dfa, &plg, ctloc, stloc, c2tloc, s2tloc, s3tloc,
-                        c3tloc,
+                        c3tloc, meso_apdf, &meso_apt,
                     ))
             * meso_tn3[4]
             * meso_tn3[4]
@@ -1379,6 +1405,8 @@ fn gts7(
     f64,
     f64,
     f64,
+    f64,
+    [f64; 4],
 ) {
     let mn1 = 5;
     let mut zn1 = [120.0, 110.0, 100.0, 90.0, 72.5];
@@ -1398,30 +1426,26 @@ fn gts7(
     }
 
     // Tinf variations not important below za or zn1[0]
-    let (tinf, dfa, plg, ctloc, stloc, c2tloc, s2tloc, c3tloc, s3tloc, _apdf, _apt) =
-        if input.alt > zn1[0] {
-            let result = globe7(&PT, input, flags);
-            let tinf = PTM[0] * PT[0] * (1.0 + flags.sw[16] * result.0);
-            (
-                tinf, result.1, result.2, result.3, result.4, result.5, result.6, result.7,
-                result.8, result.9, result.10,
-            )
-        } else {
-            let result = globe7(&PT, input, flags);
-            (
-                PTM[0] * PT[0],
-                result.1,
-                result.2,
-                result.3,
-                result.4,
-                result.5,
-                result.6,
-                result.7,
-                result.8,
-                result.9,
-                result.10,
-            )
-        };
+    let (tinf, dfa, plg, ctloc, stloc, c2tloc, s2tloc, c3tloc, s3tloc) = if input.alt > zn1[0] {
+        let result = globe7(&PT, input, flags);
+        let tinf = PTM[0] * PT[0] * (1.0 + flags.sw[16] * result.0);
+        (
+            tinf, result.1, result.2, result.3, result.4, result.5, result.6, result.7, result.8,
+        )
+    } else {
+        let result = globe7(&PT, input, flags);
+        (
+            PTM[0] * PT[0],
+            result.1,
+            result.2,
+            result.3,
+            result.4,
+            result.5,
+            result.6,
+            result.7,
+            result.8,
+        )
+    };
     output.t[0] = tinf;
 
     // Gradient variations not important below zn1[4]
@@ -1434,6 +1458,9 @@ fn gts7(
 
     let result = globe7(&PD[3], input, flags);
     let tlb = PTM[1] * (1.0 + flags.sw[17] * result.0) * PD[3][0];
+    // Magnetic activity factors for the lower thermosphere temperature profile
+    // come from the PD[3] evaluation, the last globe7 call before glob7s.
+    let (apdf, apt) = (result.9, result.10);
     let s = g0_val / (tinf - tlb);
 
     // Lower thermosphere temp variations
@@ -1443,21 +1470,21 @@ fn gts7(
                 - flags.sw[18]
                     * glob7s(
                         &PTL[0], input, flags, dfa, &plg, ctloc, stloc, c2tloc, s2tloc, s3tloc,
-                        c3tloc,
+                        c3tloc, apdf, &apt,
                     ));
         meso_tn1[2] = PTM[2] * PTL[1][0]
             / (1.0
                 - flags.sw[18]
                     * glob7s(
                         &PTL[1], input, flags, dfa, &plg, ctloc, stloc, c2tloc, s2tloc, s3tloc,
-                        c3tloc,
+                        c3tloc, apdf, &apt,
                     ));
         meso_tn1[3] = PTM[7] * PTL[2][0]
             / (1.0
                 - flags.sw[18]
                     * glob7s(
                         &PTL[2], input, flags, dfa, &plg, ctloc, stloc, c2tloc, s2tloc, s3tloc,
-                        c3tloc,
+                        c3tloc, apdf, &apt,
                     ));
         meso_tn1[4] = PTM[4] * PTL[3][0]
             / (1.0
@@ -1465,7 +1492,7 @@ fn gts7(
                     * flags.sw[20]
                     * glob7s(
                         &PTL[3], input, flags, dfa, &plg, ctloc, stloc, c2tloc, s2tloc, s3tloc,
-                        c3tloc,
+                        c3tloc, apdf, &apt,
                     ));
         meso_tgn1[1] = PTM[8]
             * PMA[8][0]
@@ -1474,7 +1501,7 @@ fn gts7(
                     * flags.sw[20]
                     * glob7s(
                         &PMA[8], input, flags, dfa, &plg, ctloc, stloc, c2tloc, s2tloc, s3tloc,
-                        c3tloc,
+                        c3tloc, apdf, &apt,
                     ))
             * meso_tn1[4]
             * meso_tn1[4]
@@ -2018,6 +2045,10 @@ fn gts7(
     // Atomic Nitrogen density
     let result = globe7(&PD[7], input, flags);
     let g14 = flags.sw[21] * result.0;
+    // Three-hourly Ap factor for the mesosphere temperature profile in gtd7. The
+    // reference model defines apt only for parameter sets with p[51] != 0, and
+    // PD[8] has p[51] == 0, so PD[7] is the last globe7 call that supplies it.
+    let meso_apt = result.10;
 
     // Diffusive density at Zlb
     let db14 = PDM[6][0] * g14.exp() * PD[7][0];
@@ -2107,6 +2138,9 @@ fn gts7(
     // Anomalous Oxygen density
     let result = globe7(&PD[8], input, flags);
     let g16h = flags.sw[21] * result.0;
+    // Daily Ap factor for the mesosphere temperature profile in gtd7, from the
+    // last globe7 call.
+    let meso_apdf = result.9;
     let db16h = PDM[7][0] * g16h.exp() * PD[8][0];
     let tho = PDM[7][9] * PDL[0][6];
     let (tz, dd) = densu(
@@ -2172,6 +2206,7 @@ fn gts7(
 
     (
         dm28, meso_tn1, meso_tgn1, dfa, plg, ctloc, stloc, c2tloc, s2tloc, s3tloc, c3tloc,
+        meso_apdf, meso_apt,
     )
 }
 

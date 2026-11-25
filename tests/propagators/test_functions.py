@@ -13,14 +13,18 @@ from brahe import (
     Epoch,
     EventDirection,
     ForceModelConfig,
+    IntegrationMethod,
+    IntegratorConfig,
     KeplerianPropagator,
     NumericalOrbitPropagator,
     NumericalPropagationConfig,
     NumericalPropagator,
+    PrecomputeConfig,
     SGPPropagator,
     TimeEvent,
     TimeSystem,
     ValueEvent,
+    VariationalConfig,
     par_propagate_to,
     state_koe_to_eci,
 )
@@ -465,3 +469,33 @@ def test_par_propagate_to_numerical_orbit_with_events():
         assert f"OrbitEvent_{i}" in event_log[0].name, (
             f"Event name should contain OrbitEvent_{i}"
         )
+
+
+def _precompute_propagator(epoch):
+    oe = np.array([R_EARTH + 500e3, 0.001, 97.8, 15.0, 30.0, 45.0])
+    state = state_koe_to_eci(oe, AngleFormat.DEGREES)
+    force_config = ForceModelConfig.earth_gravity()
+    force_config.precompute = PrecomputeConfig(frame_rotation_step=600.0)
+    config = NumericalPropagationConfig(
+        IntegrationMethod.RK4,
+        IntegratorConfig.fixed_step(30.0),
+        VariationalConfig(),
+    )
+    return NumericalOrbitPropagator(epoch, state, config, force_config, None)
+
+
+def test_par_propagate_to_precompute_matches_serial():
+    """Shared precomputed inputs give the same states as serial propagation"""
+    t0 = Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem.UTC)
+    target = t0 + 43200.0
+    parallel_props = [_precompute_propagator(t0 + 3600.0 * i) for i in range(8)]
+    serial_props = [_precompute_propagator(t0 + 3600.0 * i) for i in range(8)]
+
+    par_propagate_to(parallel_props, target)
+    for prop in serial_props:
+        prop.propagate_to(target)
+
+    for par, ser in zip(parallel_props, serial_props):
+        assert par.current_epoch() == target
+        assert ser.current_epoch() == target
+        assert np.array_equal(par.current_state(), ser.current_state())

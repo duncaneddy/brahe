@@ -3744,6 +3744,13 @@ fn py_par_propagate_to(propagators: &Bound<'_, PyAny>, target_epoch: &PyEpoch) -
             borrow_guards.push(item.cast::<PyNumericalOrbitPropagator>()?.borrow_mut());
         }
 
+        // Build one set of precomputed tables per group of matching propagators
+        // before the parallel loop; propagators without precompute are skipped.
+        propagators::share_precomputed_inputs(
+            borrow_guards.iter_mut().map(|guard| &mut guard.propagator),
+            target_epoch.obj,
+        )?;
+
         // Create wrapped raw pointers from the borrow guards
         let prop_ptrs: Vec<SendPtr> = borrow_guards
             .iter_mut()

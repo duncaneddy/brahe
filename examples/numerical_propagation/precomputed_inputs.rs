@@ -60,7 +60,7 @@ fn main() {
     };
 
     let mut exact = build(exact_config);
-    let mut precomputed = build(precomputed_config);
+    let mut precomputed = build(precomputed_config.clone());
 
     exact.propagate_to(epoch + 86400.0).unwrap();
     precomputed.propagate_to(epoch + 86400.0).unwrap();
@@ -70,4 +70,20 @@ fn main() {
     println!("Position difference after one day: {:.2e} m", difference);
 
     assert!(difference < 1e-3);
+
+    // par_propagate_to_d builds one set of tables for propagators that share the same
+    // PrecomputeConfig and force-model settings, and shares it across all of them
+    let target = epoch + 86400.0;
+    let mut constellation: Vec<bh::DNumericalOrbitPropagator> = (0..4)
+        .map(|_| build(precomputed_config.clone()))
+        .collect();
+    bh::par_propagate_to_d(&mut constellation, target).unwrap();
+
+    for prop in &constellation {
+        assert_eq!(prop.current_epoch(), target);
+    }
+    println!(
+        "Propagated {} propagators with shared tables",
+        constellation.len()
+    );
 }

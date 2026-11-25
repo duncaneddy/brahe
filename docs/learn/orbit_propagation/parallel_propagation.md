@@ -65,6 +65,10 @@ The parallel function clones each propagator before propagation, then updates th
 
 For very large constellations (1000s of satellites), consider processing in batches and monitoring memory usage to avoid crashes from memory exhaustion.
 
+## Precomputed Inputs
+
+When numerical orbit propagators enable `precompute` in their `ForceModelConfig`, `par_propagate_to` builds one set of precomputed tables per group of propagators with the same `PrecomputeConfig` and force-model settings, covering the union of their time spans up to the target epoch. All propagators in the group share that set instead of each building its own. Propagators without `precompute` are propagated as before. See [Precomputed Inputs](numerical_propagation/force_models.md#precomputed-inputs) for the configuration and accuracy trade-offs.
+
 ## Error Handling
 
 If any propagator fails during parallel propagation, the function will panic (Rust) or raise an exception (Python). This can occur with SGP4 propagators when satellites decay below Earth's surface.

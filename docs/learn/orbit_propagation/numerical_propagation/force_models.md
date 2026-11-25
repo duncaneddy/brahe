@@ -441,7 +441,7 @@ For a 600 s step the interpolation error in the rotation is 0.1 microarcseconds.
 | 600 | 0.1 |
 | 3600 | 4.4 |
 
-The ephemeris table applies when `ephemeris_step` is set. It stores the position of every SPICE-backed query the dynamics function makes and interpolates each one linearly. Tabulated queries are third bodies whose source is DE440s, DE440, or an SPK kernel, the Sun and Moon positions of solid and ocean tides with a SPICE source, the Sun position and occulting bodies of solar radiation pressure for a non-Earth central body, and the position of an attributed drag body. Third-body perturbation is evaluated at the interpolated body position. The `LowPrecision` analytic Sun and Moon are not tabulated, so a force model that uses only `LowPrecision` sources gives results identical to a propagation without the table. Setting `ephemeris_step` to `None` disables the table.
+The ephemeris table applies when `ephemeris_step` is set. It stores the position of every SPICE-backed query the dynamics function makes and interpolates each one linearly. Tabulated queries are third bodies whose source is DE440s, DE440, or an SPK kernel; the Sun and Moon positions of solid and ocean tides with a SPICE source; the solar radiation pressure Sun position for a non-Earth central body; the position of each solar radiation pressure occulting body that is not co-located with the central body, such as the Moon for an Earth central body, when an eclipse model is set; and the state of an attributed drag body that differs from the central body. Third-body perturbation is evaluated at the interpolated body position. The `LowPrecision` analytic Sun and Moon are not tabulated, so a force model that uses only `LowPrecision` sources gives results identical to a propagation without the table. Setting `ephemeris_step` to `None` disables the table.
 
 The table below gives the interpolation error over one day, queried every 7.3 s.
 
@@ -479,10 +479,10 @@ The example below propagates a LEO orbit for one day with and without both table
         --8<-- "./docs/outputs/numerical_propagation/precomputed_inputs.rs.txt"
         ```
 
-`PrecomputeConfig` also carries `cache_space_weather`, which enables a per-propagator space-weather cache for NRLMSISE-00 drag. The cache is not yet active, and the setting has no effect.
+`PrecomputeConfig` also carries `cache_space_weather`, which enables a per-propagator space-weather cache for NRLMSISE-00 drag. The setting currently has no effect.
 
 !!! warning "Global data during propagation"
-    The frame-rotation table reads EOP data from the global provider when a node is built. Changing global data during a propagation is the caller's responsibility. When EOP data does not cover a node, the EOP provider's extrapolation setting decides the outcome, as it does without the option. A table can extend one step past the last epoch the integrator evaluates, because interpolation needs the node after it. With an EOP provider set to raise errors on extrapolation, a propagation that ends within one `frame_rotation_step` of the end of the EOP data can therefore reach the provider's error where the same propagation without the option would not.
+    The frame-rotation table reads EOP data from the global provider, and the ephemeris table reads the loaded SPICE kernels, when a node is built. Changing global data during a propagation is the caller's responsibility. Nodes are evaluated with the same functions a propagation without the option calls, so when EOP data or kernel coverage does not include a node, the EOP provider's extrapolation setting or the SPICE coverage error decides the outcome, as it does without the option. Nodes are built for the whole requested span before integrating, and a table extends up to one step past the last epoch the integrator evaluates, because interpolation needs the node after it. A propagation with the option can therefore return the provider's error where the same propagation without the option would not: with an EOP provider set to raise errors on extrapolation and EOP data that ends within one `frame_rotation_step` of the last evaluated epoch, with a SPICE kernel whose coverage ends within one `ephemeris_step` of it, or with either data source ending between the epoch where a terminal event stops integration and the requested target.
 
 ## Parameter Configuration
 

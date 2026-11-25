@@ -891,7 +891,6 @@ impl PrecomputedInputs {
     /// - `Option<[f64; 6]>`: The channel's interpolated values in the first
     ///   [`ChannelQuery::dim`] entries and zeros after them, or `None` when the key lists no
     ///   channel for `role` or the table does not bracket `epoch`
-    #[cfg_attr(not(test), expect(dead_code))]
     pub(crate) fn ephemeris(&self, role: &ChannelRole, epoch: Epoch) -> Option<[f64; 6]> {
         let (_, channels) = self.key.ephemeris.as_ref()?;
         let channel = channels.iter().position(|(r, _)| r == role)?;

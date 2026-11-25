@@ -27,10 +27,6 @@ use crate::spice::{
 };
 use crate::time::Epoch;
 use crate::utils::BraheError;
-use crate::{
-    GM_JUPITER, GM_JUPITER_SYSTEM, GM_MARS, GM_MARS_SYSTEM, GM_MERCURY, GM_MOON, GM_NEPTUNE,
-    GM_NEPTUNE_SYSTEM, GM_SATURN, GM_SATURN_SYSTEM, GM_SUN, GM_URANUS, GM_URANUS_SYSTEM, GM_VENUS,
-};
 
 fn de_kernel_from_source(source: EphemerisSource) -> SPICEKernel {
     SPICEKernel::try_from(source).expect("DE ephemeris source should map to a DE kernel")
@@ -49,7 +45,7 @@ fn de_kernel_from_source(source: EphemerisSource) -> SPICEKernel {
 ///
 /// * `Ok((Vector3<f64>, f64))` - Position of the body relative to Earth in
 ///   the GCRF frame (Units: [m]) and the body's gravitational parameter
-///   (Units: [m³/s²])
+///   [`ThirdBody::gm`] (Units: [m³/s²])
 /// * `Err(BraheError)` - If the body or source combination is unsupported or
 ///   the ephemeris kernel cannot be loaded or queried
 pub(crate) fn third_body_position_geocentric(
@@ -57,111 +53,70 @@ pub(crate) fn third_body_position_geocentric(
     source: EphemerisSource,
     epc: Epoch,
 ) -> Result<(Vector3<f64>, f64), BraheError> {
+    let gm = body.gm();
     let body = body.clone();
-    Ok(match (body, source) {
+    let r_body = match (body, source) {
         // Low-precision - Sun/Moon only
-        (ThirdBody::Sun, EphemerisSource::LowPrecision) => (sun_position(epc), GM_SUN),
-        (ThirdBody::Moon, EphemerisSource::LowPrecision) => (moon_position(epc), GM_MOON),
+        (ThirdBody::Sun, EphemerisSource::LowPrecision) => sun_position(epc),
+        (ThirdBody::Moon, EphemerisSource::LowPrecision) => moon_position(epc),
 
         // SPK-backed ephemerides - all bodies (shared code, differ only in kernel loaded)
         (
             ThirdBody::Sun,
             source @ (EphemerisSource::DE440s | EphemerisSource::DE440 | EphemerisSource::SPK(_)),
-        ) => (
-            sun_position_spice(epc, de_kernel_from_source(source))?,
-            GM_SUN,
-        ),
+        ) => sun_position_spice(epc, de_kernel_from_source(source))?,
         (
             ThirdBody::Moon,
             source @ (EphemerisSource::DE440s | EphemerisSource::DE440 | EphemerisSource::SPK(_)),
-        ) => (
-            moon_position_spice(epc, de_kernel_from_source(source))?,
-            GM_MOON,
-        ),
+        ) => moon_position_spice(epc, de_kernel_from_source(source))?,
         (
             ThirdBody::Mercury,
             source @ (EphemerisSource::DE440s | EphemerisSource::DE440 | EphemerisSource::SPK(_)),
-        ) => (
-            mercury_position_spice(epc, de_kernel_from_source(source))?,
-            GM_MERCURY,
-        ),
+        ) => mercury_position_spice(epc, de_kernel_from_source(source))?,
         (
             ThirdBody::Venus,
             source @ (EphemerisSource::DE440s | EphemerisSource::DE440 | EphemerisSource::SPK(_)),
-        ) => (
-            venus_position_spice(epc, de_kernel_from_source(source))?,
-            GM_VENUS,
-        ),
+        ) => venus_position_spice(epc, de_kernel_from_source(source))?,
         (
             ThirdBody::MarsBarycenter,
             source @ (EphemerisSource::DE440s | EphemerisSource::DE440 | EphemerisSource::SPK(_)),
-        ) => (
-            mars_barycenter_position_spice(epc, de_kernel_from_source(source))?,
-            GM_MARS_SYSTEM,
-        ),
+        ) => mars_barycenter_position_spice(epc, de_kernel_from_source(source))?,
         (
             ThirdBody::Mars,
             source @ (EphemerisSource::DE440s | EphemerisSource::DE440 | EphemerisSource::SPK(_)),
-        ) => (
-            mars_position_spice(epc, de_kernel_from_source(source))?,
-            GM_MARS,
-        ),
+        ) => mars_position_spice(epc, de_kernel_from_source(source))?,
         (
             ThirdBody::JupiterBarycenter,
             source @ (EphemerisSource::DE440s | EphemerisSource::DE440 | EphemerisSource::SPK(_)),
-        ) => (
-            jupiter_barycenter_position_spice(epc, de_kernel_from_source(source))?,
-            GM_JUPITER_SYSTEM,
-        ),
+        ) => jupiter_barycenter_position_spice(epc, de_kernel_from_source(source))?,
         (
             ThirdBody::Jupiter,
             source @ (EphemerisSource::DE440s | EphemerisSource::DE440 | EphemerisSource::SPK(_)),
-        ) => (
-            jupiter_position_spice(epc, de_kernel_from_source(source))?,
-            GM_JUPITER,
-        ),
+        ) => jupiter_position_spice(epc, de_kernel_from_source(source))?,
         (
             ThirdBody::SaturnBarycenter,
             source @ (EphemerisSource::DE440s | EphemerisSource::DE440 | EphemerisSource::SPK(_)),
-        ) => (
-            saturn_barycenter_position_spice(epc, de_kernel_from_source(source))?,
-            GM_SATURN_SYSTEM,
-        ),
+        ) => saturn_barycenter_position_spice(epc, de_kernel_from_source(source))?,
         (
             ThirdBody::Saturn,
             source @ (EphemerisSource::DE440s | EphemerisSource::DE440 | EphemerisSource::SPK(_)),
-        ) => (
-            saturn_position_spice(epc, de_kernel_from_source(source))?,
-            GM_SATURN,
-        ),
+        ) => saturn_position_spice(epc, de_kernel_from_source(source))?,
         (
             ThirdBody::UranusBarycenter,
             source @ (EphemerisSource::DE440s | EphemerisSource::DE440 | EphemerisSource::SPK(_)),
-        ) => (
-            uranus_barycenter_position_spice(epc, de_kernel_from_source(source))?,
-            GM_URANUS_SYSTEM,
-        ),
+        ) => uranus_barycenter_position_spice(epc, de_kernel_from_source(source))?,
         (
             ThirdBody::Uranus,
             source @ (EphemerisSource::DE440s | EphemerisSource::DE440 | EphemerisSource::SPK(_)),
-        ) => (
-            uranus_position_spice(epc, de_kernel_from_source(source))?,
-            GM_URANUS,
-        ),
+        ) => uranus_position_spice(epc, de_kernel_from_source(source))?,
         (
             ThirdBody::NeptuneBarycenter,
             source @ (EphemerisSource::DE440s | EphemerisSource::DE440 | EphemerisSource::SPK(_)),
-        ) => (
-            neptune_barycenter_position_spice(epc, de_kernel_from_source(source))?,
-            GM_NEPTUNE_SYSTEM,
-        ),
+        ) => neptune_barycenter_position_spice(epc, de_kernel_from_source(source))?,
         (
             ThirdBody::Neptune,
             source @ (EphemerisSource::DE440s | EphemerisSource::DE440 | EphemerisSource::SPK(_)),
-        ) => (
-            neptune_position_spice(epc, de_kernel_from_source(source))?,
-            GM_NEPTUNE,
-        ),
+        ) => neptune_position_spice(epc, de_kernel_from_source(source))?,
 
         // Invalid: bodies only supported through `accel_third_body_for_body`.
         // Earth, Phobos, Deimos, and Custom only make sense relative to a
@@ -190,7 +145,8 @@ pub(crate) fn third_body_position_geocentric(
                 body
             )));
         }
-    })
+    };
+    Ok((r_body, gm))
 }
 
 /// Unified third-body acceleration with source enumeration.
@@ -1116,7 +1072,7 @@ mod tests {
     use approx::assert_abs_diff_eq;
     use rstest::rstest;
 
-    use crate::TimeSystem;
+    use crate::{GM_JUPITER_SYSTEM, GM_MERCURY, GM_SUN, TimeSystem};
 
     use super::*;
 

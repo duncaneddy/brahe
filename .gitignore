@@ -58,7 +58,6 @@ docs/*/site/*
 docs/*/docs/figures/*
 docs/pages/index.md
 docs/site/*
-docs/about/benchmark-deviations/*
 
 # Development
 .DS_Store
@@ -85,13 +84,6 @@ brahe/_brahe.pyi
 # JOSS build byproducts
 joss/jats/
 
-# Comparative benchmarks - runtime output
-benchmarks/comparative/results/
-
-# Comparative benchmarks - build artifacts
-benchmarks/comparative/implementations/rust/target/
-benchmarks/comparative/implementations/java/.gradle/
-benchmarks/comparative/implementations/java/build/
 
 # Profiling artifacts (see profiles/README.md)
 profiles/results/*

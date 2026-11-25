@@ -53,9 +53,6 @@ plots = [
     "pyshp>=2.3.0",
     "scienceplots>=2.0.0",
 ]
-gpu-comparison = [
-    "psutil>=5.9",
-]
 all = [
       "brahe[plots]",
 ]

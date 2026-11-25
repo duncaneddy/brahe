@@ -28,8 +28,7 @@ pub const DEFAULT_ISS_TLE_LINE2: &str =
 /// Install the global EOP + space-weather providers brahe needs for any of
 /// the propagators that consume EOP/SW data.
 ///
-/// Mirrors `benchmarks/propagator_benchmarks.rs::setup_providers`. Safe to
-/// call more than once: `set_global_*_provider` overwrites the current
+/// Safe to call more than once: `set_global_*_provider` overwrites the current
 /// provider on each call, so the last installation wins.
 pub fn setup_providers() {
     let eop = FileEOPProvider::from_default_standard(true, EOPExtrapolation::Hold)

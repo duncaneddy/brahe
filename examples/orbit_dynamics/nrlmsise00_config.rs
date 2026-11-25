@@ -30,9 +30,11 @@ fn main() {
 
     // Build a configuration from a 24-element reference switch array.
     // Index 0 selects the reference implementation's unit system and is ignored;
-    // index 9 is the Ap mode (-1 selects the 3-hourly history).
+    // index 7 is the diurnal term (0 disables it); index 9 is the Ap mode
+    // (-1 selects the 3-hourly history).
     let mut switches = [1_i32; 24];
     switches[0] = 0;
+    switches[7] = 0;
     switches[9] = -1;
     let config_array = NRLMSISE00Config::from_switches(&switches).unwrap();
     let rho_array = bh::density_nrlmsise00_geod(&epoch, &geod, &config_array).unwrap();

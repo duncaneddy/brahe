@@ -26,8 +26,10 @@ print(f"Daily Ap:             {rho_daily:.6e} kg/m^3")
 
 # Build a configuration from a 24-element reference switch array.
 # Index 0 selects the reference implementation's unit system and is ignored;
-# index 9 is the Ap mode (-1 selects the 3-hourly history).
+# index 7 is the diurnal term (0 disables it); index 9 is the Ap mode
+# (-1 selects the 3-hourly history).
 switches = [0] + [1] * 23
+switches[7] = 0
 switches[9] = -1
 config_array = bh.NRLMSISE00Config.from_switches(switches)
 rho_array = bh.density_nrlmsise00_geod(epoch, geod, config_array)

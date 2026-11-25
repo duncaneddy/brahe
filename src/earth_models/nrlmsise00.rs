@@ -1554,7 +1554,7 @@ pub fn gtd7(input: &mut NrlmsiseInput, flags: &mut NrlmsiseFlags, output: &mut N
     meso_tn3[0] = meso_tn2[3];
 
     // Lower stratosphere and troposphere below zn3[0]
-    if input.alt < zn3[0] {
+    if input.alt <= zn3[0] {
         meso_tgn3[0] = meso_tgn2[1];
         meso_tn3[1] = PMA[3][0] * PAVGM[3]
             / (1.0
@@ -3182,6 +3182,7 @@ mod tests {
         input.f107a = case.f107a;
         input.f107 = case.f107;
         input.ap = case.ap;
+
         // Run model
         gtd7(&mut input, &mut flags, &mut output);
 
@@ -3369,6 +3370,41 @@ mod tests {
         };
         let rho = density_nrlmsise00_geod(&epc, &geod, &cfg).unwrap();
         assert!(rho.is_finite() && rho > 0.0, "{rho}");
+    }
+
+    #[test]
+    #[serial]
+    fn test_density_nrlmsise00_geod_at_zn3_boundary_is_finite() {
+        let (epc, _) = reference_epoch_geod();
+        let cfg = NRLMSISE00Config::default();
+        let rho = density_nrlmsise00_geod(&epc, &[-74.0, 40.7, 32500.0], &cfg).unwrap();
+        let below = density_nrlmsise00_geod(&epc, &[-74.0, 40.7, 32499.9], &cfg).unwrap();
+        assert!(rho.is_finite() && rho > 0.0, "{rho}");
+        assert!((rho - below).abs() / below < 1e-3, "{rho} vs {below}");
+    }
+
+    #[test]
+    #[parallel]
+    fn test_gtd7_at_zn3_boundary_is_finite() {
+        let mut input = NrlmsiseInput::new();
+        let mut flags = NrlmsiseFlags::new();
+        let mut output = NrlmsiseOutput::new();
+        flags.switches[0] = 0;
+        for i in 1..24 {
+            flags.switches[i] = 1;
+        }
+        input.doy = 172;
+        input.sec = 29000.0;
+        input.alt = 32.5;
+        input.g_lat = 60.0;
+        input.g_lon = -70.0;
+        input.lst = 16.0;
+        input.f107a = 150.0;
+        input.f107 = 150.0;
+        input.ap = 4.0;
+        gtd7(&mut input, &mut flags, &mut output);
+        assert!(output.d.iter().all(|v| v.is_finite()), "{:?}", output.d);
+        assert!(output.t.iter().all(|v| v.is_finite()), "{:?}", output.t);
     }
 
     #[test]

@@ -424,3 +424,192 @@ def test_generated_stub_frame_center_body(generated_stub):
     assert "from brahe.spice import NAIFId" in generated_stub
     assert "def body(self) -> NAIFId | int | None:" in generated_stub
     assert inspect.isclass(brahe.NAIFId)
+
+
+RUST_BINDINGS = textwrap.dedent(
+    """\
+    /// Indexed collection.
+    #[pyclass(module = "brahe._brahe")]
+    #[pyo3(name = "Items")]
+    pub struct PyItems {
+        parent: Py<PyAny>,
+    }
+
+    #[pyclass(name = "Entry")]
+    #[derive(Clone)]
+    pub struct PyEntry {}
+
+    #[pyclass(module = "brahe._brahe")]
+    pub struct Table {}
+
+    impl PyItems {
+        fn __contains__(&self, other: f64) -> bool {
+            false
+        }
+    }
+
+    #[pymethods]
+    impl PyItems {
+        fn __getitem__<'a>(&self, py: Python<'a>, index: isize) -> PyResult<PyEntry> {
+            Ok(PyEntry {})
+        }
+
+        fn __delitem__(&self, py: Python, index: isize) -> PyResult<()> {
+            Ok(())
+        }
+
+        fn __contains__(&self, item: &Bound<'_, PyAny>) -> PyResult<bool> {
+            Ok(false)
+        }
+    }
+
+    #[pymethods]
+    impl Table {
+        pub fn __getitem__(&self, key: String, py: Python) -> PyResult<f64> {
+            Ok(format!("{}", key).len() as f64)
+        }
+
+        fn __setitem__(&mut self, key: &str, value: f64) {}
+
+        fn __delitem__(&mut self, key: Selector) -> PyResult<()> {
+            Ok(())
+        }
+    }
+
+    #[pymethods]
+    impl PyEntry {
+        fn __getitem__(&self, index: Bound<'_, PySlice>) -> Vec<f64> {
+            vec![]
+        }
+
+        fn __contains__(&self, cell: (usize, usize)) -> bool {
+            true
+        }
+    }
+    """
+)
+
+
+def test_parse_rust_slot_signatures():
+    slots = stubs.parse_rust_slot_signatures([RUST_BINDINGS])
+    assert slots == {
+        "Items": {
+            "__getitem__": ([("index", "int")], "Entry"),
+            "__delitem__": ([("index", "int")], "None"),
+            "__contains__": ([("item", "Any")], "bool"),
+        },
+        "Table": {
+            "__getitem__": ([("key", "str")], "float"),
+            "__setitem__": ([("key", "str"), ("value", "float")], "None"),
+            "__delitem__": ([("key", "Any")], "None"),
+        },
+        "Entry": {
+            "__getitem__": ([("index", "slice")], "Any"),
+            "__contains__": ([("cell", "tuple[int, int]")], "bool"),
+        },
+    }
+
+
+class Items:
+    """Indexed collection."""
+
+    def __getitem__(self, index, /):
+        return index
+
+    def __setitem__(self, index, value, /):
+        raise NotImplementedError
+
+    def __delitem__(self, index, /):
+        pass
+
+    def __contains__(self, item, /):
+        return False
+
+
+class Mapping:
+    """Mapping without a Rust definition."""
+
+    def __getitem__(self, key, /):
+        return key
+
+
+def test_slot_methods_render_rust_types(monkeypatch):
+    monkeypatch.setattr(
+        stubs,
+        "rust_slot_signatures",
+        lambda: stubs.parse_rust_slot_signatures([RUST_BINDINGS]),
+    )
+    stub = _class_stub(Items)
+    assert "def __getitem__(self, index: int, /) -> Entry:" in stub
+    assert "def __delitem__(self, index: int, /) -> None:" in stub
+    assert "def __contains__(self, item: Any, /) -> bool:" in stub
+    assert "__setitem__" not in stub
+    assert "def __getitem__(self, key: str, /) -> Any:" in _class_stub(Mapping)
+
+
+class SensorFault(Exception):
+    """Sensor fault."""
+
+
+class AnnotatedFault(Exception):
+    """Fault that records notes."""
+
+    def add_note(self, note):
+        """Record a note.
+
+        Args:
+            note (str): Note text.
+        """
+        super().add_note(note)
+
+
+def test_class_stub_skips_builtin_inherited_members():
+    stub = _class_stub(SensorFault)
+    assert "add_note" not in stub
+    assert "with_traceback" not in stub
+    stub = _class_stub(AnnotatedFault)
+    assert "def add_note(self, note: str) -> Any:" in stub
+    assert "with_traceback" not in stub
+
+
+def _generated_class(stub, name):
+    tree = ast.parse(stub)
+    node = next(
+        node
+        for node in tree.body
+        if isinstance(node, ast.ClassDef) and node.name == name
+    )
+    return ast.get_source_segment(stub, node)
+
+
+def test_generated_stub_index_slots_take_int(generated_stub):
+    states = _generated_class(generated_stub, "OEMStates")
+    assert "def __getitem__(self, index: int, /) -> OEMStateVector:" in states
+    assert "def __delitem__(self, index: int, /) -> None:" in states
+    assert "__setitem__" not in states
+    rotation = _generated_class(generated_stub, "RotationMatrix")
+    assert "def __getitem__(self, index: tuple[int, int], /) -> float:" in rotation
+    trajectory = _generated_class(generated_stub, "Trajectory")
+    assert "def __getitem__(self, index: int, /) -> np.ndarray:" in trajectory
+
+
+def test_generated_stub_dict_slots_take_str(generated_stub):
+    properties = _generated_class(generated_stub, "PropertiesDict")
+    assert "def __getitem__(self, key: str, /) -> Any:" in properties
+    assert "def __setitem__(self, key: str, value: Any, /) -> None:" in properties
+    assert "def __delitem__(self, key: str, /) -> None:" in properties
+    assert "def __contains__(self, key: str, /) -> bool:" in properties
+
+
+def test_generated_stub_exceptions_omit_builtin_members(generated_stub):
+    tree = ast.parse(generated_stub)
+    exceptions = [
+        node
+        for node in tree.body
+        if isinstance(node, ast.ClassDef)
+        and issubclass(getattr(brahe._brahe, node.name), BaseException)
+    ]
+    assert {node.name for node in exceptions} >= {"BraheError", "PanicException"}
+    for node in exceptions:
+        methods = {item.name for item in node.body if isinstance(item, ast.FunctionDef)}
+        assert methods.isdisjoint({"add_note", "with_traceback"}), node.name

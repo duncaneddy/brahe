@@ -8,6 +8,7 @@ a complete .pyi stub file for IDE support and documentation with proper type ann
 
 import ast
 import builtins
+import functools
 import importlib.util
 import inspect
 import math
@@ -501,14 +502,245 @@ def member_kind(cls: type, name: str, member: Any) -> str:
     return "property"
 
 
-# Parameter lists for container-protocol methods whose docstrings document no
-# arguments.
+# Parameter lists for container-protocol methods of classes without a Rust
+# binding definition.
 DUNDER_PARAMS = {
-    "__setitem__": "self, key: str, value: Any",
-    "__getitem__": "self, key: str",
-    "__delitem__": "self, key: str",
-    "__contains__": "self, key: str",
+    "__setitem__": "self, key: str, value: Any, /",
+    "__getitem__": "self, key: str, /",
+    "__delitem__": "self, key: str, /",
+    "__contains__": "self, key: str, /",
 }
+
+RUST_BINDINGS_DIR = (
+    Path(__file__).resolve().parent.parent / "crates" / "brahe-py" / "src"
+)
+
+RUST_SCALAR_TYPES = {
+    "isize": "int",
+    "usize": "int",
+    "i8": "int",
+    "i16": "int",
+    "i32": "int",
+    "i64": "int",
+    "u8": "int",
+    "u16": "int",
+    "u32": "int",
+    "u64": "int",
+    "f32": "float",
+    "f64": "float",
+    "bool": "bool",
+    "String": "str",
+    "str": "str",
+}
+
+# Generic wrappers whose Python type is that of their last type argument.
+RUST_TRANSPARENT_WRAPPERS = {"PyResult", "Bound", "Borrowed", "Py", "PyRef", "PyRefMut"}
+
+# A pyclass attribute and the struct or enum it annotates. Any attributes
+# between them, such as ``#[pyo3(name = "...")]``, are captured.
+RUST_PYCLASS = re.compile(
+    r"#\[pyclass\b(?P<attrs>.*?)\b(?:struct|enum)\s+(?P<rust>\w+)", re.DOTALL
+)
+RUST_PYCLASS_NAME = re.compile(r"\bname\s*=\s*\"(\w+)\"")
+
+# Items that decide which type a slot method belongs to: a ``#[pymethods]``
+# impl header, any other impl header, and a slot method definition.
+RUST_ITEM = re.compile(
+    r"#\[pymethods\]\s*(?:#\[[^\]]*\]\s*)*impl\s*(?:<[^>]*>\s*)?(?P<pymethods>\w+)"
+    r"|^[ \t]*(?:unsafe\s+)?impl\b(?P<impl>)"
+    r"|\bfn\s+(?P<slot>__(?:getitem|setitem|delitem|contains)__)\b",
+    re.MULTILINE,
+)
+
+
+def split_rust_top_level(text: str) -> list:
+    """Split Rust source text on commas outside any brackets.
+
+    Args:
+        text (str): Comma-separated Rust parameters or type arguments.
+
+    Returns:
+        list: Stripped, non-empty parts.
+    """
+    parts, depth, start = [], 0, 0
+    for i, char in enumerate(text):
+        if char in "<([":
+            depth += 1
+        elif char in ">)]" and not (char == ">" and text[i - 1 : i] == "-"):
+            depth -= 1
+        elif char == "," and depth == 0:
+            parts.append(text[start:i].strip())
+            start = i + 1
+    parts.append(text[start:].strip())
+    return [part for part in parts if part]
+
+
+def rust_type_to_python(rust_type: str, class_names: dict) -> str:
+    """Map a Rust binding parameter or return type to a stub annotation.
+
+    Args:
+        rust_type (str): Rust type as written in the binding source.
+        class_names (dict): Rust pyclass type names mapped to Python class
+            names.
+
+    Returns:
+        str: The Python annotation, or ``Any`` when the type has no specific
+            Python equivalent.
+    """
+    text = re.sub(r"\s+", " ", rust_type).strip()
+    text = re.sub(r"^&\s*(?:'\w+\s+)?(?:mut\s+)?", "", text)
+    if text == "()":
+        return "None"
+    if text.startswith("(") and text.endswith(")"):
+        members = [
+            rust_type_to_python(member, class_names)
+            for member in split_rust_top_level(text[1:-1])
+        ]
+        if not members or "Any" in members:
+            return "Any"
+        return f"tuple[{', '.join(members)}]"
+    match = re.fullmatch(r"(?:\w+::)*(\w+)\s*(?:<(.*)>)?", text)
+    if match is None:
+        return "Any"
+    head, args = match.groups()
+    if args is None:
+        if head in RUST_SCALAR_TYPES:
+            return RUST_SCALAR_TYPES[head]
+        if head == "PySlice":
+            return "slice"
+        if head in class_names:
+            return class_names[head]
+    if head.startswith(("PyArray", "PyReadonlyArray")):
+        return "np.ndarray"
+    if head in RUST_TRANSPARENT_WRAPPERS and args is not None:
+        type_args = [
+            arg for arg in split_rust_top_level(args) if not arg.startswith("'")
+        ]
+        if type_args:
+            return rust_type_to_python(type_args[-1], class_names)
+    return "Any"
+
+
+def parse_rust_fn_signature(source: str, start: int) -> tuple[list, str]:
+    """Read the parameters and return type of a Rust function definition.
+
+    Args:
+        source (str): Rust source text.
+        start (int): Index just past the function name.
+
+    Returns:
+        tuple[list, str]: The ``(name, rust_type)`` pairs of the explicit
+            parameters, and the return type text (``()`` when omitted).
+    """
+    open_paren = source.index("(", start)
+    depth = 0
+    for i in range(open_paren, len(source)):
+        if source[i] == "(":
+            depth += 1
+        elif source[i] == ")":
+            depth -= 1
+            if depth == 0:
+                close_paren = i
+                break
+    params = []
+    for param in split_rust_top_level(source[open_paren + 1 : close_paren]):
+        match = re.fullmatch(r"(?:mut\s+)?(\w+)\s*:(?!:)\s*(.+)", param, re.DOTALL)
+        if match is None:
+            continue
+        name, rust_type = match.groups()
+        if re.search(r"\bSelf\b", rust_type):
+            continue
+        if re.fullmatch(r"(?:\w+::)*Python\s*(?:<[^>]*>)?", rust_type.strip()):
+            continue
+        params.append((name, rust_type))
+    tail = re.match(
+        r"\s*(?:->\s*(.*?))?\s*(?:\bwhere\b|\{)", source[close_paren + 1 :], re.DOTALL
+    )
+    return_type = tail.group(1) if tail and tail.group(1) else "()"
+    return params, return_type
+
+
+def parse_rust_slot_signatures(sources: list) -> dict:
+    """Extract container slot method signatures from Rust binding sources.
+
+    Each ``#[pymethods] impl`` block is attributed to the Python class name of
+    its type: the ``name`` given in ``#[pyclass(...)]`` or ``#[pyo3(...)]``,
+    otherwise the Rust type name. Receiver and ``Python`` token parameters are
+    omitted.
+
+    Args:
+        sources (list): Rust source texts, parsed together so that a pyclass
+            defined in one source resolves in another.
+
+    Returns:
+        dict: Python class names mapped to ``{slot_name: (params,
+            return_type)}``, where ``params`` lists ``(name, annotation)``
+            pairs.
+    """
+    sources = [re.sub(r"//[^\n]*", "", source) for source in sources]
+    class_names = {}
+    for source in sources:
+        for match in RUST_PYCLASS.finditer(source):
+            name = RUST_PYCLASS_NAME.search(match.group("attrs"))
+            rust = match.group("rust")
+            class_names[rust] = name.group(1) if name else rust
+
+    slots = {}
+    for source in sources:
+        current = None
+        for match in RUST_ITEM.finditer(source):
+            if match.group("pymethods") is not None:
+                current = match.group("pymethods")
+            elif match.group("impl") is not None:
+                current = None
+            elif current is not None:
+                params, return_type = parse_rust_fn_signature(source, match.end())
+                py_class = class_names.get(current, current)
+                slots.setdefault(py_class, {})[match.group("slot")] = (
+                    [
+                        (name, rust_type_to_python(rust_type, class_names))
+                        for name, rust_type in params
+                    ],
+                    rust_type_to_python(return_type, class_names),
+                )
+    return slots
+
+
+@functools.cache
+def rust_slot_signatures() -> dict:
+    """Return the container slot signatures defined in the Rust bindings."""
+    sources = [path.read_text() for path in sorted(RUST_BINDINGS_DIR.glob("*.rs"))]
+    return parse_rust_slot_signatures(sources)
+
+
+def defining_class(cls: type, name: str) -> type | None:
+    """Return the first class in ``cls.__mro__`` whose namespace defines ``name``."""
+    return next((base for base in cls.__mro__ if name in vars(base)), None)
+
+
+def rust_slots_of(cls: type, name: str) -> dict | None:
+    """Return the Rust slot signatures of the class that defines member ``name``.
+
+    Args:
+        cls (type): Class whose member is rendered.
+        name (str): Member name.
+
+    Returns:
+        dict | None: The slot signatures parsed for the defining class, or
+            None when the Rust bindings define no slot method for it.
+    """
+    owner = defining_class(cls, name)
+    if owner is None:
+        return None
+    return rust_slot_signatures().get(owner.__name__)
+
+
+def is_builtin_inherited(cls: type, name: str) -> bool:
+    """Return whether ``cls`` inherits ``name`` unchanged from a builtin type."""
+    if name in vars(cls):
+        return False
+    owner = defining_class(cls, name)
+    return owner is not None and owner.__module__ == "builtins"
 
 
 def generate_class_stub(name: str, cls: type, errors: list) -> str:
@@ -569,6 +801,15 @@ def generate_class_stub(name: str, cls: type, errors: list) -> str:
             continue
         if member_name in added_members:
             continue
+        if is_builtin_inherited(cls, member_name):
+            continue
+        if member_name in DUNDER_PARAMS:
+            rust_slots = rust_slots_of(cls, member_name)
+            # PyO3 implements __setitem__ and __delitem__ with one slot, so
+            # defining either exposes both; the undefined one raises
+            # NotImplementedError.
+            if rust_slots is not None and member_name not in rust_slots:
+                continue
 
         try:
             member = getattr(cls, member_name)
@@ -642,10 +883,28 @@ def generate_class_stub(name: str, cls: type, errors: list) -> str:
             # Regular methods
             elif kind == "method":
                 return_type = infer_return_type_from_name(member_name, member_doc or "")
-                if member_name in DUNDER_PARAMS and not parse_params_from_docstring(
+                rust_slots = (
+                    rust_slots_of(cls, member_name)
+                    if member_name in DUNDER_PARAMS
+                    else None
+                )
+                if rust_slots is not None:
+                    # Slot wrappers carry no parameter types at runtime; the
+                    # Rust definition supplies them.
+                    slot_params, slot_return = rust_slots[member_name]
+                    params_str = ", ".join(
+                        [
+                            "self",
+                            *(f"{param}: {py_type}" for param, py_type in slot_params),
+                            "/",
+                        ]
+                    )
+                    if slot_return != "Any":
+                        return_type = slot_return
+                elif member_name in DUNDER_PARAMS and not parse_params_from_docstring(
                     member_doc or ""
                 ):
-                    # Slot wrappers carry no parameter types; use the
+                    # Slot wrappers without a Rust definition use the
                     # container protocol's conventional key/value types.
                     params_str = DUNDER_PARAMS[member_name]
                 elif sig is not None:

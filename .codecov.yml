@@ -44,7 +44,6 @@ comment:
 ignore:
   - "tests/"
   - "examples/"
-  - "benchmarks/"
   - "scripts/"
   - "docs/"
   - "plots/"

@@ -53,9 +53,6 @@ plots = [
     "pyshp>=2.3.0",
     "scienceplots>=2.0.0",
 ]
-gpu-comparison = [
-    "psutil>=5.9",
-]
 all = [
       "brahe[plots]",
 ]
@@ -92,7 +89,6 @@ dev = [
     "twine>=5.0.0",
     "pytest-order>=1.3.0",
     "skyfield>=1.53",
-    "py-spy>=0.3.14",
     { include-group = "test" },
     { include-group = "docs" },
 ]

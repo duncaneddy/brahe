@@ -4956,6 +4956,9 @@ impl PyPrecomputeConfig {
     }
 
     /// Get the interpolation method of the frame-rotation table.
+    ///
+    /// Returns:
+    ///     InterpolationMethod: Method used to interpolate the frame-rotation table.
     #[getter]
     fn frame_rotation_interpolation(&self) -> PyInterpolationMethod {
         PyInterpolationMethod {
@@ -4971,6 +4974,9 @@ impl PyPrecomputeConfig {
     }
 
     /// Get the interpolation method of the ephemeris table.
+    ///
+    /// Returns:
+    ///     InterpolationMethod: Method used to interpolate the ephemeris table.
     #[getter]
     fn ephemeris_interpolation(&self) -> PyInterpolationMethod {
         PyInterpolationMethod {

@@ -48,6 +48,12 @@ fn de_kernel_from_source(source: EphemerisSource) -> SPICEKernel {
 ///   [`ThirdBody::gm`] (Units: [m³/s²])
 /// * `Err(BraheError)` - If the body or source combination is unsupported or
 ///   the ephemeris kernel cannot be loaded or queried
+///
+/// # Examples
+///
+/// ```ignore
+/// let (r_sun, gm_sun) = third_body_position_geocentric(&ThirdBody::Sun, EphemerisSource::DE440s, epc)?;
+/// ```
 pub(crate) fn third_body_position_geocentric(
     body: &ThirdBody,
     source: EphemerisSource,
@@ -357,6 +363,13 @@ pub fn accel_third_body_for_body<P: IntoPosition>(
 ///
 /// * `Vector3<f64>` - Acceleration in the inertial frame centered on
 ///   `central_body`. Units: [m/s²]
+///
+/// # Examples
+///
+/// ```ignore
+/// let s = third_body_position(&CentralBody::Earth, &ThirdBody::Moon, EphemerisSource::DE440s, epc)?;
+/// let a = accel_third_body_for_body_at(&CentralBody::Earth, &ThirdBody::Moon, s, r_object);
+/// ```
 pub(crate) fn accel_third_body_for_body_at(
     central_body: &CentralBody,
     body: &ThirdBody,
@@ -528,6 +541,27 @@ pub(crate) fn accel_third_body_field_for_body_with_model(
 ///   `central_body`. Units: [m/s²]
 /// * `Err(BraheError)` - If a `ModelType` spherical-harmonic entry is missing
 ///   its resolved model or the harmonic evaluation fails
+///
+/// # Examples
+///
+/// ```ignore
+/// let s = third_body_position(&CentralBody::EMB, &ThirdBody::Earth, EphemerisSource::DE440s, epc)?;
+/// let r_i2b = rotation_frame_to_frame(CelestialFrame::GCRF, CelestialFrame::ITRF, epc)?;
+/// let a = accel_third_body_field_at(
+///     &CentralBody::EMB,
+///     &ThirdBody::Earth,
+///     &GravityConfiguration::SphericalHarmonic {
+///         source: GravityModelSource::ModelType(GravityModelType::EGM2008_120),
+///         degree: 8,
+///         order: 8,
+///         parallel: ParallelMode::Never,
+///     },
+///     Some(&GravityModel::from_model_type(&GravityModelType::EGM2008_120)?),
+///     r_i2b,
+///     s,
+///     r_object,
+/// )?;
+/// ```
 pub(crate) fn accel_third_body_field_at(
     central_body: &CentralBody,
     body: &ThirdBody,
@@ -2215,9 +2249,7 @@ mod tests {
                     .join("de440s.bsp");
                 cache.seed(
                     "de440s.bsp",
-                    &std::fs::read(&de440s_asset).unwrap_or_else(|e| {
-                        panic!("test asset {} is required: {e}", de440s_asset.display())
-                    }),
+                    &std::fs::read(&de440s_asset).expect("test asset de440s.bsp is required"),
                 );
                 cache.seed(
                     "de440.bsp",

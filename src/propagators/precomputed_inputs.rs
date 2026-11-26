@@ -124,6 +124,13 @@ fn lerp(a: &SMatrix3, b: &SMatrix3, s: f64) -> SMatrix3 {
 ///
 /// # Returns
 /// - `Vec<T>`: Values in node index order
+///
+/// # Examples
+///
+/// ```ignore
+/// let range = NodeRange::bracketing(60.0, epoch, epoch + 3600.0);
+/// let bpn: Vec<SMatrix3> = compute_parallel(range, bias_precession_nutation);
+/// ```
 fn compute_parallel<T: Send>(range: NodeRange, f: impl Fn(Epoch) -> T + Sync) -> Vec<T> {
     get_thread_pool().install(|| {
         (range.k_min..=range.k_max)
@@ -331,6 +338,12 @@ impl FrameRotationTable {
 ///
 /// # Returns
 /// - `Result<(Vector3<f64>, Vector3<f64>), BraheError>`: `(r_sun_eci, r_moon_eci)` in meters
+///
+/// # Examples
+///
+/// ```ignore
+/// let (r_sun, r_moon) = resolve_sun_moon_eci(EphemerisSource::DE440s, epoch)?;
+/// ```
 pub(crate) fn resolve_sun_moon_eci(
     source: EphemerisSource,
     epoch: Epoch,
@@ -394,6 +407,13 @@ impl ChannelQuery {
     ///
     /// # Returns
     /// - `usize`: 6 for `SunMoon` and `SpkState`, 3 otherwise
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// let query = ChannelQuery::SunMoon { source: EphemerisSource::DE440s };
+    /// assert_eq!(query.dim(), 6);
+    /// ```
     pub(crate) fn dim(&self) -> usize {
         match self {
             ChannelQuery::SunMoon { .. } | ChannelQuery::SpkState { .. } => 6,
@@ -411,6 +431,13 @@ impl ChannelQuery {
     ///
     /// # Returns
     /// - `Result<(), BraheError>`: The kernel load error, if any
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// let query = ChannelQuery::SpkPosition { target: 499, center: 399 };
+    /// query.load_kernels()?;
+    /// ```
     pub(crate) fn load_kernels(&self) -> Result<(), BraheError> {
         match self {
             ChannelQuery::SpkPosition { target, center }
@@ -433,6 +460,17 @@ impl ChannelQuery {
     /// # Returns
     /// - `Result<Vec<f64>, BraheError>`: [`ChannelQuery::dim`] values; positions in meters,
     ///   velocities in meters per second
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// let query = ChannelQuery::GeocentricThirdBody {
+    ///     body: ThirdBody::Moon,
+    ///     source: EphemerisSource::DE440s,
+    /// };
+    /// let r_moon = query.evaluate(epoch)?;
+    /// assert_eq!(r_moon.len(), query.dim());
+    /// ```
     pub(crate) fn evaluate(&self, epoch: Epoch) -> Result<Vec<f64>, BraheError> {
         Ok(match self {
             ChannelQuery::GeocentricThirdBody { body, source } => {
@@ -480,6 +518,13 @@ impl ChannelQuery {
 ///
 /// # Returns
 /// - `Vec<(ChannelRole, ChannelQuery)>`: One entry per tabulated query
+///
+/// # Examples
+///
+/// ```ignore
+/// let channels = ephemeris_channels(&ForceModelConfig::default());
+/// assert_eq!(channels[0].0, ChannelRole::ThirdBody(0));
+/// ```
 pub(crate) fn ephemeris_channels(cfg: &ForceModelConfig) -> Vec<(ChannelRole, ChannelQuery)> {
     let central = &cfg.central_body;
     let mut channels = Vec::new();
@@ -596,6 +641,13 @@ impl EphemerisTable {
     ///
     /// # Returns
     /// - `EphemerisTable`: Table holding no nodes
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// let queries = ephemeris_channels(&cfg).into_iter().map(|(_, q)| q).collect();
+    /// let table = EphemerisTable::new(60.0, queries);
+    /// ```
     pub(crate) fn new(step: f64, queries: Vec<ChannelQuery>) -> Self {
         let mut offsets = Vec::with_capacity(queries.len());
         let mut stride = 0;
@@ -630,6 +682,12 @@ impl EphemerisTable {
     /// - `Result<(), BraheError>`: The first kernel load error in channel order, else the error
     ///   of the first failing query, ordered by node index and then by channel; the nodes of a
     ///   failing batch are not stored
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// table.ensure(NodeRange::bracketing(60.0, epoch, epoch + 3600.0))?;
+    /// ```
     pub(crate) fn ensure(&mut self, need: NodeRange) -> Result<(), BraheError> {
         let queries = &self.queries;
         let stride = self.stride;
@@ -659,6 +717,13 @@ impl EphemerisTable {
     /// - `Option<[f64; 6]>`: The channel's linearly interpolated values in the first
     ///   [`ChannelQuery::dim`] entries and zeros after them, or `None` when the channel does
     ///   not exist or the bracketing node pair is not held
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// table.ensure(NodeRange::bracketing(60.0, epoch, epoch + 3600.0))?;
+    /// let r_moon = table.value(0, epoch + 90.0).unwrap();
+    /// ```
     pub(crate) fn value(&self, channel: usize, epoch: Epoch) -> Option<[f64; 6]> {
         let dim = self.queries.get(channel)?.dim();
         let off = self.offsets[channel];
@@ -891,6 +956,13 @@ impl PrecomputedInputs {
     /// - `Option<[f64; 6]>`: The channel's interpolated values in the first
     ///   [`ChannelQuery::dim`] entries and zeros after them, or `None` when the key lists no
     ///   channel for `role` or the table does not bracket `epoch`
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// inputs.ensure(epoch, epoch + 3600.0)?;
+    /// let s = inputs.ephemeris(&ChannelRole::ThirdBody(0), epoch + 90.0).unwrap();
+    /// ```
     pub(crate) fn ephemeris(&self, role: &ChannelRole, epoch: Epoch) -> Option<[f64; 6]> {
         let (_, channels) = self.key.ephemeris.as_ref()?;
         let channel = channels.iter().position(|(r, _)| r == role)?;

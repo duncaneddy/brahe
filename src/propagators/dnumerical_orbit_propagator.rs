@@ -15667,6 +15667,22 @@ mod tests {
 
     #[test]
     #[parallel]
+    fn test_precompute_terminated_at_start_step_by_builds_nothing() {
+        setup_global_test_eop();
+        let mut prop = precompute_prop(
+            NumericalPropagationConfig::default(),
+            Some(precompute_rotation_only()),
+        );
+        let t0 = prop.initial_epoch();
+        prop.add_event_detector(Box::new(DTimeEvent::new(t0, "Stop").set_terminal()));
+        prop.step_by(3600.0).unwrap();
+        assert!(prop.terminated());
+        assert_eq!(prop.current_epoch(), t0);
+        assert_eq!(prop.precomputed_nodes_computed(), 0);
+    }
+
+    #[test]
+    #[parallel]
     fn test_precompute_shared_bundle_copy_on_write() {
         setup_global_test_eop();
         let pre = Some(precompute_rotation_only());

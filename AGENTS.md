@@ -6,6 +6,7 @@ Check src/* for existing code patterns and functions before writing new code. Bi
 ## Critical Rules
 - **NEVER remove/change tests without asking** — discuss with user first
 - **Use `just` commands for ALL build/test/quality tasks** — run `just --list` for all recipes
+- **Minimize public API** — every design, spec and plan must list the public API it adds or changes (Rust `pub` items and trait methods, Python classes, functions and arguments) so it is approved explicitly. Add only what is strictly necessary: agreed features and convenience methods are fine, but anything that can be `pub(crate)` or private must be. Do not expose types, functions or trait methods just to connect internal pieces; prefer crate-internal code paths, including for what the Python bindings call.
 - Run `just check` after changes (tests + lint + format-check + stubs + docs)
 - After making breaking API changes test rust, python, examples, and plots.
 - When creating a PR use the exact format in .github/pull_request_template.md. Remove any sections that do not apply. Do not add any additional sections. Use continuous lines for bullets, don't wrap or use line breaks.

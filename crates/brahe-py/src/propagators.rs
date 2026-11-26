@@ -4870,6 +4870,10 @@ impl PyPrecomputeConfig {
     }
 
     /// Get the frame-rotation table node spacing [s] (None if disabled).
+    ///
+    /// Returns:
+    ///     float | None: Node spacing of the frame-rotation table [s], or None if
+    ///         the table is disabled.
     #[getter]
     fn frame_rotation_step(&self) -> Option<f64> {
         self.config.frame_rotation_step
@@ -4882,6 +4886,10 @@ impl PyPrecomputeConfig {
     }
 
     /// Get the ephemeris table node spacing [s] (None if disabled).
+    ///
+    /// Returns:
+    ///     float | None: Node spacing of the ephemeris table [s], or None if the
+    ///         table is disabled.
     #[getter]
     fn ephemeris_step(&self) -> Option<f64> {
         self.config.ephemeris_step
@@ -4894,6 +4902,9 @@ impl PyPrecomputeConfig {
     }
 
     /// Get whether space-weather caching is enabled.
+    ///
+    /// Returns:
+    ///     bool: True if space-weather records are cached for the propagation.
     #[getter]
     fn cache_space_weather(&self) -> bool {
         self.config.cache_space_weather
@@ -6915,6 +6926,10 @@ impl PyForceModelConfig {
     }
 
     /// Get the precomputed-input configuration (None if disabled).
+    ///
+    /// Returns:
+    ///     PrecomputeConfig | None: Precomputed force-input table configuration, or
+    ///         None if precomputation is disabled.
     #[getter]
     fn precompute(&self) -> Option<PyPrecomputeConfig> {
         self.config

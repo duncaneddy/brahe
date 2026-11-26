@@ -666,27 +666,18 @@ const PRECOMPUTE_MAX_LAGRANGE_DEGREE: usize = 15;
 /// | Frame rotation | yes | yes | no | no |
 /// | Ephemeris | yes | yes | yes | no |
 ///
-/// `Lagrange { degree }` interpolates through the `degree + 1` nodes centred
-/// on the query epoch, so the table holds `degree / 2` (rounded down) more
-/// nodes on each side of a span than `Linear` does. `degree` must be in
-/// `1..=15`: the Lebesgue constant of equally spaced nodes grows
-/// exponentially with the degree, so higher degrees amplify rounding in the
-/// node values. An odd degree reads
-/// one fixed node set between consecutive nodes, so the interpolant is
-/// continuous across node midpoints; an even degree centres its nodes on the
-/// nearest node and switches node sets at the midpoint between nodes, where
-/// the interpolant may jump. `HermiteCubic` stores each
-/// ephemeris channel's time derivative from the same ephemeris source next
-/// to its value: velocity for positions, and velocity and acceleration for
-/// states.
+/// The method sets how many nodes a table holds: `Linear` reads the two
+/// nodes around each epoch, `Lagrange { degree }` reads `degree + 1` nodes and
+/// so holds `degree / 2` (rounded down) more nodes on each side of a span, and
+/// `HermiteCubic` stores each value's time derivative next to it, doubling the
+/// size of each node. `degree` must be in `1..=15`.
 ///
 /// Steps and interpolation methods are checked by
 /// [`ForceModelConfig::validate`], which the propagator constructor calls, so
 /// a non-finite or non-positive step, a method a table does not support, or
 /// a `Lagrange { degree }` outside `1..=15` is rejected at propagator
-/// construction. Changing
-/// global data (EOP provider, SPICE kernels, space-weather provider) during
-/// propagation is the caller's responsibility.
+/// construction. Changing global data (EOP provider, SPICE kernels,
+/// space-weather provider) during propagation is the caller's responsibility.
 ///
 /// # Arguments
 ///
@@ -694,11 +685,9 @@ const PRECOMPUTE_MAX_LAGRANGE_DEGREE: usize = 15;
 ///   `None` disables the table.
 /// * `ephemeris_step` - Grid spacing of the Sun/Moon/third-body ephemeris
 ///   table [s]. `None` disables the table.
-/// * `cache_space_weather` - Memoize, per UT1 day, the values NRLMSISE-00
-///   reads from the global space-weather provider, so density calls skip the
-///   shared provider and its lock. Lookups return the provider's values. The
-///   provider's daily values must be constant within a UT1 day and its Ap
-///   values constant within each 3-hour bin.
+/// * `cache_space_weather` - Cache the NRLMSISE-00 space-weather values per
+///   UT1 day for each propagator, so density calls skip the shared global
+///   provider and its lock after a day's first lookup.
 /// * `frame_rotation_interpolation` - Interpolation of the bias-precession-
 ///   nutation and polar-motion matrices, elementwise. `Linear` or
 ///   `Lagrange { degree }`.

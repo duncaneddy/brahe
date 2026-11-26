@@ -430,29 +430,9 @@ where $c$ is the speed of light, $\mathbf{e}_r$ is the radial unit vector, and $
 
 `ForceModelConfig.precompute` takes a `PrecomputeConfig` that tabulates inputs depending only on time, so the dynamics function interpolates them instead of recomputing them at every call. The default value `None` evaluates every input exactly at each call.
 
-The frame-rotation table applies when the central body is Earth and `frame_transform` is `FULL_EARTH_ROTATION`. It stores the bias-precession-nutation matrix (BPN) and the polar-motion matrix at nodes spaced `frame_rotation_step` seconds apart on a grid anchored at J2000 TT, and interpolates both linearly. The Earth rotation angle changes too quickly to interpolate, so it is computed exactly at the epoch of every call. The table holds only the nodes that bracket the epochs the propagation requests, and `propagate_to` and `step_by` extend it in place. Setting `frame_rotation_step` to `None` disables the table.
+The frame-rotation table applies when the central body is Earth and `frame_transform` is `FULL_EARTH_ROTATION`. It stores the bias-precession-nutation matrix (BPN) and the polar-motion matrix every `frame_rotation_step` and interpolates both linearly. The Earth rotation angle changes too quickly to interpolate, so it is computed exactly at the epoch of every call. The table holds only the nodes that bracket the epochs the propagation requests, and `propagate_to` and `step_by` extend it in place. Setting `frame_rotation_step` to `None` disables the table.
 
-For a 600 s step the interpolation error in the rotation is 0.1 microarcseconds. The table below gives the error over one day, queried every 7.3 s.
-
-| `frame_rotation_step` [s] | BPN and polar motion interpolation error, exact Earth rotation angle [microarcseconds] |
-|---|---|
-| 60 | 0.0 |
-| 300 | 0.0 |
-| 600 | 0.1 |
-| 3600 | 4.4 |
-
-The ephemeris table applies when `ephemeris_step` is set. It stores the position of every SPICE-backed query the dynamics function makes and interpolates each one linearly. Tabulated queries are third bodies whose source is DE440s, DE440, or an SPK kernel; the Sun and Moon positions of solid and ocean tides with a SPICE source; the solar radiation pressure Sun position for a non-Earth central body; the position of each solar radiation pressure occulting body that is not co-located with the central body, such as the Moon for an Earth central body, when an eclipse model is set; and the state of an attributed drag body that differs from the central body. Third-body perturbation is evaluated at the interpolated body position. The `LowPrecision` analytic Sun and Moon are not tabulated, so a force model that uses only `LowPrecision` sources gives results identical to a propagation without the table. Setting `ephemeris_step` to `None` disables the table.
-
-The table below gives the interpolation error over one day, queried every 7.3 s.
-
-| `ephemeris_step` [s] | Moon position error [m] | Moon third-body acceleration, relative error | Sun position error [m] |
-|---|---|---|---|
-| 60 | 1.2 | 8.9e-9 | 2.7 |
-| 300 | 29 | 2.2e-7 | 68 |
-| 600 | 117 | 8.9e-7 | 271 |
-| 3600 | 4207 | 3.2e-5 | 9764 |
-
-With a barycentric central body, such as the Earth-Moon barycenter, an object orbiting close to a tabulated body follows that body's tabulated position. The linear-interpolation chord error of the body's orbit about the barycenter then appears directly in the object's position: about 2 cm per LEO orbit near Earth at the default 60 s step, falling with the square of `ephemeris_step` to about $10^{-4}$ m at 6 s. Use a smaller `ephemeris_step` in that case.
+The ephemeris table applies when `ephemeris_step` is set. Lookups that read SPICE kernels, used by the third-body, tide, solar radiation pressure, and drag models, are tabulated every `ephemeris_step` and interpolated linearly. The `LowPrecision` analytic Sun and Moon are not tabulated. Setting `ephemeris_step` to `None` disables the table.
 
 The example below propagates a LEO orbit for one day with and without both tables. With a fixed-step integrator both runs take identical steps, so the position difference isolates the interpolation error.
 

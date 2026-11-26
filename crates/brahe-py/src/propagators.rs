@@ -4782,11 +4782,10 @@ impl PyTidesConfiguration {
 /// ``None`` computes every input at each call.
 ///
 /// The frame-rotation table stores the bias-precession-nutation matrix and
-/// polar-motion matrix at nodes spaced ``frame_rotation_step`` seconds apart
-/// on a grid anchored at J2000 TT, and interpolates them linearly. The Earth
-/// rotation angle is computed exactly at each call epoch. The table is used
-/// when the central body is Earth and the frame transformation is
-/// ``FrameTransformationModel.FULL_EARTH_ROTATION``.
+/// polar-motion matrix every ``frame_rotation_step`` and interpolates them
+/// linearly. The Earth rotation angle is computed exactly at each call epoch.
+/// The table is used when the central body is Earth and the frame
+/// transformation is ``FrameTransformationModel.FULL_EARTH_ROTATION``.
 ///
 /// ``ephemeris_step`` sets the node spacing of the Sun, Moon, and planet
 /// ephemeris table, and ``cache_space_weather`` enables a per-propagator

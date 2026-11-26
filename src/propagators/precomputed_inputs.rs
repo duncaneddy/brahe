@@ -394,9 +394,6 @@ impl PrecomputedInputs {
     /// # Returns
     /// - `Result<(), BraheError>`: `Ok(())` once every table covers the span
     pub(crate) fn ensure(&mut self, start: Epoch, end: Epoch) -> Result<(), BraheError> {
-        if self.covers_span(start, end) {
-            return Ok(());
-        }
         if let Some(table) = self.rotation.as_mut() {
             table.ensure(NodeRange::bracketing(table.step, start, end));
         }
@@ -586,6 +583,19 @@ mod tests {
         let far = NodeRange::bracketing(600.0, t0 + 864000.0, t0 + 864100.0);
         table.ensure(far);
         assert_eq!(table.coverage().unwrap(), far);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_PrecomputedInputs_ensure_without_tables() {
+        let mut inputs = PrecomputedInputs::new(&PrecomputeKey {
+            frame_rotation_step: None,
+        });
+        let t0 = grid_anchor() + 600.0 * 40000.0 + 300.0;
+        inputs.ensure(t0, t0 + 3600.0).unwrap();
+        assert!(inputs.covers_span(t0, t0 + 3600.0));
+        assert!(inputs.rotation(t0).is_none());
+        assert_eq!(inputs.rotation_nodes_computed(), 0);
     }
 
     #[test]

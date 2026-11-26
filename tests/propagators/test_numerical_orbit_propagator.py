@@ -22,6 +22,7 @@ from brahe import (
     Epoch,
     EventDirection,
     ForceModelConfig,
+    FrameTransformationModel,
     GravityConfiguration,
     IntegrationMethod,
     IntegratorConfig,
@@ -6815,3 +6816,37 @@ def test_precompute_construction_paths_use_table():
 def test_precompute_invalid_step_raises():
     with pytest.raises(RuntimeError, match="frame_rotation_step"):
         _precompute_propagator(PrecomputeConfig(frame_rotation_step=0.0))
+
+
+def test_precompute_key_none_for_non_earth_or_era_only(naif_cache_setup):
+    epoch = Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem.UTC)
+    oe = np.array([R_EARTH + 500e3, 0.001, 97.8, 15.0, 30.0, 45.0])
+    earth_state = state_koe_to_eci(oe, AngleFormat.DEGREES)
+    a = R_MOON + 100e3
+    moon_state = np.array(
+        [a, 0.0, 0.0, 0.0, periapsis_velocity(a, 0.0, gm=GM_MOON), 0.0]
+    )
+
+    def era_config(precompute):
+        return ForceModelConfig(
+            gravity=GravityConfiguration(degree=20, order=20),
+            frame_transform=FrameTransformationModel.EARTH_ROTATION_ONLY,
+            precompute=precompute,
+        )
+
+    def moon_config(precompute):
+        config = ForceModelConfig.for_body(
+            CentralBody.Moon, GravityConfiguration.point_mass()
+        )
+        config.precompute = precompute
+        return config
+
+    for build, state in ((era_config, earth_state), (moon_config, moon_state)):
+        final = []
+        for precompute in (_precompute_rotation_only(), None):
+            prop = NumericalOrbitPropagator(
+                epoch, state, _precompute_rk4_30s_config(), build(precompute), None
+            )
+            prop.propagate_to(epoch + 21600.0)
+            final.append(prop.current_state())
+        assert np.array_equal(final[0], final[1])

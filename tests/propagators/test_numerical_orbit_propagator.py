@@ -16,6 +16,7 @@ from brahe import (
     AltitudeEvent,
     AngleFormat,
     AtmosphericModel,
+    BraheError,
     CelestialFrame,
     CentralBody,
     DragConfiguration,
@@ -6969,6 +6970,32 @@ def test_precompute_ephemeris_tides_shares_sun_moon(naif_cache_setup):
     dr = np.linalg.norm(on[:3] - off[:3])
     assert dr > 0.0, "the propagation did not use the ephemeris table"
     assert dr < 1e-3
+
+
+def test_tides_ephemeris_query_error_is_propagator_error(naif_cache_setup):
+    # de440s ends on 2150-01-22, so the tidal Sun/Moon query fails partway
+    # through this day-long arc.
+    epoch = Epoch.from_datetime(2150, 1, 21, 0, 0, 0.0, 0.0, TimeSystem.UTC)
+    oe = np.array([R_EARTH + 500e3, 0.001, 97.8, 15.0, 30.0, 45.0])
+    state = state_koe_to_eci(oe, AngleFormat.DEGREES)
+    force_config = ForceModelConfig(
+        gravity=GravityConfiguration.spherical_harmonic(
+            degree=4,
+            order=4,
+            model_type=GravityModelType.GGM05S,
+            parallel=ParallelMode.Never,
+        ),
+        tides=TidesConfiguration(
+            PermanentTideConfig.AUTO,
+            solid=SolidTideConfig(frequency_dependent=False, pole_tide=False),
+            ephemeris_source=EphemerisSource.DE440s,
+        ),
+    )
+    prop = NumericalOrbitPropagator(
+        epoch, state, _precompute_rk4_30s_config(), force_config, None
+    )
+    with pytest.raises(BraheError, match="tidal Sun/Moon ephemeris query failed"):
+        prop.propagate_to(epoch + 86400.0)
 
 
 def test_precompute_ephemeris_emb_drag_body_and_field(

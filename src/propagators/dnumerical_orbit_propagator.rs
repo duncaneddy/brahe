@@ -38,7 +38,7 @@ use crate::orbit_dynamics::{
     GravityModel, GravityModelTideSystem, accel_drag_for_body, accel_gravity_spherical_harmonics,
     accel_point_mass_gravity, accel_relativity_for_body, accel_solar_radiation_pressure,
     accel_third_body, accel_third_body_for_body, eclipse_conical_for_body,
-    eclipse_cylindrical_for_body, get_global_gravity_model, moon_position, sun_position,
+    eclipse_cylindrical_for_body, get_global_gravity_model, sun_position,
 };
 use crate::propagators::force_model_config::{EphemerisSource, PermanentTideConfig};
 use crate::propagators::precomputed_inputs::{ChannelRole, resolve_sun_moon_eci};
@@ -272,6 +272,9 @@ impl SunMoonCache {
         Ok(v)
     }
 }
+
+/// Tidal fold-in field and the Sun/Moon position cache built with it.
+type TideInputs = (Arc<Mutex<TideField>>, Arc<Mutex<SunMoonCache>>);
 
 // =============================================================================
 // Numerical Orbit Propagator
@@ -957,27 +960,29 @@ impl DNumericalOrbitPropagator {
         // `Mutex` is the same solution `RotationCache` uses for the same reason;
         // the lock is uncontended in the single-threaded-per-propagator case
         // (~tens of ns), which the per-epoch fold-in it guards dwarfs.
-        let tide_field = TideField::build(&force_config, gravity_model.as_ref())?
-            .map(|f| Arc::new(Mutex::new(f)));
-
-        // Shared Sun/Moon position cache, created only when tides are enabled.
-        // Holds positions for the tides config's ephemeris source; the tidal
-        // and matching third-body blocks reuse it so the ephemeris is evaluated
+        //
+        // The field is paired with a shared Sun/Moon position cache holding
+        // positions for the tides config's ephemeris source; the tidal and
+        // matching third-body blocks reuse it so the ephemeris is evaluated
         // once per epoch. When a SPICE source is configured, resolve once here
         // so the kernel is loaded (and its coverage validated at the initial
         // epoch) at construction rather than failing mid-propagation.
-        let sun_moon_cache = if tide_field.is_some() {
-            let source = force_config
-                .tides
-                .as_ref()
-                .expect("tides configured when tidal field is built")
-                .ephemeris_source;
-            if !matches!(source, EphemerisSource::LowPrecision) {
-                resolve_sun_moon_eci(source, epoch)?;
+        let tides = match TideField::build(&force_config, gravity_model.as_ref())? {
+            Some(field) => {
+                let source = force_config
+                    .tides
+                    .as_ref()
+                    .expect("tides configured when tidal field is built")
+                    .ephemeris_source;
+                if !matches!(source, EphemerisSource::LowPrecision) {
+                    resolve_sun_moon_eci(source, epoch)?;
+                }
+                Some((
+                    Arc::new(Mutex::new(field)),
+                    Arc::new(Mutex::new(SunMoonCache::new(source))),
+                ))
             }
-            Some(Arc::new(Mutex::new(SunMoonCache::new(source))))
-        } else {
-            None
+            None => None,
         };
 
         // Resolve per-third-body gravity models (ModelType sources only;
@@ -1047,8 +1052,7 @@ impl DNumericalOrbitPropagator {
             params.clone(),
             additional_dynamics,
             gravity_model.clone(),
-            tide_field,
-            sun_moon_cache,
+            tides,
             third_body_gravity_models,
             precomputed.clone(),
             Arc::clone(&rotation_cache),
@@ -1746,8 +1750,7 @@ impl DNumericalOrbitPropagator {
         params: DVector<f64>,
         additional_dynamics: Option<DStateDynamics>,
         gravity_model: Option<Arc<GravityModel>>,
-        tide_field: Option<Arc<Mutex<TideField>>>,
-        sun_moon_cache: Option<Arc<Mutex<SunMoonCache>>>,
+        tides: Option<TideInputs>,
         third_body_gravity_models: Vec<Option<Arc<GravityModel>>>,
         precomputed: Option<Arc<Mutex<Arc<PrecomputedInputs>>>>,
         rotation_cache: Arc<Mutex<RotationCache>>,
@@ -1823,8 +1826,9 @@ impl DNumericalOrbitPropagator {
                     &force_config,
                     params_opt.or(Some(&params)),
                     gravity_model.as_ref(),
-                    tide_field.as_deref(),
-                    sun_moon_cache.as_deref(),
+                    tides
+                        .as_ref()
+                        .map(|(field, cache)| (field.as_ref(), cache.as_ref())),
                     &third_body_gravity_models,
                     r_i2b,
                     &attributed_caches,
@@ -1999,8 +2003,7 @@ impl DNumericalOrbitPropagator {
         force_config: &ForceModelConfig,
         params_opt: Option<&DVector<f64>>,
         gravity_model: Option<&Arc<GravityModel>>,
-        tide_field: Option<&Mutex<TideField>>,
-        sun_moon_cache: Option<&Mutex<SunMoonCache>>,
+        tides: Option<(&Mutex<TideField>, &Mutex<SunMoonCache>)>,
         third_body_gravity_models: &[Option<Arc<GravityModel>>],
         r_i2b: SMatrix3,
         attributed_caches: &[(i32, Arc<Mutex<RotationCache>>)],
@@ -2067,7 +2070,7 @@ impl DNumericalOrbitPropagator {
                 // gravity coefficients into its own Clenshaw table, so the
                 // single pass in the TIDES section below REPLACES this static
                 // evaluation. Skip it here to avoid double-counting gravity.
-                if tide_field.is_none() {
+                if tides.is_none() {
                     // Dispatches to the Clenshaw kernel by default.
                     match source {
                         GravityModelSource::Global => {
@@ -2106,33 +2109,28 @@ impl DNumericalOrbitPropagator {
         // static field, so this evaluation also replaces the gravity term
         // skipped above. Point-mass / zonal gravity keep their own term and
         // this contributes the tidal delta field only.
-        if let Some(field) = tide_field {
+        if let Some((field, sun_moon_cache)) = tides {
             let r_ecef = r_i2b * r;
             // Sun/Moon positions from the tides config's ephemeris source
             // (LowPrecision by default; DE440s/DE440/SPK when configured),
             // resolved through the shared cache so a third-body perturbation
-            // on the same source reuses them. The cache is present whenever the
-            // tidal field is; the fallback is an unreachable-in-practice guard.
-            // Drop the guard before propagating any error so an ephemeris
-            // failure does not poison the shared cache mutex (SPICE sources
-            // are validated at construction, so this is an
-            // unreachable-in-practice backstop).
-            let (r_sun_eci, r_moon_eci) =
-                match (tabulated(ChannelRole::TideSunMoon), sun_moon_cache) {
-                    (Some(v), _) => (
-                        Vector3::new(v[0], v[1], v[2]),
-                        Vector3::new(v[3], v[4], v[5]),
-                    ),
-                    (None, Some(cache)) => {
-                        let result = { cache.lock().unwrap().get_or_compute(t, epoch) };
-                        result.map_err(|e| {
-                            BraheError::PropagatorError(format!(
-                                "tidal Sun/Moon ephemeris query failed: {e}"
-                            ))
-                        })?
-                    }
-                    (None, None) => (sun_position(epoch), moon_position(epoch)),
-                };
+            // on the same source reuses them. Drop the guard before
+            // propagating any error so an ephemeris failure does not poison
+            // the shared cache mutex.
+            let (r_sun_eci, r_moon_eci) = match tabulated(ChannelRole::TideSunMoon) {
+                Some(v) => (
+                    Vector3::new(v[0], v[1], v[2]),
+                    Vector3::new(v[3], v[4], v[5]),
+                ),
+                None => {
+                    let result = { sun_moon_cache.lock().unwrap().get_or_compute(t, epoch) };
+                    result.map_err(|e| {
+                        BraheError::PropagatorError(format!(
+                            "tidal Sun/Moon ephemeris query failed: {e}"
+                        ))
+                    })?
+                }
+            };
             let r_sun_ecef = r_i2b * r_sun_eci;
             let r_moon_ecef = r_i2b * r_moon_eci;
             // Drop the lock guard before propagating any error so a tidal
@@ -2372,7 +2370,7 @@ impl DNumericalOrbitPropagator {
                     // position takes precedence over the cache.
                     if s_tab.is_none()
                         && matches!(body, ThirdBody::Sun | ThirdBody::Moon)
-                        && let Some(cache) = sun_moon_cache
+                        && let Some((_, cache)) = tides
                     {
                         // Compute (and drop the guard) before the source check's
                         // panic path so a failed ephemeris query does not poison
@@ -15958,6 +15956,113 @@ mod tests {
         );
         assert!(dr > 0.0, "the propagation did not use the ephemeris table");
         assert!(dr < 1e-3, "position difference {dr} m");
+    }
+
+    #[test]
+    #[serial]
+    fn test_tides_ephemeris_query_error_is_propagator_error() {
+        // de440s ends on 2150-01-22, so the tidal Sun/Moon query fails partway
+        // through this day-long arc.
+        setup_global_test_eop();
+        crate::utils::testing::setup_global_test_spice();
+        let epoch = Epoch::from_datetime(2150, 1, 21, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let (_, state) = precompute_test_epoch_state();
+        let force_config = ForceModelConfig {
+            gravity: GravityConfiguration::SphericalHarmonic {
+                source: GravityModelSource::ModelType(GravityModelType::GGM05S),
+                degree: 4,
+                order: 4,
+                parallel: ParallelMode::Never,
+            },
+            tides: Some(TidesConfiguration {
+                permanent: PermanentTideConfig::Auto,
+                solid: Some(SolidTideConfig {
+                    frequency_dependent: false,
+                    pole_tide: false,
+                }),
+                ocean: None,
+                ephemeris_source: EphemerisSource::DE440s,
+            }),
+            ..ForceModelConfig::earth_gravity()
+        };
+        let mut prop = DNumericalOrbitPropagator::new(
+            epoch,
+            state,
+            precompute_rk4_30s(),
+            force_config,
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        let err = prop.propagate_to(epoch + 86400.0).unwrap_err();
+        assert!(
+            err.to_string()
+                .contains("tidal Sun/Moon ephemeris query failed"),
+            "{err}"
+        );
+    }
+
+    #[test]
+    #[serial]
+    fn test_precompute_ephemeris_earth_central_custom_body() {
+        // A Custom perturber about Earth reads its geocentric position from
+        // the ephemeris table. The synthetic kernel holds it fixed 20,000 km
+        // from Earth, so the tabulated and direct positions agree.
+        setup_global_test_eop();
+        crate::utils::testing::setup_global_test_spice();
+        crate::utils::testing::without_spice_kernels(|| {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("ceres.bsp");
+            std::fs::write(
+                &path,
+                crate::utils::testing::synthetic_spk_kernel_bytes(&[(2000001, 399, 20000.0)]),
+            )
+            .unwrap();
+            let path = path.to_str().unwrap();
+            crate::spice::load_spice_kernel("de440s").unwrap();
+            crate::spice::load_spice_kernel(path).unwrap();
+
+            let (epoch, state) = precompute_test_epoch_state();
+            let body = ThirdBody::Custom {
+                name: "Ceres".to_string(),
+                naif_id: 2000001,
+                gm: 6.26325e10,
+            };
+            let run = |precompute: Option<PrecomputeConfig>| {
+                let mut prop = DNumericalOrbitPropagator::new(
+                    epoch,
+                    state.clone(),
+                    precompute_rk4_30s(),
+                    ForceModelConfig {
+                        third_body: Some(vec![body.clone().into()]),
+                        precompute,
+                        ..ForceModelConfig::earth_gravity()
+                    },
+                    None,
+                    None,
+                    None,
+                    None,
+                )
+                .unwrap();
+                prop.propagate_to(epoch + 3600.0).unwrap();
+                prop
+            };
+            let on = run(Some(precompute_ephemeris_only()));
+            let off = run(None);
+
+            let tabulated = on
+                .precomputed_inputs()
+                .unwrap()
+                .ephemeris(&ChannelRole::ThirdBody(0), epoch + 1800.0)
+                .unwrap();
+            assert_eq!(&tabulated[..3], &[20000.0e3, 0.0, 0.0]);
+            let dr = position_difference(&on.current_state(), &off.current_state());
+            assert!(dr < 1e-6, "position difference {dr} m");
+
+            let _ = crate::spice::unload_spice_kernel(path);
+        });
     }
 
     #[test]

@@ -2198,6 +2198,54 @@ mod tests {
 
     #[test]
     #[serial]
+    fn test_third_body_position_geocentric_planet_centers_offline() {
+        // Synthetic DE and satellite kernels in a redirected cache place each
+        // outer-planet barycenter on the x-axis relative to Earth and each
+        // planet center on the x-axis relative to its barycenter, so the
+        // geocentric planet-center position is the exact two-leg sum.
+        setup_global_test_spice();
+        without_spice_kernels(|| {
+            load_spice_kernel("de440s").unwrap();
+            let epc = Epoch::from_datetime(2025, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+            {
+                let cache = CacheRedirect::new();
+                cache.seed_real_de440s();
+                cache.seed(
+                    "de440.bsp",
+                    &synthetic_spk_kernel_bytes(&[
+                        (5, 399, 5.0),
+                        (6, 399, 6.0),
+                        (7, 399, 7.0),
+                        (8, 399, 8.0),
+                    ]),
+                );
+                cache.seed("jup365.bsp", &synthetic_spk_kernel_bytes(&[(599, 5, 0.5)]));
+                cache.seed("sat441.bsp", &synthetic_spk_kernel_bytes(&[(699, 6, 0.6)]));
+                cache.seed(
+                    "ura184_part-3.bsp",
+                    &synthetic_spk_kernel_bytes(&[(799, 7, 0.7)]),
+                );
+                cache.seed("nep097.bsp", &synthetic_spk_kernel_bytes(&[(899, 8, 0.8)]));
+                crate::spice::clear_spice_kernels();
+                load_spice_kernel("de440s").unwrap();
+
+                for (body, x) in [
+                    (ThirdBody::Jupiter, 5500.0),
+                    (ThirdBody::Saturn, 6600.0),
+                    (ThirdBody::Uranus, 7700.0),
+                    (ThirdBody::Neptune, 8800.0),
+                ] {
+                    let (r_body, gm) =
+                        third_body_position_geocentric(&body, EphemerisSource::DE440, epc).unwrap();
+                    assert_abs_diff_eq!(r_body, Vector3::new(x, 0.0, 0.0), epsilon = 1e-6);
+                    assert_eq!(gm, body.gm());
+                }
+            }
+        });
+    }
+
+    #[test]
+    #[serial]
     fn test_accel_third_body_field_for_body_public_matches_internal() {
         use crate::orbit_dynamics::gravity::{GravityModel, GravityModelType};
         use crate::propagators::force_model_config::{GravityConfiguration, GravityModelSource};

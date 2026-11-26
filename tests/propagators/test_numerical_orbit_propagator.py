@@ -42,11 +42,16 @@ from brahe import (
     PrecomputeConfig,
     SolarRadiationPressureConfiguration,
     SolidTideConfig,
+    StaticSpaceWeatherProvider,
     ThirdBody,
     ThirdBodyConfiguration,
     TidesConfiguration,
     TimeSystem,
     VariationalConfig,
+    get_global_ap,
+    get_global_sw_mjd_last_daily_predicted,
+    get_global_sw_mjd_max,
+    get_global_sw_mjd_min,
     orbital_period,
     periapsis_velocity,
     set_global_space_weather_provider,
@@ -7086,3 +7091,106 @@ def test_precompute_space_weather_propagation_bitwise():
     )
     uncached = final_state(None)
     assert np.array_equal(cached, uncached)
+
+
+@pytest.fixture
+def restore_test_space_weather(sw_test_filepath):
+    """Reinstall the standard test space-weather provider after the test."""
+    yield
+    set_global_space_weather_provider(
+        FileSpaceWeatherProvider.from_file(sw_test_filepath, "Hold")
+    )
+
+
+def _space_weather_cache_final_state(start_mjd, cache_space_weather, drag=True):
+    """Final state of a 6 h NRLMSISE-00 drag propagation starting at
+    `start_mjd` (MJD, UT1), with or without the space-weather cache."""
+    epoch = Epoch.from_mjd(start_mjd, TimeSystem.UT1)
+    state = state_koe_to_eci(
+        np.array([R_EARTH + 500e3, 0.001, 97.8, 15.0, 30.0, 45.0]),
+        AngleFormat.DEGREES,
+    )
+    force_config = ForceModelConfig(
+        gravity=GravityConfiguration.point_mass(),
+        drag=DragConfiguration(
+            model=AtmosphericModel.nrlmsise00(NRLMSISE00Config()),
+            area=ParameterSource.value(10.0),
+            cd=ParameterSource.value(2.2),
+        )
+        if drag
+        else None,
+        mass=ParameterSource.value(1000.0),
+        precompute=PrecomputeConfig(
+            frame_rotation_step=None, ephemeris_step=None, cache_space_weather=True
+        )
+        if cache_space_weather
+        else None,
+    )
+    prop = NumericalOrbitPropagator(
+        epoch, state, _precompute_rk4_30s_config(), force_config, None
+    )
+    prop.propagate_to(epoch + 21600.0)
+    return prop.current_state()
+
+
+def _assert_space_weather_cache_matches(start_mjds):
+    """Assert cached and uncached propagations end bitwise equal from each
+    start, and differ from a drag-free propagation. Each 6 h arc evaluates the
+    dynamics on every 3-hour bin boundary it crosses."""
+    for start_mjd in start_mjds:
+        cached = _space_weather_cache_final_state(start_mjd, True)
+        uncached = _space_weather_cache_final_state(start_mjd, False)
+        no_drag = _space_weather_cache_final_state(start_mjd, False, drag=False)
+        assert not np.array_equal(cached, no_drag), f"start MJD {start_mjd}"
+        assert np.array_equal(cached, uncached), f"start MJD {start_mjd}"
+
+
+def _monthly_predicted_starts():
+    """Starts 3 h before the first day after the daily-predicted section and
+    3 h before the fifth day of the monthly-predicted section."""
+    last_daily = np.floor(get_global_sw_mjd_last_daily_predicted())
+    return [last_daily + 1.0 - 0.125, last_daily + 5.0 - 0.125]
+
+
+def test_precompute_space_weather_cache_matches_provider_file():
+    _assert_space_weather_cache_matches(
+        [60384.0 - 0.125, 60385.0 - 0.125]
+        + _monthly_predicted_starts()
+        + [np.floor(get_global_sw_mjd_max()) + 30.0 - 0.125]
+    )
+
+
+def test_precompute_space_weather_cache_matches_provider_zero_extrapolation(
+    restore_test_space_weather, sw_test_filepath
+):
+    set_global_space_weather_provider(
+        FileSpaceWeatherProvider.from_file(sw_test_filepath, "Zero")
+    )
+    last_daily = get_global_sw_mjd_last_daily_predicted()
+    assert get_global_ap(last_daily + 5.0) == 0.0
+    _assert_space_weather_cache_matches(_monthly_predicted_starts())
+
+
+def test_precompute_space_weather_cache_matches_static_provider(
+    restore_test_space_weather,
+):
+    set_global_space_weather_provider(
+        StaticSpaceWeatherProvider.from_values(3.0, 15.0, 150.0, 145.0, 100)
+    )
+    _assert_space_weather_cache_matches([60384.0 - 0.125, 70000.0 - 0.125])
+
+
+def test_precompute_space_weather_cache_error_matches_provider(
+    restore_test_space_weather, sw_test_filepath
+):
+    # A failed NRLMSISE-00 density evaluation contributes no drag, so with
+    # every lookup failing both runs equal a drag-free propagation.
+    set_global_space_weather_provider(
+        FileSpaceWeatherProvider.from_file(sw_test_filepath, "Error")
+    )
+    start_mjd = get_global_sw_mjd_min() - 10.25
+    cached = _space_weather_cache_final_state(start_mjd, True)
+    uncached = _space_weather_cache_final_state(start_mjd, False)
+    no_drag = _space_weather_cache_final_state(start_mjd, False, drag=False)
+    assert np.array_equal(cached, uncached)
+    assert np.array_equal(cached, no_drag)

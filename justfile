@@ -8,7 +8,7 @@ python := ".venv/bin/python"
 # Ensure uv is installed and .venv exists
 _setup:
     @which uv > /dev/null 2>&1 || { echo "Error: uv is not installed. Install from https://docs.astral.sh/uv/"; exit 1; }
-    @test -d .venv || uv sync
+    @test -d .venv || uv sync --group dev --all-extras
 
 # ───── Testing ─────
 
@@ -395,14 +395,14 @@ bench-compare-publish *args: _setup
 
 # ───── Profiling ─────
 
-# One-time local development setup: uv venv (Python 3.14) + dev deps,
+# One-time local development setup: uv venv (Python 3.14) + dev deps and all extras,
 # pre-commit hooks, and the major SPICE kernels tests expect to be cached
 # (de440s, moon_pa_de440, mar099s). Idempotent: kernel downloads fast-path
 # when already cached.
 setup:
     @which uv > /dev/null 2>&1 || { echo "Error: uv is not installed. Install from https://docs.astral.sh/uv/"; exit 1; }
     uv venv --python 3.14 --allow-existing
-    uv sync --group dev
+    uv sync --group dev --all-extras
     uv pip install -e . --quiet
     .venv/bin/pre-commit install
     @just download-resources

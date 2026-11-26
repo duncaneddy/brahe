@@ -314,8 +314,10 @@ impl PyNRLMSISE00Config {
     ///
     /// Args:
     ///     switches (list[int]): Switch values by reference index. Index 0
-    ///         (output units) accepts 0 or 1 and is ignored. Index 9 accepts
-    ///         -1, 0, or 1. All other indices accept 0, 1, or 2.
+    ///         selects CGS (0) or SI (1) output in the reference implementation;
+    ///         it accepts 0 or 1 and is ignored because densities are always
+    ///         returned in kg/m³. Index 9 accepts -1, 0, or 1. All other
+    ///         indices accept 0, 1, or 2.
     ///
     /// Returns:
     ///     NRLMSISE00Config: Configuration equivalent to the switch array.
@@ -355,7 +357,7 @@ impl PyNRLMSISE00Config {
     /// Convert to the reference 24-element switch array.
     ///
     /// Returns:
-    ///     list[int]: Switch values by reference index. Index 0 (output units) is always 1.
+    ///     list[int]: Switch values by reference index. Index 0 is always 1 (SI output, densities in kg/m³).
     ///
     /// Example:
     ///     ```python

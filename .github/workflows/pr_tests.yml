@@ -33,7 +33,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           # Paths that cannot affect the build, tested against the full path of
           # every file the PR changes.
-          IGNORED: '^(CHANGELOG\.md|CITATION\.cff)$|^profiles/'
+          IGNORED: '^(CHANGELOG\.md|CITATION\.cff)$'
         run: |
           set -euo pipefail
           PR="repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}"
@@ -123,7 +123,7 @@ jobs:
           rustup default ${{ env.RUST_TOOLCHAIN }}
 
       - name: Install the latest version of uv
-        uses: astral-sh/setup-uv@v10.3.3
+        uses: astral-sh/setup-uv@v10.4.0
         with:
           enable-cache: true
 
@@ -165,7 +165,7 @@ jobs:
           rustup default ${{ env.RUST_TOOLCHAIN }}
 
       - name: Install the latest version of uv
-        uses: astral-sh/setup-uv@v10.3.3
+        uses: astral-sh/setup-uv@v10.4.0
         with:
           enable-cache: true
 
@@ -209,7 +209,7 @@ jobs:
           rustup default ${{ env.RUST_TOOLCHAIN }}
 
       - name: Install the latest version of uv
-        uses: astral-sh/setup-uv@v10.3.3
+        uses: astral-sh/setup-uv@v10.4.0
         with:
           enable-cache: true
 

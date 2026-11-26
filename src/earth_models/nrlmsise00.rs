@@ -255,7 +255,7 @@ impl NRLMSISE00Config {
     ///
     /// # Returns
     ///
-    /// * `[i32; 24]` - Switch values by reference index. Index 0 (output units) is always 1.
+    /// * `[i32; 24]` - Switch values by reference index. Index 0 is always 1 (SI output, densities in kg/m³).
     ///
     /// # Examples
     ///
@@ -299,7 +299,7 @@ impl NRLMSISE00Config {
     ///
     /// # Arguments
     ///
-    /// * `switches` - Switch values by reference index. Index 0 (output units) accepts 0 or 1 and is ignored. Index 9 accepts -1, 0, or 1. All other indices accept 0, 1, or 2.
+    /// * `switches` - Switch values by reference index. Index 0 selects CGS (0) or SI (1) output in the reference implementation; it accepts 0 or 1 and is ignored because densities are always returned in kg/m³. Index 9 accepts -1, 0, or 1. All other indices accept 0, 1, or 2.
     ///
     /// # Returns
     ///

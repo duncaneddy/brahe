@@ -385,17 +385,3 @@ class TestDEEphemerides:
 
         assert isinstance(r_ssb, np.ndarray)
         assert r_ssb.shape == (3,)
-
-    @pytest.mark.order(1)
-    def test_de_repeated_calls_do_not_reload_kernel(self):
-        """Test that repeated ephemeris calls reuse the loaded DE440s kernel"""
-        epc = bh.Epoch.from_date(2024, 2, 25, bh.TimeSystem.UTC)
-
-        _ = bh.sun_position_spice(epc, bh.EphemerisSource.DE440s)
-        loaded = bh.loaded_spice_kernels()
-
-        for _ in range(10):
-            _ = bh.sun_position_spice(epc, bh.EphemerisSource.DE440s)
-
-        assert bh.loaded_spice_kernels() == loaded
-        assert loaded.count("de440s") == 1

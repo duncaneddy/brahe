@@ -588,6 +588,7 @@ impl DNumericalOrbitPropagatorBuilder {
     ///     mass: None,
     ///     frame_transform: FrameTransformationModel::default(),
     ///     tides: None,
+    ///     precompute: None,
     /// };
     ///
     /// let prop = DNumericalOrbitPropagator::builder(epoch, state, force_config)

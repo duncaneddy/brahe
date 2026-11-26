@@ -334,6 +334,7 @@ impl ForceModelConfig {
     ///     mass: Some(ParameterSource::ParameterIndex(0)),
     ///     frame_transform: Default::default(),
     ///     tides: None,
+    ///     precompute: None,
     /// };
     ///
     /// // This will fail - config needs params but none provided

@@ -430,16 +430,7 @@ where $c$ is the speed of light, $\mathbf{e}_r$ is the radial unit vector, and $
 
 `ForceModelConfig.precompute` takes a `PrecomputeConfig` that tabulates inputs depending only on time, so the dynamics function interpolates them instead of recomputing them at every call. The default value `None` evaluates every input exactly at each call.
 
-The frame-rotation table applies when the central body is Earth and `frame_transform` is `FULL_EARTH_ROTATION`. It stores the bias-precession-nutation matrix (BPN) and the polar-motion matrix at nodes spaced `frame_rotation_step` seconds apart on a grid anchored at J2000 TT, and interpolates both linearly. The Earth rotation angle changes too quickly to interpolate, so it is computed exactly at the epoch of every call. The table holds only the nodes that bracket the epochs the propagation requests, and `propagate_to` and `step_by` extend it in place. Setting `frame_rotation_step` to `None` disables the table.
-
-For a 600 s step the interpolation error in the rotation is 0.1 microarcseconds. The table below gives the error over one day, queried every 7.3 s.
-
-| `frame_rotation_step` [s] | BPN and polar motion interpolation error, exact Earth rotation angle [microarcseconds] |
-|---|---|
-| 60 | 0.0 |
-| 300 | 0.0 |
-| 600 | 0.1 |
-| 3600 | 4.4 |
+The frame-rotation table applies when the central body is Earth and `frame_transform` is `FULL_EARTH_ROTATION`. It stores the bias-precession-nutation matrix (BPN) and the polar-motion matrix every `frame_rotation_step` and interpolates both linearly. The Earth rotation angle changes too quickly to interpolate, so it is computed exactly at the epoch of every call. The table holds only the nodes that bracket the epochs the propagation requests, and `propagate_to` and `step_by` extend it in place. Setting `frame_rotation_step` to `None` disables the table.
 
 The example below propagates a LEO orbit for one day with and without the table. With a fixed-step integrator both runs take identical steps, so the position difference isolates the interpolation error.
 

@@ -652,11 +652,9 @@ impl Default for OceanTideConfig {
 
 /// Opt-in precomputed tables for force-model inputs that depend only on time.
 ///
-/// Each table holds the bracketing nodes of the spans requested during
-/// propagation on a grid anchored at J2000 TT (`Epoch::from_jd(2451545.0,
-/// TimeSystem::TT)`); node `k` is at `anchor + k * step`. Values between
-/// nodes are linearly interpolated. `None` on [`ForceModelConfig`] disables
-/// all tables.
+/// Each table holds the nodes that bracket the spans requested during
+/// propagation, and values between nodes are linearly interpolated. `None` on
+/// [`ForceModelConfig`] disables all tables.
 ///
 /// The frame-rotation table is the only implemented table: `ephemeris_step`
 /// and `cache_space_weather` currently have no effect.

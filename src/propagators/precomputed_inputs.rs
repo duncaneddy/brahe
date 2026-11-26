@@ -170,14 +170,6 @@ impl Stencil {
         Stencil { method, weights }
     }
 
-    /// Number of nodes a query reads.
-    fn len(&self) -> usize {
-        match self.method {
-            InterpolationMethod::Lagrange { degree } => degree + 1,
-            _ => 2,
-        }
-    }
-
     /// Node offsets `(lo, hi)` from `k = floor(x)` that a query anywhere in
     /// `[k, k + 1)` may read.
     fn reach(&self) -> (i64, i64) {
@@ -194,20 +186,16 @@ impl Stencil {
         }
     }
 
-    /// First node a query at `k + s` reads.
-    fn first(&self, k: i64, s: f64) -> i64 {
-        match self.method {
-            InterpolationMethod::Lagrange { degree } => {
-                let d = degree as i64;
-                if d % 2 == 1 {
-                    k - (d - 1) / 2
-                } else if s > 0.5 {
-                    k + 1 - d / 2
-                } else {
-                    k - d / 2
-                }
-            }
-            _ => k,
+    /// First of the `degree + 1` nodes a `Lagrange { degree }` query at
+    /// `k + s` reads.
+    fn lagrange_first(degree: usize, k: i64, s: f64) -> i64 {
+        let d = degree as i64;
+        if d % 2 == 1 {
+            k - (d - 1) / 2
+        } else if s > 0.5 {
+            k + 1 - d / 2
+        } else {
+            k - d / 2
         }
     }
 
@@ -432,8 +420,8 @@ impl FrameRotationTable {
     /// Set the interpolation method of an empty table.
     ///
     /// # Arguments
-    /// - `method`: `Linear` or `Lagrange { degree }` with `degree >= 1`; with any other method
-    ///   [`FrameRotationTable::rotation`] returns `None`
+    /// - `method`: `Linear` or `Lagrange { degree }` with `degree >= 1`; any other method
+    ///   interpolates linearly
     ///
     /// # Returns
     /// - `FrameRotationTable`: The table using `method`
@@ -489,19 +477,15 @@ impl FrameRotationTable {
     ///
     /// # Returns
     /// - `Option<SMatrix3>`: `PM * ERA(epoch) * BPN`, with `PM` and `BPN` interpolated, or
-    ///   `None` when a node the interpolation reads is not held or the method is not `Linear`
-    ///   or `Lagrange`
+    ///   `None` when a node the interpolation reads is not held
     pub(crate) fn rotation(&self, epoch: Epoch) -> Option<SMatrix3> {
-        if self.stencil.method == InterpolationMethod::Linear {
+        let InterpolationMethod::Lagrange { degree } = self.stencil.method else {
             let ((bpn0, pm0), (bpn1, pm1), s) = self.store.bracket(epoch)?;
             return Some(lerp(pm0, pm1, s) * earth_rotation(epoch) * lerp(bpn0, bpn1, s));
-        }
-        if !matches!(self.stencil.method, InterpolationMethod::Lagrange { .. }) {
-            return None;
-        }
+        };
         let (k, s) = NodeRange::locate(self.store.step, epoch);
-        let first = self.stencil.first(k, s);
-        let i = self.store.window(first, self.stencil.len())?;
+        let first = Stencil::lagrange_first(degree, k, s);
+        let i = self.store.window(first, degree + 1)?;
         let nodes = &self.store.nodes;
         if s == 0.0 {
             let (bpn, pm) = &nodes[i + (k - first) as usize];
@@ -927,8 +911,8 @@ impl EphemerisTable {
     /// Set the interpolation method of an empty table.
     ///
     /// # Arguments
-    /// - `method`: `Linear`, `Lagrange { degree }` with `degree >= 1`, or `HermiteCubic`; with
-    ///   any other method [`EphemerisTable::value`] returns `None`
+    /// - `method`: `Linear`, `Lagrange { degree }` with `degree >= 1`, or `HermiteCubic`; any
+    ///   other method interpolates linearly
     ///
     /// # Returns
     /// - `EphemerisTable`: The table using `method`
@@ -1024,8 +1008,7 @@ impl EphemerisTable {
     /// # Returns
     /// - `Option<[f64; 6]>`: The channel's interpolated values in the first
     ///   [`ChannelQuery::dim`] entries and zeros after them, or `None` when the channel does
-    ///   not exist, a node the interpolation reads is not held, or the method is
-    ///   `HermiteQuintic`
+    ///   not exist or a node the interpolation reads is not held
     ///
     /// # Examples
     ///
@@ -1038,7 +1021,7 @@ impl EphemerisTable {
         let off = self.offsets[channel];
         let mut out = [0.0; 6];
         match self.stencil.method {
-            InterpolationMethod::Linear => {
+            InterpolationMethod::Linear | InterpolationMethod::HermiteQuintic => {
                 let (a, b, s) = self.store.bracket(epoch)?;
                 for (o, (a, b)) in out
                     .iter_mut()
@@ -1047,10 +1030,10 @@ impl EphemerisTable {
                     *o = a + (b - a) * s;
                 }
             }
-            InterpolationMethod::Lagrange { .. } => {
+            InterpolationMethod::Lagrange { degree } => {
                 let (k, s) = NodeRange::locate(self.store.step, epoch);
-                let first = self.stencil.first(k, s);
-                let i = self.store.window(first, self.stencil.len())?;
+                let first = Stencil::lagrange_first(degree, k, s);
+                let i = self.store.window(first, degree + 1)?;
                 let nodes = &self.store.nodes;
                 if s == 0.0 {
                     let node = &nodes[i + (k - first) as usize];
@@ -1092,7 +1075,6 @@ impl EphemerisTable {
                     out[c..c + 3].copy_from_slice(&x.as_slice()[..3]);
                 }
             }
-            InterpolationMethod::HermiteQuintic => return None,
         }
         Some(out)
     }

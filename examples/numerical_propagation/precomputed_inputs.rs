@@ -2,7 +2,7 @@
 //! exact evaluation.
 
 use brahe as bh;
-use bh::traits::DStatePropagator;
+use brahe::traits::DStatePropagator;
 use nalgebra as na;
 
 fn main() {
@@ -98,9 +98,8 @@ fn main() {
     // par_propagate_to_d builds one set of tables for propagators with matching table
     // steps and force-model settings, and shares it across all of them
     let target = epoch + 86400.0;
-    let mut constellation: Vec<bh::DNumericalOrbitPropagator> = (0..4)
-        .map(|_| build(precomputed_config.clone()))
-        .collect();
+    let mut constellation: Vec<bh::DNumericalOrbitPropagator> =
+        (0..4).map(|_| build(precomputed_config.clone())).collect();
     bh::par_propagate_to_d(&mut constellation, target).unwrap();
 
     for prop in &constellation {

@@ -18,11 +18,13 @@ state = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
 # Fixed-step RK4 gives both propagations an identical step sequence
 prop_config = bh.NumericalPropagationConfig(
     bh.IntegrationMethod.RK4,
-    bh.IntegratorConfig.fixed_step(30.0),
+    bh.IntegratorConfig(initial_step=30.0, fixed_step_size=30.0),
     bh.VariationalConfig(),
 )
 
-gravity = bh.GravityConfiguration(degree=20, order=20)
+gravity = bh.GravityConfiguration(
+    degree=20, order=20, model_type=bh.GravityModelType.EGM2008_120
+)
 third_body = [bh.ThirdBody.SUN, bh.ThirdBody.MOON]
 
 # Exact rotation and DE440s ephemeris queries at every dynamics call (the default)

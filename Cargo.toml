@@ -35,8 +35,6 @@ exclude = [# We need to keep the size down for crates.io these don't need to be 
     "/plots",
     "/joss",
     "/test_assets",
-    "/profiles",
-    "/benchmarks",
     "/data/textures/world.topo.200410.3x5400x2700.png", # Python-only
     "justfile",
     "zensical.toml",
@@ -99,21 +97,18 @@ cargo-deny = "0.21"
 mockall = "0.15"
 rv = "0.20"
 rand = "0.9"
-criterion = { version = "0.8", features = ["html_reports"] }
 # default-features disabled to drop anise's `analysis` feature, which pulls in
 # `hyperdual`. hyperdual pins an exact nalgebra version, so enabling it forces
 # brahe's nalgebra to match anise's (and broke the build when hyperdual 1.5.0
 # moved to nalgebra 0.35 while anise stayed on 0.34). brahe only uses anise's
 # core ephemeris APIs, which need no features.
-# Validation oracle for the native SPICE implementation (tests + benchmarks only).
+# Validation oracle for the native SPICE implementation (tests only).
 anise = { version = "0.10", default-features = false }
 
 [features]
 integration = []
 manual = []  # For tests requiring network downloads (run with: cargo test --features manual)
 python = ["dep:pyo3"]
-dhat-heap = []    # if you are doing heap profiling
-dhat-ad-hoc = []  # if you are doing ad hoc profiling
 
 # Build Profiles
 [profile.dev]
@@ -124,35 +119,6 @@ lto = "off"
 opt-level = 3
 codegen-units = 1
 lto = "fat"
-
-[profile.profiling]
-inherits = "release"
-debug = 1
-
-# Benchmark Profiles
-[profile.bench]
-opt-level = 3
-lto = "thin"
-
-[[bench]]
-name = "provider_benchmarks"
-path = "benchmarks/provider_benchmarks.rs"
-harness = false
-
-[[bench]]
-name = "propagator_benchmarks"
-path = "benchmarks/propagator_benchmarks.rs"
-harness = false
-
-[[bench]]
-name = "gravity_benchmarks"
-path = "benchmarks/gravity_benchmarks.rs"
-harness = false
-
-[[bench]]
-name = "spice_benchmarks"
-path = "benchmarks/spice_benchmarks.rs"
-harness = false
 
 [lints.rust]
 missing_docs = "warn"

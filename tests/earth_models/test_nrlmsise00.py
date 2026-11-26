@@ -452,3 +452,17 @@ def test_density_nrlmsise00_diurnal_independent_of_asymmetrical_semiannual(
     )
     noon, evening = _densities_at_two_local_times(cfg)
     assert abs(noon - evening) / evening > 1e-3
+
+
+def test_density_nrlmsise00_geod_ap_off_lower_thermosphere(eop, sw_test):
+    """Mirrors test_density_nrlmsise00_geod_ap_off_lower_thermosphere"""
+    epc = bh.Epoch.from_datetime(2024, 5, 10, 21, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    geod = np.array([-74.0, 40.7, 100e3])
+    rho_off = bh.density_nrlmsise00_geod(
+        epc, geod, bh.NRLMSISE00Config(ap_mode=bh.NRLMSISE00ApMode.OFF)
+    )
+    rho_daily = bh.density_nrlmsise00_geod(
+        epc, geod, bh.NRLMSISE00Config(ap_mode=bh.NRLMSISE00ApMode.DAILY)
+    )
+    assert np.isfinite(rho_off) and rho_off > 0.0
+    assert abs(rho_off - rho_daily) / rho_daily > 1e-6

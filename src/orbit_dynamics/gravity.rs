@@ -459,8 +459,7 @@ pub enum ParallelMode {
 }
 
 /// Benchmark-calibrated crossover degree. At or above this `n_max`, parallel
-/// evaluation beats serial on a typical multi-core host. Machine-approximate;
-/// see `benchmarks/gravity_benchmarks.rs`.
+/// evaluation beats serial on a typical multi-core host. Machine-approximate.
 ///
 /// Measured on a 10-core Apple M1 Max after the serial-path optimization
 /// (precomputed reciprocal recurrence coefficients + bounds-check-free column
@@ -504,8 +503,7 @@ pub(crate) fn should_parallelize(mode: ParallelMode, n_max: usize) -> bool {
 
 /// Benchmark-calibrated crossover degree for the Clenshaw kernel. At or above
 /// this `n_max`, parallel evaluation of the Clenshaw kernel beats serial on a
-/// typical multi-core host. Machine-approximate; see
-/// `benchmarks/gravity_benchmarks.rs`.
+/// typical multi-core host. Machine-approximate.
 ///
 /// Measured on a 10-core Apple M1 Max. Serial vs parallel median times for
 /// the Clenshaw kernel, alongside serial Cunningham for reference (Cunningham

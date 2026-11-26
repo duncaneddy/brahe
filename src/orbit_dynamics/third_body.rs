@@ -2396,11 +2396,12 @@ mod tests {
 
     #[test]
     #[serial]
-    fn test_third_body_position_geocentric_planet_centers_offline() {
+    fn test_third_body_geocentric_planet_centers_offline() {
         // Synthetic DE and satellite kernels in a redirected cache place each
         // outer-planet barycenter on the x-axis relative to Earth and each
         // planet center on the x-axis relative to its barycenter, so the
-        // geocentric planet-center position is the exact two-leg sum.
+        // geocentric planet-center position is the exact two-leg sum and the
+        // velocity is zero.
         without_spice_kernels(|| {
             let epc = Epoch::from_datetime(2025, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
             {
@@ -2442,9 +2443,90 @@ mod tests {
                         third_body_position_geocentric(&body, EphemerisSource::DE440, epc).unwrap();
                     assert_abs_diff_eq!(r_body, Vector3::new(x, 0.0, 0.0), epsilon = 1e-6);
                     assert_eq!(gm, body.gm());
+                    let v_body =
+                        third_body_velocity_geocentric(&body, EphemerisSource::DE440, epc).unwrap();
+                    assert_eq!(v_body, Vector3::zeros());
                 }
             }
         });
+    }
+
+    #[test]
+    #[serial]
+    fn test_third_body_velocity_geocentric_matches_position_derivative() {
+        setup_global_test_spice();
+        let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let position = |body: &ThirdBody, e: Epoch| {
+            third_body_position_geocentric(body, EphemerisSource::DE440s, e)
+                .unwrap()
+                .0
+        };
+        for body in [
+            ThirdBody::Sun,
+            ThirdBody::Moon,
+            ThirdBody::Mercury,
+            ThirdBody::Venus,
+            ThirdBody::MarsBarycenter,
+            ThirdBody::JupiterBarycenter,
+            ThirdBody::SaturnBarycenter,
+            ThirdBody::UranusBarycenter,
+            ThirdBody::NeptuneBarycenter,
+        ] {
+            let v = third_body_velocity_geocentric(&body, EphemerisSource::DE440s, epc).unwrap();
+            let v_fd = (position(&body, epc + 1.0) - position(&body, epc - 1.0)) / 2.0;
+            assert!(v.norm() > 0.0, "{body:?}");
+            assert_abs_diff_eq!(v, v_fd, epsilon = 1e-3);
+        }
+    }
+
+    #[test]
+    #[parallel]
+    fn test_third_body_velocity_geocentric_errors() {
+        let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let err =
+            third_body_velocity_geocentric(&ThirdBody::Sun, EphemerisSource::LowPrecision, epc)
+                .unwrap_err();
+        assert!(
+            err.to_string()
+                .contains("Low-precision ephemerides provide no velocity"),
+            "{err}"
+        );
+        for body in [
+            ThirdBody::Earth,
+            ThirdBody::Phobos,
+            ThirdBody::Deimos,
+            ThirdBody::Custom {
+                name: "Ceres".to_string(),
+                naif_id: 2000001,
+                gm: 6.26325e10,
+            },
+        ] {
+            let err =
+                third_body_velocity_geocentric(&body, EphemerisSource::DE440s, epc).unwrap_err();
+            assert!(
+                err.to_string()
+                    .contains("Geocentric third-body ephemerides support"),
+                "{body:?}: {err}"
+            );
+        }
+    }
+
+    #[test]
+    #[parallel]
+    fn test_third_body_position_velocity_low_precision_error() {
+        let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let err = third_body_position_velocity(
+            &CentralBody::Earth,
+            &ThirdBody::Sun,
+            EphemerisSource::LowPrecision,
+            epc,
+        )
+        .unwrap_err();
+        assert!(
+            err.to_string()
+                .contains("Low-precision ephemerides provide no velocity"),
+            "{err}"
+        );
     }
 
     #[test]

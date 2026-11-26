@@ -551,6 +551,26 @@ def test_par_propagate_to_precompute_mixed_directions_matches_serial():
         assert np.array_equal(par.current_state(), ser.current_state())
 
 
+def test_par_propagate_to_short_cadence_matches_serial():
+    """Repeated parallel propagation in 1 s increments, shorter than the
+    table step, matches serial propagation"""
+    t0 = Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem.UTC)
+    first = t0 + 1000.0
+    parallel_props = [_precompute_propagator(t0 + 60.0 * i) for i in range(3)]
+    serial_props = [_precompute_propagator(t0 + 60.0 * i) for i in range(3)]
+    targets = [first + float(i) for i in range(61)]
+
+    for target in targets:
+        par_propagate_to(parallel_props, target)
+    for prop in serial_props:
+        for target in targets:
+            prop.propagate_to(target)
+
+    for par, ser in zip(parallel_props, serial_props):
+        assert par.current_epoch() == targets[-1]
+        assert np.array_equal(par.current_state(), ser.current_state())
+
+
 def test_par_propagate_to_precompute_table_error_propagates(naif_cache_setup):
     """A shared table that cannot be built raises before any propagator
     advances (de440s ends on 2150-01-22)"""

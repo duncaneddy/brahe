@@ -177,12 +177,14 @@ pub fn par_propagate_to_d<'a, P: DStatePropagator + Send + 'static>(
     })
 }
 
-/// Propagators sharing one precompute key, and the span their bundle covers.
+/// Propagators sharing one precompute key, the span their bundle covers, and
+/// the bundles they hold.
 struct PrecomputeGroup<'a> {
     key: PrecomputeKey,
     start: Epoch,
     end: Epoch,
     members: Vec<&'a mut DNumericalOrbitPropagator>,
+    bundles: Vec<Arc<PrecomputedInputs>>,
 }
 
 /// Build one precomputed-input bundle per group of compatible propagators and attach it.
@@ -194,10 +196,13 @@ struct PrecomputeGroup<'a> {
 /// epoch still contributes its span, and an EOP or SPICE coverage error for that
 /// span can be returned where serial `propagate_to` would not reach it. Each
 /// group's bundle covers the span from the earliest to the latest of the
-/// members' current epochs and `target_epoch`. Its table nodes are computed in
-/// parallel on the brahe thread pool before the bundle is attached to every
-/// member with [`DNumericalOrbitPropagator::attach_precomputed`]. Propagating a
-/// member within that span then reads the shared bundle without copying it.
+/// members' current epochs and `target_epoch`. A member bundle that already
+/// covers the span is shared as is; otherwise the first member's bundle is
+/// copied and extended, so nodes the members already hold are not recomputed.
+/// Missing table nodes are computed in parallel on the brahe thread pool before
+/// the bundle is attached to every member with
+/// [`DNumericalOrbitPropagator::attach_precomputed`]. Propagating a member
+/// within that span then reads the shared bundle without copying it.
 ///
 /// # Arguments
 ///
@@ -217,6 +222,7 @@ pub(crate) fn share_precomputed_inputs<'a>(
         let Some(key) = prop.precompute_key() else {
             continue;
         };
+        let bundle = prop.precomputed_inputs();
         let epoch = prop.current_epoch();
         let (start, end) = if epoch < target_epoch {
             (epoch, target_epoch)
@@ -232,19 +238,29 @@ pub(crate) fn share_precomputed_inputs<'a>(
                     group.end = end;
                 }
                 group.members.push(prop);
+                group.bundles.extend(bundle);
             }
             None => groups.push(PrecomputeGroup {
                 key,
                 start,
                 end,
                 members: vec![prop],
+                bundles: bundle.into_iter().collect(),
             }),
         }
     }
     for group in groups {
-        let mut inputs = PrecomputedInputs::new(&group.key);
-        inputs.ensure(group.start, group.end)?;
-        let inputs = Arc::new(inputs);
+        let (start, end) = (group.start, group.end);
+        let seed = group
+            .bundles
+            .iter()
+            .find(|bundle| bundle.covers_span(start, end))
+            .or(group.bundles.first());
+        let mut inputs =
+            seed.map_or_else(|| Arc::new(PrecomputedInputs::new(&group.key)), Arc::clone);
+        if !inputs.covers_span(start, end) {
+            Arc::make_mut(&mut inputs).ensure(start, end)?;
+        }
         for prop in group.members {
             prop.attach_precomputed(Arc::clone(&inputs))?;
         }
@@ -1066,6 +1082,50 @@ mod tests {
         for (par, ser) in parallel_props.iter().zip(&serial_props) {
             assert!(Arc::ptr_eq(&par.precomputed_inputs().unwrap(), &shared));
             assert_eq!(par.current_epoch(), target);
+            assert_eq!(par.current_state(), ser.current_state());
+        }
+    }
+
+    #[test]
+    #[parallel]
+    fn test_par_propagate_to_d_short_cadence_reuses_nodes() {
+        setup_global_test_eop();
+        let t0 = precompute_epoch();
+        // The 600 s grid is anchored at J2000 TT, so nodes fall 69.184 s
+        // before t0 and every 600 s after. The first call spans three nodes;
+        // the 1 s calls after it stay between the last two.
+        let first = t0 + 1000.0;
+        let build = || -> Vec<DNumericalOrbitPropagator> {
+            (0..3)
+                .map(|i| precompute_prop(t0 + 60.0 * i as f64, rotation_step(600.0)))
+                .collect()
+        };
+        let mut parallel_props = build();
+        let mut serial_props = build();
+
+        par_propagate_to_d(&mut parallel_props, first).unwrap();
+        let shared = parallel_props[0].precomputed_inputs().unwrap();
+        let nodes = parallel_props[0].precomputed_nodes_computed();
+        assert_eq!(nodes, 3);
+
+        for i in 1..=60 {
+            let target = first + i as f64;
+            par_propagate_to_d(&mut parallel_props, target).unwrap();
+            for par in &parallel_props {
+                assert!(Arc::ptr_eq(&par.precomputed_inputs().unwrap(), &shared));
+                assert_eq!(par.precomputed_nodes_computed(), nodes);
+            }
+        }
+
+        for prop in &mut serial_props {
+            prop.propagate_to(first).unwrap();
+            for i in 1..=60 {
+                prop.propagate_to(first + i as f64).unwrap();
+            }
+        }
+        for (par, ser) in parallel_props.iter().zip(&serial_props) {
+            assert_eq!(par.current_epoch(), first + 60.0);
+            assert_eq!(ser.current_epoch(), first + 60.0);
             assert_eq!(par.current_state(), ser.current_state());
         }
     }

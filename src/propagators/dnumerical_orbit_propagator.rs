@@ -3298,6 +3298,25 @@ impl DNumericalOrbitPropagator {
             .map(|handle| handle.lock().unwrap().key().clone())
     }
 
+    /// The precomputed-input bundle the propagator currently holds.
+    ///
+    /// # Returns
+    ///
+    /// `Some(bundle)` when the force model uses precomputed inputs, `None`
+    /// otherwise.
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// let bundle = prop.precomputed_inputs().unwrap();
+    /// assert!(bundle.covers(prop.current_epoch()));
+    /// ```
+    pub(crate) fn precomputed_inputs(&self) -> Option<Arc<PrecomputedInputs>> {
+        self.precomputed
+            .as_ref()
+            .map(|h| Arc::clone(&h.lock().unwrap()))
+    }
+
     /// Replace the precomputed-input bundle with one shared from elsewhere.
     ///
     /// The rotation cache is cleared so later evaluations read the new bundle.
@@ -3940,13 +3959,6 @@ impl DNumericalOrbitPropagator {
         self.precomputed
             .as_ref()
             .map_or(0, |h| h.lock().unwrap().rotation_nodes_computed())
-    }
-
-    /// The bundle currently held by the precomputed-input handle.
-    pub(crate) fn precomputed_inputs(&self) -> Option<Arc<PrecomputedInputs>> {
-        self.precomputed
-            .as_ref()
-            .map(|h| Arc::clone(&h.lock().unwrap()))
     }
 }
 

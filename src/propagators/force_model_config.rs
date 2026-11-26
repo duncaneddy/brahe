@@ -657,12 +657,9 @@ const PRECOMPUTE_MAX_LAGRANGE_DEGREE: usize = 15;
 /// Opt-in precomputed tables for force-model inputs that depend only on time.
 ///
 /// Each table holds the nodes its interpolation method reads for the spans
-/// requested during propagation, on a grid anchored at J2000 TT
-/// (`Epoch::from_jd(2451545.0, TimeSystem::TT)`); node `k` is at
-/// `anchor + k * step`. Values between nodes are interpolated with the
-/// table's [`InterpolationMethod`] (linear by default); at a node epoch every
-/// method returns the stored node value. `None` on [`ForceModelConfig`]
-/// disables all tables.
+/// requested during propagation. Values between nodes are interpolated with
+/// the table's [`InterpolationMethod`] (linear by default). `None` on
+/// [`ForceModelConfig`] disables all tables.
 ///
 /// | Table | `Linear` | `Lagrange { degree }` | `HermiteCubic` | `HermiteQuintic` |
 /// |---|---|---|---|---|

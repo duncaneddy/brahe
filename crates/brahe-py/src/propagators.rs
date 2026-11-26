@@ -4768,44 +4768,25 @@ impl PyTidesConfiguration {
 /// ``None`` computes every input at each call.
 ///
 /// The frame-rotation table stores the bias-precession-nutation matrix and
-/// polar-motion matrix at nodes spaced ``frame_rotation_step`` seconds apart
-/// on a grid anchored at J2000 TT, and interpolates them elementwise with
-/// ``frame_rotation_interpolation``. The Earth rotation angle is computed
+/// polar-motion matrix every ``frame_rotation_step`` and interpolates them
+/// with ``frame_rotation_interpolation``. The Earth rotation angle is computed
 /// exactly at each call epoch. The table is used when the central body is
 /// Earth and the frame transformation is
 /// ``FrameTransformationModel.FULL_EARTH_ROTATION``.
 ///
 /// ``ephemeris_step`` sets the node spacing of the Sun, Moon, and planet
 /// ephemeris table, and ``cache_space_weather`` enables a per-propagator
-/// space-weather cache for NRLMSISE-00 drag. The cache memoizes, per UT1 day,
-/// the values NRLMSISE-00 reads from the global space-weather provider, so
-/// density calls do not go through the shared provider and its lock each time.
-/// Lookups return the same values as the provider. The provider's daily
-/// values must be constant within a UT1 day and its Ap values constant within
-/// each 3-hour bin, as for the file, caching, and static providers.
+/// space-weather cache for NRLMSISE-00 drag. After the first lookup of a day,
+/// density calls on that day read the cache instead of the shared global
+/// provider and its lock.
 ///
 /// Values between nodes are interpolated with each table's
-/// ``InterpolationMethod`` (``InterpolationMethod.LINEAR`` by default); at a
-/// node epoch every method returns the stored node value. The supported
-/// methods are:
-///
-/// | Table | ``LINEAR`` | ``lagrange(degree)`` | ``HERMITE_CUBIC`` | ``HERMITE_QUINTIC`` |
-/// |---|---|---|---|---|
-/// | Frame rotation | yes | yes | no | no |
-/// | Ephemeris | yes | yes | yes | no |
-///
-/// ``lagrange(degree)`` interpolates through the ``degree + 1`` nodes centred
-/// on the query epoch, so the table holds ``degree // 2`` more nodes on each
-/// side of a span than ``LINEAR`` does. ``degree`` must be in ``1..=15``: the
-/// Lebesgue constant of equally spaced nodes grows exponentially with the
-/// degree, so higher degrees amplify rounding in the node values. An odd
-/// degree reads one fixed node set between consecutive nodes, so the
-/// interpolant is continuous across node midpoints; an even degree centres
-/// its nodes on the nearest node and switches node sets at the midpoint
-/// between nodes, where the interpolant may jump. ``HERMITE_CUBIC`` stores
-/// each ephemeris channel's time derivative from the same ephemeris source
-/// next to its value: velocity for positions, and velocity and acceleration
-/// for states.
+/// ``InterpolationMethod``, ``LINEAR`` by default. The method sets how many
+/// nodes a table holds: ``LINEAR`` reads the two nodes around each epoch,
+/// ``lagrange(degree)`` reads ``degree + 1`` nodes and so holds ``degree // 2``
+/// more nodes on each side of a span, and ``HERMITE_CUBIC`` (ephemeris table
+/// only) stores each value's time derivative next to it, doubling the size of
+/// each node. ``degree`` must be between 1 and 15.
 ///
 /// Steps and interpolation methods are checked by
 /// ``ForceModelConfig.validate()``, which the propagator constructor calls, so

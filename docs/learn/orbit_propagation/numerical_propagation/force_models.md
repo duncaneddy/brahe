@@ -430,48 +430,18 @@ where $c$ is the speed of light, $\mathbf{e}_r$ is the radial unit vector, and $
 
 `ForceModelConfig.precompute` takes a `PrecomputeConfig` that tabulates inputs depending only on time, so the dynamics function interpolates them instead of recomputing them at every call. The default value `None` evaluates every input exactly at each call.
 
-The frame-rotation table applies when the central body is Earth and `frame_transform` is `FULL_EARTH_ROTATION`. It stores the bias-precession-nutation matrix (BPN) and the polar-motion matrix at nodes spaced `frame_rotation_step` seconds apart on a grid anchored at J2000 TT, and interpolates both elementwise with `frame_rotation_interpolation`. The Earth rotation angle changes too quickly to interpolate, so it is computed exactly at the epoch of every call. The table holds only the nodes that bracket the epochs the propagation requests, and `propagate_to` and `step_by` extend it in place. Setting `frame_rotation_step` to `None` disables the table.
+The frame-rotation table applies when the central body is Earth and `frame_transform` is `FULL_EARTH_ROTATION`. It stores the bias-precession-nutation matrix (BPN) and the polar-motion matrix every `frame_rotation_step` and interpolates both with `frame_rotation_interpolation`. The Earth rotation angle changes too quickly to interpolate, so it is computed exactly at the epoch of every call. The table holds only the nodes that bracket the epochs the propagation requests, and `propagate_to` and `step_by` extend it in place. Setting `frame_rotation_step` to `None` disables the table.
 
-For a 600 s step the linear interpolation error in the rotation is 0.1 microarcseconds. The table below gives the linear interpolation error over one day, queried every 7.3 s.
+The ephemeris table applies when `ephemeris_step` is set. Lookups that read SPICE kernels, used by the third-body, tide, solar radiation pressure, and drag models, are tabulated every `ephemeris_step` and interpolated with `ephemeris_interpolation`. The `LowPrecision` analytic Sun and Moon are not tabulated. Setting `ephemeris_step` to `None` disables the table.
 
-| `frame_rotation_step` [s] | BPN and polar motion interpolation error, exact Earth rotation angle [microarcseconds] |
-|---|---|
-| 60 | 0.0 |
-| 300 | 0.0 |
-| 600 | 0.1 |
-| 3600 | 4.4 |
-
-The ephemeris table applies when `ephemeris_step` is set. It stores the position of every SPICE-backed query the dynamics function makes and interpolates each one with `ephemeris_interpolation`. Tabulated queries are third bodies whose source is DE440s, DE440, or an SPK kernel; the Sun and Moon positions of solid and ocean tides with a SPICE source; the solar radiation pressure Sun position for a non-Earth central body; the position of each solar radiation pressure occulting body that is not co-located with the central body, such as the Moon for an Earth central body, when an eclipse model is set; and the state of an attributed drag body that differs from the central body. Third-body perturbation is evaluated at the interpolated body position. The `LowPrecision` analytic Sun and Moon are not tabulated, so a force model that uses only `LowPrecision` sources gives results identical to a propagation without the table. Setting `ephemeris_step` to `None` disables the table.
-
-The table below gives the linear interpolation error over one day, queried every 7.3 s.
-
-| `ephemeris_step` [s] | Moon position error [m] | Moon third-body acceleration, relative error | Sun position error [m] |
-|---|---|---|---|
-| 60 | 1.2 | 8.9e-9 | 2.7 |
-| 300 | 29 | 2.2e-7 | 68 |
-| 600 | 117 | 8.9e-7 | 271 |
-| 3600 | 4207 | 3.2e-5 | 9764 |
-
-Both tables use `InterpolationMethod`, the type trajectories use for interpolation, set by `frame_rotation_interpolation` and `ephemeris_interpolation`. Both default to linear interpolation. At a node epoch every method returns the stored node value. The table below lists the supported methods by their Python names; the Rust variants are `Linear`, `Lagrange { degree }`, `HermiteCubic`, and `HermiteQuintic`.
+Both tables use `InterpolationMethod`, set by `frame_rotation_interpolation` and `ephemeris_interpolation`, and default to linear interpolation. The table below lists the supported methods by their Python names; the Rust variants are `Linear`, `Lagrange { degree }`, `HermiteCubic`, and `HermiteQuintic`.
 
 | Table | `LINEAR` | `lagrange(degree)` | `HERMITE_CUBIC` | `HERMITE_QUINTIC` |
 |---|---|---|---|---|
 | Frame rotation | yes | yes | no | no |
 | Ephemeris | yes | yes | yes | no |
 
-Lagrange interpolation of degree $d$ reads the $d + 1$ nodes centred on the query epoch, so the table holds $\lfloor d/2 \rfloor$ more nodes on each side of the requested span than linear interpolation does. The degree must be between 1 and 15, because the Lebesgue constant of equally spaced nodes grows exponentially with the degree and amplifies rounding in the node values. An odd degree reads one fixed set of nodes between consecutive nodes, so the interpolant is continuous across the midpoint between nodes. An even degree centres its nodes on the nearest node and switches node sets at that midpoint, where the interpolant can jump. Cubic Hermite interpolation of the ephemeris table stores, next to each value, its time derivative from the same ephemeris source: the velocity for a position and the velocity and acceleration for the drag-body state. `ForceModelConfig.validate()`, which the propagator constructor calls, raises an error naming the field for a method a table does not support or a Lagrange degree above 15.
-
-The table below gives the maximum difference between the tabulated value and a direct evaluation (the full frame rotation, or a direct SPICE call) at the default steps over one day, queried every 7.3 s.
-
-| Table and step | Quantity | `LINEAR` | `lagrange(3)` | `HERMITE_CUBIC` |
-|---|---|---|---|---|
-| Frame rotation, 600 s | Rotation difference [microarcseconds] | 0.12 | 0.018 | not supported |
-| Ephemeris, 60 s | Moon position difference [m] | 1.17 | $1.6 \times 10^{-4}$ | $1.6 \times 10^{-4}$ |
-| Ephemeris, 60 s | Sun position difference [m] | 2.71 | $4.9 \times 10^{-3}$ | $4.9 \times 10^{-3}$ |
-
-For `lagrange(3)` and `HERMITE_CUBIC` the ephemeris differences are set by the epoch representation, not by interpolation. SPICE receives each epoch as `f64` seconds past J2000, which resolve about $10^{-7}$ s near the present epoch, and in $10^{-7}$ s the Moon moves about $10^{-4}$ m and the Sun about $3 \times 10^{-3}$ m relative to Earth. Compared with an interpolation of the same nodes at the same epochs, the Moon interpolation error is about $4 \times 10^{-6}$ m.
-
-With a barycentric central body, such as the Earth-Moon barycenter, an object orbiting close to a tabulated body follows that body's tabulated position. The interpolation error of the body's orbit about the barycenter then appears directly in the object's position. With linear interpolation this is about 2 cm per LEO orbit near Earth at the default 60 s step, falling with the square of `ephemeris_step` to about $10^{-4}$ m at 6 s. With `lagrange(3)` or `HERMITE_CUBIC` at 60 s it is about $4 \times 10^{-6}$ m. For an object close to a tabulated body about a barycentric central body, set `ephemeris_interpolation` to `lagrange(3)` or `HERMITE_CUBIC`, or reduce `ephemeris_step`.
+The method sets how many nodes a table holds. Linear interpolation reads the two nodes around each epoch. Lagrange interpolation of degree $d$ reads $d + 1$ nodes, so the table holds $\lfloor d/2 \rfloor$ more nodes on each side of the requested span; the degree must be between 1 and 15, and with an even degree the interpolant can jump midway between nodes. Cubic Hermite interpolation of the ephemeris table stores each value's time derivative next to it, doubling the size of each node. `ForceModelConfig.validate()`, which the propagator constructor calls, raises an error for a method a table does not support.
 
 The example below propagates a LEO orbit for one day with and without both tables. With a fixed-step integrator both runs take identical steps, so the position difference isolates the interpolation error.
 
@@ -498,12 +468,10 @@ The example below propagates a LEO orbit for one day with and without both table
         --8<-- "./docs/outputs/numerical_propagation/precomputed_inputs.rs.txt"
         ```
 
-`PrecomputeConfig` also carries `cache_space_weather`. When drag uses NRLMSISE-00, each propagator memoizes, per UT1 day, the values the model reads: the daily Ap, the eight 3-hour Ap values, the observed F10.7, and the 81-day average F10.7. Each day is read from the global space-weather provider the first time it is needed. Later density calls on that day use the stored values instead of going through the shared global provider and its lock, so propagators running in parallel do not contend on that lock. Lookups return the same values as the provider, so the propagated results are identical to those without the cache. The cache does not store provider errors and asks the provider again on the next lookup. With or without the cache, a space-weather error during propagation makes the NRLMSISE-00 density, and so the drag acceleration, zero for that dynamics call.
-
-The cache requires the provider's daily values to be constant within a UT1 day and its Ap values to be constant within each 3-hour bin. The file, caching, and static providers satisfy this.
+`PrecomputeConfig` also carries `cache_space_weather`, which applies when drag uses NRLMSISE-00. Each day is read from the global space-weather provider the first time it is needed. Later density calls on that day use the stored values instead of going through the shared global provider and its lock, so propagators running in parallel do not contend on that lock.
 
 !!! warning "Global data during propagation"
-    The frame-rotation table reads EOP data from the global provider, and the ephemeris table reads the loaded SPICE kernels, when a node is built. The space-weather cache reads the global space-weather provider the first time each day is needed. Changing global data during a propagation is the caller's responsibility. Nodes are evaluated with the same functions a propagation without the option calls, so when EOP data or kernel coverage does not include a node, the EOP provider's extrapolation setting or the SPICE coverage error decides the outcome, as it does without the option. Nodes are built for the whole requested span before integrating, and a table also holds the nodes interpolation reads around that span: one node past its end for `LINEAR` and `HERMITE_CUBIC`, and $\lfloor d/2 \rfloor$ more nodes before its start and after its end for Lagrange of degree $d$. A propagation with the option can therefore return the provider's error where the same propagation without the option would not: with an EOP provider set to raise errors on extrapolation and EOP data that ends within that padding (in units of `frame_rotation_step`) of the evaluated span, with a SPICE kernel whose coverage ends within that padding (in units of `ephemeris_step`) of it, or with either data source ending between the epoch where a terminal event stops integration and the requested target.
+    The tables and the cache read the global EOP provider, the loaded SPICE kernels, and the global space-weather provider. Changing that data during a propagation is the caller's responsibility. Nodes are built for the whole requested span plus the nodes interpolation reads around it, so near the end of EOP or SPICE coverage a propagation with the option can return a coverage error that the same propagation without it would not.
 
 ## Parameter Configuration
 

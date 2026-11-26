@@ -1030,6 +1030,12 @@ impl SpaceWeatherCache {
     /// # Returns
     /// - `bool`: `true` when `cfg.precompute` sets `cache_space_weather` and drag uses
     ///   NRLMSISE-00
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// let cache = SpaceWeatherCache::applies(&force_config).then(SpaceWeatherCache::new);
+    /// ```
     pub(crate) fn applies(cfg: &ForceModelConfig) -> bool {
         cfg.precompute.is_some_and(|p| p.cache_space_weather)
             && cfg
@@ -1059,6 +1065,14 @@ impl<'a> CachedSpaceWeather<'a> {
     ///
     /// # Returns
     /// - `CachedSpaceWeather`: Lookup borrowing the cache
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// let mut cache = SpaceWeatherCache::new();
+    /// let sw = CachedSpaceWeather::new(&mut cache);
+    /// let rho = density_nrlmsise00_geod_with(&epoch, &geod, &NRLMSISE00Config::default(), &sw)?;
+    /// ```
     pub(crate) fn new(cache: &'a mut SpaceWeatherCache) -> Self {
         CachedSpaceWeather(RefCell::new(cache))
     }
@@ -1069,6 +1083,21 @@ impl<'a> CachedSpaceWeather<'a> {
     /// The provider is called at `mjd_ut1` itself. Providers resolve these
     /// fields by `floor(mjd_ut1)`, so the value is the same for the whole day,
     /// and an error carries the same message as a direct call.
+    ///
+    /// # Arguments
+    /// - `mjd_ut1`: Modified Julian Date in UT1 [days]
+    /// - `slot`: Selects the field of a [`SpaceWeatherDay`] to read and fill
+    /// - `fetch`: Provider call returning the field's value at an MJD in UT1
+    ///
+    /// # Returns
+    /// - `Result<T, BraheError>`: The cached value for the UT1 day, or the error `fetch`
+    ///   returns on a cache miss
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// let ap_daily = sw.field(mjd_ut1, |d| &mut d.ap_daily, get_global_ap_daily)?;
+    /// ```
     fn field<T: Copy>(
         &self,
         mjd_ut1: f64,

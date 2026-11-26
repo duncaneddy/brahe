@@ -98,10 +98,6 @@ impl NodeRange {
         (k as i64, x - k)
     }
 
-    fn is_empty(&self) -> bool {
-        self.k_min > self.k_max
-    }
-
     fn contains(&self, other: &NodeRange) -> bool {
         self.k_min <= other.k_min && other.k_max <= self.k_max
     }
@@ -181,9 +177,6 @@ impl FrameRotationTable {
     /// # Arguments
     /// - `need`: Node range that must be held after the call
     pub(crate) fn ensure(&mut self, need: NodeRange) {
-        if need.is_empty() {
-            return;
-        }
         let Some(cov) = self.coverage() else {
             self.replace(need);
             return;
@@ -440,6 +433,7 @@ impl PrecomputedInputs {
 mod tests {
     use super::*;
     use crate::frames::rotation_eci_to_ecef;
+    use crate::propagators::PrecomputeConfig;
     use crate::utils::testing::setup_global_test_eop;
     use approx::assert_abs_diff_eq;
     use serial_test::parallel;
@@ -592,5 +586,27 @@ mod tests {
         let far = NodeRange::bracketing(600.0, t0 + 864000.0, t0 + 864100.0);
         table.ensure(far);
         assert_eq!(table.coverage().unwrap(), far);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_PrecomputedInputs_ensure_covered_span_computes_nothing() {
+        setup_global_test_eop();
+        let cfg = ForceModelConfig {
+            precompute: Some(PrecomputeConfig {
+                frame_rotation_step: Some(600.0),
+                ..PrecomputeConfig::default()
+            }),
+            ..ForceModelConfig::earth_gravity()
+        };
+        let mut inputs = PrecomputedInputs::new(&PrecomputeKey::from_force_config(&cfg).unwrap());
+        let t0 = grid_anchor() + 600.0 * 40000.0 + 300.0;
+        inputs.ensure(t0, t0 + 3600.0).unwrap();
+        let computed = inputs.rotation_nodes_computed();
+        assert!(computed > 0);
+
+        inputs.ensure(t0 + 600.0, t0 + 1200.0).unwrap();
+        assert_eq!(inputs.rotation_nodes_computed(), computed);
+        assert!(inputs.covers_span(t0, t0 + 3600.0));
     }
 }

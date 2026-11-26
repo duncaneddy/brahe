@@ -3432,6 +3432,31 @@ mod tests {
 
     #[test]
     #[serial]
+    fn test_density_nrlmsise00_geod_ap_off_lower_thermosphere() {
+        // 100 km during the 2024-05-10 storm: the lower-thermosphere
+        // magnetic activity term contributes in Daily mode and is absent
+        // when the Ap switch is Off.
+        let (epc, _) = reference_epoch_geod();
+        let geod = [-74.0, 40.7, 100e3];
+        let off = NRLMSISE00Config {
+            ap_mode: NRLMSISE00ApMode::Off,
+            ..Default::default()
+        };
+        let daily = NRLMSISE00Config {
+            ap_mode: NRLMSISE00ApMode::Daily,
+            ..Default::default()
+        };
+        let rho_off = density_nrlmsise00_geod(&epc, &geod, &off).unwrap();
+        let rho_daily = density_nrlmsise00_geod(&epc, &geod, &daily).unwrap();
+        assert!(rho_off.is_finite() && rho_off > 0.0, "{rho_off}");
+        assert!(
+            (rho_off - rho_daily).abs() / rho_daily > 1e-6,
+            "{rho_off} vs {rho_daily}"
+        );
+    }
+
+    #[test]
+    #[serial]
     fn test_density_nrlmsise00_geod_at_zn3_boundary_is_finite() {
         let (epc, _) = reference_epoch_geod();
         let cfg = NRLMSISE00Config::default();

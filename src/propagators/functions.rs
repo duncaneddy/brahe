@@ -1037,4 +1037,74 @@ mod tests {
             assert_eq!(prop.current_epoch(), target);
         }
     }
+
+    #[test]
+    #[parallel]
+    fn test_par_propagate_to_d_precompute_mixed_directions_matches_serial() {
+        setup_global_test_eop();
+        let t0 = precompute_epoch();
+        let target = t0 + 3600.0;
+        // The second member starts before the first and the third propagates
+        // backward from after the target, so the group span widens at both
+        // ends to [t0, t0 + 7200 s].
+        let build = || -> Vec<DNumericalOrbitPropagator> {
+            [1800.0, 0.0, 7200.0]
+                .iter()
+                .map(|dt| precompute_prop(t0 + *dt, rotation_step(600.0)))
+                .collect()
+        };
+        let mut parallel_props = build();
+        let mut serial_props = build();
+
+        par_propagate_to_d(&mut parallel_props, target).unwrap();
+        for prop in &mut serial_props {
+            prop.propagate_to(target).unwrap();
+        }
+
+        let shared = parallel_props[0].precomputed_inputs().unwrap();
+        assert!(shared.covers_span(t0, t0 + 7200.0));
+        for (par, ser) in parallel_props.iter().zip(&serial_props) {
+            assert!(Arc::ptr_eq(&par.precomputed_inputs().unwrap(), &shared));
+            assert_eq!(par.current_epoch(), target);
+            assert_eq!(par.current_state(), ser.current_state());
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_par_propagate_to_d_precompute_table_error_propagates() {
+        // de440s ends on 2150-01-22, so the shared Sun ephemeris table cannot
+        // be built over this span and no propagator advances.
+        setup_global_test_eop();
+        crate::utils::testing::setup_global_test_spice();
+        let t0 = Epoch::from_datetime(2150, 1, 21, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let oe = na::Vector6::new(R_EARTH + 500e3, 0.001, 97.8, 15.0, 30.0, 45.0);
+        let state = state_koe_to_eci(oe, AngleFormat::Degrees);
+        let mut props: Vec<DNumericalOrbitPropagator> = (0..2)
+            .map(|_| {
+                DNumericalOrbitPropagator::new(
+                    t0,
+                    DVector::from_column_slice(state.as_slice()),
+                    precompute_rk4_30s(),
+                    ForceModelConfig {
+                        third_body: Some(vec![
+                            crate::propagators::force_model_config::ThirdBody::Sun.into(),
+                        ]),
+                        precompute: Some(PrecomputeConfig::default()),
+                        ..ForceModelConfig::earth_gravity()
+                    },
+                    None,
+                    None,
+                    None,
+                    None,
+                )
+                .unwrap()
+            })
+            .collect();
+
+        assert!(par_propagate_to_d(&mut props, t0 + 2.0 * 86400.0).is_err());
+        for prop in &props {
+            assert_eq!(prop.current_epoch(), t0);
+        }
+    }
 }

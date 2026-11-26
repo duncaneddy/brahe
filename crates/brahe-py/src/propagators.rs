@@ -4789,12 +4789,9 @@ impl PyTidesConfiguration {
 ///
 /// ``ephemeris_step`` sets the node spacing of the Sun, Moon, and planet
 /// ephemeris table, and ``cache_space_weather`` enables a per-propagator
-/// space-weather cache for NRLMSISE-00 drag. The cache memoizes, per UT1 day,
-/// the values NRLMSISE-00 reads from the global space-weather provider, so
-/// density calls do not go through the shared provider and its lock each time.
-/// Lookups return the same values as the provider. The provider's daily
-/// values must be constant within a UT1 day and its Ap values constant within
-/// each 3-hour bin, as for the file, caching, and static providers.
+/// space-weather cache for NRLMSISE-00 drag. After the first lookup of a day,
+/// density calls on that day read the cache instead of the shared global
+/// provider and its lock.
 ///
 /// Steps are checked by ``ForceModelConfig.validate()``, which the propagator
 /// constructor calls, so a non-finite or non-positive step is rejected at

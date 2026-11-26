@@ -1513,7 +1513,9 @@ mod tests {
     // accepted limitation shared with the registry's offline tests.)
 
     use crate::spice::{load_spice_kernel, unload_spice_kernel};
-    use crate::utils::testing::{CacheRedirect, synthetic_spk_kernel_bytes, without_spice_kernels};
+    use crate::utils::testing::{
+        CacheRedirect, NetworkModeGuard, synthetic_spk_kernel_bytes, without_spice_kernels,
+    };
 
     /// Third-body acceleration formula replicated for expected values.
     fn expected_accel(
@@ -2203,13 +2205,20 @@ mod tests {
         // outer-planet barycenter on the x-axis relative to Earth and each
         // planet center on the x-axis relative to its barycenter, so the
         // geocentric planet-center position is the exact two-leg sum.
-        setup_global_test_spice();
         without_spice_kernels(|| {
-            load_spice_kernel("de440s").unwrap();
             let epc = Epoch::from_datetime(2025, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
             {
                 let cache = CacheRedirect::new();
-                cache.seed_real_de440s();
+                let _mode = NetworkModeGuard::set(Some("offline"));
+                let de440s_asset = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                    .join("test_assets")
+                    .join("de440s.bsp");
+                cache.seed(
+                    "de440s.bsp",
+                    &std::fs::read(&de440s_asset).unwrap_or_else(|e| {
+                        panic!("test asset {} is required: {e}", de440s_asset.display())
+                    }),
+                );
                 cache.seed(
                     "de440.bsp",
                     &synthetic_spk_kernel_bytes(&[

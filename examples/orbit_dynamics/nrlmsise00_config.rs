@@ -29,9 +29,10 @@ fn main() {
     println!("Daily Ap:             {:.6e} kg/m^3", rho_daily);
 
     // Build a configuration from a 24-element reference switch array.
-    // Index 0 selects the reference implementation's unit system and is ignored;
-    // index 7 is the diurnal term (0 disables it); index 9 is the Ap mode
-    // (-1 selects the 3-hourly history).
+    // Index 0 selects CGS (0) or SI (1) output in the reference implementation;
+    // brahe always returns kg/m^3, so its value is ignored. Index 7 is the
+    // diurnal term (0 disables it); index 9 is the Ap mode (-1 selects the
+    // 3-hourly history).
     let mut switches = [1_i32; 24];
     switches[0] = 0;
     switches[7] = 0;

@@ -54,7 +54,6 @@ nav = [
       "about/design.md",
       "about/versioning.md",
       "about/alternatives.md",
-      "about/benchmarks.md",
     ] },
     { "Contributing To Brahe" = [
       "contributing.md",

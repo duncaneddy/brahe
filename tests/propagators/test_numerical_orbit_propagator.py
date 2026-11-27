@@ -16,27 +16,42 @@ from brahe import (
     AltitudeEvent,
     AngleFormat,
     AtmosphericModel,
+    BraheError,
     CelestialFrame,
     CentralBody,
     DragConfiguration,
+    EclipseModel,
+    EphemerisSource,
     Epoch,
     EventDirection,
+    FileSpaceWeatherProvider,
     ForceModelConfig,
     FrameTransformationModel,
     GravityConfiguration,
+    GravityModelType,
     IntegrationMethod,
     IntegratorConfig,
     NRLMSISE00ApMode,
     NRLMSISE00Config,
     NumericalOrbitPropagator,
     NumericalPropagationConfig,
+    OccultingBody,
+    ParallelMode,
     ParameterSource,
+    PermanentTideConfig,
     PrecomputeConfig,
+    SolarRadiationPressureConfiguration,
+    SolidTideConfig,
+    ThirdBody,
+    ThirdBodyConfiguration,
+    TidesConfiguration,
     TimeSystem,
     VariationalConfig,
     orbital_period,
     periapsis_velocity,
+    set_global_space_weather_provider,
     spk_state,
+    state_eci_to_emb,
     state_eci_to_koe,
     state_koe_to_eci,
 )
@@ -6850,3 +6865,197 @@ def test_precompute_key_none_for_non_earth_or_era_only(naif_cache_setup):
             prop.propagate_to(epoch + 21600.0)
             final.append(prop.current_state())
         assert np.array_equal(final[0], final[1])
+
+
+def _precompute_ephemeris_pair(force_config, params, duration):
+    epoch = Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem.UTC)
+    oe = np.array([R_EARTH + 500e3, 0.001, 97.8, 15.0, 30.0, 45.0])
+    state = state_koe_to_eci(oe, AngleFormat.DEGREES)
+    states = []
+    for precompute in (
+        PrecomputeConfig(
+            frame_rotation_step=None, ephemeris_step=60.0, cache_space_weather=False
+        ),
+        None,
+    ):
+        force_config.precompute = precompute
+        prop = NumericalOrbitPropagator(
+            epoch, state, _precompute_rk4_config(), force_config, params
+        )
+        prop.propagate_to(epoch + duration)
+        states.append(prop.current_state())
+    return states
+
+
+def test_precompute_ephemeris_fixed_step_accuracy():
+    force_config = ForceModelConfig.default()
+    force_config.drag = None
+    assert all(
+        tb.ephemeris_source == EphemerisSource.DE440s for tb in force_config.third_body
+    )
+    on, off = _precompute_ephemeris_pair(
+        force_config, np.array([1000.0, 10.0, 2.2, 10.0, 1.3]), 86400.0
+    )
+    dr = np.linalg.norm(on[:3] - off[:3])
+    assert dr > 0.0, "the propagation did not use the ephemeris table"
+    assert dr < 1e-3
+
+
+def _precompute_ephemeris_on_off(
+    epoch, state, force_config, params, duration, ephemeris_step
+):
+    states = []
+    for precompute in (
+        PrecomputeConfig(
+            frame_rotation_step=None,
+            ephemeris_step=ephemeris_step,
+            cache_space_weather=False,
+        ),
+        None,
+    ):
+        force_config.precompute = precompute
+        prop = NumericalOrbitPropagator(
+            epoch, state, _precompute_rk4_30s_config(), force_config, params
+        )
+        prop.propagate_to(epoch + duration)
+        states.append(prop.current_state())
+    return states
+
+
+def test_precompute_ephemeris_moon_central(naif_cache_setup):
+    force_config = ForceModelConfig.for_body(
+        CentralBody.Moon,
+        GravityConfiguration.point_mass(),
+        srp=SolarRadiationPressureConfiguration(
+            ParameterSource.value(2.0),
+            ParameterSource.value(1.3),
+            EclipseModel.CONICAL,
+            [OccultingBody.Moon, OccultingBody.Earth],
+        ),
+        third_body=[ThirdBody.EARTH, ThirdBody.SUN],
+        mass=ParameterSource.value(500.0),
+    )
+    epoch = Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem.UTC)
+    a = R_MOON + 100e3
+    state = np.array([a, 0.0, 0.0, 0.0, np.sqrt(GM_MOON / a), 0.0])
+    on, off = _precompute_ephemeris_on_off(
+        epoch, state, force_config, None, 86400.0, 60.0
+    )
+    dr = np.linalg.norm(on[:3] - off[:3])
+    assert dr > 0.0, "the propagation did not use the ephemeris table"
+    assert dr < 1e-3
+
+
+def test_precompute_ephemeris_tides_shares_sun_moon(naif_cache_setup):
+    epoch = Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem.UTC)
+    oe = np.array([R_EARTH + 500e3, 0.001, 97.8, 15.0, 30.0, 45.0])
+    state = state_koe_to_eci(oe, AngleFormat.DEGREES)
+    force_config = ForceModelConfig(
+        gravity=GravityConfiguration.spherical_harmonic(
+            degree=8,
+            order=8,
+            model_type=GravityModelType.GGM05S,
+            parallel=ParallelMode.Never,
+        ),
+        third_body=[ThirdBody.SUN, ThirdBody.MOON],
+        tides=TidesConfiguration(
+            PermanentTideConfig.AUTO,
+            solid=SolidTideConfig(frequency_dependent=False, pole_tide=False),
+            ephemeris_source=EphemerisSource.DE440s,
+        ),
+    )
+    on, off = _precompute_ephemeris_on_off(
+        epoch, state, force_config, None, 86400.0, 60.0
+    )
+    dr = np.linalg.norm(on[:3] - off[:3])
+    assert dr > 0.0, "the propagation did not use the ephemeris table"
+    assert dr < 1e-3
+
+
+def test_tides_ephemeris_query_error_is_propagator_error(naif_cache_setup):
+    # de440s ends on 2150-01-22, so the tidal Sun/Moon query fails partway
+    # through this day-long arc.
+    epoch = Epoch.from_datetime(2150, 1, 21, 0, 0, 0.0, 0.0, TimeSystem.UTC)
+    oe = np.array([R_EARTH + 500e3, 0.001, 97.8, 15.0, 30.0, 45.0])
+    state = state_koe_to_eci(oe, AngleFormat.DEGREES)
+    force_config = ForceModelConfig(
+        gravity=GravityConfiguration.spherical_harmonic(
+            degree=4,
+            order=4,
+            model_type=GravityModelType.GGM05S,
+            parallel=ParallelMode.Never,
+        ),
+        tides=TidesConfiguration(
+            PermanentTideConfig.AUTO,
+            solid=SolidTideConfig(frequency_dependent=False, pole_tide=False),
+            ephemeris_source=EphemerisSource.DE440s,
+        ),
+    )
+    prop = NumericalOrbitPropagator(
+        epoch, state, _precompute_rk4_30s_config(), force_config, None
+    )
+    with pytest.raises(BraheError, match="tidal Sun/Moon ephemeris query failed"):
+        prop.propagate_to(epoch + 86400.0)
+
+
+def test_precompute_ephemeris_emb_drag_body_and_field(
+    naif_cache_setup, sw_test_filepath
+):
+    set_global_space_weather_provider(
+        FileSpaceWeatherProvider.from_file(sw_test_filepath, "Hold")
+    )
+    epoch = Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem.UTC)
+    oe = np.array([R_EARTH + 500e3, 0.001, 97.8, 15.0, 30.0, 45.0])
+    x_emb = state_eci_to_emb(epoch, state_koe_to_eci(oe, AngleFormat.DEGREES))
+    force_config = ForceModelConfig.for_body(
+        CentralBody.EMB,
+        GravityConfiguration.zero(),
+        drag=DragConfiguration(
+            model=AtmosphericModel.nrlmsise00(NRLMSISE00Config()),
+            area=ParameterSource.value(10.0),
+            cd=ParameterSource.value(2.2),
+            body=CentralBody.Earth,
+        ),
+        third_body=[
+            ThirdBodyConfiguration(
+                ThirdBody.EARTH,
+                gravity=GravityConfiguration.spherical_harmonic(
+                    degree=8,
+                    order=8,
+                    model_type=GravityModelType.EGM2008_120,
+                    parallel=ParallelMode.Never,
+                ),
+            ),
+            ThirdBody.MOON,
+            ThirdBody.SUN,
+        ],
+        mass=ParameterSource.value(1000.0),
+    )
+
+    # Earth's orbit about the EMB has a linear-interpolation chord error of up
+    # to 1.5 cm at a 60 s node spacing, and the near-Earth object follows the
+    # tabulated Earth position directly. The on-vs-off difference must shrink
+    # with the square of the step.
+    def dr(step):
+        on, off = _precompute_ephemeris_on_off(
+            epoch, x_emb, force_config, None, 5400.0, step
+        )
+        return np.linalg.norm(on[:3] - off[:3])
+
+    dr_60, dr_6 = dr(60.0), dr(6.0)
+    assert dr_60 > 0.0, "the propagation did not use the ephemeris table"
+    assert dr_60 < 0.05
+    assert dr_6 < 1e-3
+    assert dr_6 < dr_60 / 50.0, "no quadratic convergence"
+
+
+def test_precompute_ephemeris_lowprecision_bitwise():
+    force_config = ForceModelConfig(
+        gravity=GravityConfiguration(degree=20, order=20),
+        third_body=[
+            ThirdBodyConfiguration(body, ephemeris_source=EphemerisSource.LowPrecision)
+            for body in (ThirdBody.SUN, ThirdBody.MOON)
+        ],
+    )
+    on, off = _precompute_ephemeris_pair(force_config, None, 21600.0)
+    assert np.array_equal(on, off)

@@ -8,12 +8,21 @@
  */
 
 use std::collections::VecDeque;
+use std::convert::Infallible;
 
+use nalgebra::Vector3;
 use rayon::prelude::*;
 
 use crate::frames::{bias_precession_nutation, earth_rotation, polar_motion};
 use crate::math::SMatrix3;
-use crate::propagators::{CentralBody, ForceModelConfig, FrameTransformationModel};
+use crate::orbit_dynamics::ephemerides::{moon_position, sun_position};
+use crate::orbit_dynamics::third_body::{third_body_position, third_body_position_geocentric};
+use crate::propagators::{
+    CentralBody, EclipseModel, EphemerisSource, ForceModelConfig, FrameTransformationModel,
+    GravityConfiguration, ThirdBody,
+};
+use crate::spice::registry::ensure_bodies_loadable;
+use crate::spice::{SPICEKernel, moon_position_spice, spk_position, spk_state, sun_position_spice};
 use crate::time::{Epoch, TimeSystem};
 use crate::utils::errors::BraheError;
 use crate::utils::threading::get_thread_pool;
@@ -107,34 +116,50 @@ fn lerp(a: &SMatrix3, b: &SMatrix3, s: f64) -> SMatrix3 {
     a + (b - a) * s
 }
 
-/// Table of bias-precession-nutation and polar-motion matrices on the absolute
-/// grid. Earth rotation angle is always evaluated exactly at the query epoch.
-#[derive(Debug, Clone)]
-pub(crate) struct FrameRotationTable {
-    step: f64,
-    k_min: i64,
-    nodes: VecDeque<(SMatrix3, SMatrix3)>,
-    #[cfg(test)]
-    pub(crate) nodes_computed: usize,
+/// Evaluate `f` at every node of `range` in parallel on the brahe thread pool.
+///
+/// # Arguments
+/// - `range`: Nodes to evaluate
+/// - `f`: Function of the node epoch
+///
+/// # Returns
+/// - `Vec<T>`: Values in node index order
+///
+/// # Examples
+///
+/// ```ignore
+/// let range = NodeRange::bracketing(60.0, epoch, epoch + 3600.0);
+/// let bpn: Vec<SMatrix3> = compute_parallel(range, bias_precession_nutation);
+/// ```
+fn compute_parallel<T: Send>(range: NodeRange, f: impl Fn(Epoch) -> T + Sync) -> Vec<T> {
+    get_thread_pool().install(|| {
+        (range.k_min..=range.k_max)
+            .into_par_iter()
+            .map(|k| f(range.epoch(k)))
+            .collect()
+    })
 }
 
-impl FrameRotationTable {
-    /// Create an empty table.
-    ///
-    /// # Arguments
-    /// - `step`: Grid spacing in seconds
-    pub(crate) fn new(step: f64) -> Self {
-        FrameRotationTable {
+/// Contiguous run of node values on a uniform grid, from node `k_min` to
+/// `k_min + nodes.len() - 1`.
+#[derive(Debug, Clone)]
+struct NodeStore<T> {
+    step: f64,
+    k_min: i64,
+    nodes: VecDeque<T>,
+}
+
+impl<T> NodeStore<T> {
+    fn new(step: f64) -> Self {
+        NodeStore {
             step,
             k_min: 0,
             nodes: VecDeque::new(),
-            #[cfg(test)]
-            nodes_computed: 0,
         }
     }
 
     /// Node range currently held, or `None` when empty.
-    pub(crate) fn coverage(&self) -> Option<NodeRange> {
+    fn coverage(&self) -> Option<NodeRange> {
         if self.nodes.is_empty() {
             None
         } else {
@@ -146,25 +171,123 @@ impl FrameRotationTable {
         }
     }
 
-    fn compute_nodes(&mut self, k_first: i64, k_last: i64) -> Vec<(SMatrix3, SMatrix3)> {
-        let range = NodeRange {
-            step: self.step,
-            k_min: k_first,
-            k_max: k_last,
+    /// Whether the store holds the nodes bracketing the span between two epochs.
+    ///
+    /// # Arguments
+    /// - `start`: One end of the span
+    /// - `end`: The other end of the span
+    ///
+    /// # Returns
+    /// - `bool`: `true` when every node of [`NodeRange::bracketing`] is held
+    fn holds_span(&self, start: Epoch, end: Epoch) -> bool {
+        let need = NodeRange::bracketing(self.step, start, end);
+        self.coverage().is_some_and(|cov| cov.contains(&need))
+    }
+
+    /// Extend the store to cover `need`, computing only missing nodes.
+    ///
+    /// Missing nodes are appended or prepended in place. When `need` is disjoint
+    /// from the current coverage, the nodes in the gap are computed too and the
+    /// store stays contiguous, provided the gap is no longer than the current
+    /// coverage (both in nodes). A larger gap replaces the contents.
+    ///
+    /// # Arguments
+    /// - `need`: Node range that must be held after the call
+    /// - `compute`: Values of the nodes of a range, in node index order
+    ///
+    /// # Returns
+    /// - `Result<(), E>`: The first error from `compute`; the store then holds the nodes
+    ///   computed before it
+    fn ensure<E>(
+        &mut self,
+        need: NodeRange,
+        mut compute: impl FnMut(NodeRange) -> Result<Vec<T>, E>,
+    ) -> Result<(), E> {
+        let Some(cov) = self.coverage() else {
+            return self.replace(need, compute);
         };
-        #[cfg(test)]
-        {
-            self.nodes_computed += (k_last - k_first + 1).max(0) as usize;
+        let len = self.nodes.len() as i64;
+        if need.k_min - cov.k_max - 1 > len || cov.k_min - need.k_max - 1 > len {
+            return self.replace(need, compute);
         }
-        get_thread_pool().install(|| {
-            (k_first..=k_last)
-                .into_par_iter()
-                .map(|k| {
-                    let e = range.epoch(k);
-                    (bias_precession_nutation(e), polar_motion(e))
-                })
-                .collect()
-        })
+        if need.k_max > cov.k_max {
+            let new = compute(NodeRange {
+                step: self.step,
+                k_min: cov.k_max + 1,
+                k_max: need.k_max,
+            })?;
+            self.nodes.extend(new);
+        }
+        if need.k_min < cov.k_min {
+            let new = compute(NodeRange {
+                step: self.step,
+                k_min: need.k_min,
+                k_max: cov.k_min - 1,
+            })?;
+            for node in new.into_iter().rev() {
+                self.nodes.push_front(node);
+            }
+            self.k_min = need.k_min;
+        }
+        Ok(())
+    }
+
+    fn replace<E>(
+        &mut self,
+        need: NodeRange,
+        compute: impl FnOnce(NodeRange) -> Result<Vec<T>, E>,
+    ) -> Result<(), E> {
+        let new = compute(need)?;
+        self.nodes = new.into();
+        self.k_min = need.k_min;
+        Ok(())
+    }
+
+    /// Nodes `k` and `k + 1` bracketing an epoch and its fraction `s` between them.
+    ///
+    /// # Arguments
+    /// - `epoch`: Epoch to locate
+    ///
+    /// # Returns
+    /// - `Option<(&T, &T, f64)>`: Node `k`, node `k + 1` and `s` in `[0, 1)`, or `None` when
+    ///   either node is not held
+    fn bracket(&self, epoch: Epoch) -> Option<(&T, &T, f64)> {
+        let (k, s) = NodeRange::locate(self.step, epoch);
+        let i = k.checked_sub(self.k_min)?;
+        if i < 0 {
+            return None;
+        }
+        let i = i as usize;
+        Some((self.nodes.get(i)?, self.nodes.get(i + 1)?, s))
+    }
+}
+
+/// Table of bias-precession-nutation and polar-motion matrices on the absolute
+/// grid. Earth rotation angle is always evaluated exactly at the query epoch.
+#[derive(Debug, Clone)]
+pub(crate) struct FrameRotationTable {
+    store: NodeStore<(SMatrix3, SMatrix3)>,
+    #[cfg(test)]
+    pub(crate) nodes_computed: usize,
+}
+
+impl FrameRotationTable {
+    /// Create an empty table.
+    ///
+    /// # Arguments
+    /// - `step`: Grid spacing in seconds
+    pub(crate) fn new(step: f64) -> Self {
+        FrameRotationTable {
+            store: NodeStore::new(step),
+            #[cfg(test)]
+            nodes_computed: 0,
+        }
+    }
+
+    /// Node range currently held, or `None` when empty.
+    #[cfg(test)]
+    pub(crate) fn coverage(&self) -> Option<NodeRange> {
+        self.store.coverage()
     }
 
     /// Extend the table to cover `need`, computing only missing nodes.
@@ -177,37 +300,15 @@ impl FrameRotationTable {
     /// # Arguments
     /// - `need`: Node range that must be held after the call
     pub(crate) fn ensure(&mut self, need: NodeRange) {
-        let Some(cov) = self.coverage() else {
-            self.replace(need);
-            return;
-        };
-        let len = self.nodes.len() as i64;
-        if need.k_min - cov.k_max - 1 > len || cov.k_min - need.k_max - 1 > len {
-            self.replace(need);
-            return;
-        }
-        if need.k_max > cov.k_max {
-            let new = self.compute_nodes(cov.k_max + 1, need.k_max);
-            self.nodes.extend(new);
-        }
-        if need.k_min < cov.k_min {
-            let new = self.compute_nodes(need.k_min, cov.k_min - 1);
-            for node in new.into_iter().rev() {
-                self.nodes.push_front(node);
+        let Ok(()) = self.store.ensure(need, |range| {
+            #[cfg(test)]
+            {
+                self.nodes_computed += (range.k_max - range.k_min + 1) as usize;
             }
-            self.k_min = need.k_min;
-        }
-    }
-
-    /// Whether the table holds every node of `need`.
-    fn holds(&self, need: &NodeRange) -> bool {
-        self.coverage().is_some_and(|cov| cov.contains(need))
-    }
-
-    fn replace(&mut self, need: NodeRange) {
-        let new = self.compute_nodes(need.k_min, need.k_max);
-        self.nodes = new.into();
-        self.k_min = need.k_min;
+            Ok::<_, Infallible>(compute_parallel(range, |e| {
+                (bias_precession_nutation(e), polar_motion(e))
+            }))
+        });
     }
 
     /// GCRF to ITRF rotation at an epoch.
@@ -219,15 +320,422 @@ impl FrameRotationTable {
     /// - `Option<SMatrix3>`: `PM(lerp) * ERA(epoch) * BPN(lerp)`, or `None` when the bracketing
     ///   node pair is not held
     pub(crate) fn rotation(&self, epoch: Epoch) -> Option<SMatrix3> {
-        let (k, s) = NodeRange::locate(self.step, epoch);
-        let i = k.checked_sub(self.k_min)?;
-        if i < 0 {
-            return None;
-        }
-        let i = i as usize;
-        let (bpn0, pm0) = self.nodes.get(i)?;
-        let (bpn1, pm1) = self.nodes.get(i + 1)?;
+        let ((bpn0, pm0), (bpn1, pm1), s) = self.store.bracket(epoch)?;
         Some(lerp(pm0, pm1, s) * earth_rotation(epoch) * lerp(bpn0, bpn1, s))
+    }
+}
+
+/// Resolve the Sun and Moon ECI positions from an ephemeris source.
+///
+/// Mirrors the third-body block's resolution: [`EphemerisSource::LowPrecision`]
+/// uses the analytic geocentric ephemerides; a SPICE source resolves through
+/// the kernel it names (`sun_position_spice`/`moon_position_spice`, which
+/// auto-load the kernel).
+///
+/// # Arguments
+/// - `source`: Ephemeris source for both bodies
+/// - `epoch`: Epoch to evaluate
+///
+/// # Returns
+/// - `Result<(Vector3<f64>, Vector3<f64>), BraheError>`: `(r_sun_eci, r_moon_eci)` in meters
+///
+/// # Examples
+///
+/// ```ignore
+/// let (r_sun, r_moon) = resolve_sun_moon_eci(EphemerisSource::DE440s, epoch)?;
+/// ```
+pub(crate) fn resolve_sun_moon_eci(
+    source: EphemerisSource,
+    epoch: Epoch,
+) -> Result<(Vector3<f64>, Vector3<f64>), BraheError> {
+    match source {
+        EphemerisSource::LowPrecision => Ok((sun_position(epoch), moon_position(epoch))),
+        spice_source => {
+            let kernel = SPICEKernel::try_from(spice_source)?;
+            Ok((
+                sun_position_spice(epoch, kernel)?,
+                moon_position_spice(epoch, kernel)?,
+            ))
+        }
+    }
+}
+
+/// Force-model site an ephemeris channel feeds.
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) enum ChannelRole {
+    /// Third-body entry at this index of [`ForceModelConfig::third_body`].
+    ThirdBody(usize),
+    /// Sun and Moon positions for the tidal corrections.
+    TideSunMoon,
+    /// Sun position for solar radiation pressure about a non-Earth central body.
+    SrpSun,
+    /// Solar-radiation-pressure occulter at this index of `occulting_bodies`.
+    Occulter(usize),
+    /// State of the attributed drag body relative to the central body.
+    DragBody,
+}
+
+/// Ephemeris query whose values an ephemeris channel tabulates.
+///
+/// Each variant evaluates the function the dynamics call when no table is
+/// present, so node values equal the untabulated values bit for bit.
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) enum ChannelQuery {
+    /// Geocentric position of the Sun, the Moon, a planet or a planetary-system
+    /// barycenter, as resolved by `accel_third_body`.
+    GeocentricThirdBody {
+        body: ThirdBody,
+        source: EphemerisSource,
+    },
+    /// Position of a perturber relative to a central body, as resolved by
+    /// `accel_third_body_for_body`.
+    ThirdBodyPosition {
+        central: CentralBody,
+        body: ThirdBody,
+        source: EphemerisSource,
+    },
+    /// Geocentric Sun position followed by the geocentric Moon position.
+    SunMoon { source: EphemerisSource },
+    /// Position of NAIF body `target` relative to `center` across the loaded kernels.
+    SpkPosition { target: i32, center: i32 },
+    /// State of NAIF body `target` relative to `center` across the loaded kernels.
+    SpkState { target: i32, center: i32 },
+}
+
+impl ChannelQuery {
+    /// Number of values the query returns.
+    ///
+    /// # Returns
+    /// - `usize`: 6 for `SunMoon` and `SpkState`, 3 otherwise
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// let query = ChannelQuery::SunMoon { source: EphemerisSource::DE440s };
+    /// assert_eq!(query.dim(), 6);
+    /// ```
+    pub(crate) fn dim(&self) -> usize {
+        match self {
+            ChannelQuery::SunMoon { .. } | ChannelQuery::SpkState { .. } => 6,
+            ChannelQuery::GeocentricThirdBody { .. }
+            | ChannelQuery::ThirdBodyPosition { .. }
+            | ChannelQuery::SpkPosition { .. } => 3,
+        }
+    }
+
+    /// Load the kernels an SPK query's bodies need, as the dynamics do before
+    /// querying the registry.
+    ///
+    /// Does nothing for the other queries, whose ephemeris functions load
+    /// their kernels themselves.
+    ///
+    /// # Returns
+    /// - `Result<(), BraheError>`: The kernel load error, if any
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// let query = ChannelQuery::SpkPosition { target: 499, center: 399 };
+    /// query.load_kernels()?;
+    /// ```
+    pub(crate) fn load_kernels(&self) -> Result<(), BraheError> {
+        match self {
+            ChannelQuery::SpkPosition { target, center }
+            | ChannelQuery::SpkState { target, center } => {
+                ensure_bodies_loadable(&[*target, *center])
+            }
+            ChannelQuery::GeocentricThirdBody { .. }
+            | ChannelQuery::ThirdBodyPosition { .. }
+            | ChannelQuery::SunMoon { .. } => Ok(()),
+        }
+    }
+
+    /// Evaluate the query at an epoch.
+    ///
+    /// SPK queries expect [`ChannelQuery::load_kernels`] to have run.
+    ///
+    /// # Arguments
+    /// - `epoch`: Epoch to evaluate
+    ///
+    /// # Returns
+    /// - `Result<Vec<f64>, BraheError>`: [`ChannelQuery::dim`] values; positions in meters,
+    ///   velocities in meters per second
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// let query = ChannelQuery::GeocentricThirdBody {
+    ///     body: ThirdBody::Moon,
+    ///     source: EphemerisSource::DE440s,
+    /// };
+    /// let r_moon = query.evaluate(epoch)?;
+    /// assert_eq!(r_moon.len(), query.dim());
+    /// ```
+    pub(crate) fn evaluate(&self, epoch: Epoch) -> Result<Vec<f64>, BraheError> {
+        Ok(match self {
+            ChannelQuery::GeocentricThirdBody { body, source } => {
+                let (r, _) = third_body_position_geocentric(body, *source, epoch)?;
+                r.iter().copied().collect()
+            }
+            ChannelQuery::ThirdBodyPosition {
+                central,
+                body,
+                source,
+            } => third_body_position(central, body, *source, epoch)?
+                .iter()
+                .copied()
+                .collect(),
+            ChannelQuery::SunMoon { source } => {
+                let (r_sun, r_moon) = resolve_sun_moon_eci(*source, epoch)?;
+                r_sun.iter().chain(r_moon.iter()).copied().collect()
+            }
+            ChannelQuery::SpkPosition { target, center } => spk_position(*target, *center, epoch)?
+                .iter()
+                .copied()
+                .collect(),
+            ChannelQuery::SpkState { target, center } => spk_state(*target, *center, epoch)?
+                .iter()
+                .copied()
+                .collect(),
+        })
+    }
+}
+
+/// SPICE-backed ephemeris queries a force model makes, in a fixed order.
+///
+/// Lists the third-body entries in configuration order, then the tidal
+/// Sun/Moon positions, the SRP Sun position for a non-Earth central body, the
+/// SRP occulters not co-located with the central body (when an eclipse model
+/// is set), and the attributed drag-body state when it differs from the
+/// central body. Queries with an [`EphemerisSource::LowPrecision`] source are
+/// left out. Earth-central point-mass entries for the Sun, the Moon, the
+/// planets and the planetary-system barycenters use
+/// [`ChannelQuery::GeocentricThirdBody`]; every other third-body entry uses
+/// [`ChannelQuery::ThirdBodyPosition`].
+///
+/// # Arguments
+/// - `cfg`: Force model configuration
+///
+/// # Returns
+/// - `Vec<(ChannelRole, ChannelQuery)>`: One entry per tabulated query
+///
+/// # Examples
+///
+/// ```ignore
+/// let channels = ephemeris_channels(&ForceModelConfig::default());
+/// assert_eq!(channels[0].0, ChannelRole::ThirdBody(0));
+/// ```
+pub(crate) fn ephemeris_channels(cfg: &ForceModelConfig) -> Vec<(ChannelRole, ChannelQuery)> {
+    let central = &cfg.central_body;
+    let mut channels = Vec::new();
+
+    for (idx, entry) in cfg.third_body.iter().flatten().enumerate() {
+        if entry.ephemeris_source == EphemerisSource::LowPrecision {
+            continue;
+        }
+        let geocentric = matches!(central, CentralBody::Earth)
+            && matches!(entry.gravity, GravityConfiguration::PointMass)
+            && matches!(
+                entry.body,
+                ThirdBody::Sun
+                    | ThirdBody::Moon
+                    | ThirdBody::Mercury
+                    | ThirdBody::Venus
+                    | ThirdBody::Mars
+                    | ThirdBody::MarsBarycenter
+                    | ThirdBody::Jupiter
+                    | ThirdBody::JupiterBarycenter
+                    | ThirdBody::Saturn
+                    | ThirdBody::SaturnBarycenter
+                    | ThirdBody::Uranus
+                    | ThirdBody::UranusBarycenter
+                    | ThirdBody::Neptune
+                    | ThirdBody::NeptuneBarycenter
+            );
+        let query = if geocentric {
+            ChannelQuery::GeocentricThirdBody {
+                body: entry.body.clone(),
+                source: entry.ephemeris_source,
+            }
+        } else {
+            ChannelQuery::ThirdBodyPosition {
+                central: central.clone(),
+                body: entry.body.clone(),
+                source: entry.ephemeris_source,
+            }
+        };
+        channels.push((ChannelRole::ThirdBody(idx), query));
+    }
+
+    if let Some(tides) = &cfg.tides
+        && (tides.solid.is_some() || tides.ocean.is_some())
+        && tides.ephemeris_source != EphemerisSource::LowPrecision
+    {
+        channels.push((
+            ChannelRole::TideSunMoon,
+            ChannelQuery::SunMoon {
+                source: tides.ephemeris_source,
+            },
+        ));
+    }
+
+    if let Some(srp) = &cfg.srp {
+        if !matches!(central, CentralBody::Earth) {
+            channels.push((
+                ChannelRole::SrpSun,
+                ChannelQuery::SpkPosition {
+                    target: 10,
+                    center: central.naif_id(),
+                },
+            ));
+        }
+        if srp.eclipse_model != EclipseModel::None {
+            for (idx, occ) in srp.occulting_bodies.iter().enumerate() {
+                if occ.naif_position_id() != central.naif_id() {
+                    channels.push((
+                        ChannelRole::Occulter(idx),
+                        ChannelQuery::SpkPosition {
+                            target: occ.naif_position_id(),
+                            center: central.naif_id(),
+                        },
+                    ));
+                }
+            }
+        }
+    }
+
+    if let Some(drag) = &cfg.drag
+        && let Some(body) = &drag.body
+        && body.naif_id() != central.naif_id()
+    {
+        channels.push((
+            ChannelRole::DragBody,
+            ChannelQuery::SpkState {
+                target: body.naif_id(),
+                center: central.naif_id(),
+            },
+        ));
+    }
+
+    channels
+}
+
+/// Table of ephemeris channel values on the absolute grid.
+///
+/// Each node stores the values of every channel back to back; channel `i`
+/// occupies `offsets[i]..offsets[i] + queries[i].dim()`.
+#[derive(Debug, Clone)]
+pub(crate) struct EphemerisTable {
+    store: NodeStore<Box<[f64]>>,
+    queries: Vec<ChannelQuery>,
+    offsets: Vec<usize>,
+    stride: usize,
+}
+
+impl EphemerisTable {
+    /// Create an empty table.
+    ///
+    /// # Arguments
+    /// - `step`: Grid spacing in seconds
+    /// - `queries`: Channel queries, in channel order
+    ///
+    /// # Returns
+    /// - `EphemerisTable`: Table holding no nodes
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// let queries = ephemeris_channels(&cfg).into_iter().map(|(_, q)| q).collect();
+    /// let table = EphemerisTable::new(60.0, queries);
+    /// ```
+    pub(crate) fn new(step: f64, queries: Vec<ChannelQuery>) -> Self {
+        let mut offsets = Vec::with_capacity(queries.len());
+        let mut stride = 0;
+        for query in &queries {
+            offsets.push(stride);
+            stride += query.dim();
+        }
+        EphemerisTable {
+            store: NodeStore::new(step),
+            queries,
+            offsets,
+            stride,
+        }
+    }
+
+    /// Node range currently held, or `None` when empty.
+    #[cfg(test)]
+    pub(crate) fn coverage(&self) -> Option<NodeRange> {
+        self.store.coverage()
+    }
+
+    /// Extend the table to cover `need`, computing only missing nodes.
+    ///
+    /// Follows the extension rules of [`FrameRotationTable::ensure`]. Each
+    /// batch of missing nodes first loads the kernels of every query once,
+    /// then computes the nodes in parallel on the brahe thread pool.
+    ///
+    /// # Arguments
+    /// - `need`: Node range that must be held after the call
+    ///
+    /// # Returns
+    /// - `Result<(), BraheError>`: The first kernel load error in channel order, else the error
+    ///   of the first failing query, ordered by node index and then by channel; the nodes of a
+    ///   failing batch are not stored
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// table.ensure(NodeRange::bracketing(60.0, epoch, epoch + 3600.0))?;
+    /// ```
+    pub(crate) fn ensure(&mut self, need: NodeRange) -> Result<(), BraheError> {
+        let queries = &self.queries;
+        let stride = self.stride;
+        self.store.ensure(need, |range| {
+            for query in queries {
+                query.load_kernels()?;
+            }
+            compute_parallel(range, |e| {
+                let mut node = Vec::with_capacity(stride);
+                for query in queries {
+                    node.extend(query.evaluate(e)?);
+                }
+                Ok(node.into_boxed_slice())
+            })
+            .into_iter()
+            .collect()
+        })
+    }
+
+    /// Interpolated value of one channel.
+    ///
+    /// # Arguments
+    /// - `channel`: Channel index
+    /// - `epoch`: Epoch to evaluate
+    ///
+    /// # Returns
+    /// - `Option<[f64; 6]>`: The channel's linearly interpolated values in the first
+    ///   [`ChannelQuery::dim`] entries and zeros after them, or `None` when the channel does
+    ///   not exist or the bracketing node pair is not held
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// table.ensure(NodeRange::bracketing(60.0, epoch, epoch + 3600.0))?;
+    /// let r_moon = table.value(0, epoch + 90.0).unwrap();
+    /// ```
+    pub(crate) fn value(&self, channel: usize, epoch: Epoch) -> Option<[f64; 6]> {
+        let dim = self.queries.get(channel)?.dim();
+        let off = self.offsets[channel];
+        let (a, b, s) = self.store.bracket(epoch)?;
+        let mut out = [0.0; 6];
+        for (o, (a, b)) in out
+            .iter_mut()
+            .zip(a[off..off + dim].iter().zip(&b[off..off + dim]))
+        {
+            *o = a + (b - a) * s;
+        }
+        Some(out)
     }
 }
 
@@ -235,9 +743,13 @@ impl FrameRotationTable {
 ///
 /// Two propagators whose force models produce equal keys can share one bundle.
 /// The key is derived from [`ForceModelConfig::precompute`] and the parts of the
-/// force model that decide which tables apply; a frame-rotation table applies
+/// force model that decide which tables apply. A frame-rotation table applies
 /// only to an Earth central body with
-/// [`FrameTransformationModel::FullEarthRotation`].
+/// [`FrameTransformationModel::FullEarthRotation`]. An ephemeris table applies
+/// when the force model queries SPICE ephemerides; the key holds the ordered
+/// list of those queries together with the force-model site each one feeds, so
+/// force models querying the same bodies for different purposes get different
+/// keys.
 ///
 /// # Examples
 ///
@@ -270,6 +782,7 @@ impl FrameRotationTable {
 #[derive(Debug, Clone, PartialEq)]
 pub struct PrecomputeKey {
     frame_rotation_step: Option<f64>,
+    ephemeris: Option<(f64, Vec<(ChannelRole, ChannelQuery)>)>,
 }
 
 impl PrecomputeKey {
@@ -288,18 +801,27 @@ impl PrecomputeKey {
             }
             _ => None,
         };
-        frame_rotation_step.map(|step| PrecomputeKey {
-            frame_rotation_step: Some(step),
+        let ephemeris = pre.ephemeris_step.and_then(|step| {
+            let channels = ephemeris_channels(cfg);
+            (!channels.is_empty()).then_some((step, channels))
+        });
+        if frame_rotation_step.is_none() && ephemeris.is_none() {
+            return None;
+        }
+        Some(PrecomputeKey {
+            frame_rotation_step,
+            ephemeris,
         })
     }
 }
 
 /// Precomputed time-only force-model inputs for a [`PrecomputeKey`].
 ///
-/// Holds the frame-rotation table on the absolute grid. A propagator extends
-/// the tables over each requested span before integrating and on demand when
-/// the dynamics are evaluated at an epoch outside them. Bundles are shared
-/// between propagators through `Arc` and copied on write when one extends them.
+/// Holds the frame-rotation and ephemeris tables on the absolute grid. A
+/// propagator extends the tables over each requested span before integrating
+/// and on demand when the dynamics are evaluated at an epoch outside them.
+/// Bundles are shared between propagators through `Arc` and copied on write
+/// when one extends them.
 ///
 /// # Examples
 ///
@@ -333,6 +855,7 @@ impl PrecomputeKey {
 pub struct PrecomputedInputs {
     key: PrecomputeKey,
     rotation: Option<FrameRotationTable>,
+    ephemeris: Option<EphemerisTable>,
 }
 
 impl PrecomputedInputs {
@@ -347,6 +870,9 @@ impl PrecomputedInputs {
         PrecomputedInputs {
             key: key.clone(),
             rotation: key.frame_rotation_step.map(FrameRotationTable::new),
+            ephemeris: key.ephemeris.as_ref().map(|(step, channels)| {
+                EphemerisTable::new(*step, channels.iter().map(|(_, q)| q.clone()).collect())
+            }),
         }
     }
 
@@ -369,7 +895,11 @@ impl PrecomputedInputs {
     pub(crate) fn covers_span(&self, start: Epoch, end: Epoch) -> bool {
         self.rotation
             .as_ref()
-            .is_none_or(|t| t.holds(&NodeRange::bracketing(t.step, start, end)))
+            .is_none_or(|t| t.store.holds_span(start, end))
+            && self
+                .ephemeris
+                .as_ref()
+                .is_none_or(|t| t.store.holds_span(start, end))
     }
 
     /// Whether every table holds the nodes bracketing an epoch.
@@ -392,10 +922,14 @@ impl PrecomputedInputs {
     /// - `end`: The other end of the span
     ///
     /// # Returns
-    /// - `Result<(), BraheError>`: `Ok(())` once every table covers the span
+    /// - `Result<(), BraheError>`: `Ok(())` once every table covers the span, or the first
+    ///   ephemeris query error
     pub(crate) fn ensure(&mut self, start: Epoch, end: Epoch) -> Result<(), BraheError> {
+        if let Some(table) = self.ephemeris.as_mut() {
+            table.ensure(NodeRange::bracketing(table.store.step, start, end))?;
+        }
         if let Some(table) = self.rotation.as_mut() {
-            table.ensure(NodeRange::bracketing(table.step, start, end));
+            table.ensure(NodeRange::bracketing(table.store.step, start, end));
         }
         Ok(())
     }
@@ -410,6 +944,29 @@ impl PrecomputedInputs {
     ///   frame-rotation table or the table does not bracket `epoch`
     pub(crate) fn rotation(&self, epoch: Epoch) -> Option<SMatrix3> {
         self.rotation.as_ref()?.rotation(epoch)
+    }
+
+    /// Ephemeris channel value for a force-model site.
+    ///
+    /// # Arguments
+    /// - `role`: Force-model site the channel feeds
+    /// - `epoch`: Epoch to evaluate
+    ///
+    /// # Returns
+    /// - `Option<[f64; 6]>`: The channel's interpolated values in the first
+    ///   [`ChannelQuery::dim`] entries and zeros after them, or `None` when the key lists no
+    ///   channel for `role` or the table does not bracket `epoch`
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// inputs.ensure(epoch, epoch + 3600.0)?;
+    /// let s = inputs.ephemeris(&ChannelRole::ThirdBody(0), epoch + 90.0).unwrap();
+    /// ```
+    pub(crate) fn ephemeris(&self, role: &ChannelRole, epoch: Epoch) -> Option<[f64; 6]> {
+        let (_, channels) = self.key.ephemeris.as_ref()?;
+        let channel = channels.iter().position(|(r, _)| r == role)?;
+        self.ephemeris.as_ref()?.value(channel, epoch)
     }
 
     /// Number of frame-rotation nodes computed over the bundle's lifetime.
@@ -430,10 +987,429 @@ impl PrecomputedInputs {
 mod tests {
     use super::*;
     use crate::frames::rotation_eci_to_ecef;
-    use crate::propagators::PrecomputeConfig;
-    use crate::utils::testing::setup_global_test_eop;
+    use crate::orbit_dynamics::tides::SolidTideConfig;
+    use crate::propagators::{
+        AtmosphericModel, DragConfiguration, EclipseModel, GravityConfiguration, OccultingBody,
+        ParameterSource, PrecomputeConfig, SolarRadiationPressureConfiguration,
+        ThirdBodyConfiguration, TidesConfiguration, ZonalHarmonicsDegree,
+    };
+    use crate::utils::testing::{setup_global_test_eop, setup_global_test_spice};
     use approx::assert_abs_diff_eq;
-    use serial_test::parallel;
+    use serial_test::{parallel, serial};
+
+    fn third_body_entry(body: ThirdBody, source: EphemerisSource) -> ThirdBodyConfiguration {
+        ThirdBodyConfiguration {
+            ephemeris_source: source,
+            ..body.into()
+        }
+    }
+
+    #[test]
+    #[parallel]
+    fn test_ephemeris_channels_default_config() {
+        assert_eq!(
+            ephemeris_channels(&ForceModelConfig::default()),
+            vec![
+                (
+                    ChannelRole::ThirdBody(0),
+                    ChannelQuery::GeocentricThirdBody {
+                        body: ThirdBody::Sun,
+                        source: EphemerisSource::DE440s,
+                    },
+                ),
+                (
+                    ChannelRole::ThirdBody(1),
+                    ChannelQuery::GeocentricThirdBody {
+                        body: ThirdBody::Moon,
+                        source: EphemerisSource::DE440s,
+                    },
+                ),
+            ]
+        );
+    }
+
+    #[test]
+    #[parallel]
+    fn test_ephemeris_channels_lowprecision_empty() {
+        let cfg = ForceModelConfig {
+            third_body: Some(vec![
+                third_body_entry(ThirdBody::Sun, EphemerisSource::LowPrecision),
+                third_body_entry(ThirdBody::Moon, EphemerisSource::LowPrecision),
+            ]),
+            tides: Some(TidesConfiguration {
+                solid: Some(SolidTideConfig {
+                    frequency_dependent: true,
+                    pole_tide: false,
+                }),
+                ..TidesConfiguration::default()
+            }),
+            ..ForceModelConfig::default()
+        };
+        assert!(ephemeris_channels(&cfg).is_empty());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_precompute_key_distinguishes_channel_roles() {
+        let config = |entries: Vec<ThirdBodyConfiguration>| ForceModelConfig {
+            third_body: Some(entries),
+            precompute: Some(PrecomputeConfig::default()),
+            ..ForceModelConfig::earth_gravity()
+        };
+        let short = config(vec![
+            third_body_entry(ThirdBody::Moon, EphemerisSource::DE440s),
+            third_body_entry(ThirdBody::Venus, EphemerisSource::DE440s),
+        ]);
+        let long = config(vec![
+            third_body_entry(ThirdBody::Sun, EphemerisSource::LowPrecision),
+            third_body_entry(ThirdBody::Moon, EphemerisSource::DE440s),
+            third_body_entry(ThirdBody::Venus, EphemerisSource::DE440s),
+        ]);
+        let short_key = PrecomputeKey::from_force_config(&short).unwrap();
+        let long_key = PrecomputeKey::from_force_config(&long).unwrap();
+        assert_ne!(short_key, long_key);
+        assert_eq!(
+            short_key,
+            PrecomputeKey::from_force_config(&short.clone()).unwrap()
+        );
+    }
+
+    #[test]
+    #[parallel]
+    fn test_precompute_key_ephemeris_only_for_non_earth_central() {
+        let cfg = ForceModelConfig {
+            precompute: Some(PrecomputeConfig::default()),
+            ..ForceModelConfig::for_body(
+                CentralBody::Moon,
+                GravityConfiguration::PointMass,
+                None,
+                None,
+                Some(vec![ThirdBody::Earth.into()]),
+                false,
+                None,
+            )
+        };
+        let key = PrecomputeKey::from_force_config(&cfg).unwrap();
+        let inputs = PrecomputedInputs::new(&key);
+        assert!(inputs.rotation.is_none());
+        assert!(inputs.ephemeris.is_some());
+
+        let no_ephemeris = ForceModelConfig {
+            precompute: Some(PrecomputeConfig {
+                ephemeris_step: None,
+                ..PrecomputeConfig::default()
+            }),
+            ..cfg
+        };
+        assert_eq!(PrecomputeKey::from_force_config(&no_ephemeris), None);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_ephemeris_channels_moon_central_srp_occulter() {
+        let cfg = ForceModelConfig::for_body(
+            CentralBody::Moon,
+            GravityConfiguration::PointMass,
+            None,
+            Some(SolarRadiationPressureConfiguration {
+                area: ParameterSource::Value(1.0),
+                cr: ParameterSource::Value(1.3),
+                eclipse_model: EclipseModel::Conical,
+                occulting_bodies: vec![OccultingBody::Earth, OccultingBody::Moon],
+            }),
+            None,
+            false,
+            Some(ParameterSource::Value(100.0)),
+        );
+        assert_eq!(
+            ephemeris_channels(&cfg),
+            vec![
+                (
+                    ChannelRole::SrpSun,
+                    ChannelQuery::SpkPosition {
+                        target: 10,
+                        center: 301,
+                    },
+                ),
+                (
+                    ChannelRole::Occulter(0),
+                    ChannelQuery::SpkPosition {
+                        target: 399,
+                        center: 301,
+                    },
+                ),
+            ]
+        );
+
+        let no_eclipse = ForceModelConfig {
+            srp: cfg
+                .srp
+                .clone()
+                .map(|srp| SolarRadiationPressureConfiguration {
+                    eclipse_model: EclipseModel::None,
+                    ..srp
+                }),
+            ..cfg
+        };
+        assert_eq!(
+            ephemeris_channels(&no_eclipse),
+            vec![(
+                ChannelRole::SrpSun,
+                ChannelQuery::SpkPosition {
+                    target: 10,
+                    center: 301,
+                },
+            )]
+        );
+    }
+
+    #[test]
+    #[parallel]
+    fn test_ephemeris_channels_roles_and_queries() {
+        let cfg = ForceModelConfig {
+            third_body: Some(vec![
+                ThirdBodyConfiguration {
+                    gravity: GravityConfiguration::EarthZonal {
+                        degree: ZonalHarmonicsDegree::J2,
+                    },
+                    ..ThirdBody::Moon.into()
+                },
+                ThirdBody::Phobos.into(),
+                ThirdBody::Venus.into(),
+            ]),
+            tides: Some(TidesConfiguration {
+                solid: Some(SolidTideConfig {
+                    frequency_dependent: true,
+                    pole_tide: false,
+                }),
+                ephemeris_source: EphemerisSource::DE440,
+                ..TidesConfiguration::default()
+            }),
+            ..ForceModelConfig::default()
+        };
+        assert_eq!(
+            ephemeris_channels(&cfg),
+            vec![
+                (
+                    ChannelRole::ThirdBody(0),
+                    ChannelQuery::ThirdBodyPosition {
+                        central: CentralBody::Earth,
+                        body: ThirdBody::Moon,
+                        source: EphemerisSource::DE440s,
+                    },
+                ),
+                (
+                    ChannelRole::ThirdBody(1),
+                    ChannelQuery::ThirdBodyPosition {
+                        central: CentralBody::Earth,
+                        body: ThirdBody::Phobos,
+                        source: EphemerisSource::DE440s,
+                    },
+                ),
+                (
+                    ChannelRole::ThirdBody(2),
+                    ChannelQuery::GeocentricThirdBody {
+                        body: ThirdBody::Venus,
+                        source: EphemerisSource::DE440s,
+                    },
+                ),
+                (
+                    ChannelRole::TideSunMoon,
+                    ChannelQuery::SunMoon {
+                        source: EphemerisSource::DE440,
+                    },
+                ),
+            ]
+        );
+
+        let drag = ForceModelConfig::for_body(
+            CentralBody::EMB,
+            GravityConfiguration::PointMass,
+            Some(DragConfiguration {
+                model: AtmosphericModel::Exponential {
+                    scale_height: 60e3,
+                    rho0: 1e-12,
+                    h0: 400e3,
+                },
+                area: ParameterSource::Value(1.0),
+                cd: ParameterSource::Value(2.2),
+                body: Some(CentralBody::Earth),
+            }),
+            None,
+            Some(vec![ThirdBody::Sun.into()]),
+            false,
+            Some(ParameterSource::Value(100.0)),
+        );
+        assert_eq!(
+            ephemeris_channels(&drag),
+            vec![
+                (
+                    ChannelRole::ThirdBody(0),
+                    ChannelQuery::ThirdBodyPosition {
+                        central: CentralBody::EMB,
+                        body: ThirdBody::Sun,
+                        source: EphemerisSource::DE440s,
+                    },
+                ),
+                (
+                    ChannelRole::DragBody,
+                    ChannelQuery::SpkState {
+                        target: 399,
+                        center: 3,
+                    },
+                ),
+            ]
+        );
+    }
+
+    fn all_query_kinds() -> Vec<ChannelQuery> {
+        vec![
+            ChannelQuery::GeocentricThirdBody {
+                body: ThirdBody::Moon,
+                source: EphemerisSource::DE440s,
+            },
+            ChannelQuery::SunMoon {
+                source: EphemerisSource::DE440s,
+            },
+            ChannelQuery::ThirdBodyPosition {
+                central: CentralBody::Moon,
+                body: ThirdBody::Venus,
+                source: EphemerisSource::DE440s,
+            },
+            ChannelQuery::SpkState {
+                target: 301,
+                center: 399,
+            },
+            ChannelQuery::SpkPosition {
+                target: 10,
+                center: 301,
+            },
+        ]
+    }
+
+    #[test]
+    #[serial]
+    fn test_EphemerisTable_node_exact() {
+        setup_global_test_eop();
+        setup_global_test_spice();
+        let queries = all_query_kinds();
+        let mut table = EphemerisTable::new(60.0, queries.clone());
+        let t0 = Epoch::from_datetime(2024, 3, 1, 0, 0, 13.0, 0.0, TimeSystem::UTC);
+        let need = NodeRange::bracketing(60.0, t0, t0 + 300.0);
+        table.ensure(need).unwrap();
+        for k in need.k_min..need.k_max {
+            let e = need.epoch(k);
+            for (i, query) in queries.iter().enumerate() {
+                let exact = query.evaluate(e).unwrap();
+                assert_eq!(exact.len(), query.dim());
+                let value = table.value(i, e).unwrap();
+                assert_eq!(&value[..query.dim()], exact.as_slice());
+                assert!(value[query.dim()..].iter().all(|v| *v == 0.0));
+            }
+        }
+        assert!(table.value(queries.len(), t0).is_none());
+        assert!(table.value(0, t0 - 3600.0).is_none());
+    }
+
+    #[test]
+    #[serial]
+    fn test_EphemerisTable_moon_offgrid_error() {
+        setup_global_test_eop();
+        setup_global_test_spice();
+        let queries = vec![
+            ChannelQuery::GeocentricThirdBody {
+                body: ThirdBody::Moon,
+                source: EphemerisSource::DE440s,
+            },
+            ChannelQuery::GeocentricThirdBody {
+                body: ThirdBody::Sun,
+                source: EphemerisSource::DE440s,
+            },
+        ];
+        let mut table = EphemerisTable::new(60.0, queries.clone());
+        let t0 = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        table
+            .ensure(NodeRange::bracketing(60.0, t0, t0 + 86400.0))
+            .unwrap();
+        let mut max_err = [0.0_f64; 2];
+        let mut t = 0.0;
+        while t < 86400.0 {
+            let e = t0 + t;
+            for (i, query) in queries.iter().enumerate() {
+                let exact = query.evaluate(e).unwrap();
+                let value = table.value(i, e).unwrap();
+                let err = (0..3)
+                    .map(|j| (value[j] - exact[j]).powi(2))
+                    .sum::<f64>()
+                    .sqrt();
+                max_err[i] = max_err[i].max(err);
+            }
+            t += 7.3;
+        }
+        println!(
+            "max off-grid error: Moon {:.4} m, Sun {:.4} m",
+            max_err[0], max_err[1]
+        );
+        assert!(max_err[0] < 1.5, "Moon max error {}", max_err[0]);
+        assert!(max_err[1] < 3.5, "Sun max error {}", max_err[1]);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_EphemerisTable_ensure_returns_first_query_error() {
+        let queries = vec![
+            ChannelQuery::GeocentricThirdBody {
+                body: ThirdBody::Mercury,
+                source: EphemerisSource::LowPrecision,
+            },
+            ChannelQuery::GeocentricThirdBody {
+                body: ThirdBody::Venus,
+                source: EphemerisSource::LowPrecision,
+            },
+        ];
+        let mut table = EphemerisTable::new(60.0, queries);
+        let t0 = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let err = table
+            .ensure(NodeRange::bracketing(60.0, t0, t0 + 600.0))
+            .unwrap_err();
+        assert!(err.to_string().contains("Mercury"), "{err}");
+        assert!(table.coverage().is_none());
+    }
+
+    #[test]
+    #[serial]
+    fn test_PrecomputedInputs_ephemeris_by_role() {
+        setup_global_test_eop();
+        setup_global_test_spice();
+        let cfg = ForceModelConfig {
+            third_body: Some(vec![
+                third_body_entry(ThirdBody::Sun, EphemerisSource::LowPrecision),
+                third_body_entry(ThirdBody::Moon, EphemerisSource::DE440s),
+            ]),
+            precompute: Some(PrecomputeConfig::default()),
+            ..ForceModelConfig::earth_gravity()
+        };
+        let key = PrecomputeKey::from_force_config(&cfg).unwrap();
+        let mut inputs = PrecomputedInputs::new(&key);
+        let t0 = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        assert!(!inputs.covers(t0));
+        inputs.ensure(t0, t0 + 900.0).unwrap();
+        assert!(inputs.covers_span(t0, t0 + 900.0));
+        assert!(!inputs.covers(t0 + 86400.0));
+
+        let (k, _) = NodeRange::locate(60.0, t0 + 300.0);
+        let node = grid_anchor() + k as f64 * 60.0;
+        let moon = ChannelQuery::GeocentricThirdBody {
+            body: ThirdBody::Moon,
+            source: EphemerisSource::DE440s,
+        }
+        .evaluate(node)
+        .unwrap();
+        let value = inputs.ephemeris(&ChannelRole::ThirdBody(1), node).unwrap();
+        assert_eq!(&value[..3], moon.as_slice());
+        assert!(inputs.ephemeris(&ChannelRole::ThirdBody(0), node).is_none());
+        assert!(inputs.ephemeris(&ChannelRole::TideSunMoon, node).is_none());
+    }
 
     #[test]
     #[parallel]
@@ -590,6 +1566,7 @@ mod tests {
     fn test_PrecomputedInputs_ensure_without_tables() {
         let mut inputs = PrecomputedInputs::new(&PrecomputeKey {
             frame_rotation_step: None,
+            ephemeris: None,
         });
         let t0 = grid_anchor() + 600.0 * 40000.0 + 300.0;
         inputs.ensure(t0, t0 + 3600.0).unwrap();

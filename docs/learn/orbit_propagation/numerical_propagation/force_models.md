@@ -432,7 +432,9 @@ where $c$ is the speed of light, $\mathbf{e}_r$ is the radial unit vector, and $
 
 The frame-rotation table applies when the central body is Earth and `frame_transform` is `FULL_EARTH_ROTATION`. It stores the bias-precession-nutation matrix (BPN) and the polar-motion matrix every `frame_rotation_step` and interpolates both linearly. The Earth rotation angle changes too quickly to interpolate, so it is computed exactly at the epoch of every call. The table holds only the nodes that bracket the epochs the propagation requests, and `propagate_to` and `step_by` extend it in place. Setting `frame_rotation_step` to `None` disables the table.
 
-The example below propagates a LEO orbit for one day with and without the table. With a fixed-step integrator both runs take identical steps, so the position difference isolates the interpolation error.
+The ephemeris table applies when `ephemeris_step` is set. Lookups that read SPICE kernels, used by the third-body, tide, solar radiation pressure, and drag models, are tabulated every `ephemeris_step` and interpolated linearly. The `LowPrecision` analytic Sun and Moon are not tabulated. Setting `ephemeris_step` to `None` disables the table.
+
+The example below propagates a LEO orbit for one day with and without both tables. With a fixed-step integrator both runs take identical steps, so the position difference isolates the interpolation error.
 
 === "Python"
 
@@ -457,10 +459,10 @@ The example below propagates a LEO orbit for one day with and without the table.
         --8<-- "./docs/outputs/numerical_propagation/precomputed_inputs.rs.txt"
         ```
 
-`PrecomputeConfig` also carries `ephemeris_step`, the node spacing of a Sun, Moon, and planet ephemeris table, and `cache_space_weather`, which enables a per-propagator space-weather cache for NRLMSISE-00 drag. Both settings currently have no effect.
+`PrecomputeConfig` also carries `cache_space_weather`, which enables a per-propagator space-weather cache for NRLMSISE-00 drag. The setting currently has no effect.
 
 !!! warning "Global data during propagation"
-    The frame-rotation table reads EOP data from the global provider when a node is built. Changing global data during a propagation is the caller's responsibility. When EOP data does not cover a node, the EOP provider's extrapolation setting decides the outcome, as it does without the option. A table can extend one step past the last epoch the integrator evaluates, because interpolation needs the node after it. With an EOP provider set to raise errors on extrapolation, a propagation that ends within one `frame_rotation_step` of the end of the EOP data can therefore reach the provider's error where the same propagation without the option would not.
+    The frame-rotation table reads EOP data from the global provider, and the ephemeris table reads the loaded SPICE kernels, when a node is built. Changing global data during a propagation is the caller's responsibility. Nodes are evaluated with the same functions a propagation without the option calls, so when EOP data or kernel coverage does not include a node, the EOP provider's extrapolation setting or the SPICE coverage error decides the outcome, as it does without the option. Nodes are built for the whole requested span before integrating, and a table extends up to one step past the last epoch the integrator evaluates, because interpolation needs the node after it. A propagation with the option can therefore return the provider's error where the same propagation without the option would not: with an EOP provider set to raise errors on extrapolation and EOP data that ends within one `frame_rotation_step` of the last evaluated epoch, with a SPICE kernel whose coverage ends within one `ephemeris_step` of it, or with either data source ending between the epoch where a terminal event stops integration and the requested target.
 
 ## Parameter Configuration
 

@@ -4769,9 +4769,10 @@ impl PyTidesConfiguration {
 ///
 /// The frame-rotation table stores the bias-precession-nutation matrix and
 /// polar-motion matrix every ``frame_rotation_step`` and interpolates them
-/// linearly. The Earth rotation angle is computed exactly at each call epoch.
-/// The table is used when the central body is Earth and the frame
-/// transformation is ``FrameTransformationModel.FULL_EARTH_ROTATION``.
+/// with ``frame_rotation_interpolation``. The Earth rotation angle is computed
+/// exactly at each call epoch. The table is used when the central body is
+/// Earth and the frame transformation is
+/// ``FrameTransformationModel.FULL_EARTH_ROTATION``.
 ///
 /// ``ephemeris_step`` sets the node spacing of the Sun, Moon, and planet
 /// ephemeris table, and ``cache_space_weather`` enables a per-propagator
@@ -4779,9 +4780,19 @@ impl PyTidesConfiguration {
 /// density calls on that day read the cache instead of the shared global
 /// provider and its lock.
 ///
-/// Steps are checked by ``ForceModelConfig.validate()``, which the propagator
-/// constructor calls, so a non-finite or non-positive step is rejected at
-/// propagator construction. Changing global data (EOP provider, SPICE kernels,
+/// Values between nodes are interpolated with each table's
+/// ``InterpolationMethod``, ``LINEAR`` by default. The method sets how many
+/// nodes a table holds: ``LINEAR`` reads the two nodes around each epoch,
+/// ``lagrange(degree)`` reads ``degree + 1`` nodes and so holds ``degree // 2``
+/// more nodes on each side of a span, and ``HERMITE_CUBIC`` (ephemeris table
+/// only) stores each value's time derivative next to it, doubling the size of
+/// each node. ``degree`` must be between 1 and 15.
+///
+/// Steps and interpolation methods are checked by
+/// ``ForceModelConfig.validate()``, which the propagator constructor calls, so
+/// a non-finite or non-positive step, a method a table does not support, or a
+/// ``lagrange(degree)`` with ``degree`` above 15 is rejected at propagator
+/// construction. Changing global data (EOP provider, SPICE kernels,
 /// space-weather provider) during propagation is the caller's responsibility.
 ///
 /// Args:
@@ -4791,11 +4802,21 @@ impl PyTidesConfiguration {
 ///         Must be finite and positive. None disables the table. Default is 60.0.
 ///     cache_space_weather (bool, optional): Memoize NRLMSISE-00 space-weather
 ///         values per UT1 day for each propagator. Default is True.
+///     frame_rotation_interpolation (InterpolationMethod, optional): Interpolation of the
+///         bias-precession-nutation and polar-motion matrices, elementwise. ``LINEAR`` or
+///         ``lagrange(degree)`` with ``1 <= degree <= 15``. Default is
+///         ``InterpolationMethod.LINEAR``.
+///     ephemeris_interpolation (InterpolationMethod, optional): Interpolation of the
+///         ephemeris channels. ``LINEAR``, ``lagrange(degree)`` with ``1 <= degree <= 15``,
+///         or ``HERMITE_CUBIC``. Default is ``InterpolationMethod.LINEAR``.
 ///
 /// Attributes:
 ///     frame_rotation_step (float or None): Node spacing of the frame-rotation table [s]
 ///     ephemeris_step (float or None): Node spacing of the ephemeris table [s]
 ///     cache_space_weather (bool): Whether space-weather caching is enabled
+///     frame_rotation_interpolation (InterpolationMethod): Interpolation of the
+///         frame-rotation table
+///     ephemeris_interpolation (InterpolationMethod): Interpolation of the ephemeris table
 ///
 /// Example:
 ///     ```python
@@ -4807,6 +4828,16 @@ impl PyTidesConfiguration {
 ///         precompute=precompute,
 ///     )
 ///     assert config.precompute.frame_rotation_step == 300.0
+///
+///     higher_order = bh.PrecomputeConfig(
+///         frame_rotation_interpolation=bh.InterpolationMethod.lagrange(3),
+///         ephemeris_interpolation=bh.InterpolationMethod.HERMITE_CUBIC,
+///     )
+///     config = bh.ForceModelConfig(
+///         gravity=bh.GravityConfiguration(degree=20, order=20),
+///         precompute=higher_order,
+///     )
+///     config.validate()
 ///     ```
 #[pyclass(module = "brahe._brahe", from_py_object)]
 #[pyo3(name = "PrecomputeConfig")]
@@ -4818,17 +4849,21 @@ pub struct PyPrecomputeConfig {
 #[pymethods]
 impl PyPrecomputeConfig {
     #[new]
-    #[pyo3(signature = (frame_rotation_step=Some(600.0), ephemeris_step=Some(60.0), cache_space_weather=true))]
+    #[pyo3(signature = (frame_rotation_step=Some(600.0), ephemeris_step=Some(60.0), cache_space_weather=true, frame_rotation_interpolation=PyInterpolationMethod::linear(), ephemeris_interpolation=PyInterpolationMethod::linear()))]
     fn new(
         frame_rotation_step: Option<f64>,
         ephemeris_step: Option<f64>,
         cache_space_weather: bool,
+        frame_rotation_interpolation: PyInterpolationMethod,
+        ephemeris_interpolation: PyInterpolationMethod,
     ) -> Self {
         Self {
             config: propagators::PrecomputeConfig {
                 frame_rotation_step,
                 ephemeris_step,
                 cache_space_weather,
+                frame_rotation_interpolation: frame_rotation_interpolation.method,
+                ephemeris_interpolation: ephemeris_interpolation.method,
             },
         }
     }
@@ -4837,7 +4872,8 @@ impl PyPrecomputeConfig {
     ///
     /// Returns:
     ///     PrecomputeConfig: Configuration with a 600 s frame-rotation step, a 60 s
-    ///         ephemeris step, and space-weather caching enabled.
+    ///         ephemeris step, linear interpolation in both tables, and space-weather
+    ///         caching enabled.
     ///
     /// Example:
     ///     ```python
@@ -4900,9 +4936,46 @@ impl PyPrecomputeConfig {
         self.config.cache_space_weather = enabled;
     }
 
+    /// Get the interpolation method of the frame-rotation table.
+    ///
+    /// Returns:
+    ///     InterpolationMethod: Method used to interpolate the frame-rotation table.
+    #[getter]
+    fn frame_rotation_interpolation(&self) -> PyInterpolationMethod {
+        PyInterpolationMethod {
+            method: self.config.frame_rotation_interpolation,
+        }
+    }
+
+    /// Set the interpolation method of the frame-rotation table: ``LINEAR`` or
+    /// ``lagrange(degree)`` with ``1 <= degree <= 15``.
+    #[setter]
+    fn set_frame_rotation_interpolation(&mut self, method: PyInterpolationMethod) {
+        self.config.frame_rotation_interpolation = method.method;
+    }
+
+    /// Get the interpolation method of the ephemeris table.
+    ///
+    /// Returns:
+    ///     InterpolationMethod: Method used to interpolate the ephemeris table.
+    #[getter]
+    fn ephemeris_interpolation(&self) -> PyInterpolationMethod {
+        PyInterpolationMethod {
+            method: self.config.ephemeris_interpolation,
+        }
+    }
+
+    /// Set the interpolation method of the ephemeris table: ``LINEAR``,
+    /// ``lagrange(degree)`` with ``1 <= degree <= 15``, or ``HERMITE_CUBIC``.
+    #[setter]
+    fn set_ephemeris_interpolation(&mut self, method: PyInterpolationMethod) {
+        self.config.ephemeris_interpolation = method.method;
+    }
+
     fn __repr__(&self) -> String {
         format!(
-            "PrecomputeConfig(frame_rotation_step={}, ephemeris_step={}, cache_space_weather={})",
+            "PrecomputeConfig(frame_rotation_step={}, ephemeris_step={}, cache_space_weather={}, \
+             frame_rotation_interpolation={}, ephemeris_interpolation={})",
             self.config
                 .frame_rotation_step
                 .map_or("None".to_string(), |v| format!("{v:?}")),
@@ -4913,7 +4986,9 @@ impl PyPrecomputeConfig {
                 "True"
             } else {
                 "False"
-            }
+            },
+            self.frame_rotation_interpolation().__repr__(),
+            self.ephemeris_interpolation().__repr__()
         )
     }
 }

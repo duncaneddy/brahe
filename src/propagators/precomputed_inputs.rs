@@ -3,22 +3,26 @@
  *
  * Tables are sampled on an absolute-epoch grid anchored at J2000 TT, so the
  * node at index `k` is always at `anchor + k * step` regardless of the
- * propagation start epoch. Tables hold only the nodes bracketing requested
- * spans and extend contiguously in place.
+ * propagation start epoch. Tables hold only the nodes their interpolation
+ * method reads for requested spans and extend contiguously in place.
  */
 
 use std::cell::RefCell;
 use std::collections::{HashMap, VecDeque};
 use std::convert::Infallible;
 
-use nalgebra::Vector3;
+use nalgebra::{SVector, Vector3};
 use rayon::prelude::*;
 
 use crate::earth_models::SpaceWeatherLookup;
 use crate::frames::{bias_precession_nutation, earth_rotation, polar_motion};
 use crate::math::SMatrix3;
+use crate::math::interpolation::{InterpolationMethod, interpolate_hermite_cubic_svector6};
 use crate::orbit_dynamics::ephemerides::{moon_position, sun_position};
-use crate::orbit_dynamics::third_body::{third_body_position, third_body_position_geocentric};
+use crate::orbit_dynamics::third_body::{
+    third_body_position, third_body_position_geocentric, third_body_position_velocity,
+    third_body_velocity_geocentric,
+};
 use crate::propagators::{
     AtmosphericModel, CentralBody, EclipseModel, EphemerisSource, ForceModelConfig,
     FrameTransformationModel, GravityConfiguration, ThirdBody,
@@ -28,7 +32,10 @@ use crate::space_weather::{
     get_global_f107_observed,
 };
 use crate::spice::registry::ensure_bodies_loadable;
-use crate::spice::{SPICEKernel, moon_position_spice, spk_position, spk_state, sun_position_spice};
+use crate::spice::{
+    SPICEKernel, moon_position_spice, moon_velocity_spice, spk_acceleration, spk_position,
+    spk_state, spk_velocity, sun_position_spice, sun_velocity_spice,
+};
 use crate::time::{Epoch, TimeSystem};
 use crate::utils::errors::BraheError;
 use crate::utils::threading::get_thread_pool;
@@ -122,6 +129,105 @@ fn lerp(a: &SMatrix3, b: &SMatrix3, s: f64) -> SMatrix3 {
     a + (b - a) * s
 }
 
+/// Interpolation method of a table and the grid nodes it reads around a
+/// query epoch.
+///
+/// A query at grid offset `x = k + s` (`k = floor(x)`, `s` in `[0, 1)`)
+/// reads nodes `k` and `k + 1` for `Linear`, `HermiteCubic` and
+/// `HermiteQuintic`. `Lagrange { degree: d }` reads the `d + 1` nodes centred
+/// on the query: `k - (d - 1) / 2 ..= k + (d + 1) / 2` for odd `d`, and for
+/// even `d` the `d + 1` nodes centred on the nearest node, `k` when
+/// `s <= 0.5` and `k + 1` otherwise.
+///
+/// Lagrange values use the barycentric formula on the uniform node offsets
+/// `0..=d`, whose weights `(-1)^j * C(d, j)` depend only on the degree. They
+/// are computed once here, so a lookup costs `d + 1` divisions and no
+/// allocation, where the general
+/// [`interpolate_lagrange_svector`](crate::math::interpolation::interpolate_lagrange_svector)
+/// allocates and recomputes the weights on every call.
+#[derive(Debug, Clone)]
+struct GridInterpolator {
+    method: InterpolationMethod,
+    weights: Vec<f64>,
+}
+
+impl GridInterpolator {
+    fn new(method: InterpolationMethod) -> Self {
+        let weights = match method {
+            InterpolationMethod::Lagrange { degree } => {
+                let mut weights = Vec::with_capacity(degree + 1);
+                let mut w = 1.0;
+                for j in 0..=degree {
+                    if j > 0 {
+                        w = -w * (degree - j + 1) as f64 / j as f64;
+                    }
+                    weights.push(w);
+                }
+                weights
+            }
+            _ => Vec::new(),
+        };
+        GridInterpolator { method, weights }
+    }
+
+    /// Node offsets `(lo, hi)` from `k = floor(x)` that a query anywhere in
+    /// `[k, k + 1)` may read.
+    fn reach(&self) -> (i64, i64) {
+        match self.method {
+            InterpolationMethod::Lagrange { degree } => {
+                let d = degree as i64;
+                if d % 2 == 1 {
+                    (-(d - 1) / 2, (d + 1) / 2)
+                } else {
+                    (-d / 2, d / 2 + 1)
+                }
+            }
+            _ => (0, 1),
+        }
+    }
+
+    /// First of the `degree + 1` nodes a `Lagrange { degree }` query at
+    /// `k + s` reads.
+    fn lagrange_first(degree: usize, k: i64, s: f64) -> i64 {
+        let d = degree as i64;
+        if d % 2 == 1 {
+            k - (d - 1) / 2
+        } else if s > 0.5 {
+            k + 1 - d / 2
+        } else {
+            k - d / 2
+        }
+    }
+
+    /// Nodes every query between two epochs reads.
+    ///
+    /// # Arguments
+    /// - `step`: Grid spacing in seconds
+    /// - `start`: One end of the span
+    /// - `end`: The other end of the span
+    ///
+    /// # Returns
+    /// - `NodeRange`: [`NodeRange::bracketing`] widened by the interpolator's reach
+    fn span(&self, step: f64, start: Epoch, end: Epoch) -> NodeRange {
+        let (lo, hi) = self.reach();
+        let bracket = NodeRange::bracketing(step, start, end);
+        NodeRange {
+            step,
+            k_min: bracket.k_min + lo,
+            k_max: bracket.k_max - 1 + hi,
+        }
+    }
+
+    /// Barycentric Lagrange terms `w_j / (u - j)` for a query at offset `u`
+    /// from the first node, with `u` not a node offset.
+    fn lagrange_terms(&self, u: f64) -> impl Iterator<Item = f64> + '_ {
+        self.weights
+            .iter()
+            .enumerate()
+            .map(move |(j, w)| w / (u - j as f64))
+    }
+}
+
 /// Evaluate `f` at every node of `range` in parallel on the brahe thread pool.
 ///
 /// # Arguments
@@ -177,17 +283,33 @@ impl<T> NodeStore<T> {
         }
     }
 
-    /// Whether the store holds the nodes bracketing the span between two epochs.
+    /// Whether the store holds every node of a range.
     ///
     /// # Arguments
-    /// - `start`: One end of the span
-    /// - `end`: The other end of the span
+    /// - `need`: Node range to check
     ///
     /// # Returns
-    /// - `bool`: `true` when every node of [`NodeRange::bracketing`] is held
-    fn holds_span(&self, start: Epoch, end: Epoch) -> bool {
-        let need = NodeRange::bracketing(self.step, start, end);
+    /// - `bool`: `true` when every node of `need` is held
+    fn holds(&self, need: NodeRange) -> bool {
         self.coverage().is_some_and(|cov| cov.contains(&need))
+    }
+
+    /// Position in the store of node `first`, when nodes `first` through
+    /// `first + n - 1` are all held.
+    ///
+    /// # Arguments
+    /// - `first`: Index of the first node
+    /// - `n`: Number of nodes
+    ///
+    /// # Returns
+    /// - `Option<usize>`: Position of node `first` in `nodes`, or `None` when any of the nodes
+    ///   is not held
+    fn window(&self, first: i64, n: usize) -> Option<usize> {
+        let i = first.checked_sub(self.k_min)?;
+        if i < 0 || i as usize + n > self.nodes.len() {
+            return None;
+        }
+        Some(i as usize)
     }
 
     /// Extend the store to cover `need`, computing only missing nodes.
@@ -270,30 +392,61 @@ impl<T> NodeStore<T> {
 
 /// Table of bias-precession-nutation and polar-motion matrices on the absolute
 /// grid. Earth rotation angle is always evaluated exactly at the query epoch.
+///
+/// The matrices are interpolated elementwise with `Linear` or
+/// `Lagrange { degree }`.
 #[derive(Debug, Clone)]
 pub(crate) struct FrameRotationTable {
     store: NodeStore<(SMatrix3, SMatrix3)>,
+    interpolator: GridInterpolator,
     #[cfg(test)]
     pub(crate) nodes_computed: usize,
 }
 
 impl FrameRotationTable {
-    /// Create an empty table.
+    /// Create an empty table with linear interpolation.
     ///
     /// # Arguments
     /// - `step`: Grid spacing in seconds
     pub(crate) fn new(step: f64) -> Self {
         FrameRotationTable {
             store: NodeStore::new(step),
+            interpolator: GridInterpolator::new(InterpolationMethod::Linear),
             #[cfg(test)]
             nodes_computed: 0,
         }
+    }
+
+    /// Set the interpolation method of an empty table.
+    ///
+    /// # Arguments
+    /// - `method`: `Linear` or `Lagrange { degree }` with `degree >= 1`; any other method
+    ///   interpolates linearly
+    ///
+    /// # Returns
+    /// - `FrameRotationTable`: The table using `method`
+    pub(crate) fn with_interpolation(mut self, method: InterpolationMethod) -> Self {
+        debug_assert!(self.store.nodes.is_empty());
+        self.interpolator = GridInterpolator::new(method);
+        self
     }
 
     /// Node range currently held, or `None` when empty.
     #[cfg(test)]
     pub(crate) fn coverage(&self) -> Option<NodeRange> {
         self.store.coverage()
+    }
+
+    /// Nodes the table reads for queries between two epochs.
+    ///
+    /// # Arguments
+    /// - `start`: One end of the span
+    /// - `end`: The other end of the span
+    ///
+    /// # Returns
+    /// - `NodeRange`: Nodes bracketing the span, widened by the interpolation method's reach
+    pub(crate) fn span(&self, start: Epoch, end: Epoch) -> NodeRange {
+        self.interpolator.span(self.store.step, start, end)
     }
 
     /// Extend the table to cover `need`, computing only missing nodes.
@@ -323,11 +476,32 @@ impl FrameRotationTable {
     /// - `epoch`: Epoch to evaluate
     ///
     /// # Returns
-    /// - `Option<SMatrix3>`: `PM(lerp) * ERA(epoch) * BPN(lerp)`, or `None` when the bracketing
-    ///   node pair is not held
+    /// - `Option<SMatrix3>`: `PM * ERA(epoch) * BPN`, with `PM` and `BPN` interpolated, or
+    ///   `None` when a node the interpolation reads is not held
     pub(crate) fn rotation(&self, epoch: Epoch) -> Option<SMatrix3> {
-        let ((bpn0, pm0), (bpn1, pm1), s) = self.store.bracket(epoch)?;
-        Some(lerp(pm0, pm1, s) * earth_rotation(epoch) * lerp(bpn0, bpn1, s))
+        let InterpolationMethod::Lagrange { degree } = self.interpolator.method else {
+            let ((bpn0, pm0), (bpn1, pm1), s) = self.store.bracket(epoch)?;
+            return Some(lerp(pm0, pm1, s) * earth_rotation(epoch) * lerp(bpn0, bpn1, s));
+        };
+        let (k, s) = NodeRange::locate(self.store.step, epoch);
+        let first = GridInterpolator::lagrange_first(degree, k, s);
+        let i = self.store.window(first, degree + 1)?;
+        let nodes = &self.store.nodes;
+        if s == 0.0 {
+            let (bpn, pm) = &nodes[i + (k - first) as usize];
+            return Some(pm * earth_rotation(epoch) * bpn);
+        }
+        let u = (k - first) as f64 + s;
+        let mut bpn = SMatrix3::zeros();
+        let mut pm = SMatrix3::zeros();
+        let mut den = 0.0;
+        for (j, c) in self.interpolator.lagrange_terms(u).enumerate() {
+            let (bpn_j, pm_j) = &nodes[i + j];
+            bpn += bpn_j * c;
+            pm += pm_j * c;
+            den += c;
+        }
+        Some((pm / den) * earth_rotation(epoch) * (bpn / den))
     }
 }
 
@@ -505,6 +679,71 @@ impl ChannelQuery {
                 .collect(),
         })
     }
+
+    /// Evaluate the query and its time derivative at an epoch.
+    ///
+    /// The values equal those of [`ChannelQuery::evaluate`] bit for bit. The
+    /// derivatives come from the same ephemeris source: velocities for
+    /// position queries, and velocity followed by acceleration for
+    /// `SpkState`. SPK queries expect [`ChannelQuery::load_kernels`] to have
+    /// run.
+    ///
+    /// # Arguments
+    /// - `epoch`: Epoch to evaluate
+    ///
+    /// # Returns
+    /// - `Result<Vec<f64>, BraheError>`: [`ChannelQuery::dim`] values followed by their
+    ///   [`ChannelQuery::dim`] time derivatives; positions in meters, velocities in meters per
+    ///   second, accelerations in meters per second squared. Queries with an
+    ///   [`EphemerisSource::LowPrecision`] source return an error, as they provide no velocity
+    pub(crate) fn evaluate_with_derivative(&self, epoch: Epoch) -> Result<Vec<f64>, BraheError> {
+        let (value, derivative): (Vec<f64>, Vec<f64>) = match self {
+            ChannelQuery::GeocentricThirdBody { body, source } => {
+                let (r, _) = third_body_position_geocentric(body, *source, epoch)?;
+                let v = third_body_velocity_geocentric(body, *source, epoch)?;
+                (r.iter().copied().collect(), v.iter().copied().collect())
+            }
+            ChannelQuery::ThirdBodyPosition {
+                central,
+                body,
+                source,
+            } => {
+                let (r, v) = third_body_position_velocity(central, body, *source, epoch)?;
+                (r.iter().copied().collect(), v.iter().copied().collect())
+            }
+            ChannelQuery::SunMoon { source } => {
+                let (r_sun, r_moon) = resolve_sun_moon_eci(*source, epoch)?;
+                let kernel = SPICEKernel::try_from(*source)?;
+                let v_sun = sun_velocity_spice(epoch, kernel)?;
+                let v_moon = moon_velocity_spice(epoch, kernel)?;
+                (
+                    r_sun.iter().chain(r_moon.iter()).copied().collect(),
+                    v_sun.iter().chain(v_moon.iter()).copied().collect(),
+                )
+            }
+            ChannelQuery::SpkPosition { target, center } => (
+                spk_position(*target, *center, epoch)?
+                    .iter()
+                    .copied()
+                    .collect(),
+                spk_velocity(*target, *center, epoch)?
+                    .iter()
+                    .copied()
+                    .collect(),
+            ),
+            ChannelQuery::SpkState { target, center } => {
+                let x = spk_state(*target, *center, epoch)?;
+                let a = spk_acceleration(*target, *center, epoch)?;
+                (
+                    x.iter().copied().collect(),
+                    x.iter().skip(3).chain(a.iter()).copied().collect(),
+                )
+            }
+        };
+        let mut node = value;
+        node.extend(derivative);
+        Ok(node)
+    }
 }
 
 /// SPICE-backed ephemeris queries a force model makes, in a fixed order.
@@ -629,17 +868,20 @@ pub(crate) fn ephemeris_channels(cfg: &ForceModelConfig) -> Vec<(ChannelRole, Ch
 /// Table of ephemeris channel values on the absolute grid.
 ///
 /// Each node stores the values of every channel back to back; channel `i`
-/// occupies `offsets[i]..offsets[i] + queries[i].dim()`.
+/// occupies `offsets[i]..offsets[i] + width`, where the width is
+/// `queries[i].dim()`, or twice that with `HermiteCubic`, which stores the
+/// channel's time derivatives after its values.
 #[derive(Debug, Clone)]
 pub(crate) struct EphemerisTable {
     store: NodeStore<Box<[f64]>>,
     queries: Vec<ChannelQuery>,
     offsets: Vec<usize>,
     stride: usize,
+    interpolator: GridInterpolator,
 }
 
 impl EphemerisTable {
-    /// Create an empty table.
+    /// Create an empty table with linear interpolation.
     ///
     /// # Arguments
     /// - `step`: Grid spacing in seconds
@@ -655,17 +897,44 @@ impl EphemerisTable {
     /// let table = EphemerisTable::new(60.0, queries);
     /// ```
     pub(crate) fn new(step: f64, queries: Vec<ChannelQuery>) -> Self {
-        let mut offsets = Vec::with_capacity(queries.len());
-        let mut stride = 0;
-        for query in &queries {
-            offsets.push(stride);
-            stride += query.dim();
-        }
-        EphemerisTable {
+        let mut table = EphemerisTable {
             store: NodeStore::new(step),
             queries,
-            offsets,
-            stride,
+            offsets: Vec::new(),
+            stride: 0,
+            interpolator: GridInterpolator::new(InterpolationMethod::Linear),
+        };
+        table.layout();
+        table
+    }
+
+    /// Set the interpolation method of an empty table.
+    ///
+    /// # Arguments
+    /// - `method`: `Linear`, `Lagrange { degree }` with `degree >= 1`, or `HermiteCubic`; any
+    ///   other method interpolates linearly
+    ///
+    /// # Returns
+    /// - `EphemerisTable`: The table using `method`
+    pub(crate) fn with_interpolation(mut self, method: InterpolationMethod) -> Self {
+        debug_assert!(self.store.nodes.is_empty());
+        self.interpolator = GridInterpolator::new(method);
+        self.layout();
+        self
+    }
+
+    /// Whether nodes store each channel's time derivatives after its values.
+    fn stores_derivatives(&self) -> bool {
+        self.interpolator.method == InterpolationMethod::HermiteCubic
+    }
+
+    fn layout(&mut self) {
+        let factor = if self.stores_derivatives() { 2 } else { 1 };
+        self.offsets.clear();
+        self.stride = 0;
+        for query in &self.queries {
+            self.offsets.push(self.stride);
+            self.stride += factor * query.dim();
         }
     }
 
@@ -673,6 +942,18 @@ impl EphemerisTable {
     #[cfg(test)]
     pub(crate) fn coverage(&self) -> Option<NodeRange> {
         self.store.coverage()
+    }
+
+    /// Nodes the table reads for queries between two epochs.
+    ///
+    /// # Arguments
+    /// - `start`: One end of the span
+    /// - `end`: The other end of the span
+    ///
+    /// # Returns
+    /// - `NodeRange`: Nodes bracketing the span, widened by the interpolation method's reach
+    pub(crate) fn span(&self, start: Epoch, end: Epoch) -> NodeRange {
+        self.interpolator.span(self.store.step, start, end)
     }
 
     /// Extend the table to cover `need`, computing only missing nodes.
@@ -692,11 +973,12 @@ impl EphemerisTable {
     /// # Examples
     ///
     /// ```ignore
-    /// table.ensure(NodeRange::bracketing(60.0, epoch, epoch + 3600.0))?;
+    /// table.ensure(table.span(epoch, epoch + 3600.0))?;
     /// ```
     pub(crate) fn ensure(&mut self, need: NodeRange) -> Result<(), BraheError> {
         let queries = &self.queries;
         let stride = self.stride;
+        let derivatives = self.stores_derivatives();
         self.store.ensure(need, |range| {
             for query in queries {
                 query.load_kernels()?;
@@ -704,7 +986,11 @@ impl EphemerisTable {
             compute_parallel(range, |e| {
                 let mut node = Vec::with_capacity(stride);
                 for query in queries {
-                    node.extend(query.evaluate(e)?);
+                    if derivatives {
+                        node.extend(query.evaluate_with_derivative(e)?);
+                    } else {
+                        node.extend(query.evaluate(e)?);
+                    }
                 }
                 Ok(node.into_boxed_slice())
             })
@@ -720,26 +1006,75 @@ impl EphemerisTable {
     /// - `epoch`: Epoch to evaluate
     ///
     /// # Returns
-    /// - `Option<[f64; 6]>`: The channel's linearly interpolated values in the first
+    /// - `Option<[f64; 6]>`: The channel's interpolated values in the first
     ///   [`ChannelQuery::dim`] entries and zeros after them, or `None` when the channel does
-    ///   not exist or the bracketing node pair is not held
+    ///   not exist or a node the interpolation reads is not held
     ///
     /// # Examples
     ///
     /// ```ignore
-    /// table.ensure(NodeRange::bracketing(60.0, epoch, epoch + 3600.0))?;
+    /// table.ensure(table.span(epoch, epoch + 3600.0))?;
     /// let r_moon = table.value(0, epoch + 90.0).unwrap();
     /// ```
     pub(crate) fn value(&self, channel: usize, epoch: Epoch) -> Option<[f64; 6]> {
         let dim = self.queries.get(channel)?.dim();
         let off = self.offsets[channel];
-        let (a, b, s) = self.store.bracket(epoch)?;
         let mut out = [0.0; 6];
-        for (o, (a, b)) in out
-            .iter_mut()
-            .zip(a[off..off + dim].iter().zip(&b[off..off + dim]))
-        {
-            *o = a + (b - a) * s;
+        match self.interpolator.method {
+            InterpolationMethod::Linear | InterpolationMethod::HermiteQuintic => {
+                let (a, b, s) = self.store.bracket(epoch)?;
+                for (o, (a, b)) in out
+                    .iter_mut()
+                    .zip(a[off..off + dim].iter().zip(&b[off..off + dim]))
+                {
+                    *o = a + (b - a) * s;
+                }
+            }
+            InterpolationMethod::Lagrange { degree } => {
+                let (k, s) = NodeRange::locate(self.store.step, epoch);
+                let first = GridInterpolator::lagrange_first(degree, k, s);
+                let i = self.store.window(first, degree + 1)?;
+                let nodes = &self.store.nodes;
+                if s == 0.0 {
+                    let node = &nodes[i + (k - first) as usize];
+                    out[..dim].copy_from_slice(&node[off..off + dim]);
+                    return Some(out);
+                }
+                let u = (k - first) as f64 + s;
+                let mut den = 0.0;
+                for (j, c) in self.interpolator.lagrange_terms(u).enumerate() {
+                    for (o, y) in out.iter_mut().zip(&nodes[i + j][off..off + dim]) {
+                        *o += c * y;
+                    }
+                    den += c;
+                }
+                for o in &mut out[..dim] {
+                    *o /= den;
+                }
+            }
+            InterpolationMethod::HermiteCubic => {
+                let (a, b, s) = self.store.bracket(epoch)?;
+                if s == 0.0 {
+                    out[..dim].copy_from_slice(&a[off..off + dim]);
+                    return Some(out);
+                }
+                let h = self.store.step;
+                for c in (0..dim).step_by(3) {
+                    let node_state = |node: &[f64]| {
+                        let value = &node[off + c..off + c + 3];
+                        let derivative = &node[off + dim + c..off + dim + c + 3];
+                        SVector::<f64, 6>::from_iterator(value.iter().chain(derivative).copied())
+                    };
+                    let x = interpolate_hermite_cubic_svector6(
+                        0.0,
+                        h,
+                        node_state(a),
+                        node_state(b),
+                        s * h,
+                    );
+                    out[c..c + 3].copy_from_slice(&x.as_slice()[..3]);
+                }
+            }
         }
         Some(out)
     }
@@ -755,12 +1090,15 @@ impl EphemerisTable {
 /// when the force model queries SPICE ephemerides; the key holds the ordered
 /// list of those queries together with the force-model site each one feeds, so
 /// force models querying the same bodies for different purposes get different
-/// keys.
+/// keys. Each table's step and interpolation method are part of the key.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct PrecomputeKey {
-    frame_rotation_step: Option<f64>,
-    ephemeris: Option<(f64, Vec<(ChannelRole, ChannelQuery)>)>,
+    frame_rotation: Option<(f64, InterpolationMethod)>,
+    ephemeris: Option<(f64, InterpolationMethod, EphemerisChannels)>,
 }
+
+/// Ordered ephemeris channels of a force model, each with the site it feeds.
+type EphemerisChannels = Vec<(ChannelRole, ChannelQuery)>;
 
 impl PrecomputeKey {
     /// Key for the tables a force model uses.
@@ -772,21 +1110,21 @@ impl PrecomputeKey {
     /// - `Option<PrecomputeKey>`: `None` when `cfg.precompute` is `None` or no table applies
     pub(crate) fn from_force_config(cfg: &ForceModelConfig) -> Option<PrecomputeKey> {
         let pre = cfg.precompute.as_ref()?;
-        let frame_rotation_step = match (&cfg.central_body, &cfg.frame_transform) {
-            (CentralBody::Earth, FrameTransformationModel::FullEarthRotation) => {
-                pre.frame_rotation_step
-            }
+        let frame_rotation = match (&cfg.central_body, &cfg.frame_transform) {
+            (CentralBody::Earth, FrameTransformationModel::FullEarthRotation) => pre
+                .frame_rotation_step
+                .map(|step| (step, pre.frame_rotation_interpolation)),
             _ => None,
         };
         let ephemeris = pre.ephemeris_step.and_then(|step| {
             let channels = ephemeris_channels(cfg);
-            (!channels.is_empty()).then_some((step, channels))
+            (!channels.is_empty()).then_some((step, pre.ephemeris_interpolation, channels))
         });
-        if frame_rotation_step.is_none() && ephemeris.is_none() {
+        if frame_rotation.is_none() && ephemeris.is_none() {
             return None;
         }
         Some(PrecomputeKey {
-            frame_rotation_step,
+            frame_rotation,
             ephemeris,
         })
     }
@@ -817,9 +1155,12 @@ impl PrecomputedInputs {
     pub(crate) fn new(key: &PrecomputeKey) -> Self {
         PrecomputedInputs {
             key: key.clone(),
-            rotation: key.frame_rotation_step.map(FrameRotationTable::new),
-            ephemeris: key.ephemeris.as_ref().map(|(step, channels)| {
+            rotation: key
+                .frame_rotation
+                .map(|(step, method)| FrameRotationTable::new(step).with_interpolation(method)),
+            ephemeris: key.ephemeris.as_ref().map(|(step, method, channels)| {
                 EphemerisTable::new(*step, channels.iter().map(|(_, q)| q.clone()).collect())
+                    .with_interpolation(*method)
             }),
         }
     }
@@ -832,7 +1173,8 @@ impl PrecomputedInputs {
         &self.key
     }
 
-    /// Whether every table holds the nodes bracketing the span between two epochs.
+    /// Whether every table holds the nodes its interpolation method reads for
+    /// queries in the span between two epochs.
     ///
     /// # Arguments
     /// - `start`: One end of the span
@@ -843,25 +1185,27 @@ impl PrecomputedInputs {
     pub(crate) fn covers_span(&self, start: Epoch, end: Epoch) -> bool {
         self.rotation
             .as_ref()
-            .is_none_or(|t| t.store.holds_span(start, end))
+            .is_none_or(|t| t.store.holds(t.span(start, end)))
             && self
                 .ephemeris
                 .as_ref()
-                .is_none_or(|t| t.store.holds_span(start, end))
+                .is_none_or(|t| t.store.holds(t.span(start, end)))
     }
 
-    /// Whether every table holds the nodes bracketing an epoch.
+    /// Whether every table holds the nodes its interpolation method reads at an epoch.
     ///
     /// # Arguments
     /// - `epoch`: Epoch to check
     ///
     /// # Returns
-    /// - `bool`: `true` when each table holds nodes `k` and `k + 1` around `epoch`
+    /// - `bool`: `true` when each table holds the nodes its interpolation method reads for
+    ///   queries in the grid interval containing `epoch`
     pub(crate) fn covers(&self, epoch: Epoch) -> bool {
         self.covers_span(epoch, epoch)
     }
 
-    /// Extend every table to hold the nodes bracketing the span between two epochs.
+    /// Extend every table to hold the nodes its interpolation method reads for
+    /// queries in the span between two epochs.
     ///
     /// Does nothing when the span is already covered.
     ///
@@ -874,10 +1218,10 @@ impl PrecomputedInputs {
     ///   ephemeris query error
     pub(crate) fn ensure(&mut self, start: Epoch, end: Epoch) -> Result<(), BraheError> {
         if let Some(table) = self.ephemeris.as_mut() {
-            table.ensure(NodeRange::bracketing(table.store.step, start, end))?;
+            table.ensure(table.span(start, end))?;
         }
         if let Some(table) = self.rotation.as_mut() {
-            table.ensure(NodeRange::bracketing(table.store.step, start, end));
+            table.ensure(table.span(start, end));
         }
         Ok(())
     }
@@ -912,7 +1256,7 @@ impl PrecomputedInputs {
     /// let s = inputs.ephemeris(&ChannelRole::ThirdBody(0), epoch + 90.0).unwrap();
     /// ```
     pub(crate) fn ephemeris(&self, role: &ChannelRole, epoch: Epoch) -> Option<[f64; 6]> {
-        let (_, channels) = self.key.ephemeris.as_ref()?;
+        let (_, _, channels) = self.key.ephemeris.as_ref()?;
         let channel = channels.iter().position(|(r, _)| r == role)?;
         self.ephemeris.as_ref()?.value(channel, epoch)
     }
@@ -1677,7 +2021,7 @@ mod tests {
     #[parallel]
     fn test_PrecomputedInputs_ensure_without_tables() {
         let mut inputs = PrecomputedInputs::new(&PrecomputeKey {
-            frame_rotation_step: None,
+            frame_rotation: None,
             ephemeris: None,
         });
         let t0 = grid_anchor() + 600.0 * 40000.0 + 300.0;
@@ -1707,6 +2051,318 @@ mod tests {
         inputs.ensure(t0 + 600.0, t0 + 1200.0).unwrap();
         assert_eq!(inputs.rotation_nodes_computed(), computed);
         assert!(inputs.covers_span(t0, t0 + 3600.0));
+    }
+
+    fn table_methods() -> Vec<InterpolationMethod> {
+        vec![
+            InterpolationMethod::Linear,
+            InterpolationMethod::Lagrange { degree: 1 },
+            InterpolationMethod::Lagrange { degree: 3 },
+            InterpolationMethod::Lagrange { degree: 4 },
+            InterpolationMethod::Lagrange { degree: 5 },
+        ]
+    }
+
+    #[test]
+    #[parallel]
+    fn test_FrameRotationTable_node_exact_all_methods() {
+        setup_global_test_eop();
+        let t0 = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        for method in table_methods() {
+            let mut table = FrameRotationTable::new(600.0).with_interpolation(method);
+            let need = table.span(t0, t0 + 3000.0);
+            table.ensure(need);
+            let linear = NodeRange::bracketing(600.0, t0, t0 + 3000.0);
+            for k in linear.k_min..linear.k_max {
+                let e = linear.epoch(k);
+                let exact = polar_motion(e) * earth_rotation(e) * bias_precession_nutation(e);
+                assert_eq!(table.rotation(e).unwrap(), exact, "{method:?} node {k}");
+            }
+        }
+    }
+
+    /// Maximum rotation error, in radians, of a frame-rotation table over one
+    /// day sampled every 7.3 s.
+    fn rotation_offgrid_error(step: f64, method: InterpolationMethod) -> f64 {
+        let t0 = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let mut table = FrameRotationTable::new(step).with_interpolation(method);
+        table.ensure(table.span(t0, t0 + 86400.0));
+        let mut max_err: f64 = 0.0;
+        let mut t = 0.0;
+        while t < 86400.0 {
+            let e = t0 + t;
+            let exact = rotation_eci_to_ecef(e);
+            let approx = table.rotation(e).unwrap();
+            let err = (exact.transpose() * approx - SMatrix3::identity()).norm() / 2f64.sqrt();
+            max_err = max_err.max(err);
+            t += 7.3;
+        }
+        max_err
+    }
+
+    #[test]
+    #[parallel]
+    fn test_FrameRotationTable_lagrange_offgrid_error() {
+        setup_global_test_eop();
+        let linear = rotation_offgrid_error(600.0, InterpolationMethod::Linear);
+        let lagrange = rotation_offgrid_error(600.0, InterpolationMethod::Lagrange { degree: 3 });
+        println!(
+            "rotation off-grid error at 600 s: linear {linear:.3e}, Lagrange 3 {lagrange:.3e}"
+        );
+        assert!(
+            lagrange < linear,
+            "Lagrange 3 {lagrange} vs linear {linear}"
+        );
+    }
+
+    #[test]
+    #[parallel]
+    fn test_FrameRotationTable_lagrange_coverage_padding() {
+        setup_global_test_eop();
+        let t0 = grid_anchor() + 600.0 * 40000.0 + 100.0;
+        let t1 = t0 + 1750.0;
+        let linear = NodeRange::bracketing(600.0, t0, t1);
+        for (degree, below, above) in [(5, 2, 2), (4, 2, 2)] {
+            let method = InterpolationMethod::Lagrange { degree };
+            let mut table = FrameRotationTable::new(600.0).with_interpolation(method);
+            let need = table.span(t0, t1);
+            assert_eq!(
+                (need.k_min, need.k_max),
+                (linear.k_min - below, linear.k_max + above),
+                "{method:?}"
+            );
+            table.ensure(need);
+            assert!(table.store.holds(need));
+            let mut t = 0.0;
+            while t <= t1 - t0 {
+                assert!(table.rotation(t0 + t).is_some(), "{method:?} at {t}");
+                t += 10.0;
+            }
+            assert!(table.rotation(t1).is_some());
+            let last = linear.epoch(linear.k_max - 1) + 599.0;
+            assert!(table.rotation(last).is_some(), "{method:?}");
+
+            let mut short = FrameRotationTable::new(600.0).with_interpolation(method);
+            short.ensure(NodeRange {
+                step: 600.0,
+                k_min: need.k_min + 1,
+                k_max: need.k_max,
+            });
+            assert!(short.rotation(t0).is_none(), "{method:?}");
+            let mut short = FrameRotationTable::new(600.0).with_interpolation(method);
+            short.ensure(NodeRange {
+                step: 600.0,
+                k_min: need.k_min,
+                k_max: need.k_max - 1,
+            });
+            assert!(short.rotation(last).is_none(), "{method:?}");
+        }
+    }
+
+    #[test]
+    #[parallel]
+    fn test_PrecomputedInputs_lagrange_covers_matches_lookup() {
+        setup_global_test_eop();
+        let cfg = ForceModelConfig {
+            precompute: Some(PrecomputeConfig {
+                ephemeris_step: None,
+                frame_rotation_interpolation: InterpolationMethod::Lagrange { degree: 5 },
+                ..PrecomputeConfig::default()
+            }),
+            ..ForceModelConfig::earth_gravity()
+        };
+        let key = PrecomputeKey::from_force_config(&cfg).unwrap();
+        let mut inputs = PrecomputedInputs::new(&key);
+        let t0 = grid_anchor() + 600.0 * 40000.0 + 100.0;
+        inputs.ensure(t0, t0 + 1700.0).unwrap();
+        assert!(inputs.covers_span(t0, t0 + 1700.0));
+        let mut t = -1200.0;
+        while t <= 3000.0 {
+            let e = t0 + t;
+            assert_eq!(inputs.covers(e), inputs.rotation(e).is_some(), "offset {t}");
+            t += 50.0;
+        }
+        assert!(!inputs.covers(t0 + 3000.0));
+        inputs.ensure(t0 + 3000.0, t0 + 3000.0).unwrap();
+        assert!(inputs.covers(t0 + 3000.0));
+        assert!(inputs.rotation(t0 + 3000.0).is_some());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_precompute_key_distinguishes_interpolation() {
+        let config = |frame_rotation_interpolation, ephemeris_interpolation| ForceModelConfig {
+            precompute: Some(PrecomputeConfig {
+                frame_rotation_interpolation,
+                ephemeris_interpolation,
+                ..PrecomputeConfig::default()
+            }),
+            ..ForceModelConfig::default()
+        };
+        let key = |a, b| PrecomputeKey::from_force_config(&config(a, b)).unwrap();
+        let linear = key(InterpolationMethod::Linear, InterpolationMethod::Linear);
+        assert_eq!(
+            linear,
+            key(InterpolationMethod::Linear, InterpolationMethod::Linear)
+        );
+        let rotation_lagrange = key(
+            InterpolationMethod::Lagrange { degree: 3 },
+            InterpolationMethod::Linear,
+        );
+        let ephemeris_hermite = key(
+            InterpolationMethod::Linear,
+            InterpolationMethod::HermiteCubic,
+        );
+        let ephemeris_lagrange = key(
+            InterpolationMethod::Linear,
+            InterpolationMethod::Lagrange { degree: 3 },
+        );
+        assert_ne!(linear, rotation_lagrange);
+        assert_ne!(linear, ephemeris_hermite);
+        assert_ne!(linear, ephemeris_lagrange);
+        assert_ne!(ephemeris_hermite, ephemeris_lagrange);
+        assert_ne!(
+            rotation_lagrange,
+            key(
+                InterpolationMethod::Lagrange { degree: 5 },
+                InterpolationMethod::Linear,
+            )
+        );
+    }
+
+    #[test]
+    #[serial]
+    fn test_EphemerisTable_node_exact_all_methods() {
+        setup_global_test_eop();
+        setup_global_test_spice();
+        let queries = all_query_kinds();
+        let t0 = Epoch::from_datetime(2024, 3, 1, 0, 0, 13.0, 0.0, TimeSystem::UTC);
+        let mut methods = table_methods();
+        methods.push(InterpolationMethod::HermiteCubic);
+        for method in methods {
+            let mut table = EphemerisTable::new(60.0, queries.clone()).with_interpolation(method);
+            table.ensure(table.span(t0, t0 + 300.0)).unwrap();
+            let linear = NodeRange::bracketing(60.0, t0, t0 + 300.0);
+            for k in linear.k_min..linear.k_max {
+                let e = linear.epoch(k);
+                for (i, query) in queries.iter().enumerate() {
+                    let exact = query.evaluate(e).unwrap();
+                    let value = table.value(i, e).unwrap();
+                    assert_eq!(
+                        &value[..query.dim()],
+                        exact.as_slice(),
+                        "{method:?} {query:?}"
+                    );
+                    assert!(value[query.dim()..].iter().all(|v| *v == 0.0));
+                }
+            }
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_ChannelQuery_derivative_matches_finite_difference() {
+        setup_global_test_eop();
+        setup_global_test_spice();
+        let e = Epoch::from_datetime(2024, 3, 1, 0, 0, 13.0, 0.0, TimeSystem::UTC);
+        let mut queries = all_query_kinds();
+        queries.push(ChannelQuery::ThirdBodyPosition {
+            central: CentralBody::EMB,
+            body: ThirdBody::Earth,
+            source: EphemerisSource::DE440s,
+        });
+        queries.push(ChannelQuery::GeocentricThirdBody {
+            body: ThirdBody::JupiterBarycenter,
+            source: EphemerisSource::DE440s,
+        });
+        // Planet centres resolve through a satellite-system kernel (mar099s)
+        // leg: Mars as target and as centre on the kernel-scoped path, and
+        // the geocentric planet-centre ephemeris.
+        queries.push(ChannelQuery::ThirdBodyPosition {
+            central: CentralBody::Earth,
+            body: ThirdBody::Mars,
+            source: EphemerisSource::DE440s,
+        });
+        queries.push(ChannelQuery::ThirdBodyPosition {
+            central: CentralBody::Mars,
+            body: ThirdBody::Sun,
+            source: EphemerisSource::DE440s,
+        });
+        queries.push(ChannelQuery::GeocentricThirdBody {
+            body: ThirdBody::Mars,
+            source: EphemerisSource::DE440s,
+        });
+        for query in queries {
+            query.load_kernels().unwrap();
+            let dim = query.dim();
+            let node = query.evaluate_with_derivative(e).unwrap();
+            assert_eq!(node.len(), 2 * dim);
+            assert_eq!(
+                &node[..dim],
+                query.evaluate(e).unwrap().as_slice(),
+                "{query:?}"
+            );
+            let h = 1.0;
+            let plus = query.evaluate(e + h).unwrap();
+            let minus = query.evaluate(e - h).unwrap();
+            for j in 0..dim {
+                let fd = (plus[j] - minus[j]) / (2.0 * h);
+                let derivative = node[dim + j];
+                assert!(
+                    (derivative - fd).abs() <= 1e-6 * fd.abs().max(1e-3),
+                    "{query:?} component {j}: {derivative} vs {fd}"
+                );
+            }
+        }
+    }
+
+    /// Maximum Moon and Sun position errors, in meters, of an ephemeris table
+    /// over one day sampled every 7.3 s.
+    fn sun_moon_offgrid_error(step: f64, method: InterpolationMethod) -> [f64; 2] {
+        let queries = vec![
+            ChannelQuery::GeocentricThirdBody {
+                body: ThirdBody::Moon,
+                source: EphemerisSource::DE440s,
+            },
+            ChannelQuery::GeocentricThirdBody {
+                body: ThirdBody::Sun,
+                source: EphemerisSource::DE440s,
+            },
+        ];
+        let t0 = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let mut table = EphemerisTable::new(step, queries.clone()).with_interpolation(method);
+        table.ensure(table.span(t0, t0 + 86400.0)).unwrap();
+        let mut max_err = [0.0_f64; 2];
+        let mut t = 0.0;
+        while t < 86400.0 {
+            let e = t0 + t;
+            for (i, query) in queries.iter().enumerate() {
+                let exact = query.evaluate(e).unwrap();
+                let value = table.value(i, e).unwrap();
+                let err = (0..3)
+                    .map(|j| (value[j] - exact[j]).powi(2))
+                    .sum::<f64>()
+                    .sqrt();
+                max_err[i] = max_err[i].max(err);
+            }
+            t += 7.3;
+        }
+        max_err
+    }
+
+    #[test]
+    #[serial]
+    fn test_EphemerisTable_higher_order_moon_offgrid_error() {
+        setup_global_test_eop();
+        setup_global_test_spice();
+        for method in [
+            InterpolationMethod::Lagrange { degree: 3 },
+            InterpolationMethod::HermiteCubic,
+        ] {
+            let [moon, sun] = sun_moon_offgrid_error(60.0, method);
+            println!("{method:?} off-grid error at 60 s: Moon {moon:.3e} m, Sun {sun:.3e} m");
+            assert!(moon < 0.01, "{method:?} Moon max error {moon}");
+        }
     }
 
     /// Reinstalls the standard test space-weather provider when dropped, so a

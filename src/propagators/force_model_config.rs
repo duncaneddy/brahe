@@ -21,6 +21,7 @@ use crate::constants::{
 };
 use crate::datasets::icgem::ICGEMBody;
 use crate::earth_models::NRLMSISE00Config;
+use crate::math::interpolation::InterpolationMethod;
 use crate::orbit_dynamics::ParallelMode;
 use crate::orbit_dynamics::gravity::{GravityModel, GravityModelTideSystem, GravityModelType};
 use crate::orbit_dynamics::tides::SolidTideConfig;
@@ -650,15 +651,32 @@ impl Default for OceanTideConfig {
     }
 }
 
+/// Highest `Lagrange { degree }` the precompute tables accept.
+const PRECOMPUTE_MAX_LAGRANGE_DEGREE: usize = 15;
+
 /// Opt-in precomputed tables for force-model inputs that depend only on time.
 ///
-/// Each table holds the nodes that bracket the spans requested during
-/// propagation, and values between nodes are linearly interpolated. `None` on
+/// Each table holds the nodes its interpolation method reads for the spans
+/// requested during propagation. Values between nodes are interpolated with
+/// the table's [`InterpolationMethod`] (linear by default). `None` on
 /// [`ForceModelConfig`] disables all tables.
 ///
-/// Steps are checked by [`ForceModelConfig::validate`], which the propagator
-/// constructor calls, so a non-finite or non-positive step is rejected at
-/// propagator construction. Changing global data (EOP provider, SPICE kernels,
+/// | Table | `Linear` | `Lagrange { degree }` | `HermiteCubic` | `HermiteQuintic` |
+/// |---|---|---|---|---|
+/// | Frame rotation | yes | yes | no | no |
+/// | Ephemeris | yes | yes | yes | no |
+///
+/// The method sets how many nodes a table holds: `Linear` reads the two
+/// nodes around each epoch, `Lagrange { degree }` reads `degree + 1` nodes and
+/// so holds `degree / 2` (rounded down) more nodes on each side of a span, and
+/// `HermiteCubic` stores each value's time derivative next to it, doubling the
+/// size of each node. `degree` must be in `1..=15`.
+///
+/// Steps and interpolation methods are checked by
+/// [`ForceModelConfig::validate`], which the propagator constructor calls, so
+/// a non-finite or non-positive step, a method a table does not support, or
+/// a `Lagrange { degree }` outside `1..=15` is rejected at propagator
+/// construction. Changing global data (EOP provider, SPICE kernels,
 /// space-weather provider) during propagation is the caller's responsibility.
 ///
 /// # Arguments
@@ -667,15 +685,19 @@ impl Default for OceanTideConfig {
 ///   `None` disables the table.
 /// * `ephemeris_step` - Grid spacing of the Sun/Moon/third-body ephemeris
 ///   table [s]. `None` disables the table.
-/// * `cache_space_weather` - Memoize, per UT1 day, the values NRLMSISE-00
-///   reads from the global space-weather provider, so density calls skip the
-///   shared provider and its lock. Lookups return the provider's values. The
-///   provider's daily values must be constant within a UT1 day and its Ap
-///   values constant within each 3-hour bin.
+/// * `cache_space_weather` - Cache the NRLMSISE-00 space-weather values per
+///   UT1 day for each propagator, so density calls skip the shared global
+///   provider and its lock after a day's first lookup.
+/// * `frame_rotation_interpolation` - Interpolation of the bias-precession-
+///   nutation and polar-motion matrices, elementwise. `Linear` or
+///   `Lagrange { degree }`.
+/// * `ephemeris_interpolation` - Interpolation of the ephemeris channels.
+///   `Linear`, `Lagrange { degree }` or `HermiteCubic`.
 ///
 /// # Examples
 ///
 /// ```rust
+/// use brahe::math::interpolation::InterpolationMethod;
 /// use brahe::propagators::{ForceModelConfig, PrecomputeConfig};
 ///
 /// let config = ForceModelConfig {
@@ -683,6 +705,16 @@ impl Default for OceanTideConfig {
 ///     ..Default::default()
 /// };
 /// assert!(config.validate().is_ok());
+///
+/// let higher_order = ForceModelConfig {
+///     precompute: Some(PrecomputeConfig {
+///         frame_rotation_interpolation: InterpolationMethod::Lagrange { degree: 3 },
+///         ephemeris_interpolation: InterpolationMethod::HermiteCubic,
+///         ..PrecomputeConfig::default()
+///     }),
+///     ..Default::default()
+/// };
+/// assert!(higher_order.validate().is_ok());
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct PrecomputeConfig {
@@ -696,16 +728,26 @@ pub struct PrecomputeConfig {
     /// space-weather provider. Requires daily values constant within a UT1 day
     /// and Ap values constant within each 3-hour bin.
     pub cache_space_weather: bool,
+    /// Interpolation of the frame-rotation table: `Linear` or
+    /// `Lagrange { degree }` with `1 <= degree <= 15`.
+    #[serde(default)]
+    pub frame_rotation_interpolation: InterpolationMethod,
+    /// Interpolation of the ephemeris table: `Linear`, `Lagrange { degree }`
+    /// with `1 <= degree <= 15`, or `HermiteCubic`.
+    #[serde(default)]
+    pub ephemeris_interpolation: InterpolationMethod,
 }
 
 impl Default for PrecomputeConfig {
-    /// Returns a 600 s frame-rotation grid, a 60 s ephemeris grid, and
-    /// space-weather caching enabled.
+    /// Returns a 600 s frame-rotation grid, a 60 s ephemeris grid, linear
+    /// interpolation in both tables, and space-weather caching enabled.
     fn default() -> Self {
         Self {
             frame_rotation_step: Some(600.0),
             ephemeris_step: Some(60.0),
             cache_space_weather: true,
+            frame_rotation_interpolation: InterpolationMethod::Linear,
+            ephemeris_interpolation: InterpolationMethod::Linear,
         }
     }
 }
@@ -946,6 +988,11 @@ impl ForceModelConfig {
     /// 7. `OceanTideConfig::degree` must be in `2..=100` (the FES2004 file's truncation
     ///    limit) and `OceanTideConfig::order` must be in `2..=degree`.
     ///
+    /// It also checks [`PrecomputeConfig`]: table steps must be finite and positive,
+    /// `frame_rotation_interpolation` must be `Linear` or `Lagrange`, and
+    /// `ephemeris_interpolation` must be `Linear`, `Lagrange` or `HermiteCubic`, with
+    /// `Lagrange { degree }` requiring `1 <= degree <= 15`.
+    ///
     /// This method is called automatically at propagator construction (e.g.
     /// `DNumericalOrbitPropagator::new`); it may also be called explicitly ahead
     /// of time on a standalone configuration for early feedback.
@@ -973,6 +1020,34 @@ impl ForceModelConfig {
                     return Err(BraheError::Error(format!(
                         "precompute.{} must be finite and positive, got {}",
                         name, step
+                    )));
+                }
+            }
+            for (name, method, hermite_cubic) in [
+                (
+                    "frame_rotation_interpolation",
+                    pre.frame_rotation_interpolation,
+                    false,
+                ),
+                ("ephemeris_interpolation", pre.ephemeris_interpolation, true),
+            ] {
+                let supported = match method {
+                    InterpolationMethod::Linear => true,
+                    InterpolationMethod::Lagrange { degree } => {
+                        (1..=PRECOMPUTE_MAX_LAGRANGE_DEGREE).contains(&degree)
+                    }
+                    InterpolationMethod::HermiteCubic => hermite_cubic,
+                    InterpolationMethod::HermiteQuintic => false,
+                };
+                if !supported {
+                    let allowed = if hermite_cubic {
+                        "Linear, Lagrange or HermiteCubic"
+                    } else {
+                        "Linear or Lagrange"
+                    };
+                    return Err(BraheError::Error(format!(
+                        "precompute.{} must be {} (Lagrange degree in 1..={}), got {:?}",
+                        name, allowed, PRECOMPUTE_MAX_LAGRANGE_DEGREE, method
                     )));
                 }
             }
@@ -2289,8 +2364,128 @@ mod tests {
             frame_rotation_step: None,
             ephemeris_step: None,
             cache_space_weather: false,
+            frame_rotation_interpolation: InterpolationMethod::Linear,
+            ephemeris_interpolation: InterpolationMethod::Linear,
         });
         assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_PrecomputeConfig_default_interpolation() {
+        let cfg = PrecomputeConfig::default();
+        assert_eq!(
+            cfg.frame_rotation_interpolation,
+            InterpolationMethod::Linear
+        );
+        assert_eq!(cfg.ephemeris_interpolation, InterpolationMethod::Linear);
+    }
+
+    #[rstest]
+    #[case(InterpolationMethod::Linear, InterpolationMethod::Linear)]
+    #[case(
+        InterpolationMethod::Lagrange { degree: 1 },
+        InterpolationMethod::Lagrange { degree: 5 }
+    )]
+    #[case(InterpolationMethod::Lagrange { degree: 3 }, InterpolationMethod::HermiteCubic)]
+    #[case(
+        InterpolationMethod::Lagrange { degree: 15 },
+        InterpolationMethod::Lagrange { degree: 15 }
+    )]
+    #[parallel]
+    fn test_ForceModelConfig_validate_precompute_interpolation_valid(
+        #[case] frame_rotation_interpolation: InterpolationMethod,
+        #[case] ephemeris_interpolation: InterpolationMethod,
+    ) {
+        let mut config = ForceModelConfig::two_body_gravity();
+        config.precompute = Some(PrecomputeConfig {
+            frame_rotation_interpolation,
+            ephemeris_interpolation,
+            ..PrecomputeConfig::default()
+        });
+        assert!(config.validate().is_ok());
+    }
+
+    #[rstest]
+    #[case(
+        InterpolationMethod::HermiteCubic,
+        InterpolationMethod::Linear,
+        "precompute.frame_rotation_interpolation"
+    )]
+    #[case(
+        InterpolationMethod::HermiteQuintic,
+        InterpolationMethod::Linear,
+        "precompute.frame_rotation_interpolation"
+    )]
+    #[case(
+        InterpolationMethod::Lagrange { degree: 0 },
+        InterpolationMethod::Linear,
+        "precompute.frame_rotation_interpolation"
+    )]
+    #[case(
+        InterpolationMethod::Linear,
+        InterpolationMethod::HermiteQuintic,
+        "precompute.ephemeris_interpolation"
+    )]
+    #[case(
+        InterpolationMethod::Linear,
+        InterpolationMethod::Lagrange { degree: 0 },
+        "precompute.ephemeris_interpolation"
+    )]
+    #[case(
+        InterpolationMethod::Lagrange { degree: 16 },
+        InterpolationMethod::Linear,
+        "precompute.frame_rotation_interpolation"
+    )]
+    #[case(
+        InterpolationMethod::Lagrange { degree: usize::MAX },
+        InterpolationMethod::Linear,
+        "precompute.frame_rotation_interpolation"
+    )]
+    #[case(
+        InterpolationMethod::Linear,
+        InterpolationMethod::Lagrange { degree: 16 },
+        "precompute.ephemeris_interpolation"
+    )]
+    #[case(
+        InterpolationMethod::Linear,
+        InterpolationMethod::Lagrange { degree: usize::MAX },
+        "precompute.ephemeris_interpolation"
+    )]
+    #[parallel]
+    fn test_ForceModelConfig_validate_precompute_interpolation_rejected(
+        #[case] frame_rotation_interpolation: InterpolationMethod,
+        #[case] ephemeris_interpolation: InterpolationMethod,
+        #[case] field: &str,
+    ) {
+        let mut config = ForceModelConfig::two_body_gravity();
+        config.precompute = Some(PrecomputeConfig {
+            frame_rotation_interpolation,
+            ephemeris_interpolation,
+            ..PrecomputeConfig::default()
+        });
+        let err = config.validate().unwrap_err().to_string();
+        assert!(err.contains(field), "{err}");
+    }
+
+    #[test]
+    #[parallel]
+    fn test_PrecomputeConfig_interpolation_serde_default() {
+        let cfg = PrecomputeConfig {
+            frame_rotation_interpolation: InterpolationMethod::Lagrange { degree: 3 },
+            ephemeris_interpolation: InterpolationMethod::HermiteCubic,
+            ..PrecomputeConfig::default()
+        };
+        let json = serde_json::to_string(&cfg).unwrap();
+        let back: PrecomputeConfig = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, cfg);
+
+        let mut value: serde_json::Value = serde_json::from_str(&json).unwrap();
+        let object = value.as_object_mut().unwrap();
+        object.remove("frame_rotation_interpolation");
+        object.remove("ephemeris_interpolation");
+        let back: PrecomputeConfig = serde_json::from_value(value).unwrap();
+        assert_eq!(back, PrecomputeConfig::default());
     }
 
     #[test]

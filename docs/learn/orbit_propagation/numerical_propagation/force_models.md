@@ -430,9 +430,18 @@ where $c$ is the speed of light, $\mathbf{e}_r$ is the radial unit vector, and $
 
 `ForceModelConfig.precompute` takes a `PrecomputeConfig` that tabulates inputs depending only on time, so the dynamics function interpolates them instead of recomputing them at every call. The default value `None` evaluates every input exactly at each call.
 
-The frame-rotation table applies when the central body is Earth and `frame_transform` is `FULL_EARTH_ROTATION`. It stores the bias-precession-nutation matrix (BPN) and the polar-motion matrix every `frame_rotation_step` and interpolates both linearly. The Earth rotation angle changes too quickly to interpolate, so it is computed exactly at the epoch of every call. The table holds only the nodes that bracket the epochs the propagation requests, and `propagate_to` and `step_by` extend it in place. Setting `frame_rotation_step` to `None` disables the table.
+The frame-rotation table applies when the central body is Earth and `frame_transform` is `FULL_EARTH_ROTATION`. It stores the bias-precession-nutation matrix (BPN) and the polar-motion matrix every `frame_rotation_step` and interpolates both with `frame_rotation_interpolation`. The Earth rotation angle changes too quickly to interpolate, so it is computed exactly at the epoch of every call. The table holds only the nodes that bracket the epochs the propagation requests, and `propagate_to` and `step_by` extend it in place. Setting `frame_rotation_step` to `None` disables the table.
 
-The ephemeris table applies when `ephemeris_step` is set. Lookups that read SPICE kernels, used by the third-body, tide, solar radiation pressure, and drag models, are tabulated every `ephemeris_step` and interpolated linearly. The `LowPrecision` analytic Sun and Moon are not tabulated. Setting `ephemeris_step` to `None` disables the table.
+The ephemeris table applies when `ephemeris_step` is set. Lookups that read SPICE kernels, used by the third-body, tide, solar radiation pressure, and drag models, are tabulated every `ephemeris_step` and interpolated with `ephemeris_interpolation`. The `LowPrecision` analytic Sun and Moon are not tabulated. Setting `ephemeris_step` to `None` disables the table.
+
+Both tables use `InterpolationMethod`, set by `frame_rotation_interpolation` and `ephemeris_interpolation`, and default to linear interpolation. The table below lists the supported methods by their Python names; the Rust variants are `Linear`, `Lagrange { degree }`, `HermiteCubic`, and `HermiteQuintic`.
+
+| Table | `LINEAR` | `lagrange(degree)` | `HERMITE_CUBIC` | `HERMITE_QUINTIC` |
+|---|---|---|---|---|
+| Frame rotation | yes | yes | no | no |
+| Ephemeris | yes | yes | yes | no |
+
+The method sets how many nodes a table holds. Linear interpolation reads the two nodes around each epoch. Lagrange interpolation of degree $d$ reads $d + 1$ nodes, so the table holds $\lfloor d/2 \rfloor$ more nodes on each side of the requested span; the degree must be between 1 and 15, and with an even degree the interpolant can jump midway between nodes. Cubic Hermite interpolation of the ephemeris table stores each value's time derivative next to it, doubling the size of each node. `ForceModelConfig.validate()`, which the propagator constructor calls, raises an error for a method a table does not support.
 
 The example below propagates a LEO orbit for one day with and without both tables. With a fixed-step integrator both runs take identical steps, so the position difference isolates the interpolation error.
 
@@ -462,7 +471,7 @@ The example below propagates a LEO orbit for one day with and without both table
 `PrecomputeConfig` also carries `cache_space_weather`, which applies when drag uses NRLMSISE-00. Each day is read from the global space-weather provider the first time it is needed. Later density calls on that day use the stored values instead of going through the shared global provider and its lock, so propagators running in parallel do not contend on that lock.
 
 !!! warning "Global data during propagation"
-    The tables and the cache read the global EOP provider, the loaded SPICE kernels, and the global space-weather provider. Changing that data during a propagation is the caller's responsibility. Nodes are built for the whole requested span plus one step past it, so near the end of EOP or SPICE coverage a propagation with the option can return a coverage error that the same propagation without it would not.
+    The tables and the cache read the global EOP provider, the loaded SPICE kernels, and the global space-weather provider. Changing that data during a propagation is the caller's responsibility. Nodes are built for the whole requested span plus the nodes interpolation reads around it, so near the end of EOP or SPICE coverage a propagation with the option can return a coverage error that the same propagation without it would not.
 
 ## Parameter Configuration
 

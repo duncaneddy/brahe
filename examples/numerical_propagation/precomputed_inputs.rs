@@ -2,7 +2,7 @@
 //! exact evaluation.
 
 use brahe as bh;
-use bh::traits::DStatePropagator;
+use brahe::traits::DStatePropagator;
 use nalgebra as na;
 
 fn main() {
@@ -41,6 +41,7 @@ fn main() {
             frame_rotation_step: Some(600.0),
             ephemeris_step: Some(60.0),
             cache_space_weather: false,
+            ..bh::PrecomputeConfig::default()
         }),
         ..exact_config.clone()
     };
@@ -71,12 +72,34 @@ fn main() {
 
     assert!(difference < 1e-3);
 
+    // Interpolate the rotation table with degree-3 Lagrange polynomials and the
+    // ephemeris table with cubic Hermite polynomials
+    let mut higher_order = build(bh::ForceModelConfig {
+        precompute: Some(bh::PrecomputeConfig {
+            frame_rotation_step: Some(600.0),
+            ephemeris_step: Some(60.0),
+            cache_space_weather: false,
+            frame_rotation_interpolation: bh::InterpolationMethod::Lagrange { degree: 3 },
+            ephemeris_interpolation: bh::InterpolationMethod::HermiteCubic,
+        }),
+        ..precomputed_config.clone()
+    });
+    higher_order.propagate_to(epoch + 86400.0).unwrap();
+
+    let difference =
+        (exact.current_state().rows(0, 3) - higher_order.current_state().rows(0, 3)).norm();
+    println!(
+        "Position difference with higher-order interpolation: {:.2e} m",
+        difference
+    );
+
+    assert!(difference < 1e-3);
+
     // par_propagate_to_d builds one set of tables for propagators with matching table
     // steps and force-model settings, and shares it across all of them
     let target = epoch + 86400.0;
-    let mut constellation: Vec<bh::DNumericalOrbitPropagator> = (0..4)
-        .map(|_| build(precomputed_config.clone()))
-        .collect();
+    let mut constellation: Vec<bh::DNumericalOrbitPropagator> =
+        (0..4).map(|_| build(precomputed_config.clone())).collect();
     bh::par_propagate_to_d(&mut constellation, target).unwrap();
 
     for prop in &constellation {

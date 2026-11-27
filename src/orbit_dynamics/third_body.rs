@@ -17,13 +17,20 @@ use crate::propagators::CentralBody;
 use crate::propagators::force_model_config::{
     EphemerisSource, GravityConfiguration, GravityModelSource, ThirdBody,
 };
-use crate::spice::positions::{spk_pair_position_from_kernels, spk_strictly_resolvable};
+use crate::spice::positions::{
+    spk_pair_position_from_kernels, spk_pair_velocity_from_kernels, spk_strictly_resolvable,
+};
 use crate::spice::{
-    SPICEKernel, jupiter_barycenter_position_spice, jupiter_position_spice, load_spice_kernel,
-    mars_barycenter_position_spice, mars_position_spice, mercury_position_spice,
-    moon_position_spice, neptune_barycenter_position_spice, neptune_position_spice,
-    saturn_barycenter_position_spice, saturn_position_spice, spk_position, sun_position_spice,
-    uranus_barycenter_position_spice, uranus_position_spice, venus_position_spice,
+    SPICEKernel, jupiter_barycenter_position_spice, jupiter_barycenter_velocity_spice,
+    jupiter_position_spice, jupiter_velocity_spice, load_spice_kernel,
+    mars_barycenter_position_spice, mars_barycenter_velocity_spice, mars_position_spice,
+    mars_velocity_spice, mercury_position_spice, mercury_velocity_spice, moon_position_spice,
+    moon_velocity_spice, neptune_barycenter_position_spice, neptune_barycenter_velocity_spice,
+    neptune_position_spice, neptune_velocity_spice, saturn_barycenter_position_spice,
+    saturn_barycenter_velocity_spice, saturn_position_spice, saturn_velocity_spice, spk_position,
+    spk_velocity, sun_position_spice, sun_velocity_spice, uranus_barycenter_position_spice,
+    uranus_barycenter_velocity_spice, uranus_position_spice, uranus_velocity_spice,
+    venus_position_spice, venus_velocity_spice,
 };
 use crate::time::Epoch;
 use crate::utils::BraheError;
@@ -153,6 +160,61 @@ pub(crate) fn third_body_position_geocentric(
         }
     };
     Ok((r_body, gm))
+}
+
+/// Geocentric velocity of a third body from the same ephemeris functions
+/// and kernels [`third_body_position_geocentric`] reads its position from.
+///
+/// # Arguments
+///
+/// * `body` - Perturbing body (Sun, Moon, or a planet / system barycenter)
+/// * `source` - SPICE ephemeris source for the body's velocity
+/// * `epc` - Epoch for ephemeris lookup
+///
+/// # Returns
+///
+/// * `Ok(Vector3<f64>)` - Velocity of the body relative to Earth in the GCRF
+///   frame. Units: [m/s]
+/// * `Err(BraheError)` - If `source` is [`EphemerisSource::LowPrecision`],
+///   which has no velocity, the body is not supported by
+///   [`third_body_position_geocentric`], or the ephemeris kernel cannot be
+///   loaded or queried
+pub(crate) fn third_body_velocity_geocentric(
+    body: &ThirdBody,
+    source: EphemerisSource,
+    epc: Epoch,
+) -> Result<Vector3<f64>, BraheError> {
+    if matches!(source, EphemerisSource::LowPrecision) {
+        return Err(BraheError::Error(format!(
+            "Low-precision ephemerides provide no velocity. Requested {:?}.",
+            body
+        )));
+    }
+    let kernel = de_kernel_from_source(source);
+    match body {
+        ThirdBody::Sun => sun_velocity_spice(epc, kernel),
+        ThirdBody::Moon => moon_velocity_spice(epc, kernel),
+        ThirdBody::Mercury => mercury_velocity_spice(epc, kernel),
+        ThirdBody::Venus => venus_velocity_spice(epc, kernel),
+        ThirdBody::MarsBarycenter => mars_barycenter_velocity_spice(epc, kernel),
+        ThirdBody::Mars => mars_velocity_spice(epc, kernel),
+        ThirdBody::JupiterBarycenter => jupiter_barycenter_velocity_spice(epc, kernel),
+        ThirdBody::Jupiter => jupiter_velocity_spice(epc, kernel),
+        ThirdBody::SaturnBarycenter => saturn_barycenter_velocity_spice(epc, kernel),
+        ThirdBody::Saturn => saturn_velocity_spice(epc, kernel),
+        ThirdBody::UranusBarycenter => uranus_barycenter_velocity_spice(epc, kernel),
+        ThirdBody::Uranus => uranus_velocity_spice(epc, kernel),
+        ThirdBody::NeptuneBarycenter => neptune_barycenter_velocity_spice(epc, kernel),
+        ThirdBody::Neptune => neptune_velocity_spice(epc, kernel),
+        other @ (ThirdBody::Earth
+        | ThirdBody::Phobos
+        | ThirdBody::Deimos
+        | ThirdBody::Custom { .. }) => Err(BraheError::Error(format!(
+            "Geocentric third-body ephemerides support the Sun, the Moon, and the planet and \
+             planetary-system-barycenter variants. Requested {:?}.",
+            other
+        ))),
+    }
 }
 
 /// Unified third-body acceleration with source enumeration.
@@ -397,6 +459,52 @@ pub(crate) fn third_body_position(
     source: EphemerisSource,
     epc: Epoch,
 ) -> Result<Vector3<f64>, BraheError> {
+    resolve_third_body(central_body, body, source, epc, false).map(|(r, _)| r)
+}
+
+/// Position and velocity of `body` relative to `central_body` at `epc`.
+///
+/// The position is the one [`third_body_position`] returns; the velocity is
+/// queried from the same kernels along the same resolution path.
+///
+/// # Arguments
+///
+/// * `central_body` - Body the position and velocity are relative to
+/// * `body` - Perturbing celestial body
+/// * `source` - SPICE ephemeris source
+/// * `epc` - Epoch for ephemeris lookup
+///
+/// # Returns
+///
+/// * `Ok((Vector3<f64>, Vector3<f64>))` - Position [m] and velocity [m/s] in
+///   the inertial frame centered on `central_body`
+/// * `Err(BraheError)` - If `source` is [`EphemerisSource::LowPrecision`],
+///   which has no velocity, or the ephemeris cannot be queried
+pub(crate) fn third_body_position_velocity(
+    central_body: &CentralBody,
+    body: &ThirdBody,
+    source: EphemerisSource,
+    epc: Epoch,
+) -> Result<(Vector3<f64>, Vector3<f64>), BraheError> {
+    let (r, v) = resolve_third_body(central_body, body, source, epc, true)?;
+    let v = v.ok_or_else(|| {
+        BraheError::Error(format!(
+            "Low-precision ephemerides provide no velocity. Requested {:?}.",
+            body
+        ))
+    })?;
+    Ok((r, v))
+}
+
+/// Position of `body` relative to `central_body`, and its velocity from the
+/// same kernels when `with_velocity` is set and `source` is a SPICE source.
+fn resolve_third_body(
+    central_body: &CentralBody,
+    body: &ThirdBody,
+    source: EphemerisSource,
+    epc: Epoch,
+    with_velocity: bool,
+) -> Result<(Vector3<f64>, Option<Vector3<f64>>), BraheError> {
     if matches!(source, EphemerisSource::LowPrecision) && *central_body != CentralBody::Earth {
         return Err(BraheError::Error(
             "LowPrecision ephemerides are geocentric; use a DE/SPK source for non-Earth central bodies"
@@ -405,8 +513,8 @@ pub(crate) fn third_body_position(
     }
 
     match (source, body) {
-        (EphemerisSource::LowPrecision, ThirdBody::Sun) => Ok(sun_position(epc)),
-        (EphemerisSource::LowPrecision, ThirdBody::Moon) => Ok(moon_position(epc)),
+        (EphemerisSource::LowPrecision, ThirdBody::Sun) => Ok((sun_position(epc), None)),
+        (EphemerisSource::LowPrecision, ThirdBody::Moon) => Ok((moon_position(epc), None)),
         (EphemerisSource::LowPrecision, other) => Err(BraheError::Error(format!(
             "Low-precision ephemerides only support Sun and Moon. Requested {:?}. \
             Use EphemerisSource::DE440s, DE440, or SPK(...) for other bodies.",
@@ -424,7 +532,14 @@ pub(crate) fn third_body_position(
                 None
             };
             match strict {
-                Some(s) => Ok(s),
+                Some(s) => {
+                    let v = if with_velocity {
+                        Some(spk_pair_velocity_from_kernels(kernel, target, center, epc)?)
+                    } else {
+                        None
+                    };
+                    Ok((s, v))
+                }
                 // Bring-your-own-SPK bodies — Custom NAIF IDs outside DE and
                 // known satellite-kernel coverage, or satellite-range IDs the
                 // mapped system kernel doesn't actually carry — resolve across
@@ -432,7 +547,13 @@ pub(crate) fn third_body_position(
                 // precedence.
                 None => {
                     load_spice_kernel(kernel)?;
-                    spk_position(target, center, epc)
+                    let s = spk_position(target, center, epc)?;
+                    let v = if with_velocity {
+                        Some(spk_velocity(target, center, epc)?)
+                    } else {
+                        None
+                    };
+                    Ok((s, v))
                 }
             }
         }
@@ -1762,6 +1883,47 @@ mod tests {
 
     #[test]
     #[serial]
+    fn test_third_body_position_velocity_custom_body_uses_global_resolution() {
+        // A bring-your-own-SPK body resolves position and velocity across all
+        // loaded kernels. The synthetic segment holds a constant position, so
+        // the velocity is zero.
+        setup_global_test_spice();
+        without_spice_kernels(|| {
+            let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+            let body = ThirdBody::Custom {
+                name: "Ceres".to_string(),
+                naif_id: 2000001,
+                gm: 6.26325e10,
+            };
+
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("ceres.bsp");
+            std::fs::write(&path, synthetic_spk_kernel_bytes(&[(2000001, 0, 77.0)])).unwrap();
+            let path = path.to_str().unwrap();
+
+            load_spice_kernel("de440s").unwrap();
+            load_spice_kernel(path).unwrap();
+
+            let (r, v) = third_body_position_velocity(
+                &CentralBody::SSB,
+                &body,
+                EphemerisSource::DE440s,
+                epc,
+            )
+            .unwrap();
+            let r_position =
+                third_body_position(&CentralBody::SSB, &body, EphemerisSource::DE440s, epc)
+                    .unwrap();
+            assert_eq!(r, r_position);
+            assert_abs_diff_eq!(r, Vector3::new(77.0e3, 0.0, 0.0), epsilon = 1e-6);
+            assert_eq!(v, Vector3::zeros());
+
+            let _ = unload_spice_kernel(path);
+        });
+    }
+
+    #[test]
+    #[serial]
     fn test_accel_third_body_for_body_satellite_range_id_falls_back_to_global() {
         // A Custom body with a satellite-range NAIF ID (Pluto system, 950)
         // that the mapped system kernel (plu060) does NOT carry must fall
@@ -2234,11 +2396,12 @@ mod tests {
 
     #[test]
     #[serial]
-    fn test_third_body_position_geocentric_planet_centers_offline() {
+    fn test_third_body_geocentric_planet_centers_offline() {
         // Synthetic DE and satellite kernels in a redirected cache place each
         // outer-planet barycenter on the x-axis relative to Earth and each
         // planet center on the x-axis relative to its barycenter, so the
-        // geocentric planet-center position is the exact two-leg sum.
+        // geocentric planet-center position is the exact two-leg sum and the
+        // velocity is zero.
         without_spice_kernels(|| {
             let epc = Epoch::from_datetime(2025, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
             {
@@ -2280,9 +2443,90 @@ mod tests {
                         third_body_position_geocentric(&body, EphemerisSource::DE440, epc).unwrap();
                     assert_abs_diff_eq!(r_body, Vector3::new(x, 0.0, 0.0), epsilon = 1e-6);
                     assert_eq!(gm, body.gm());
+                    let v_body =
+                        third_body_velocity_geocentric(&body, EphemerisSource::DE440, epc).unwrap();
+                    assert_eq!(v_body, Vector3::zeros());
                 }
             }
         });
+    }
+
+    #[test]
+    #[serial]
+    fn test_third_body_velocity_geocentric_matches_position_derivative() {
+        setup_global_test_spice();
+        let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let position = |body: &ThirdBody, e: Epoch| {
+            third_body_position_geocentric(body, EphemerisSource::DE440s, e)
+                .unwrap()
+                .0
+        };
+        for body in [
+            ThirdBody::Sun,
+            ThirdBody::Moon,
+            ThirdBody::Mercury,
+            ThirdBody::Venus,
+            ThirdBody::MarsBarycenter,
+            ThirdBody::JupiterBarycenter,
+            ThirdBody::SaturnBarycenter,
+            ThirdBody::UranusBarycenter,
+            ThirdBody::NeptuneBarycenter,
+        ] {
+            let v = third_body_velocity_geocentric(&body, EphemerisSource::DE440s, epc).unwrap();
+            let v_fd = (position(&body, epc + 1.0) - position(&body, epc - 1.0)) / 2.0;
+            assert!(v.norm() > 0.0, "{body:?}");
+            assert_abs_diff_eq!(v, v_fd, epsilon = 1e-3);
+        }
+    }
+
+    #[test]
+    #[parallel]
+    fn test_third_body_velocity_geocentric_errors() {
+        let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let err =
+            third_body_velocity_geocentric(&ThirdBody::Sun, EphemerisSource::LowPrecision, epc)
+                .unwrap_err();
+        assert!(
+            err.to_string()
+                .contains("Low-precision ephemerides provide no velocity"),
+            "{err}"
+        );
+        for body in [
+            ThirdBody::Earth,
+            ThirdBody::Phobos,
+            ThirdBody::Deimos,
+            ThirdBody::Custom {
+                name: "Ceres".to_string(),
+                naif_id: 2000001,
+                gm: 6.26325e10,
+            },
+        ] {
+            let err =
+                third_body_velocity_geocentric(&body, EphemerisSource::DE440s, epc).unwrap_err();
+            assert!(
+                err.to_string()
+                    .contains("Geocentric third-body ephemerides support"),
+                "{body:?}: {err}"
+            );
+        }
+    }
+
+    #[test]
+    #[parallel]
+    fn test_third_body_position_velocity_low_precision_error() {
+        let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let err = third_body_position_velocity(
+            &CentralBody::Earth,
+            &ThirdBody::Sun,
+            EphemerisSource::LowPrecision,
+            epc,
+        )
+        .unwrap_err();
+        assert!(
+            err.to_string()
+                .contains("Low-precision ephemerides provide no velocity"),
+            "{err}"
+        );
     }
 
     #[test]

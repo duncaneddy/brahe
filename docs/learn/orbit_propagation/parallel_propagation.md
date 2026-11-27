@@ -67,7 +67,7 @@ For very large constellations (1000s of satellites), consider processing in batc
 
 ## Precomputed Inputs
 
-When numerical orbit propagators enable `precompute` in their `ForceModelConfig`, `par_propagate_to` builds one set of precomputed tables per group of propagators whose tables would hold the same values: the same `frame_rotation_step` and `ephemeris_step`, and the same force-model settings that determine table contents, namely the central body, the frame transformation, and the SPICE ephemeris queries of the third-body, tide, solar radiation pressure, and drag models. See [Precomputed Inputs](numerical_propagation/force_models.md#precomputed-inputs) for the configuration and accuracy trade-offs.
+When numerical orbit propagators enable `precompute` in their `ForceModelConfig`, `par_propagate_to` builds one set of precomputed tables per group of propagators whose tables would hold the same values: the same `frame_rotation_step`, `ephemeris_step`, `frame_rotation_interpolation`, and `ephemeris_interpolation`, and the same force-model settings that determine table contents, namely the central body, the frame transformation, and the SPICE ephemeris queries of the third-body, tide, solar radiation pressure, and drag models. See [Precomputed Inputs](numerical_propagation/force_models.md#precomputed-inputs) for the configuration and accuracy trade-offs.
 
 ## Error Handling
 

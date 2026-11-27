@@ -177,6 +177,8 @@ pub struct DNumericalPropagator {
     dt: f64,
     /// Suggested next step size (from adaptive integrator)
     dt_next: f64,
+    /// Step size taken first after construction or `reset`
+    initial_dt: f64,
 
     // ===== State Management =====
     /// Initial state vector (for reset) - in ECI Cartesian
@@ -585,8 +587,7 @@ impl DNumericalPropagator {
         let dynamics_fn = Arc::from(dynamics_fn);
         let dynamics = Self::wrap_for_integrator(Arc::clone(&dynamics_fn));
 
-        // Get initial step size from config
-        let initial_dt = propagation_config.integrator.initial_step.unwrap_or(60.0);
+        let initial_dt = propagation_config.initial_step_size();
 
         // Build Jacobian provider if STM or sensitivity enabled
         // (sensitivity propagation requires the Jacobian: dS/dt = A*S + B where A is ∂f/∂x)
@@ -688,6 +689,7 @@ impl DNumericalPropagator {
             integrator,
             dt: initial_dt,
             dt_next: initial_dt,
+            initial_dt,
             x_initial: state_eci.clone(),
             x_curr: state_eci,
             params,
@@ -2097,9 +2099,8 @@ impl super::traits::DStatePropagator for DNumericalPropagator {
         // Reset state
         self.x_curr = self.x_initial.clone();
 
-        // Reset step size to initial value
-        let initial_dt = self.dt; // Keep the user-set step size
-        self.dt_next = initial_dt;
+        self.dt = self.initial_dt;
+        self.dt_next = self.initial_dt;
 
         // Reset STM and/or sensitivity based on propagation mode
         match self.propagation_mode {
@@ -2343,8 +2344,8 @@ mod tests {
     use super::*;
     use crate::events::{DEventCallback, DTimeEvent, DValueEvent, EventDirection};
     use crate::integrators::IntegratorConfig;
-    use crate::propagators::NumericalPropagationConfig;
     use crate::propagators::traits::DStatePropagator as DStatePropagatorTrait;
+    use crate::propagators::{IntegratorMethod, NumericalPropagationConfig};
     use crate::time::TimeSystem;
     use crate::utils::state_providers::DStateProvider;
     use approx::assert_abs_diff_eq;
@@ -2871,6 +2872,53 @@ mod tests {
         prop.step_by(1.0).unwrap();
         assert!(prop.current_epoch() > initial_epoch);
         assert_ne!(prop.current_state(), prop.initial_state());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_dnumericalpropagator_fixed_step_size() {
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![1.0, 0.0]);
+        let config = NumericalPropagationConfig {
+            method: IntegratorMethod::RK4,
+            integrator: IntegratorConfig::fixed_step(0.1),
+            ..Default::default()
+        };
+
+        let mut prop =
+            DNumericalPropagator::new(epoch, state, sho_dynamics(1.0), config, None, None, None)
+                .unwrap();
+
+        assert_eq!(prop.step_size(), 0.1);
+        prop.step().unwrap();
+        assert_abs_diff_eq!(prop.current_epoch() - epoch, 0.1, epsilon = 1e-12);
+        prop.step().unwrap();
+        assert_abs_diff_eq!(prop.current_epoch() - epoch, 0.2, epsilon = 1e-12);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_dnumericalpropagator_reset_restores_fixed_step_size() {
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![1.0, 0.0]);
+        let config = NumericalPropagationConfig {
+            method: IntegratorMethod::RK4,
+            integrator: IntegratorConfig::fixed_step(0.1),
+            ..Default::default()
+        };
+
+        let mut prop =
+            DNumericalPropagator::new(epoch, state, sho_dynamics(1.0), config, None, None, None)
+                .unwrap();
+
+        // The final step to 0.25 s is truncated to 0.05 s
+        prop.propagate_to(epoch + 0.25).unwrap();
+        assert_abs_diff_eq!(prop.step_size(), 0.05, epsilon = 1e-12);
+
+        prop.reset();
+        assert_eq!(prop.step_size(), 0.1);
+        prop.step().unwrap();
+        assert_abs_diff_eq!(prop.current_epoch() - epoch, 0.1, epsilon = 1e-12);
     }
 
     // =============================================================================

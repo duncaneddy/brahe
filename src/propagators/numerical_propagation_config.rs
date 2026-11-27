@@ -472,6 +472,23 @@ impl NumericalPropagationConfig {
         self
     }
 
+    /// Step size a numerical propagator takes first, in seconds.
+    ///
+    /// A fixed-step method uses `integrator.fixed_step_size`, falling back to
+    /// `integrator.initial_step`. An adaptive method uses
+    /// `integrator.initial_step` and ignores `fixed_step_size`. Either falls
+    /// back to 60 s when neither applicable field is set.
+    pub(crate) fn initial_step_size(&self) -> f64 {
+        let configured = if self.method.is_adaptive() {
+            self.integrator.initial_step
+        } else {
+            self.integrator
+                .fixed_step_size
+                .or(self.integrator.initial_step)
+        };
+        configured.unwrap_or(60.0)
+    }
+
     /// Validate that the configuration is internally consistent.
     ///
     /// Called automatically by `DNumericalPropagator::new` and
@@ -508,6 +525,7 @@ impl NumericalPropagationConfig {
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
+    use rstest::rstest;
     use serial_test::parallel;
 
     #[test]
@@ -756,5 +774,33 @@ mod tests {
         let config = NumericalPropagationConfig::default()
             .with_interpolation_method(InterpolationMethod::HermiteCubic);
         assert!(config.validate().is_ok());
+    }
+
+    #[rstest]
+    #[case(IntegratorMethod::RK4, None, None, 60.0)]
+    #[case(IntegratorMethod::RK4, Some(30.0), None, 30.0)]
+    #[case(IntegratorMethod::RK4, None, Some(45.0), 45.0)]
+    #[case(IntegratorMethod::RK4, Some(30.0), Some(45.0), 30.0)]
+    #[case(IntegratorMethod::DP54, None, None, 60.0)]
+    #[case(IntegratorMethod::DP54, Some(30.0), None, 60.0)]
+    #[case(IntegratorMethod::DP54, None, Some(45.0), 45.0)]
+    #[case(IntegratorMethod::RKN1210, Some(30.0), Some(45.0), 45.0)]
+    #[parallel]
+    fn test_numerical_propagation_config_initial_step_size(
+        #[case] method: IntegratorMethod,
+        #[case] fixed_step_size: Option<f64>,
+        #[case] initial_step: Option<f64>,
+        #[case] expected: f64,
+    ) {
+        let config = NumericalPropagationConfig::new(
+            method,
+            IntegratorConfig {
+                initial_step,
+                fixed_step_size,
+                ..IntegratorConfig::default()
+            },
+            VariationalConfig::default(),
+        );
+        assert_eq!(config.initial_step_size(), expected);
     }
 }

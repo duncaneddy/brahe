@@ -854,10 +854,7 @@ mod tests {
     fn precompute_rk4_30s() -> NumericalPropagationConfig {
         NumericalPropagationConfig {
             method: IntegratorMethod::RK4,
-            integrator: IntegratorConfig {
-                initial_step: Some(30.0),
-                ..IntegratorConfig::fixed_step(30.0)
-            },
+            integrator: IntegratorConfig::fixed_step(30.0),
             ..Default::default()
         }
     }

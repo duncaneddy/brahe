@@ -77,6 +77,8 @@ Five integration methods are available:
 
 Classic 4th-order Runge-Kutta with fixed step size. No error control - requires careful step size selection.
 
+The propagator steps by `fixed_step_size`. When `fixed_step_size` is unset it steps by `initial_step`, and by 60 s when neither is set. Adaptive methods ignore `fixed_step_size` and take their first step from `initial_step`, again defaulting to 60 s.
+
 === "Python"
 
     ``` python

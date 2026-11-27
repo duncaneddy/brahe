@@ -25,7 +25,11 @@ pub struct IntegratorConfig {
     /// Relative error tolerance for adaptive stepping
     pub rel_tol: f64,
 
-    /// Initial step size (if None, integrator determines automatically)
+    /// Initial step size in seconds (if None, integrator determines automatically)
+    ///
+    /// Numerical propagators start adaptive methods from this value and use it
+    /// for fixed-step methods only when `fixed_step_size` is `None`. They fall
+    /// back to 60 s when no applicable step size is set.
     pub initial_step: Option<f64>,
 
     /// Minimum allowed step size (if None, no minimum enforced)
@@ -54,8 +58,11 @@ pub struct IntegratorConfig {
     /// the default budget.
     pub max_step_attempts: usize,
 
-    /// Fixed step size for fixed-step integrators
-    /// When set, fixed-step integrators will use this value if no dt is provided to step()
+    /// Fixed step size in seconds for fixed-step integrators
+    ///
+    /// When set, fixed-step integrators use this value if no dt is provided to
+    /// `step()`. Numerical propagators with a fixed-step method step by this
+    /// value, taking precedence over `initial_step`. Adaptive methods ignore it.
     pub fixed_step_size: Option<f64>,
 }
 

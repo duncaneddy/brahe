@@ -15,10 +15,7 @@ fn main() {
     // Fixed-step RK4 gives both propagations an identical step sequence
     let prop_config = bh::NumericalPropagationConfig {
         method: bh::IntegratorMethod::RK4,
-        integrator: bh::IntegratorConfig {
-            initial_step: Some(30.0),
-            ..bh::IntegratorConfig::fixed_step(30.0)
-        },
+        integrator: bh::IntegratorConfig::fixed_step(30.0),
         ..Default::default()
     };
 

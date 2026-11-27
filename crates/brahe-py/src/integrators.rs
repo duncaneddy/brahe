@@ -152,14 +152,14 @@ fn reraise_callback_error(slot: &PyErrSlot, err: brahe::utils::BraheError) -> Py
 /// Args:
 ///     abs_tol (float, optional): Absolute error tolerance. Defaults to 1e-8.
 ///     rel_tol (float, optional): Relative error tolerance. Defaults to 1e-10.
-///     initial_step (float | None, optional): Initial step size. Defaults to None (auto).
+///     initial_step (float | None, optional): Initial step size in seconds. Numerical propagators start adaptive methods from this value and use it for fixed-step methods only when fixed_step_size is None, falling back to 60 s when no applicable step size is set. Defaults to None (auto).
 ///     min_step (float, optional): Minimum step size. Defaults to 1e-12.
 ///     max_step (float, optional): Maximum step size. Defaults to 900.0.
 ///     step_safety_factor (float, optional): Safety factor for step control. Defaults to 0.9.
 ///     min_step_scale_factor (float, optional): Minimum step scaling. Defaults to 0.2.
 ///     max_step_scale_factor (float, optional): Maximum step scaling. Defaults to 10.0.
 ///     max_step_attempts (int, optional): Maximum step attempts. Defaults to 25.
-///     fixed_step_size (float | None, optional): Fixed step size for fixed-step integrators. Defaults to None.
+///     fixed_step_size (float | None, optional): Fixed step size in seconds for fixed-step integrators. Numerical propagators with a fixed-step method step by this value, taking precedence over initial_step. Adaptive methods ignore it. Defaults to None.
 ///
 /// Example:
 ///     ```python

@@ -296,6 +296,47 @@ def test_dstatepropagator_step_size():
     assert prop.step_size == 0.1
 
 
+def test_numericalpropagator_fixed_step_size():
+    """A fixed-step method steps by fixed_step_size (mirrors Rust test)"""
+    epoch = create_test_epoch()
+    state = np.array([1.0, 0.0])
+    config = NumericalPropagationConfig(
+        IntegrationMethod.RK4,
+        IntegratorConfig.fixed_step(0.1),
+        VariationalConfig(),
+    )
+
+    prop = NumericalPropagator(epoch, state, sho_dynamics, config)
+
+    assert prop.step_size == 0.1
+    prop.step()
+    assert prop.current_epoch() - epoch == pytest.approx(0.1, abs=1e-12)
+    prop.step()
+    assert prop.current_epoch() - epoch == pytest.approx(0.2, abs=1e-12)
+
+
+def test_numericalpropagator_reset_restores_fixed_step_size():
+    """reset restores fixed_step_size after a truncated step (mirrors Rust test)"""
+    epoch = create_test_epoch()
+    state = np.array([1.0, 0.0])
+    config = NumericalPropagationConfig(
+        IntegrationMethod.RK4,
+        IntegratorConfig.fixed_step(0.1),
+        VariationalConfig(),
+    )
+
+    prop = NumericalPropagator(epoch, state, sho_dynamics, config)
+
+    # The final step to 0.25 s is truncated to 0.05 s
+    prop.propagate_to(epoch + 0.25)
+    assert prop.step_size == pytest.approx(0.05, abs=1e-12)
+
+    prop.reset()
+    assert prop.step_size == 0.1
+    prop.step()
+    assert prop.current_epoch() - epoch == pytest.approx(0.1, abs=1e-12)
+
+
 # =============================================================================
 # DStateProvider Tests
 # =============================================================================
@@ -701,12 +742,14 @@ def test_numericalpropagator_with_rk4():
     epoch = create_test_epoch()
     state = np.array([1.0, 0.0])
 
-    config = NumericalPropagationConfig.with_method(IntegrationMethod.RK4)
+    config = NumericalPropagationConfig(
+        IntegrationMethod.RK4,
+        IntegratorConfig.fixed_step(0.01),
+        VariationalConfig(),
+    )
 
     prop = NumericalPropagator(epoch, state, sho_dynamics, config)
 
-    # Use smaller step size for RK4 (fixed-step)
-    prop.step_size = 0.01
     prop.propagate_to(epoch + np.pi)
 
     # Basic sanity check

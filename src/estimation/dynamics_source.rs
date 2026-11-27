@@ -37,6 +37,7 @@ use crate::utils::BraheError;
 /// `#[non_exhaustive]` so additional dynamics sources can be added without a
 /// breaking change.
 #[non_exhaustive]
+#[allow(clippy::large_enum_variant)]
 pub enum DynamicsSource {
     /// Built-in orbit propagator with force models
     OrbitPropagator(DNumericalOrbitPropagator),

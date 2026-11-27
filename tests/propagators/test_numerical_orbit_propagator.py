@@ -3064,10 +3064,10 @@ def test_numericalorbitpropagator_event_multiple_callbacks_same_step():
     state = state_koe_to_eci(oe, AngleFormat.RADIANS)
 
     # Use fixed-step RK4 (smaller steps needed for accurate event detection)
-    config = (
-        NumericalPropagationConfig.with_method(IntegrationMethod.RK4)
-        .with_initial_step(60.0)
-        .with_max_step(60.0)
+    config = NumericalPropagationConfig(
+        IntegrationMethod.RK4,
+        IntegratorConfig.fixed_step(60.0),
+        VariationalConfig(),
     )
 
     prop = NumericalOrbitPropagator(
@@ -3235,6 +3235,51 @@ def test_numericalorbitpropagator_construction_custom_step_size():
 
     prop.propagate_steps(10)
     assert prop.current_epoch() == epoch + 300.0
+
+
+def test_numericalorbitpropagator_fixed_step_size():
+    """A fixed-step method steps by fixed_step_size (mirrors Rust test)"""
+    epoch = create_test_epoch()
+    state = create_leo_state()
+
+    config = NumericalPropagationConfig(
+        IntegrationMethod.RK4,
+        IntegratorConfig.fixed_step(30.0),
+        VariationalConfig(),
+    )
+    prop = NumericalOrbitPropagator(
+        epoch, state, config, ForceModelConfig.two_body(), None
+    )
+
+    assert prop.step_size == 30.0
+    prop.step()
+    assert prop.current_epoch() - epoch == pytest.approx(30.0, abs=1e-9)
+    prop.step()
+    assert prop.current_epoch() - epoch == pytest.approx(60.0, abs=1e-9)
+
+
+def test_numericalorbitpropagator_reset_restores_fixed_step_size():
+    """reset restores fixed_step_size after a truncated step (mirrors Rust test)"""
+    epoch = create_test_epoch()
+    state = create_leo_state()
+
+    config = NumericalPropagationConfig(
+        IntegrationMethod.RK4,
+        IntegratorConfig.fixed_step(30.0),
+        VariationalConfig(),
+    )
+    prop = NumericalOrbitPropagator(
+        epoch, state, config, ForceModelConfig.two_body(), None
+    )
+
+    # The final step to 65 s is truncated to 5 s
+    prop.propagate_to(epoch + 65.0)
+    assert prop.step_size == pytest.approx(5.0, abs=1e-9)
+
+    prop.reset()
+    assert prop.step_size == 30.0
+    prop.step()
+    assert prop.current_epoch() - epoch == pytest.approx(30.0, abs=1e-9)
 
 
 def test_numericalorbitpropagator_construction_from_eci_full():
@@ -6672,18 +6717,10 @@ def test_numericalorbitpropagator_tolerances_affect_slow_orbit():
 # =============================================================================
 
 
-def _precompute_rk4_config():
+def _precompute_rk4_config(variational=None):
     return NumericalPropagationConfig(
         IntegrationMethod.RK4,
         IntegratorConfig.fixed_step(30.0),
-        VariationalConfig(),
-    )
-
-
-def _precompute_rk4_30s_config(variational=None):
-    return NumericalPropagationConfig(
-        IntegrationMethod.RK4,
-        IntegratorConfig(initial_step=30.0, fixed_step_size=30.0),
         variational if variational is not None else VariationalConfig(),
     )
 
@@ -6726,13 +6763,13 @@ def _precompute_rotation_only():
 
 def test_precompute_rotation_deterministic_across_entry_points():
     single = _precompute_propagator(
-        _precompute_rotation_only(), _precompute_rk4_30s_config()
+        _precompute_rotation_only(), _precompute_rk4_config()
     )
     stepped = _precompute_propagator(
-        _precompute_rotation_only(), _precompute_rk4_30s_config()
+        _precompute_rotation_only(), _precompute_rk4_config()
     )
     split = _precompute_propagator(
-        _precompute_rotation_only(), _precompute_rk4_30s_config()
+        _precompute_rotation_only(), _precompute_rk4_config()
     )
     t0 = single.initial_epoch
     target = t0 + 86400.0
@@ -6751,10 +6788,8 @@ def test_precompute_rotation_deterministic_across_entry_points():
 
 
 def test_precompute_rotation_backward():
-    on = _precompute_propagator(
-        _precompute_rotation_only(), _precompute_rk4_30s_config()
-    )
-    off = _precompute_propagator(None, _precompute_rk4_30s_config())
+    on = _precompute_propagator(_precompute_rotation_only(), _precompute_rk4_config())
+    off = _precompute_propagator(None, _precompute_rk4_config())
     t0 = on.initial_epoch
     for prop in (on, off):
         prop.propagate_to(t0 + 86400.0)
@@ -6765,10 +6800,8 @@ def test_precompute_rotation_backward():
 
 
 def test_precompute_rotation_events_match():
-    on = _precompute_propagator(
-        _precompute_rotation_only(), _precompute_rk4_30s_config()
-    )
-    off = _precompute_propagator(None, _precompute_rk4_30s_config())
+    on = _precompute_propagator(_precompute_rotation_only(), _precompute_rk4_config())
+    off = _precompute_propagator(None, _precompute_rk4_config())
     t0 = on.initial_epoch
     for prop in (on, off):
         prop.add_event_detector(
@@ -6804,7 +6837,7 @@ def test_precompute_construction_paths_use_table():
             params = create_test_params()
         return NumericalOrbitPropagator(epoch, state, prop_config, force_config, params)
 
-    accel_config = _precompute_rk4_30s_config().with_store_accelerations(True)
+    accel_config = _precompute_rk4_config().with_store_accelerations(True)
     on = build(accel_config, _precompute_rotation_only(), False)
     off = build(accel_config, None, False)
     da = np.linalg.norm(
@@ -6812,7 +6845,7 @@ def test_precompute_construction_paths_use_table():
     )
     assert da < 1e-12
 
-    variational_config = _precompute_rk4_30s_config(
+    variational_config = _precompute_rk4_config(
         VariationalConfig(enable_stm=True, enable_sensitivity=True)
     )
 
@@ -6866,7 +6899,7 @@ def test_precompute_key_none_for_non_earth_or_era_only(naif_cache_setup):
         final = []
         for precompute in (_precompute_rotation_only(), None):
             prop = NumericalOrbitPropagator(
-                epoch, state, _precompute_rk4_30s_config(), build(precompute), None
+                epoch, state, _precompute_rk4_config(), build(precompute), None
             )
             prop.propagate_to(epoch + 21600.0)
             final.append(prop.current_state())
@@ -6921,7 +6954,7 @@ def _precompute_ephemeris_on_off(
     ):
         force_config.precompute = precompute
         prop = NumericalOrbitPropagator(
-            epoch, state, _precompute_rk4_30s_config(), force_config, params
+            epoch, state, _precompute_rk4_config(), force_config, params
         )
         prop.propagate_to(epoch + duration)
         states.append(prop.current_state())
@@ -6998,7 +7031,7 @@ def test_tides_ephemeris_query_error_is_propagator_error(naif_cache_setup):
         ),
     )
     prop = NumericalOrbitPropagator(
-        epoch, state, _precompute_rk4_30s_config(), force_config, None
+        epoch, state, _precompute_rk4_config(), force_config, None
     )
     with pytest.raises(BraheError, match="tidal Sun/Moon ephemeris query failed"):
         prop.propagate_to(epoch + 86400.0)
@@ -7102,7 +7135,7 @@ def test_precompute_ephemeris_emb_higher_order_interpolation(
         ):
             force_config.precompute = precompute
             prop = NumericalOrbitPropagator(
-                epoch, x_emb, _precompute_rk4_30s_config(), force_config, None
+                epoch, x_emb, _precompute_rk4_config(), force_config, None
             )
             prop.propagate_to(epoch + 5400.0)
             states.append(prop.current_state())
@@ -7188,7 +7221,7 @@ def _space_weather_cache_final_state(start_mjd, cache_space_weather, drag=True):
         else None,
     )
     prop = NumericalOrbitPropagator(
-        epoch, state, _precompute_rk4_30s_config(), force_config, None
+        epoch, state, _precompute_rk4_config(), force_config, None
     )
     prop.propagate_to(epoch + 21600.0)
     return prop.current_state()

@@ -367,6 +367,8 @@ pub struct DNumericalOrbitPropagator {
     dt: f64,
     /// Suggested next step size (from adaptive integrator)
     dt_next: f64,
+    /// Step size taken first after construction, `reset` or `reinitialize`
+    initial_dt: f64,
 
     // ===== State Management =====
     /// Initial state vector (for reset) - in ECI Cartesian
@@ -1067,8 +1069,7 @@ impl DNumericalOrbitPropagator {
         // Wrap for main integrator
         let dynamics = Self::wrap_for_integrator(Arc::clone(&shared_dynamics));
 
-        // Get initial step size from config
-        let initial_dt = propagation_config.integrator.initial_step.unwrap_or(60.0);
+        let initial_dt = propagation_config.initial_step_size();
 
         // Build Jacobian provider if STM or sensitivity enabled
         // (sensitivity propagation requires the Jacobian: dS/dt = A*S + B where A is ∂f/∂x)
@@ -1207,6 +1208,7 @@ impl DNumericalOrbitPropagator {
             integrator,
             dt: initial_dt,
             dt_next: initial_dt,
+            initial_dt,
             x_initial: state_eci.clone(),
             x_curr: state_eci,
             params,
@@ -2651,9 +2653,8 @@ impl DNumericalOrbitPropagator {
         // than the same arc from a fresh propagator. This matters most for
         // Batch Least Squares, which re-propagates a long observation arc after
         // every Gauss-Newton reinitialize.
-        let initial_dt = self.integrator.config().initial_step.unwrap_or(60.0);
-        self.dt = initial_dt;
-        self.dt_next = initial_dt;
+        self.dt = self.initial_dt;
+        self.dt_next = self.initial_dt;
 
         // Keep shared_dynamics, integrator, Jacobian/sensitivity providers unchanged
 
@@ -3526,9 +3527,8 @@ impl super::traits::DStatePropagator for DNumericalOrbitPropagator {
         // Reset state
         self.x_curr = self.x_initial.clone();
 
-        // Reset step size to initial value
-        let initial_dt = self.dt; // Keep the user-set step size
-        self.dt_next = initial_dt;
+        self.dt = self.initial_dt;
+        self.dt_next = self.initial_dt;
 
         // Reset STM and/or sensitivity based on propagation mode
         match self.propagation_mode {
@@ -7189,11 +7189,12 @@ mod tests {
             AngleFormat::Radians,
         );
 
-        // Use fixed-step RK4 with 900-second steps to ensure both events occur in same step
+        // Fixed-step RK4 with 400-second steps places both crossings (near 491 s
+        // and 790 s) inside the 400-800 s step
         use crate::propagators::IntegratorMethod;
         let prop_config = NumericalPropagationConfig {
             method: IntegratorMethod::RK4,
-            integrator: IntegratorConfig::fixed_step(900.0),
+            integrator: IntegratorConfig::fixed_step(400.0),
             ..Default::default()
         };
 
@@ -13530,6 +13531,81 @@ mod tests {
 
     #[test]
     #[parallel]
+    fn test_dnumericalorbitpropagator_fixed_step_size() {
+        setup_global_test_eop();
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7612.0, 0.0]);
+        let config = NumericalPropagationConfig {
+            method: IntegratorMethod::RK4,
+            integrator: IntegratorConfig::fixed_step(30.0),
+            ..Default::default()
+        };
+
+        let mut prop = DNumericalOrbitPropagator::new(
+            epoch,
+            state,
+            config,
+            ForceModelConfig::two_body_gravity(),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        assert_eq!(prop.step_size(), 30.0);
+        prop.step().unwrap();
+        assert!((prop.current_epoch() - epoch - 30.0).abs() < 1e-9);
+        prop.step().unwrap();
+        assert!((prop.current_epoch() - epoch - 60.0).abs() < 1e-9);
+
+        // reinitialize restores the fixed step after a manual override
+        prop.set_step_size(5.0);
+        let restart = prop.current_epoch();
+        let restart_state = prop.current_state();
+        prop.reinitialize(restart, restart_state, None);
+        prop.step().unwrap();
+        assert!((prop.current_epoch() - restart - 30.0).abs() < 1e-9);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_dnumericalorbitpropagator_reset_restores_fixed_step_size() {
+        setup_global_test_eop();
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7612.0, 0.0]);
+        let config = NumericalPropagationConfig {
+            method: IntegratorMethod::RK4,
+            integrator: IntegratorConfig::fixed_step(30.0),
+            ..Default::default()
+        };
+
+        let mut prop = DNumericalOrbitPropagator::new(
+            epoch,
+            state,
+            config,
+            ForceModelConfig::two_body_gravity(),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        // The final step to 65 s is truncated to 5 s
+        prop.propagate_to(epoch + 65.0).unwrap();
+        assert!((prop.step_size() - 5.0).abs() < 1e-9);
+
+        prop.reset();
+        assert_eq!(prop.step_size(), 30.0);
+        prop.step().unwrap();
+        assert!((prop.current_epoch() - epoch - 30.0).abs() < 1e-9);
+    }
+
+    #[test]
+    #[parallel]
     fn test_dnumericalorbitpropagator_reinitialize_preserves_dynamics() {
         // Verify that reinitialize produces the same result as constructing a fresh propagator
         // at the same epoch/state (for time-independent dynamics like point mass gravity)
@@ -15480,10 +15556,7 @@ mod tests {
     fn precompute_rk4_30s() -> NumericalPropagationConfig {
         NumericalPropagationConfig {
             method: IntegratorMethod::RK4,
-            integrator: IntegratorConfig {
-                initial_step: Some(30.0),
-                ..IntegratorConfig::fixed_step(30.0)
-            },
+            integrator: IntegratorConfig::fixed_step(30.0),
             ..Default::default()
         }
     }

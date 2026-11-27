@@ -18,7 +18,7 @@ state = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
 # Fixed-step RK4 gives both propagations an identical step sequence
 prop_config = bh.NumericalPropagationConfig(
     bh.IntegrationMethod.RK4,
-    bh.IntegratorConfig(initial_step=30.0, fixed_step_size=30.0),
+    bh.IntegratorConfig.fixed_step(30.0),
     bh.VariationalConfig(),
 )
 

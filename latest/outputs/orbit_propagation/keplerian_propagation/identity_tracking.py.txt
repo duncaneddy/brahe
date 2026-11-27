@@ -1,3 +1,3 @@
 Name: Satellite-A
 ID: 12345
-UUID: 01a21e7a-901e-7752-aeb4-4758acb0bb2b
+UUID: 01a21f71-3938-722d-9c8f-72a684cbc705

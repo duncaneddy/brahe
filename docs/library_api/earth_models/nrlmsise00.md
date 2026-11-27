@@ -5,6 +5,12 @@ NRLMSISE-00 (Naval Research Laboratory Mass Spectrometer and Incoherent Scatter 
 !!! note
     For conceptual explanations, see [Atmospheric Drag](../../learn/orbital_dynamics/drag.md) in the Learn section.
 
+::: brahe.NRLMSISE00Config
+
+::: brahe.NRLMSISE00Switch
+
+::: brahe.NRLMSISE00ApMode
+
 ::: brahe.density_nrlmsise00
 
 ::: brahe.density_nrlmsise00_geod

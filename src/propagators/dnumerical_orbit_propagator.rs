@@ -2151,10 +2151,10 @@ impl DNumericalOrbitPropagator {
                     let r_sun = sun_position(epoch);
                     density_harris_priester(r_drag, r_sun)
                 }
-                AtmosphericModel::NRLMSISE00 => {
+                AtmosphericModel::NRLMSISE00(cfg) => {
                     // NRLMSISE00 requires ECEF position
                     let r_ecef = r_i2b_drag * r_drag;
-                    density_nrlmsise00(&epoch, r_ecef).unwrap_or(0.0)
+                    density_nrlmsise00(&epoch, r_ecef, cfg).unwrap_or(0.0)
                 }
                 AtmosphericModel::Exponential {
                     scale_height,
@@ -3797,6 +3797,7 @@ mod tests {
     use crate::constants::units::AngleFormat;
     use crate::constants::{GM_EARTH, R_EARTH};
     use crate::coordinates::position_ecef_to_geodetic;
+    use crate::earth_models::{NRLMSISE00ApMode, NRLMSISE00Config};
     use crate::events::{DAltitudeEvent, DTimeEvent, EventDirection};
     use crate::frames::position_eci_to_ecef;
     use crate::integrators::IntegratorConfig;
@@ -9884,7 +9885,7 @@ mod tests {
             tides: None,
             gravity: GravityConfiguration::PointMass,
             drag: Some(DragConfiguration {
-                model: AtmosphericModel::NRLMSISE00,
+                model: AtmosphericModel::NRLMSISE00(NRLMSISE00Config::default()),
                 area: ParameterSource::Value(10.0),
                 cd: ParameterSource::Value(2.2),
                 body: None,
@@ -9923,6 +9924,60 @@ mod tests {
             // Actual drag computation depends on space weather data availability
             // The test passes by verifying the API accepts this atmospheric model type
         }
+    }
+
+    #[test]
+    #[serial]
+    fn test_dnumericalorbitpropagator_force_drag_nrlmsise00_config_changes_trajectory() {
+        setup_global_test_eop();
+        setup_global_test_space_weather();
+
+        let epoch = Epoch::from_datetime(2024, 5, 10, 18, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = state_koe_to_eci(
+            nalgebra::SVector::<f64, 6>::new(R_EARTH + 500e3, 0.001, 51.6, 0.0, 0.0, 0.0),
+            AngleFormat::Degrees,
+        );
+        let state = DVector::from_vec(state.as_slice().to_vec());
+
+        let final_position = |cfg: NRLMSISE00Config| {
+            let force_config = ForceModelConfig {
+                central_body: CentralBody::Earth,
+                mass: Some(ParameterSource::Value(1000.0)),
+                frame_transform: FrameTransformationModel::default(),
+                tides: None,
+                gravity: GravityConfiguration::PointMass,
+                drag: Some(DragConfiguration {
+                    model: AtmosphericModel::NRLMSISE00(cfg),
+                    area: ParameterSource::Value(10.0),
+                    cd: ParameterSource::Value(2.2),
+                    body: None,
+                }),
+                srp: None,
+                third_body: None,
+                relativity: false,
+            };
+            let mut prop = DNumericalOrbitPropagator::new(
+                epoch,
+                state.clone(),
+                NumericalPropagationConfig::default(),
+                force_config,
+                Some(default_test_params()),
+                None,
+                None,
+                None,
+            )
+            .unwrap();
+            prop.step_by(3600.0).unwrap();
+            prop.current_state().rows(0, 3).into_owned()
+        };
+
+        let default_pos = final_position(NRLMSISE00Config::default());
+        let daily_pos = final_position(NRLMSISE00Config {
+            ap_mode: NRLMSISE00ApMode::Daily,
+            ..Default::default()
+        });
+        let diff = (default_pos - daily_pos).norm();
+        assert!(diff > 1e-3, "position difference {diff} m");
     }
 
     #[test]
@@ -13608,12 +13663,12 @@ mod tests {
 
         // Reference state after one 60 s step of the `default()` Earth config.
         let expected = [
-            6.862954294509894e6,
-            4.496689282301591e5,
-            -1.028606054513471e-1,
-            -5.058978289154819e2,
-            7.483446909359713e3,
-            -3.27257178926243e-3,
+            6.862954294507552e6,
+            4.496689283345704e5,
+            -1.0286030067515377e-1,
+            -5.0589782903240024e2,
+            7.483446912832933e3,
+            -3.2725615504731204e-3,
         ];
         for i in 0..6 {
             assert_abs_diff_eq!(s[i], expected[i], epsilon = 1e-6);
@@ -13707,7 +13762,7 @@ mod tests {
 
         let mut cfg = ForceModelConfig::lunar_default();
         cfg.drag = Some(DragConfiguration {
-            model: AtmosphericModel::NRLMSISE00,
+            model: AtmosphericModel::NRLMSISE00(NRLMSISE00Config::default()),
             area: ParameterSource::Value(1.0),
             cd: ParameterSource::Value(2.2),
             body: None,
@@ -14897,7 +14952,7 @@ mod tests {
         );
 
         let drag_earth = DragConfiguration {
-            model: AtmosphericModel::NRLMSISE00,
+            model: AtmosphericModel::NRLMSISE00(NRLMSISE00Config::default()),
             area: ParameterSource::Value(10.0),
             cd: ParameterSource::Value(2.2),
             body: None,
@@ -14997,7 +15052,7 @@ mod tests {
         };
         let drag = |body: Option<CentralBody>| {
             Some(DragConfiguration {
-                model: AtmosphericModel::NRLMSISE00,
+                model: AtmosphericModel::NRLMSISE00(NRLMSISE00Config::default()),
                 area: ParameterSource::Value(10.0),
                 cd: ParameterSource::Value(2.2),
                 body,

@@ -28,7 +28,7 @@ fn main() {
         central_body: bh::CentralBody::EMB,
         gravity: bh::GravityConfiguration::Zero,
         drag: Some(bh::DragConfiguration {
-            model: bh::AtmosphericModel::NRLMSISE00,
+            model: bh::AtmosphericModel::NRLMSISE00(bh::NRLMSISE00Config::default()),
             area: bh::ParameterSource::Value(10.0),
             cd: bh::ParameterSource::Value(2.2),
             // Attribute the drag to Earth: density and relative wind are

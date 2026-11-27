@@ -118,6 +118,9 @@ from brahe._brahe import (
     GravityModelNormalization,
     GravityModelTideSystem,
     GravityModelType,
+    NRLMSISE00ApMode,
+    NRLMSISE00Config,
+    NRLMSISE00Switch,
     # Drag, SRP, and Relativity
     accel_drag,
     accel_drag_for_body,
@@ -225,6 +228,9 @@ __all__ = [
     "GravityModelNormalization",
     "GravityModelTideSystem",
     "GravityModelType",
+    "NRLMSISE00ApMode",
+    "NRLMSISE00Config",
+    "NRLMSISE00Switch",
     # Drag, SRP, and Relativity
     "accel_drag",
     "accel_drag_for_body",

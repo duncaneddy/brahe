@@ -18,6 +18,8 @@ model of the atmosphere: Statistical comparisons and scientific issues",
 Journal of Geophysical Research: Space Physics, 107(A12), 2002.
 */
 
+use serde::{Deserialize, Serialize};
+
 use crate::AngleFormat;
 use crate::coordinates::geodetic::position_ecef_to_geodetic;
 use crate::earth_models::nrlmsise00_data::*;
@@ -27,6 +29,10 @@ use crate::space_weather::{
 };
 use crate::time::{Epoch, TimeSystem};
 use crate::utils::errors::BraheError;
+
+/// Lower boundary of the NRLMSISE-00 thermosphere profile [km]. Below it the
+/// mesosphere and lower atmosphere profiles apply.
+const MESOSPHERE_LOWER_BOUNDARY_KM: f64 = 72.5;
 
 /// NRLMSISE-00 model flags for controlling model behavior.
 ///
@@ -99,6 +105,282 @@ impl NrlmsiseFlags {
                 self.swc[i] = self.switches[i] as f64;
             }
         }
+    }
+}
+
+/// Setting of a single NRLMSISE-00 model switch.
+///
+/// Values follow the reference implementation: `0` disables the term, `1`
+/// enables it, and `2` disables the main effect while keeping the cross terms
+/// that couple it to other variations.
+#[repr(i32)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum NRLMSISE00Switch {
+    /// Term disabled (reference value 0).
+    Off = 0,
+    /// Term enabled (reference value 1).
+    On = 1,
+    /// Main effect disabled, cross terms enabled (reference value 2).
+    CrossTermsOnly = 2,
+}
+
+/// Magnetic activity input mode of the NRLMSISE-00 model (switch 9).
+///
+/// The reference value 2 is not representable: the model weights the
+/// magnetic activity terms by `|sw|`, so a value of 2 would double their
+/// contribution instead of selecting a distinct mode.
+#[repr(i32)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum NRLMSISE00ApMode {
+    /// Magnetic activity effects disabled (reference value 0).
+    Off = 0,
+    /// Daily Ap index (reference value 1).
+    Daily = 1,
+    /// Ap array with 3-hourly indices and averages (reference value -1).
+    ThreeHourly = -1,
+}
+
+/// Typed configuration of the 24 NRLMSISE-00 model switches.
+///
+/// Fields are in the order of the reference switch array. Switch 0 (output
+/// units) is not configurable: densities are always returned in SI units.
+///
+/// # Examples
+///
+/// ```
+/// use brahe::earth_models::{NRLMSISE00ApMode, NRLMSISE00Config, NRLMSISE00Switch};
+///
+/// // All terms enabled, 3-hourly Ap array
+/// let default = NRLMSISE00Config::default();
+/// assert_eq!(default.ap_mode, NRLMSISE00ApMode::ThreeHourly);
+///
+/// // Disable the diurnal variation and use the daily Ap index
+/// let cfg = NRLMSISE00Config {
+///     diurnal: NRLMSISE00Switch::Off,
+///     ap_mode: NRLMSISE00ApMode::Daily,
+///     ..Default::default()
+/// };
+///
+/// // Convert to and from the reference 24-element switch array
+/// let switches = cfg.to_switches();
+/// assert_eq!(switches[7], 0);
+/// assert_eq!(switches[9], 1);
+/// assert_eq!(NRLMSISE00Config::from_switches(&switches).unwrap(), cfg);
+/// ```
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct NRLMSISE00Config {
+    /// Effect of the F10.7 deviation from its 81-day average on the mean (switch 1).
+    pub f107_mean: NRLMSISE00Switch,
+    /// Time independent (switch 2).
+    pub time_independent: NRLMSISE00Switch,
+    /// Symmetrical annual variation (switch 3).
+    pub symmetrical_annual: NRLMSISE00Switch,
+    /// Symmetrical semiannual variation (switch 4).
+    pub symmetrical_semiannual: NRLMSISE00Switch,
+    /// Asymmetrical annual variation (switch 5).
+    pub asymmetrical_annual: NRLMSISE00Switch,
+    /// Asymmetrical semiannual variation (switch 6).
+    pub asymmetrical_semiannual: NRLMSISE00Switch,
+    /// Diurnal variation (switch 7).
+    pub diurnal: NRLMSISE00Switch,
+    /// Semidiurnal variation (switch 8).
+    pub semidiurnal: NRLMSISE00Switch,
+    /// Magnetic activity model (switch 9).
+    pub ap_mode: NRLMSISE00ApMode,
+    /// All UT/longitude effects (switch 10).
+    pub all_ut_longitude: NRLMSISE00Switch,
+    /// Longitudinal variation (switch 11).
+    pub longitudinal: NRLMSISE00Switch,
+    /// UT and mixed UT/longitude variation (switch 12).
+    pub ut_mixed_ut_longitude: NRLMSISE00Switch,
+    /// Mixed magnetic activity/UT/longitude variation (switch 13).
+    pub mixed_ap_ut_longitude: NRLMSISE00Switch,
+    /// Terdiurnal variation (switch 14).
+    pub terdiurnal: NRLMSISE00Switch,
+    /// Departures from diffusive equilibrium (switch 15). Must be `On` to
+    /// evaluate densities below 72.5 km, where the lower-atmosphere profiles
+    /// are scaled by the mixed N2 density.
+    pub diffusive_equilibrium_departures: NRLMSISE00Switch,
+    /// All TINF variations (switch 16).
+    pub tinf_variations: NRLMSISE00Switch,
+    /// All TLB variations (switch 17).
+    pub tlb_variations: NRLMSISE00Switch,
+    /// All TN1 variations (switch 18).
+    pub tn1_variations: NRLMSISE00Switch,
+    /// All S variations (switch 19).
+    pub s_variations: NRLMSISE00Switch,
+    /// All TN2 variations (switch 20).
+    pub tn2_variations: NRLMSISE00Switch,
+    /// All NLB variations (switch 21).
+    pub nlb_variations: NRLMSISE00Switch,
+    /// All TN3 variations (switch 22).
+    pub tn3_variations: NRLMSISE00Switch,
+    /// Turbopause scale height variations (switch 23).
+    pub turbopause_scale_height_variations: NRLMSISE00Switch,
+}
+
+impl Default for NRLMSISE00Config {
+    fn default() -> Self {
+        let on = NRLMSISE00Switch::On;
+        Self {
+            f107_mean: on,
+            time_independent: on,
+            symmetrical_annual: on,
+            symmetrical_semiannual: on,
+            asymmetrical_annual: on,
+            asymmetrical_semiannual: on,
+            diurnal: on,
+            semidiurnal: on,
+            ap_mode: NRLMSISE00ApMode::ThreeHourly,
+            all_ut_longitude: on,
+            longitudinal: on,
+            ut_mixed_ut_longitude: on,
+            mixed_ap_ut_longitude: on,
+            terdiurnal: on,
+            diffusive_equilibrium_departures: on,
+            tinf_variations: on,
+            tlb_variations: on,
+            tn1_variations: on,
+            s_variations: on,
+            tn2_variations: on,
+            nlb_variations: on,
+            tn3_variations: on,
+            turbopause_scale_height_variations: on,
+        }
+    }
+}
+
+impl NRLMSISE00Config {
+    /// Convert to the reference 24-element switch array.
+    ///
+    /// # Returns
+    ///
+    /// * `[i32; 24]` - Switch values by reference index. Index 0 is always 1 (SI output, densities in kg/m³).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::earth_models::NRLMSISE00Config;
+    ///
+    /// let switches = NRLMSISE00Config::default().to_switches();
+    /// assert_eq!(switches[0], 1);
+    /// assert_eq!(switches[9], -1);
+    /// ```
+    pub fn to_switches(&self) -> [i32; 24] {
+        [
+            1,
+            self.f107_mean as i32,
+            self.time_independent as i32,
+            self.symmetrical_annual as i32,
+            self.symmetrical_semiannual as i32,
+            self.asymmetrical_annual as i32,
+            self.asymmetrical_semiannual as i32,
+            self.diurnal as i32,
+            self.semidiurnal as i32,
+            self.ap_mode as i32,
+            self.all_ut_longitude as i32,
+            self.longitudinal as i32,
+            self.ut_mixed_ut_longitude as i32,
+            self.mixed_ap_ut_longitude as i32,
+            self.terdiurnal as i32,
+            self.diffusive_equilibrium_departures as i32,
+            self.tinf_variations as i32,
+            self.tlb_variations as i32,
+            self.tn1_variations as i32,
+            self.s_variations as i32,
+            self.tn2_variations as i32,
+            self.nlb_variations as i32,
+            self.tn3_variations as i32,
+            self.turbopause_scale_height_variations as i32,
+        ]
+    }
+
+    /// Build a configuration from the reference 24-element switch array.
+    ///
+    /// # Arguments
+    ///
+    /// * `switches` - Switch values by reference index. Index 0 selects CGS (0) or SI (1) output in the reference implementation; it accepts 0 or 1 and is ignored because densities are always returned in kg/m³. Index 9 accepts -1, 0, or 1. All other indices accept 0, 1, or 2.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<NRLMSISE00Config, BraheError>` - Configuration, or an error if the length or any value is invalid
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::earth_models::NRLMSISE00Config;
+    ///
+    /// let mut switches = [1; 24];
+    /// switches[0] = 0;
+    /// switches[9] = -1;
+    /// let cfg = NRLMSISE00Config::from_switches(&switches).unwrap();
+    /// assert_eq!(cfg, NRLMSISE00Config::default());
+    ///
+    /// switches[9] = 2;
+    /// assert!(NRLMSISE00Config::from_switches(&switches).is_err());
+    /// ```
+    pub fn from_switches(switches: &[i32]) -> Result<Self, BraheError> {
+        if switches.len() != 24 {
+            return Err(BraheError::Error(format!(
+                "NRLMSISE-00 switch array must have 24 elements, got {}",
+                switches.len()
+            )));
+        }
+
+        let switch = |i: usize| -> Result<NRLMSISE00Switch, BraheError> {
+            match switches[i] {
+                0 => Ok(NRLMSISE00Switch::Off),
+                1 => Ok(NRLMSISE00Switch::On),
+                2 => Ok(NRLMSISE00Switch::CrossTermsOnly),
+                v => Err(BraheError::Error(format!(
+                    "NRLMSISE-00 switch {i} must be 0, 1, or 2, got {v}"
+                ))),
+            }
+        };
+
+        if !matches!(switches[0], 0 | 1) {
+            return Err(BraheError::Error(format!(
+                "NRLMSISE-00 switch 0 must be 0 or 1, got {}",
+                switches[0]
+            )));
+        }
+
+        let ap_mode = match switches[9] {
+            0 => NRLMSISE00ApMode::Off,
+            1 => NRLMSISE00ApMode::Daily,
+            -1 => NRLMSISE00ApMode::ThreeHourly,
+            v => {
+                return Err(BraheError::Error(format!(
+                    "NRLMSISE-00 switch 9 must be -1, 0, or 1, got {v}"
+                )));
+            }
+        };
+
+        Ok(Self {
+            f107_mean: switch(1)?,
+            time_independent: switch(2)?,
+            symmetrical_annual: switch(3)?,
+            symmetrical_semiannual: switch(4)?,
+            asymmetrical_annual: switch(5)?,
+            asymmetrical_semiannual: switch(6)?,
+            diurnal: switch(7)?,
+            semidiurnal: switch(8)?,
+            ap_mode,
+            all_ut_longitude: switch(10)?,
+            longitudinal: switch(11)?,
+            ut_mixed_ut_longitude: switch(12)?,
+            mixed_ap_ut_longitude: switch(13)?,
+            terdiurnal: switch(14)?,
+            diffusive_equilibrium_departures: switch(15)?,
+            tinf_variations: switch(16)?,
+            tlb_variations: switch(17)?,
+            tn1_variations: switch(18)?,
+            s_variations: switch(19)?,
+            tn2_variations: switch(20)?,
+            nlb_variations: switch(21)?,
+            tn3_variations: switch(22)?,
+            turbopause_scale_height_variations: switch(23)?,
+        })
     }
 }
 
@@ -873,7 +1155,7 @@ fn globe7(
     t[5] = p[37] * plg[0][1] * cd39;
 
     // Diurnal
-    if flags.sw[6] != 0.0 {
+    if flags.sw[7] != 0.0 {
         let t71 = (p[11] * plg[1][2]) * cd14 * flags.swc[5];
         let t72 = (p[12] * plg[1][2]) * cd14 * flags.swc[5];
         t[6] = f2
@@ -1054,6 +1336,8 @@ fn glob7s(
     s2tloc: f64,
     s3tloc: f64,
     c3tloc: f64,
+    apdf: f64,
+    apt: &[f64; 4],
 ) -> f64 {
     // Working variables
     let mut t = [0.0; 14];
@@ -1110,6 +1394,13 @@ fn glob7s(
     }
 
     // Magnetic activity
+    if flags.sw[9] == 1.0 {
+        t[8] = apdf * (p[32] + p[45] * plg[0][2] * flags.swc[2]);
+    } else if flags.sw[9] == -1.0 {
+        t[8] = p[50] * apt[0] + p[96] * plg[0][2] * apt[0] * flags.swc[2];
+    }
+
+    // Longitudinal
     if !((flags.sw[10] == 0.0) || (flags.sw[11] == 0.0) || (input.g_lon <= -1000.0)) {
         t[10] = (1.0
             + plg[0][1]
@@ -1191,8 +1482,21 @@ pub fn gtd7(input: &mut NrlmsiseInput, flags: &mut NrlmsiseFlags, output: &mut N
     let tmp = input.alt;
     input.alt = altt;
 
-    let (dm28, tn1, tgn1, dfa, plg, ctloc, stloc, c2tloc, s2tloc, s3tloc, c3tloc) =
-        gts7(input, flags, output, gsurf, re);
+    let (
+        dm28,
+        tn1,
+        tgn1,
+        dfa,
+        plg,
+        ctloc,
+        stloc,
+        c2tloc,
+        s2tloc,
+        s3tloc,
+        c3tloc,
+        meso_apdf,
+        meso_apt,
+    ) = gts7(input, flags, output, gsurf, re);
     meso_tn1 = tn1;
     meso_tgn1 = tgn1;
 
@@ -1224,12 +1528,14 @@ pub fn gtd7(input: &mut NrlmsiseInput, flags: &mut NrlmsiseFlags, output: &mut N
             - flags.sw[20]
                 * glob7s(
                     &PMA[0], input, flags, dfa, &plg, ctloc, stloc, c2tloc, s2tloc, s3tloc, c3tloc,
+                    meso_apdf, &meso_apt,
                 ));
     meso_tn2[2] = PMA[1][0] * PAVGM[1]
         / (1.0
             - flags.sw[20]
                 * glob7s(
                     &PMA[1], input, flags, dfa, &plg, ctloc, stloc, c2tloc, s2tloc, s3tloc, c3tloc,
+                    meso_apdf, &meso_apt,
                 ));
     meso_tn2[3] = PMA[2][0] * PAVGM[2]
         / (1.0
@@ -1237,6 +1543,7 @@ pub fn gtd7(input: &mut NrlmsiseInput, flags: &mut NrlmsiseFlags, output: &mut N
                 * flags.sw[22]
                 * glob7s(
                     &PMA[2], input, flags, dfa, &plg, ctloc, stloc, c2tloc, s2tloc, s3tloc, c3tloc,
+                    meso_apdf, &meso_apt,
                 ));
     meso_tgn2[1] = PAVGM[8]
         * PMA[9][0]
@@ -1245,6 +1552,7 @@ pub fn gtd7(input: &mut NrlmsiseInput, flags: &mut NrlmsiseFlags, output: &mut N
                 * flags.sw[22]
                 * glob7s(
                     &PMA[9], input, flags, dfa, &plg, ctloc, stloc, c2tloc, s2tloc, s3tloc, c3tloc,
+                    meso_apdf, &meso_apt,
                 ))
         * meso_tn2[3]
         * meso_tn2[3]
@@ -1252,35 +1560,35 @@ pub fn gtd7(input: &mut NrlmsiseInput, flags: &mut NrlmsiseFlags, output: &mut N
     meso_tn3[0] = meso_tn2[3];
 
     // Lower stratosphere and troposphere below zn3[0]
-    if input.alt < zn3[0] {
+    if input.alt <= zn3[0] {
         meso_tgn3[0] = meso_tgn2[1];
         meso_tn3[1] = PMA[3][0] * PAVGM[3]
             / (1.0
                 - flags.sw[22]
                     * glob7s(
                         &PMA[3], input, flags, dfa, &plg, ctloc, stloc, c2tloc, s2tloc, s3tloc,
-                        c3tloc,
+                        c3tloc, meso_apdf, &meso_apt,
                     ));
         meso_tn3[2] = PMA[4][0] * PAVGM[4]
             / (1.0
                 - flags.sw[22]
                     * glob7s(
                         &PMA[4], input, flags, dfa, &plg, ctloc, stloc, c2tloc, s2tloc, s3tloc,
-                        c3tloc,
+                        c3tloc, meso_apdf, &meso_apt,
                     ));
         meso_tn3[3] = PMA[5][0] * PAVGM[5]
             / (1.0
                 - flags.sw[22]
                     * glob7s(
                         &PMA[5], input, flags, dfa, &plg, ctloc, stloc, c2tloc, s2tloc, s3tloc,
-                        c3tloc,
+                        c3tloc, meso_apdf, &meso_apt,
                     ));
         meso_tn3[4] = PMA[6][0] * PAVGM[6]
             / (1.0
                 - flags.sw[22]
                     * glob7s(
                         &PMA[6], input, flags, dfa, &plg, ctloc, stloc, c2tloc, s2tloc, s3tloc,
-                        c3tloc,
+                        c3tloc, meso_apdf, &meso_apt,
                     ));
         meso_tgn3[1] = PMA[7][0]
             * PAVGM[7]
@@ -1288,7 +1596,7 @@ pub fn gtd7(input: &mut NrlmsiseInput, flags: &mut NrlmsiseFlags, output: &mut N
                 + flags.sw[22]
                     * glob7s(
                         &PMA[7], input, flags, dfa, &plg, ctloc, stloc, c2tloc, s2tloc, s3tloc,
-                        c3tloc,
+                        c3tloc, meso_apdf, &meso_apt,
                     ))
             * meso_tn3[4]
             * meso_tn3[4]
@@ -1379,6 +1687,8 @@ fn gts7(
     f64,
     f64,
     f64,
+    f64,
+    [f64; 4],
 ) {
     let mn1 = 5;
     let mut zn1 = [120.0, 110.0, 100.0, 90.0, 72.5];
@@ -1398,30 +1708,26 @@ fn gts7(
     }
 
     // Tinf variations not important below za or zn1[0]
-    let (tinf, dfa, plg, ctloc, stloc, c2tloc, s2tloc, c3tloc, s3tloc, _apdf, _apt) =
-        if input.alt > zn1[0] {
-            let result = globe7(&PT, input, flags);
-            let tinf = PTM[0] * PT[0] * (1.0 + flags.sw[16] * result.0);
-            (
-                tinf, result.1, result.2, result.3, result.4, result.5, result.6, result.7,
-                result.8, result.9, result.10,
-            )
-        } else {
-            let result = globe7(&PT, input, flags);
-            (
-                PTM[0] * PT[0],
-                result.1,
-                result.2,
-                result.3,
-                result.4,
-                result.5,
-                result.6,
-                result.7,
-                result.8,
-                result.9,
-                result.10,
-            )
-        };
+    let (tinf, dfa, plg, ctloc, stloc, c2tloc, s2tloc, c3tloc, s3tloc) = if input.alt > zn1[0] {
+        let result = globe7(&PT, input, flags);
+        let tinf = PTM[0] * PT[0] * (1.0 + flags.sw[16] * result.0);
+        (
+            tinf, result.1, result.2, result.3, result.4, result.5, result.6, result.7, result.8,
+        )
+    } else {
+        let result = globe7(&PT, input, flags);
+        (
+            PTM[0] * PT[0],
+            result.1,
+            result.2,
+            result.3,
+            result.4,
+            result.5,
+            result.6,
+            result.7,
+            result.8,
+        )
+    };
     output.t[0] = tinf;
 
     // Gradient variations not important below zn1[4]
@@ -1434,6 +1740,9 @@ fn gts7(
 
     let result = globe7(&PD[3], input, flags);
     let tlb = PTM[1] * (1.0 + flags.sw[17] * result.0) * PD[3][0];
+    // Magnetic activity factors for the lower thermosphere temperature profile
+    // come from the PD[3] evaluation, the last globe7 call before glob7s.
+    let (apdf, apt) = (result.9, result.10);
     let s = g0_val / (tinf - tlb);
 
     // Lower thermosphere temp variations
@@ -1443,21 +1752,21 @@ fn gts7(
                 - flags.sw[18]
                     * glob7s(
                         &PTL[0], input, flags, dfa, &plg, ctloc, stloc, c2tloc, s2tloc, s3tloc,
-                        c3tloc,
+                        c3tloc, apdf, &apt,
                     ));
         meso_tn1[2] = PTM[2] * PTL[1][0]
             / (1.0
                 - flags.sw[18]
                     * glob7s(
                         &PTL[1], input, flags, dfa, &plg, ctloc, stloc, c2tloc, s2tloc, s3tloc,
-                        c3tloc,
+                        c3tloc, apdf, &apt,
                     ));
         meso_tn1[3] = PTM[7] * PTL[2][0]
             / (1.0
                 - flags.sw[18]
                     * glob7s(
                         &PTL[2], input, flags, dfa, &plg, ctloc, stloc, c2tloc, s2tloc, s3tloc,
-                        c3tloc,
+                        c3tloc, apdf, &apt,
                     ));
         meso_tn1[4] = PTM[4] * PTL[3][0]
             / (1.0
@@ -1465,7 +1774,7 @@ fn gts7(
                     * flags.sw[20]
                     * glob7s(
                         &PTL[3], input, flags, dfa, &plg, ctloc, stloc, c2tloc, s2tloc, s3tloc,
-                        c3tloc,
+                        c3tloc, apdf, &apt,
                     ));
         meso_tgn1[1] = PTM[8]
             * PMA[8][0]
@@ -1474,7 +1783,7 @@ fn gts7(
                     * flags.sw[20]
                     * glob7s(
                         &PMA[8], input, flags, dfa, &plg, ctloc, stloc, c2tloc, s2tloc, s3tloc,
-                        c3tloc,
+                        c3tloc, apdf, &apt,
                     ))
             * meso_tn1[4]
             * meso_tn1[4]
@@ -2018,6 +2327,10 @@ fn gts7(
     // Atomic Nitrogen density
     let result = globe7(&PD[7], input, flags);
     let g14 = flags.sw[21] * result.0;
+    // Three-hourly Ap factor for the mesosphere temperature profile in gtd7. The
+    // reference model defines apt only for parameter sets with p[51] != 0, and
+    // PD[8] has p[51] == 0, so PD[7] is the last globe7 call that supplies it.
+    let meso_apt = result.10;
 
     // Diffusive density at Zlb
     let db14 = PDM[6][0] * g14.exp() * PD[7][0];
@@ -2107,6 +2420,9 @@ fn gts7(
     // Anomalous Oxygen density
     let result = globe7(&PD[8], input, flags);
     let g16h = flags.sw[21] * result.0;
+    // Daily Ap factor for the mesosphere temperature profile in gtd7, from the
+    // last globe7 call.
+    let meso_apdf = result.9;
     let db16h = PDM[7][0] * g16h.exp() * PD[8][0];
     let tho = PDM[7][9] * PDL[0][6];
     let (tz, dd) = densu(
@@ -2172,6 +2488,7 @@ fn gts7(
 
     (
         dm28, meso_tn1, meso_tgn1, dfa, plg, ctloc, stloc, c2tloc, s2tloc, s3tloc, c3tloc,
+        meso_apdf, meso_apt,
     )
 }
 
@@ -2215,10 +2532,14 @@ pub fn gtd7d(input: &mut NrlmsiseInput, flags: &mut NrlmsiseFlags, output: &mut 
 /// * `epoch` - Epoch of computation (used to lookup space weather data)
 /// * `geod` - Geodetic position as [longitude, latitude, altitude] where
 ///   longitude and latitude are in degrees, and altitude is in meters
+/// * `config` - Model switch configuration. [`NRLMSISE00Config::default()`] enables
+///   all variations and uses the 3-hourly Ap array
 ///
 /// # Returns
 ///
-/// * `Result<f64, BraheError>` - Atmospheric density in kg/m³
+/// * `Result<f64, BraheError>` - Atmospheric density in kg/m³. Errors when space
+///   weather data is unavailable for the epoch, or when the altitude is below
+///   72.5 km and `config.diffusive_equilibrium_departures` is not `On`
 ///
 /// # Notes
 ///
@@ -2229,7 +2550,7 @@ pub fn gtd7d(input: &mut NrlmsiseInput, flags: &mut NrlmsiseFlags, output: &mut 
 /// # Example
 ///
 /// ```no_run
-/// use brahe::earth_models::density_nrlmsise00_geod;
+/// use brahe::earth_models::{NRLMSISE00Config, density_nrlmsise00_geod};
 /// use brahe::time::{Epoch, TimeSystem};
 /// use brahe::{initialize_eop, initialize_sw};
 ///
@@ -2242,7 +2563,7 @@ pub fn gtd7d(input: &mut NrlmsiseInput, flags: &mut NrlmsiseFlags, output: &mut 
 /// let geod = [-74.0, 40.7, 400e3]; // New York area, 400 km altitude
 ///
 /// // Compute density
-/// let rho = density_nrlmsise00_geod(&epoch, &geod).unwrap();
+/// let rho = density_nrlmsise00_geod(&epoch, &geod, &NRLMSISE00Config::default()).unwrap();
 /// println!("Density: {:.3e} kg/m³", rho);
 /// ```
 ///
@@ -2251,7 +2572,11 @@ pub fn gtd7d(input: &mut NrlmsiseInput, flags: &mut NrlmsiseFlags, output: &mut 
 /// Picone, J.M., et al. "NRLMSISE-00 empirical model of the atmosphere:
 /// Statistical comparisons and scientific issues", Journal of Geophysical
 /// Research: Space Physics, 2002.
-pub fn density_nrlmsise00_geod(epoch: &Epoch, geod: &[f64; 3]) -> Result<f64, BraheError> {
+pub fn density_nrlmsise00_geod(
+    epoch: &Epoch,
+    geod: &[f64; 3],
+    config: &NRLMSISE00Config,
+) -> Result<f64, BraheError> {
     // Create NRLMSISE-00 model structures
     let mut input = NrlmsiseInput::new();
     let mut flags = NrlmsiseFlags::new();
@@ -2261,6 +2586,19 @@ pub fn density_nrlmsise00_geod(epoch: &Epoch, geod: &[f64; 3]) -> Result<f64, Br
     let lon = geod[0]; // degrees
     let lat = geod[1]; // degrees
     let alt = geod[2] / 1000.0; // convert m to km
+
+    // Below the lower mesosphere boundary the model scales the mesosphere
+    // density profiles by the mixed N2 density from the thermosphere, which
+    // is only computed when switch 15 is fully on.
+    if alt < MESOSPHERE_LOWER_BOUNDARY_KM
+        && config.diffusive_equilibrium_departures != NRLMSISE00Switch::On
+    {
+        return Err(BraheError::Error(format!(
+            "NRLMSISE-00 requires diffusive_equilibrium_departures (switch 15) to be On \
+             below {MESOSPHERE_LOWER_BOUNDARY_KM} km altitude, got {:?} at {alt} km",
+            config.diffusive_equilibrium_departures
+        )));
+    }
 
     // Get MJD in UT1
     let mjd_ut1 = epoch.mjd_as_time_system(TimeSystem::UT1);
@@ -2294,10 +2632,7 @@ pub fn density_nrlmsise00_geod(epoch: &Epoch, geod: &[f64; 3]) -> Result<f64, Br
     }
     ap_array[6] = sum / 8.0;
 
-    // Set model flags to default (all on)
-    for i in 0..24 {
-        flags.switches[i] = 1;
-    }
+    flags.switches = config.to_switches();
 
     // Set input values
     input.year = 0; // Unused in model
@@ -2330,10 +2665,14 @@ pub fn density_nrlmsise00_geod(epoch: &Epoch, geod: &[f64; 3]) -> Result<f64, Br
 /// * `epoch` - Epoch of computation (used to lookup space weather data)
 /// * `x_ecef` - Position in ECEF frame. Units: (m). Accepts any type implementing
 ///   [`IntoPosition`] (e.g., `Vector3<f64>` or `SVector<f64, 6>`)
+/// * `config` - Model switch configuration. [`NRLMSISE00Config::default()`] enables
+///   all variations and uses the 3-hourly Ap array
 ///
 /// # Returns
 ///
-/// * `Result<f64, BraheError>` - Atmospheric density in kg/m³
+/// * `Result<f64, BraheError>` - Atmospheric density in kg/m³. Errors when space
+///   weather data is unavailable for the epoch, or when the altitude is below
+///   72.5 km and `config.diffusive_equilibrium_departures` is not `On`
 ///
 /// # Notes
 ///
@@ -2345,7 +2684,7 @@ pub fn density_nrlmsise00_geod(epoch: &Epoch, geod: &[f64; 3]) -> Result<f64, Br
 /// # Example
 ///
 /// ```no_run
-/// use brahe::earth_models::density_nrlmsise00;
+/// use brahe::earth_models::{NRLMSISE00Config, density_nrlmsise00};
 /// use brahe::time::{Epoch, TimeSystem};
 /// use brahe::{initialize_eop, initialize_sw};
 /// use nalgebra::Vector3;
@@ -2359,7 +2698,7 @@ pub fn density_nrlmsise00_geod(epoch: &Epoch, geod: &[f64; 3]) -> Result<f64, Br
 /// let x_ecef = Vector3::new(6778137.0, 0.0, 0.0);
 ///
 /// // Compute density
-/// let rho = density_nrlmsise00(&epoch, x_ecef).unwrap();
+/// let rho = density_nrlmsise00(&epoch, x_ecef, &NRLMSISE00Config::default()).unwrap();
 /// println!("Density: {:.3e} kg/m³", rho);
 /// ```
 ///
@@ -2368,19 +2707,24 @@ pub fn density_nrlmsise00_geod(epoch: &Epoch, geod: &[f64; 3]) -> Result<f64, Br
 /// Picone, J.M., et al. "NRLMSISE-00 empirical model of the atmosphere:
 /// Statistical comparisons and scientific issues", Journal of Geophysical
 /// Research: Space Physics, 2002.
-pub fn density_nrlmsise00<P: IntoPosition>(epoch: &Epoch, x_ecef: P) -> Result<f64, BraheError> {
+pub fn density_nrlmsise00<P: IntoPosition>(
+    epoch: &Epoch,
+    x_ecef: P,
+    config: &NRLMSISE00Config,
+) -> Result<f64, BraheError> {
     // Extract position and convert to geodetic coordinates
     let position = x_ecef.position();
     let geod = position_ecef_to_geodetic(position, AngleFormat::Degrees);
 
     // Call the geodetic version
-    density_nrlmsise00_geod(epoch, &[geod[0], geod[1], geod[2]])
+    density_nrlmsise00_geod(epoch, &[geod[0], geod[1], geod[2]], config)
 }
 
 #[cfg(test)]
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
+    use NRLMSISE00Switch::{CrossTermsOnly, Off};
     use approx::assert_abs_diff_eq;
     use rstest::rstest;
     use serial_test::{parallel, serial};
@@ -2405,9 +2749,6 @@ mod tests {
     // Test data from Daniel Brodowski's C implementation
     // Reference: https://www.brodo.de/space/nrlmsise/
     fn get_test_cases() -> Vec<TestCase> {
-        // AP array for future testing (currently unused)
-        let _aph = [100.0; 7];
-
         vec![
             // Test case 1: Base case
             TestCase {
@@ -2784,10 +3125,56 @@ mod tests {
                     0.0000000e+00,
                 ],
             },
-            // Test case 16: AP array (100 km altitude) - NOT USED, for case 17
-            // Test case 17: 100 km with AP array
-            // Note: Cases 16 and 17 use ap_array but we'll skip 16 as the Julia test
-            // doesn't actually check case 16's output separately
+            // Test case 16: AP array, 400 km
+            TestCase {
+                doy: 172,
+                sec: 29000.0,
+                alt: 400.0,
+                g_lat: 60.0,
+                g_lon: -70.0,
+                lst: 16.0,
+                f107a: 150.0,
+                f107: 150.0,
+                ap: 4.0,
+                use_ap_array: true,
+                expected_t: [1426.412, 1408.608],
+                expected_d: [
+                    5.196477e+05,
+                    1.274494e+08,
+                    4.850450e+07,
+                    1.720838e+06,
+                    2.354487e+04,
+                    5.881940e-15,
+                    2.500078e+04,
+                    6.279210e+06,
+                    2.667273e+04,
+                ],
+            },
+            // Test case 17: AP array, 100 km
+            TestCase {
+                doy: 172,
+                sec: 29000.0,
+                alt: 100.0,
+                g_lat: 60.0,
+                g_lon: -70.0,
+                lst: 16.0,
+                f107a: 150.0,
+                f107: 150.0,
+                ap: 4.0,
+                use_ap_array: true,
+                expected_t: [1027.318, 193.4071],
+                expected_d: [
+                    4.260860e+07,
+                    1.241342e+11,
+                    4.929562e+12,
+                    1.048407e+12,
+                    4.993465e+10,
+                    2.914304e-10,
+                    8.831229e+06,
+                    2.252516e+05,
+                    2.415246e-42,
+                ],
+            },
         ]
     }
 
@@ -2858,6 +3245,8 @@ mod tests {
     #[case(12)]
     #[case(13)]
     #[case(14)]
+    #[case(15)]
+    #[case(16)]
     #[parallel]
     fn test_nrlmsise00_all_cases(#[case] case_idx: usize) {
         let cases = get_test_cases();
@@ -2884,6 +3273,10 @@ mod tests {
         input.f107a = case.f107a;
         input.f107 = case.f107;
         input.ap = case.ap;
+        if case.use_ap_array {
+            flags.switches[9] = -1;
+            input.ap_array = [100.0; 7];
+        }
 
         // Run model
         gtd7(&mut input, &mut flags, &mut output);
@@ -2926,11 +3319,370 @@ mod tests {
 
         let epoch = Epoch::from_datetime(2020, 6, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
         let x_ecef = Vector3::new(3.8e8, 0.0, 0.0); // ~lunar distance
-        let rho = density_nrlmsise00(&epoch, x_ecef).unwrap();
+        let rho = density_nrlmsise00(&epoch, x_ecef, &NRLMSISE00Config::default()).unwrap();
         assert!(rho.is_finite());
         assert!(
             rho < 1e-15,
             "density at lunar distance should be negligible, got {rho}"
         );
+    }
+
+    fn reference_epoch_geod() -> (Epoch, [f64; 3]) {
+        crate::utils::testing::setup_global_test_eop();
+        crate::utils::testing::setup_global_test_space_weather();
+        (
+            Epoch::from_datetime(2024, 5, 10, 21, 0, 0.0, 0.0, TimeSystem::UTC),
+            [-74.0, 40.7, 400e3],
+        )
+    }
+
+    #[test]
+    #[serial]
+    fn test_density_nrlmsise00_geod_daily_ap_matches_reference() {
+        let (epc, geod) = reference_epoch_geod();
+        let cfg = NRLMSISE00Config {
+            ap_mode: NRLMSISE00ApMode::Daily,
+            ..Default::default()
+        };
+        let rho = density_nrlmsise00_geod(&epc, &geod, &cfg).unwrap();
+        assert!(
+            (rho - 1.067412479194915e-11).abs() / 1.067412479194915e-11 < 1e-10,
+            "{rho}"
+        );
+    }
+
+    #[test]
+    #[serial]
+    fn test_density_nrlmsise00_geod_default_is_three_hourly() {
+        let (epc, geod) = reference_epoch_geod();
+        let rho = density_nrlmsise00_geod(&epc, &geod, &NRLMSISE00Config::default()).unwrap();
+        assert!(
+            (rho - 1.157892733789963e-11).abs() / 1.157892733789963e-11 < 1e-10,
+            "{rho}"
+        );
+    }
+
+    #[test]
+    #[serial]
+    fn test_density_nrlmsise00_all_switches_off_is_finite() {
+        let (epc, geod) = reference_epoch_geod();
+        let cfg = NRLMSISE00Config {
+            f107_mean: Off,
+            time_independent: Off,
+            symmetrical_annual: Off,
+            symmetrical_semiannual: Off,
+            asymmetrical_annual: Off,
+            asymmetrical_semiannual: Off,
+            diurnal: Off,
+            semidiurnal: Off,
+            ap_mode: NRLMSISE00ApMode::Off,
+            all_ut_longitude: Off,
+            longitudinal: Off,
+            ut_mixed_ut_longitude: Off,
+            mixed_ap_ut_longitude: Off,
+            terdiurnal: Off,
+            diffusive_equilibrium_departures: Off,
+            tinf_variations: Off,
+            tlb_variations: Off,
+            tn1_variations: Off,
+            s_variations: Off,
+            tn2_variations: Off,
+            nlb_variations: Off,
+            tn3_variations: Off,
+            turbopause_scale_height_variations: Off,
+        };
+        let rho = density_nrlmsise00_geod(&epc, &geod, &cfg).unwrap();
+        assert!(rho.is_finite() && rho > 0.0, "{rho}");
+    }
+
+    #[rstest]
+    #[case(NRLMSISE00Switch::Off)]
+    #[case(NRLMSISE00Switch::CrossTermsOnly)]
+    #[serial]
+    fn test_density_nrlmsise00_geod_below_mesosphere_requires_diffusive_switch(
+        #[case] setting: NRLMSISE00Switch,
+    ) {
+        let (epc, _) = reference_epoch_geod();
+        let cfg = NRLMSISE00Config {
+            diffusive_equilibrium_departures: setting,
+            ..Default::default()
+        };
+        let err = density_nrlmsise00_geod(&epc, &[-74.0, 40.7, 50e3], &cfg).unwrap_err();
+        assert!(err.to_string().contains("switch 15"), "{err}");
+
+        let x_ecef = crate::coordinates::position_geodetic_to_ecef(
+            nalgebra::Vector3::new(-74.0, 40.7, 50e3),
+            AngleFormat::Degrees,
+        )
+        .unwrap();
+        assert!(density_nrlmsise00(&epc, x_ecef, &cfg).is_err());
+
+        let rho_boundary = density_nrlmsise00_geod(&epc, &[-74.0, 40.7, 72.5e3], &cfg).unwrap();
+        assert!(rho_boundary.is_finite() && rho_boundary > 0.0);
+    }
+
+    #[test]
+    #[serial]
+    fn test_density_nrlmsise00_geod_below_mesosphere_with_diffusive_switch_on() {
+        let (epc, _) = reference_epoch_geod();
+        let rho = density_nrlmsise00_geod(&epc, &[-74.0, 40.7, 50e3], &NRLMSISE00Config::default())
+            .unwrap();
+        assert!(rho.is_finite() && rho > 0.0, "{rho}");
+    }
+
+    #[test]
+    #[serial]
+    fn test_density_nrlmsise00_geod_ap_off_lower_thermosphere() {
+        // 100 km during the 2024-05-10 storm: the lower-thermosphere
+        // magnetic activity term contributes in Daily mode and is absent
+        // when the Ap switch is Off.
+        let (epc, _) = reference_epoch_geod();
+        let geod = [-74.0, 40.7, 100e3];
+        let off = NRLMSISE00Config {
+            ap_mode: NRLMSISE00ApMode::Off,
+            ..Default::default()
+        };
+        let daily = NRLMSISE00Config {
+            ap_mode: NRLMSISE00ApMode::Daily,
+            ..Default::default()
+        };
+        let rho_off = density_nrlmsise00_geod(&epc, &geod, &off).unwrap();
+        let rho_daily = density_nrlmsise00_geod(&epc, &geod, &daily).unwrap();
+        assert!(rho_off.is_finite() && rho_off > 0.0, "{rho_off}");
+        assert!(
+            (rho_off - rho_daily).abs() / rho_daily > 1e-6,
+            "{rho_off} vs {rho_daily}"
+        );
+    }
+
+    #[test]
+    #[serial]
+    fn test_density_nrlmsise00_geod_at_zn3_boundary_is_finite() {
+        let (epc, _) = reference_epoch_geod();
+        let cfg = NRLMSISE00Config::default();
+        let rho = density_nrlmsise00_geod(&epc, &[-74.0, 40.7, 32500.0], &cfg).unwrap();
+        let below = density_nrlmsise00_geod(&epc, &[-74.0, 40.7, 32499.9], &cfg).unwrap();
+        assert!(rho.is_finite() && rho > 0.0, "{rho}");
+        assert!((rho - below).abs() / below < 1e-3, "{rho} vs {below}");
+    }
+
+    #[test]
+    #[parallel]
+    fn test_gtd7_at_zn3_boundary_is_finite() {
+        let mut input = NrlmsiseInput::new();
+        let mut flags = NrlmsiseFlags::new();
+        let mut output = NrlmsiseOutput::new();
+        flags.switches[0] = 0;
+        for i in 1..24 {
+            flags.switches[i] = 1;
+        }
+        input.doy = 172;
+        input.sec = 29000.0;
+        input.alt = 32.5;
+        input.g_lat = 60.0;
+        input.g_lon = -70.0;
+        input.lst = 16.0;
+        input.f107a = 150.0;
+        input.f107 = 150.0;
+        input.ap = 4.0;
+        gtd7(&mut input, &mut flags, &mut output);
+        assert!(output.d.iter().all(|v| v.is_finite()), "{:?}", output.d);
+        assert!(output.t.iter().all(|v| v.is_finite()), "{:?}", output.t);
+    }
+
+    /// Run `gtd7` at the base reference case (400 km, Ap = 4) with the given
+    /// configuration, cgs output units, and local solar time `lst` [hours].
+    fn gtd7_base_case_at_lst(cfg: &NRLMSISE00Config, lst: f64) -> NrlmsiseOutput {
+        let mut input = NrlmsiseInput::new();
+        let mut flags = NrlmsiseFlags::new();
+        let mut output = NrlmsiseOutput::new();
+        flags.switches = cfg.to_switches();
+        flags.switches[0] = 0;
+        input.doy = 172;
+        input.sec = 29000.0;
+        input.alt = 400.0;
+        input.g_lat = 60.0;
+        input.g_lon = -70.0;
+        input.lst = lst;
+        input.f107a = 150.0;
+        input.f107 = 150.0;
+        input.ap = 4.0;
+        gtd7(&mut input, &mut flags, &mut output);
+        output
+    }
+
+    #[test]
+    #[parallel]
+    fn test_gtd7_local_time_terms_off_removes_lst_dependence() {
+        let cfg = NRLMSISE00Config {
+            diurnal: Off,
+            semidiurnal: Off,
+            terdiurnal: Off,
+            ap_mode: NRLMSISE00ApMode::Daily,
+            ..Default::default()
+        };
+        let morning = gtd7_base_case_at_lst(&cfg, 4.0);
+        let afternoon = gtd7_base_case_at_lst(&cfg, 16.0);
+        assert_eq!(morning.d, afternoon.d);
+        assert_eq!(morning.t, afternoon.t);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_gtd7_diurnal_independent_of_asymmetrical_semiannual() {
+        let cfg = NRLMSISE00Config {
+            asymmetrical_semiannual: Off,
+            semidiurnal: Off,
+            terdiurnal: Off,
+            ap_mode: NRLMSISE00ApMode::Daily,
+            ..Default::default()
+        };
+        let morning = gtd7_base_case_at_lst(&cfg, 4.0);
+        let afternoon = gtd7_base_case_at_lst(&cfg, 16.0);
+        assert!(
+            (morning.d[5] - afternoon.d[5]).abs() / afternoon.d[5] > 1e-3,
+            "{} vs {}",
+            morning.d[5],
+            afternoon.d[5]
+        );
+        assert!(
+            (morning.t[0] - afternoon.t[0]).abs() > 1.0,
+            "{} vs {}",
+            morning.t[0],
+            afternoon.t[0]
+        );
+    }
+
+    #[test]
+    #[serial]
+    fn test_density_nrlmsise00_ecef_matches_geod_with_config() {
+        let (epc, geod) = reference_epoch_geod();
+        let cfg = NRLMSISE00Config {
+            ap_mode: NRLMSISE00ApMode::Daily,
+            ..Default::default()
+        };
+        let x_ecef = crate::coordinates::position_geodetic_to_ecef(
+            nalgebra::Vector3::new(geod[0], geod[1], geod[2]),
+            AngleFormat::Degrees,
+        )
+        .unwrap();
+        let rho_geod = density_nrlmsise00_geod(&epc, &geod, &cfg).unwrap();
+        let rho_ecef = density_nrlmsise00(&epc, x_ecef, &cfg).unwrap();
+        assert!(
+            (rho_ecef - rho_geod).abs() / rho_geod < 1e-10,
+            "{rho_ecef} {rho_geod}"
+        );
+    }
+
+    fn all_non_default_config() -> NRLMSISE00Config {
+        NRLMSISE00Config {
+            f107_mean: Off,
+            time_independent: CrossTermsOnly,
+            symmetrical_annual: Off,
+            symmetrical_semiannual: CrossTermsOnly,
+            asymmetrical_annual: Off,
+            asymmetrical_semiannual: CrossTermsOnly,
+            diurnal: Off,
+            semidiurnal: CrossTermsOnly,
+            ap_mode: NRLMSISE00ApMode::Daily,
+            all_ut_longitude: Off,
+            longitudinal: CrossTermsOnly,
+            ut_mixed_ut_longitude: Off,
+            mixed_ap_ut_longitude: CrossTermsOnly,
+            terdiurnal: Off,
+            diffusive_equilibrium_departures: CrossTermsOnly,
+            tinf_variations: Off,
+            tlb_variations: CrossTermsOnly,
+            tn1_variations: Off,
+            s_variations: CrossTermsOnly,
+            tn2_variations: Off,
+            nlb_variations: CrossTermsOnly,
+            tn3_variations: Off,
+            turbopause_scale_height_variations: CrossTermsOnly,
+        }
+    }
+
+    #[test]
+    #[parallel]
+    fn test_nrlmsise00config_default() {
+        let s = NRLMSISE00Config::default().to_switches();
+        assert_eq!(s[0], 1);
+        assert_eq!(s[9], -1);
+        for i in (1..24).filter(|&i| i != 9) {
+            assert_eq!(s[i], 1);
+        }
+    }
+
+    #[test]
+    #[parallel]
+    fn test_nrlmsise00config_to_switches_index_order() {
+        let cfg = NRLMSISE00Config {
+            f107_mean: NRLMSISE00Switch::Off,
+            diurnal: NRLMSISE00Switch::CrossTermsOnly,
+            ap_mode: NRLMSISE00ApMode::Daily,
+            turbopause_scale_height_variations: NRLMSISE00Switch::Off,
+            ..Default::default()
+        };
+        let s = cfg.to_switches();
+        assert_eq!((s[1], s[7], s[9], s[23]), (0, 2, 1, 0));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_nrlmsise00config_from_switches_roundtrip() {
+        let cfg = all_non_default_config();
+        assert_eq!(
+            NRLMSISE00Config::from_switches(&cfg.to_switches()).unwrap(),
+            cfg
+        );
+    }
+
+    #[rstest]
+    #[case(-1, NRLMSISE00ApMode::ThreeHourly)]
+    #[case(0, NRLMSISE00ApMode::Off)]
+    #[case(1, NRLMSISE00ApMode::Daily)]
+    #[parallel]
+    fn test_nrlmsise00config_from_switches_ap_mode(
+        #[case] value: i32,
+        #[case] expected: NRLMSISE00ApMode,
+    ) {
+        let mut switches = [1; 24];
+        switches[9] = value;
+        let cfg = NRLMSISE00Config::from_switches(&switches).unwrap();
+        assert_eq!(cfg.ap_mode, expected);
+        assert_eq!(cfg.to_switches()[9], value);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_nrlmsise00config_from_switches_c_reference_array() {
+        let mut a = [1; 24];
+        a[0] = 0;
+        a[9] = -1;
+        let cfg = NRLMSISE00Config::from_switches(&a).unwrap();
+        assert_eq!(cfg, NRLMSISE00Config::default());
+        assert_eq!(cfg.to_switches()[0], 1);
+    }
+
+    #[rstest]
+    #[case(&[1; 23][..])]
+    #[case(&[1; 25][..])]
+    #[case(&{let mut a = [1; 24]; a[0] = 2; a}[..])]
+    #[case(&{let mut a = [1; 24]; a[9] = 2; a}[..])]
+    #[case(&{let mut a = [1; 24]; a[9] = -2; a}[..])]
+    #[case(&{let mut a = [1; 24]; a[5] = -1; a}[..])]
+    #[case(&{let mut a = [1; 24]; a[23] = 3; a}[..])]
+    #[parallel]
+    fn test_nrlmsise00config_from_switches_rejects(#[case] s: &[i32]) {
+        assert!(NRLMSISE00Config::from_switches(s).is_err());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_nrlmsise00config_serde_roundtrip() {
+        let cfg = all_non_default_config();
+        let json = serde_json::to_string(&cfg).unwrap();
+        let back: NRLMSISE00Config = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, cfg);
     }
 }

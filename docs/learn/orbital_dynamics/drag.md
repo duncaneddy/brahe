@@ -68,6 +68,31 @@ The model requires initialization of both Earth orientation data and space weath
 - Earth orientation data: `bh.initialize_eop()`
 - Space weather data: `bh.initialize_sw()`
 
+The model's behavior is controlled by `NRLMSISE00Config`, which exposes 22 term switches by name (for example `diurnal`, `semidiurnal`, `longitudinal`, `tinf_variations`), each set to `NRLMSISE00Switch.ON`, `OFF`, or `CROSS_TERMS_ONLY` (which disables a term's main effect while keeping its cross terms), plus the separate `ap_mode` field. The default configuration enables every switch and uses the 3-hourly Ap history. The `ap_mode` field selects the geomagnetic input: `THREE_HOURLY` (default), `DAILY` for the daily Ap index only, or `OFF`. Configurations written for the reference implementation's 24-element switch array are loaded with `NRLMSISE00Config.from_switches()`, and `to_switches()` returns the equivalent array. The config is passed to `density_nrlmsise00()` and `density_nrlmsise00_geod()`, or carried by `AtmosphericModel.nrlmsise00(config)` for numerical propagation.
+
+=== "Python"
+
+    ``` python
+    --8<-- "./examples/orbit_dynamics/nrlmsise00_config.py:8"
+    ```
+
+=== "Rust"
+
+    ``` rust
+    --8<-- "./examples/orbit_dynamics/nrlmsise00_config.rs:4"
+    ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/orbit_dynamics/nrlmsise00_config.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/orbit_dynamics/nrlmsise00_config.rs.txt"
+        ```
+
 For full API details, see the [NRLMSISE-00 API Reference](../../library_api/earth_models/nrlmsise00.md).
 
 ## Usage Examples

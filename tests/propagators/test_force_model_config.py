@@ -35,7 +35,42 @@ from brahe import (
 def test_atmosphericmodel_classattrs():
     """Test AtmosphericModel class attributes"""
     assert AtmosphericModel.HARRIS_PRIESTER is not None
-    assert AtmosphericModel.NRLMSISE00 is not None
+    assert AtmosphericModel.nrlmsise00() is not None
+
+
+def test_atmosphericmodel_nrlmsise00_default_and_config():
+    assert AtmosphericModel.nrlmsise00().nrlmsise00_config == brahe.NRLMSISE00Config()
+    assert not hasattr(AtmosphericModel, "NRLMSISE00")
+    cfg = brahe.NRLMSISE00Config(ap_mode=brahe.NRLMSISE00ApMode.DAILY)
+    assert AtmosphericModel.nrlmsise00(cfg).nrlmsise00_config == cfg
+    assert AtmosphericModel.nrlmsise00(config=cfg).nrlmsise00_config == cfg
+
+
+def test_atmosphericmodel_nrlmsise00_config():
+    """Mirrors test_atmosphericmodel_nrlmsise00_config"""
+    cfg = brahe.NRLMSISE00Config(
+        ap_mode=brahe.NRLMSISE00ApMode.DAILY, diurnal=brahe.NRLMSISE00Switch.OFF
+    )
+    assert AtmosphericModel.nrlmsise00(cfg).nrlmsise00_config == cfg
+    assert AtmosphericModel.HARRIS_PRIESTER.nrlmsise00_config is None
+    exponential = AtmosphericModel.exponential(60e3, 3.6e-10, 400e3)
+    assert exponential.nrlmsise00_config is None
+
+
+def test_forcemodelconfig_presets_use_default_nrlmsise00_config():
+    expected = brahe.NRLMSISE00Config()
+    assert ForceModelConfig.leo_default().drag.model.nrlmsise00_config == expected
+    assert ForceModelConfig.high_fidelity().drag.model.nrlmsise00_config == expected
+
+
+def test_atmosphericmodel_nrlmsise00_copies_config():
+    cfg = brahe.NRLMSISE00Config()
+    m = AtmosphericModel.nrlmsise00(cfg)
+    cfg.ap_mode = brahe.NRLMSISE00ApMode.DAILY
+    assert m.nrlmsise00_config == brahe.NRLMSISE00Config()
+    returned = m.nrlmsise00_config
+    returned.diurnal = brahe.NRLMSISE00Switch.OFF
+    assert m.nrlmsise00_config == brahe.NRLMSISE00Config()
 
 
 def test_atmosphericmodel_exponential():
@@ -324,7 +359,7 @@ def test_forcemodelconfig_validate_rejects_nrlmsise00_non_earth():
     """Mirrors test_validate_rejects_nrlmsise00_non_earth"""
     config = ForceModelConfig(
         drag=DragConfiguration(
-            model=AtmosphericModel.NRLMSISE00,
+            model=AtmosphericModel.nrlmsise00(),
             area=ParameterSource.parameter_index(1),
             cd=ParameterSource.parameter_index(2),
         ),
@@ -863,7 +898,7 @@ def test_validate_attributed_drag_body():
     config = ForceModelConfig.cislunar_default()
     config.mass = ParameterSource.value(1000.0)
     config.drag = DragConfiguration(
-        model=AtmosphericModel.NRLMSISE00,
+        model=AtmosphericModel.nrlmsise00(),
         area=ParameterSource.value(10.0),
         cd=ParameterSource.value(2.2),
         body=CentralBody.Earth,
@@ -872,7 +907,7 @@ def test_validate_attributed_drag_body():
 
     # EMB central + drag with no attributed body: rejected (barycenter)
     config.drag = DragConfiguration(
-        model=AtmosphericModel.NRLMSISE00,
+        model=AtmosphericModel.nrlmsise00(),
         area=ParameterSource.value(10.0),
         cd=ParameterSource.value(2.2),
     )

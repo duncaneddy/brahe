@@ -26,7 +26,7 @@ force_config = bh.ForceModelConfig.for_body(
     bh.CentralBody.EMB,
     bh.GravityConfiguration.zero(),
     drag=bh.DragConfiguration(
-        model=bh.AtmosphericModel.NRLMSISE00,
+        model=bh.AtmosphericModel.nrlmsise00(),
         area=bh.ParameterSource.value(10.0),
         cd=bh.ParameterSource.value(2.2),
         # Attribute the drag to Earth: density and relative wind are

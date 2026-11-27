@@ -3988,7 +3988,10 @@ impl PyVariationalConfig {
 ///     import brahe as bh
 ///
 ///     model = bh.AtmosphericModel.HARRIS_PRIESTER
-///     model = bh.AtmosphericModel.NRLMSISE00
+///     model = bh.AtmosphericModel.nrlmsise00()
+///     model = bh.AtmosphericModel.nrlmsise00(
+///         bh.NRLMSISE00Config(ap_mode=bh.NRLMSISE00ApMode.DAILY)
+///     )
 ///     ```
 #[pyclass(module = "brahe._brahe", from_py_object)]
 #[pyo3(name = "AtmosphericModel")]
@@ -4008,11 +4011,32 @@ impl PyAtmosphericModel {
         }
     }
 
-    /// NRLMSISE-00 empirical model (high-fidelity, requires space weather)
-    #[classattr]
-    fn NRLMSISE00() -> Self {
+    /// Create NRLMSISE-00 empirical model (high-fidelity, requires space weather).
+    ///
+    /// Args:
+    ///     config (NRLMSISE00Config | None, optional): Model switch configuration.
+    ///         The configuration is copied. Defaults to None, meaning
+    ///         ``NRLMSISE00Config()`` (all terms enabled, 3-hourly Ap array).
+    ///
+    /// Returns:
+    ///     AtmosphericModel: NRLMSISE-00 atmospheric model.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     model = bh.AtmosphericModel.nrlmsise00()
+    ///     model_daily = bh.AtmosphericModel.nrlmsise00(
+    ///         bh.NRLMSISE00Config(ap_mode=bh.NRLMSISE00ApMode.DAILY)
+    ///     )
+    ///     ```
+    #[classmethod]
+    #[pyo3(signature = (config=None))]
+    fn nrlmsise00(_cls: &Bound<'_, PyType>, config: Option<&PyNRLMSISE00Config>) -> Self {
         PyAtmosphericModel {
-            model: propagators::AtmosphericModel::NRLMSISE00,
+            model: propagators::AtmosphericModel::NRLMSISE00(
+                config.map(|c| c.config).unwrap_or_default(),
+            ),
         }
     }
 
@@ -4031,6 +4055,28 @@ impl PyAtmosphericModel {
                 h0,
             },
         }
+    }
+
+    /// NRLMSISE-00 switch configuration carried by this model.
+    ///
+    /// Returns:
+    ///     NRLMSISE00Config | None: A copy of the configuration for an
+    ///         NRLMSISE-00 model, or None for every other model.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     cfg = bh.NRLMSISE00Config(ap_mode=bh.NRLMSISE00ApMode.DAILY)
+    ///     model = bh.AtmosphericModel.nrlmsise00(cfg)
+    ///     assert model.nrlmsise00_config == cfg
+    ///     assert bh.AtmosphericModel.HARRIS_PRIESTER.nrlmsise00_config is None
+    ///     ```
+    #[getter]
+    fn nrlmsise00_config(&self) -> Option<PyNRLMSISE00Config> {
+        self.model
+            .nrlmsise00_config()
+            .map(|config| PyNRLMSISE00Config { config: *config })
     }
 
     fn __repr__(&self) -> String {
@@ -5058,7 +5104,7 @@ impl PyGravityConfiguration {
 ///
 ///     # Earth-attributed drag for an EMB-centered propagation
 ///     cislunar_drag = bh.DragConfiguration(
-///         model=bh.AtmosphericModel.NRLMSISE00,
+///         model=bh.AtmosphericModel.nrlmsise00(),
 ///         area=bh.ParameterSource.value(10.0),
 ///         cd=bh.ParameterSource.value(2.2),
 ///         body=bh.CentralBody.Earth,

@@ -1125,6 +1125,9 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyKeplerianPropagator>()?;
     module.add_class::<PyIntegrationMethod>()?;
     module.add_class::<PyAtmosphericModel>()?;
+    module.add_class::<PyNRLMSISE00Switch>()?;
+    module.add_class::<PyNRLMSISE00ApMode>()?;
+    module.add_class::<PyNRLMSISE00Config>()?;
     module.add_class::<PyEclipseModel>()?;
     module.add_class::<PyZonalHarmonicsDegree>()?;
     module.add_class::<PyParallelMode>()?;

@@ -14,15 +14,20 @@ from brahe import (
     R_EARTH,
     R_MOON,
     AngleFormat,
+    AtmosphericModel,
     CelestialFrame,
     CentralBody,
+    DragConfiguration,
     Epoch,
     ForceModelConfig,
     GravityConfiguration,
     IntegrationMethod,
     IntegratorConfig,
+    NRLMSISE00ApMode,
+    NRLMSISE00Config,
     NumericalOrbitPropagator,
     NumericalPropagationConfig,
+    ParameterSource,
     TimeSystem,
     VariationalConfig,
     orbital_period,
@@ -4789,6 +4794,40 @@ def test_numericalorbitpropagator_force_drag_models():
     assert np.all(np.isfinite(final_state))
 
 
+def test_numericalorbitpropagator_force_drag_nrlmsise00_config_changes_trajectory():
+    """Changing the NRLMSISE-00 Ap mode changes the propagated trajectory
+    (mirrors the Rust test of the same name)."""
+    epoch = Epoch.from_datetime(2024, 5, 10, 18, 0, 0.0, 0.0, TimeSystem.UTC)
+    state = state_koe_to_eci(
+        np.array([R_EARTH + 500e3, 0.001, 51.6, 0.0, 0.0, 0.0]), AngleFormat.DEGREES
+    )
+
+    def final_position(cfg):
+        force_config = ForceModelConfig(
+            gravity=GravityConfiguration.point_mass(),
+            drag=DragConfiguration(
+                model=AtmosphericModel.nrlmsise00(cfg),
+                area=ParameterSource.value(10.0),
+                cd=ParameterSource.value(2.2),
+            ),
+            mass=ParameterSource.value(1000.0),
+        )
+        prop = NumericalOrbitPropagator(
+            epoch,
+            state,
+            NumericalPropagationConfig.default(),
+            force_config,
+            create_test_params(),
+        )
+        prop.step_by(3600.0)
+        return prop.current_state()[:3]
+
+    default_pos = final_position(NRLMSISE00Config())
+    daily_pos = final_position(NRLMSISE00Config(ap_mode=NRLMSISE00ApMode.DAILY))
+    diff = np.linalg.norm(default_pos - daily_pos)
+    assert diff > 1e-3, f"position difference {diff} m"
+
+
 def test_numericalorbitpropagator_force_srp_eclipse_models():
     """Test different SRP eclipse models (mirrors Rust test)"""
     epoch = create_test_epoch()
@@ -6301,12 +6340,12 @@ def test_emb_attributed_earth_drag_matches_earth_centered(
         return prop.current_state()
 
     drag_earth = bh.DragConfiguration(
-        model=bh.AtmosphericModel.NRLMSISE00,
+        model=bh.AtmosphericModel.nrlmsise00(),
         area=bh.ParameterSource.value(10.0),
         cd=bh.ParameterSource.value(2.2),
     )
     drag_attributed = bh.DragConfiguration(
-        model=bh.AtmosphericModel.NRLMSISE00,
+        model=bh.AtmosphericModel.nrlmsise00(),
         area=bh.ParameterSource.value(10.0),
         cd=bh.ParameterSource.value(2.2),
         body=CentralBody.Earth,
@@ -6388,7 +6427,7 @@ def test_emb_combined_earth_field_and_drag_matches_earth_centered(
     config_earth = ForceModelConfig(
         gravity=sh,
         drag=bh.DragConfiguration(
-            model=bh.AtmosphericModel.NRLMSISE00,
+            model=bh.AtmosphericModel.nrlmsise00(),
             area=bh.ParameterSource.value(10.0),
             cd=bh.ParameterSource.value(2.2),
         ),
@@ -6399,7 +6438,7 @@ def test_emb_combined_earth_field_and_drag_matches_earth_centered(
         CentralBody.EMB,
         GravityConfiguration.zero(),
         drag=bh.DragConfiguration(
-            model=bh.AtmosphericModel.NRLMSISE00,
+            model=bh.AtmosphericModel.nrlmsise00(),
             area=bh.ParameterSource.value(10.0),
             cd=bh.ParameterSource.value(2.2),
             body=CentralBody.Earth,

@@ -4789,10 +4789,9 @@ impl PyTidesConfiguration {
 ///
 /// ``ephemeris_step`` sets the node spacing of the Sun, Moon, and planet
 /// ephemeris table, and ``cache_space_weather`` enables a per-propagator
-/// space-weather cache for NRLMSISE-00 drag.
-///
-/// The frame-rotation and ephemeris tables are implemented;
-/// ``cache_space_weather`` currently has no effect.
+/// space-weather cache for NRLMSISE-00 drag. After the first lookup of a day,
+/// density calls on that day read the cache instead of the shared global
+/// provider and its lock.
 ///
 /// Steps are checked by ``ForceModelConfig.validate()``, which the propagator
 /// constructor calls, so a non-finite or non-positive step is rejected at
@@ -4804,8 +4803,8 @@ impl PyTidesConfiguration {
 ///         table [s]. Must be finite and positive. None disables the table. Default is 600.0.
 ///     ephemeris_step (float | None, optional): Node spacing of the ephemeris table [s].
 ///         Must be finite and positive. None disables the table. Default is 60.0.
-///     cache_space_weather (bool, optional): Cache space-weather records for the
-///         duration of the propagation. Default is True.
+///     cache_space_weather (bool, optional): Memoize NRLMSISE-00 space-weather
+///         values per UT1 day for each propagator. Default is True.
 ///
 /// Attributes:
 ///     frame_rotation_step (float or None): Node spacing of the frame-rotation table [s]

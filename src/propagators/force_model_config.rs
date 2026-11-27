@@ -656,9 +656,6 @@ impl Default for OceanTideConfig {
 /// propagation, and values between nodes are linearly interpolated. `None` on
 /// [`ForceModelConfig`] disables all tables.
 ///
-/// The frame-rotation and ephemeris tables are implemented;
-/// `cache_space_weather` currently has no effect.
-///
 /// Steps are checked by [`ForceModelConfig::validate`], which the propagator
 /// constructor calls, so a non-finite or non-positive step is rejected at
 /// propagator construction. Changing global data (EOP provider, SPICE kernels,
@@ -670,8 +667,11 @@ impl Default for OceanTideConfig {
 ///   `None` disables the table.
 /// * `ephemeris_step` - Grid spacing of the Sun/Moon/third-body ephemeris
 ///   table [s]. `None` disables the table.
-/// * `cache_space_weather` - Cache space-weather records for the duration of
-///   the propagation.
+/// * `cache_space_weather` - Memoize, per UT1 day, the values NRLMSISE-00
+///   reads from the global space-weather provider, so density calls skip the
+///   shared provider and its lock. Lookups return the provider's values. The
+///   provider's daily values must be constant within a UT1 day and its Ap
+///   values constant within each 3-hour bin.
 ///
 /// # Examples
 ///
@@ -692,7 +692,9 @@ pub struct PrecomputeConfig {
     /// Grid spacing of the ephemeris table [s]. Must be finite and positive.
     /// `None` disables the table.
     pub ephemeris_step: Option<f64>,
-    /// Cache space-weather records for the duration of the propagation.
+    /// Memoize, per UT1 day, the values NRLMSISE-00 reads from the global
+    /// space-weather provider. Requires daily values constant within a UT1 day
+    /// and Ap values constant within each 3-hour bin.
     pub cache_space_weather: bool,
 }
 

@@ -7,19 +7,25 @@
  * spans and extend contiguously in place.
  */
 
-use std::collections::VecDeque;
+use std::cell::RefCell;
+use std::collections::{HashMap, VecDeque};
 use std::convert::Infallible;
 
 use nalgebra::Vector3;
 use rayon::prelude::*;
 
+use crate::earth_models::SpaceWeatherLookup;
 use crate::frames::{bias_precession_nutation, earth_rotation, polar_motion};
 use crate::math::SMatrix3;
 use crate::orbit_dynamics::ephemerides::{moon_position, sun_position};
 use crate::orbit_dynamics::third_body::{third_body_position, third_body_position_geocentric};
 use crate::propagators::{
-    CentralBody, EclipseModel, EphemerisSource, ForceModelConfig, FrameTransformationModel,
-    GravityConfiguration, ThirdBody,
+    AtmosphericModel, CentralBody, EclipseModel, EphemerisSource, ForceModelConfig,
+    FrameTransformationModel, GravityConfiguration, ThirdBody,
+};
+use crate::space_weather::{
+    FileSpaceWeatherProvider, get_global_ap_all, get_global_ap_daily, get_global_f107_obs_avg81,
+    get_global_f107_observed,
 };
 use crate::spice::registry::ensure_bodies_loadable;
 use crate::spice::{SPICEKernel, moon_position_spice, spk_position, spk_state, sun_position_spice};
@@ -982,10 +988,165 @@ impl PrecomputedInputs {
     }
 }
 
+/// Space-weather values NRLMSISE-00 reads for one UT1 day.
+///
+/// A field is `None` until a lookup first reads it from the global provider.
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub(crate) struct SpaceWeatherDay {
+    /// Daily Ap.
+    pub(crate) ap_daily: Option<f64>,
+    /// The eight 3-hourly Ap values, starting at 00:00 UT1.
+    pub(crate) ap: Option<[f64; 8]>,
+    /// Observed F10.7 [sfu].
+    pub(crate) f107_observed: Option<f64>,
+    /// 81-day centered average of observed F10.7 [sfu].
+    pub(crate) f107_obs_avg81: Option<f64>,
+}
+
+/// Per-propagator memo of the global space-weather provider, keyed by UT1 day.
+///
+/// Values are the ones the provider returns for the day; nothing is
+/// interpolated. Provider errors are not stored. Read through
+/// [`CachedSpaceWeather`].
+#[derive(Debug, Default)]
+pub(crate) struct SpaceWeatherCache {
+    days: HashMap<i64, SpaceWeatherDay>,
+}
+
+impl SpaceWeatherCache {
+    /// Create an empty cache.
+    ///
+    /// # Returns
+    /// - `SpaceWeatherCache`: Cache holding no days
+    pub(crate) fn new() -> Self {
+        Self::default()
+    }
+
+    /// Whether a force model reads space weather through the cache.
+    ///
+    /// # Arguments
+    /// - `cfg`: Force model configuration
+    ///
+    /// # Returns
+    /// - `bool`: `true` when `cfg.precompute` sets `cache_space_weather` and drag uses
+    ///   NRLMSISE-00
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// let cache = SpaceWeatherCache::applies(&force_config).then(SpaceWeatherCache::new);
+    /// ```
+    pub(crate) fn applies(cfg: &ForceModelConfig) -> bool {
+        cfg.precompute.is_some_and(|p| p.cache_space_weather)
+            && cfg
+                .drag
+                .as_ref()
+                .is_some_and(|d| matches!(d.model, AtmosphericModel::NRLMSISE00(_)))
+    }
+
+    /// Stored values for a UT1 day.
+    #[cfg(test)]
+    pub(crate) fn day(&self, day: i64) -> Option<&SpaceWeatherDay> {
+        self.days.get(&day)
+    }
+}
+
+/// [`SpaceWeatherLookup`] reading through a [`SpaceWeatherCache`].
+///
+/// The lookup trait takes `&self`, so the mutable cache borrow sits in a
+/// `RefCell`.
+pub(crate) struct CachedSpaceWeather<'a>(RefCell<&'a mut SpaceWeatherCache>);
+
+impl<'a> CachedSpaceWeather<'a> {
+    /// Lookup reading through `cache`.
+    ///
+    /// # Arguments
+    /// - `cache`: Cache to read and fill
+    ///
+    /// # Returns
+    /// - `CachedSpaceWeather`: Lookup borrowing the cache
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// let mut cache = SpaceWeatherCache::new();
+    /// let sw = CachedSpaceWeather::new(&mut cache);
+    /// let rho = density_nrlmsise00_geod_with(&epoch, &geod, &NRLMSISE00Config::default(), &sw)?;
+    /// ```
+    pub(crate) fn new(cache: &'a mut SpaceWeatherCache) -> Self {
+        CachedSpaceWeather(RefCell::new(cache))
+    }
+
+    /// Cached field of the UT1 day containing `mjd_ut1`, read from the
+    /// provider on first use.
+    ///
+    /// The provider is called at `mjd_ut1` itself. Providers resolve these
+    /// fields by `floor(mjd_ut1)`, so the value is the same for the whole day,
+    /// and an error carries the same message as a direct call.
+    ///
+    /// # Arguments
+    /// - `mjd_ut1`: Modified Julian Date in UT1 [days]
+    /// - `slot`: Selects the field of a [`SpaceWeatherDay`] to read and fill
+    /// - `fetch`: Provider call returning the field's value at an MJD in UT1
+    ///
+    /// # Returns
+    /// - `Result<T, BraheError>`: The cached value for the UT1 day, or the error `fetch`
+    ///   returns on a cache miss
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// let ap_daily = sw.field(mjd_ut1, |d| &mut d.ap_daily, get_global_ap_daily)?;
+    /// ```
+    fn field<T: Copy>(
+        &self,
+        mjd_ut1: f64,
+        slot: impl Fn(&mut SpaceWeatherDay) -> &mut Option<T>,
+        fetch: impl FnOnce(f64) -> Result<T, BraheError>,
+    ) -> Result<T, BraheError> {
+        let day = mjd_ut1.floor() as i64;
+        let mut cache = self.0.borrow_mut();
+        if let Some(value) = cache.days.get_mut(&day).and_then(|d| *slot(d)) {
+            return Ok(value);
+        }
+        let value = fetch(mjd_ut1)?;
+        *slot(cache.days.entry(day).or_default()) = Some(value);
+        Ok(value)
+    }
+}
+
+impl SpaceWeatherLookup for CachedSpaceWeather<'_> {
+    fn ap_daily(&self, mjd_ut1: f64) -> Result<f64, BraheError> {
+        self.field(mjd_ut1, |d| &mut d.ap_daily, get_global_ap_daily)
+    }
+
+    fn ap(&self, mjd_ut1: f64) -> Result<f64, BraheError> {
+        let ap = self.field(mjd_ut1, |d| &mut d.ap, get_global_ap_all)?;
+        Ok(ap[FileSpaceWeatherProvider::get_interval_index(mjd_ut1)])
+    }
+
+    fn f107_observed(&self, mjd_ut1: f64) -> Result<f64, BraheError> {
+        self.field(mjd_ut1, |d| &mut d.f107_observed, get_global_f107_observed)
+    }
+
+    fn f107_obs_avg81(&self, mjd_ut1: f64) -> Result<f64, BraheError> {
+        self.field(
+            mjd_ut1,
+            |d| &mut d.f107_obs_avg81,
+            get_global_f107_obs_avg81,
+        )
+    }
+}
+
 #[cfg(test)]
 #[allow(non_snake_case)]
 mod tests {
     use super::*;
+    use crate::constants::R_EARTH;
+    use crate::earth_models::{
+        NRLMSISE00Config, density_nrlmsise00, density_nrlmsise00_geod,
+        density_nrlmsise00_geod_with, density_nrlmsise00_with,
+    };
     use crate::frames::rotation_eci_to_ecef;
     use crate::orbit_dynamics::tides::SolidTideConfig;
     use crate::propagators::{
@@ -993,7 +1154,16 @@ mod tests {
         ParameterSource, PrecomputeConfig, SolarRadiationPressureConfiguration,
         ThirdBodyConfiguration, TidesConfiguration, ZonalHarmonicsDegree,
     };
-    use crate::utils::testing::{setup_global_test_eop, setup_global_test_spice};
+    use crate::space_weather::{
+        FileSpaceWeatherProvider, SpaceWeatherExtrapolation, StaticSpaceWeatherProvider,
+        get_global_ap, get_global_ap_daily, get_global_f107_obs_avg81, get_global_f107_observed,
+        get_global_sw_mjd_last_daily_predicted, get_global_sw_mjd_max, get_global_sw_mjd_min,
+        set_global_space_weather_provider,
+    };
+    use crate::utils::testing::{
+        get_test_space_weather_filepath, setup_global_test_eop, setup_global_test_space_weather,
+        setup_global_test_spice,
+    };
     use approx::assert_abs_diff_eq;
     use serial_test::{parallel, serial};
 
@@ -1595,5 +1765,149 @@ mod tests {
         inputs.ensure(t0 + 600.0, t0 + 1200.0).unwrap();
         assert_eq!(inputs.rotation_nodes_computed(), computed);
         assert!(inputs.covers_span(t0, t0 + 3600.0));
+    }
+
+    /// Reinstalls the standard test space-weather provider when dropped, so a
+    /// test that installs another provider restores it even when an assertion
+    /// fails.
+    struct RestoreTestSpaceWeather;
+
+    impl Drop for RestoreTestSpaceWeather {
+        fn drop(&mut self) {
+            setup_global_test_space_weather();
+        }
+    }
+
+    /// Epochs at each 3-hour bin boundary of a UT1 day, offset by -1 ms, 0
+    /// and +1 ms.
+    fn space_weather_bin_epochs(day_mjd: f64) -> Vec<Epoch> {
+        let midnight = Epoch::from_mjd(day_mjd, TimeSystem::UT1);
+        (0..8)
+            .flat_map(|bin| {
+                let boundary = midnight + bin as f64 * 10800.0;
+                [boundary - 1e-3, boundary, boundary + 1e-3]
+            })
+            .collect()
+    }
+
+    /// Asserts that every lookup and the NRLMSISE-00 density read through one
+    /// shared cache equal the global-provider path bitwise at each epoch.
+    fn assert_space_weather_cache_matches_global(epochs: &[Epoch]) {
+        let config = NRLMSISE00Config::default();
+        let geod = [-74.0, 40.7, 400e3];
+        let x_ecef = Vector3::new(R_EARTH + 400e3, 0.0, 0.0);
+        let mut cache = SpaceWeatherCache::new();
+        for epoch in epochs {
+            let sw = CachedSpaceWeather::new(&mut cache);
+            let mjd = epoch.mjd_as_time_system(TimeSystem::UT1);
+            for offset in [0.0, -0.125, -1.0, -57.0 / 24.0] {
+                let m = mjd + offset;
+                assert_eq!(
+                    sw.ap_daily(m).unwrap().to_bits(),
+                    get_global_ap_daily(m).unwrap().to_bits()
+                );
+                assert_eq!(
+                    sw.ap(m).unwrap().to_bits(),
+                    get_global_ap(m).unwrap().to_bits()
+                );
+                assert_eq!(
+                    sw.f107_observed(m).unwrap().to_bits(),
+                    get_global_f107_observed(m).unwrap().to_bits()
+                );
+                assert_eq!(
+                    sw.f107_obs_avg81(m).unwrap().to_bits(),
+                    get_global_f107_obs_avg81(m).unwrap().to_bits()
+                );
+            }
+            let cached = density_nrlmsise00_geod_with(epoch, &geod, &config, &sw).unwrap();
+            let global = density_nrlmsise00_geod(epoch, &geod, &config).unwrap();
+            assert_eq!(cached.to_bits(), global.to_bits(), "epoch {epoch}");
+            let cached = density_nrlmsise00_with(epoch, x_ecef, &config, &sw).unwrap();
+            let global = density_nrlmsise00(epoch, x_ecef, &config).unwrap();
+            assert_eq!(cached.to_bits(), global.to_bits(), "epoch {epoch}");
+        }
+    }
+
+    /// Epochs on the first day after the daily-predicted section and five
+    /// days into the monthly-predicted section.
+    fn monthly_predicted_epochs() -> Vec<Epoch> {
+        let last_daily = get_global_sw_mjd_last_daily_predicted().floor();
+        let mut epochs = space_weather_bin_epochs(last_daily + 1.0);
+        epochs.extend(space_weather_bin_epochs(last_daily + 5.0));
+        epochs
+    }
+
+    #[test]
+    #[parallel]
+    fn test_SpaceWeatherCache_matches_provider_file() {
+        setup_global_test_eop();
+        setup_global_test_space_weather();
+        let mut epochs = space_weather_bin_epochs(60384.0);
+        epochs.extend(space_weather_bin_epochs(60385.0));
+        epochs.extend(monthly_predicted_epochs());
+        epochs.extend(space_weather_bin_epochs(
+            get_global_sw_mjd_max().floor() + 30.0,
+        ));
+        assert_space_weather_cache_matches_global(&epochs);
+    }
+
+    #[test]
+    #[serial]
+    fn test_SpaceWeatherCache_matches_provider_zero_extrapolation() {
+        setup_global_test_eop();
+        let _restore = RestoreTestSpaceWeather;
+        set_global_space_weather_provider(
+            FileSpaceWeatherProvider::from_file(
+                &get_test_space_weather_filepath(),
+                SpaceWeatherExtrapolation::Zero,
+            )
+            .unwrap(),
+        );
+        let epochs = monthly_predicted_epochs();
+        let last_daily = get_global_sw_mjd_last_daily_predicted();
+        assert_eq!(get_global_ap(last_daily + 5.0).unwrap(), 0.0);
+        assert_space_weather_cache_matches_global(&epochs);
+    }
+
+    #[test]
+    #[serial]
+    fn test_SpaceWeatherCache_matches_static_provider() {
+        setup_global_test_eop();
+        let _restore = RestoreTestSpaceWeather;
+        set_global_space_weather_provider(StaticSpaceWeatherProvider::from_values(
+            3.0, 15.0, 150.0, 145.0, 100,
+        ));
+        let mut epochs = space_weather_bin_epochs(60384.0);
+        epochs.extend(space_weather_bin_epochs(70000.0));
+        assert_space_weather_cache_matches_global(&epochs);
+    }
+
+    #[test]
+    #[serial]
+    fn test_SpaceWeatherCache_error_not_cached() {
+        let _restore = RestoreTestSpaceWeather;
+        set_global_space_weather_provider(
+            FileSpaceWeatherProvider::from_file(
+                &get_test_space_weather_filepath(),
+                SpaceWeatherExtrapolation::Error,
+            )
+            .unwrap(),
+        );
+        let mjd = get_global_sw_mjd_min() - 10.25;
+        let day = mjd.floor() as i64;
+        let mut cache = SpaceWeatherCache::new();
+        let sw = CachedSpaceWeather::new(&mut cache);
+        let pairs = [
+            (sw.ap_daily(mjd), get_global_ap_daily(mjd)),
+            (sw.ap(mjd), get_global_ap(mjd)),
+            (sw.f107_observed(mjd), get_global_f107_observed(mjd)),
+            (sw.f107_obs_avg81(mjd), get_global_f107_obs_avg81(mjd)),
+        ];
+        for (cached, global) in pairs {
+            let (cached, global) = (cached.unwrap_err(), global.unwrap_err());
+            assert!(matches!(cached, BraheError::SpaceWeatherError(_)));
+            assert_eq!(cached.to_string(), global.to_string());
+        }
+        assert!(cache.day(day).is_none());
     }
 }

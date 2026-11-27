@@ -67,6 +67,11 @@ fn py_icgem_list_models(body: &str) -> PyResult<Vec<PyIndexEntry>> {
 }
 
 /// Force-refresh the ICGEM index file for a single body.
+///
+/// Args:
+///     body (str): Body name. "earth" refreshes the Earth index; any other
+///         name ("moon", "mars", "venus", "ceres", or a custom celestial body)
+///         refreshes the shared ICGEM celestial index.
 #[pyfunction]
 #[pyo3(name = "icgem_refresh_index")]
 fn py_icgem_refresh_index(body: &str) -> PyResult<()> {

@@ -6975,7 +6975,7 @@ impl PyReferenceFrame {
     /// staticmethods (e.g. `ReferenceFrame.CSS`, `ReferenceFrame.RW`).
     ///
     /// Args:
-    ///     object (str, optional): The object the frame is defined relative to.
+    ///     object (str | None): The object the frame is defined relative to.
     ///         `None` constructs an unbound label frame.
     ///     body_frame (BodyFrame): The body frame kind and optional instance designator
     ///

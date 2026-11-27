@@ -102,7 +102,7 @@ impl PyPropertiesDict {
     ///
     /// Args:
     ///     key (str): Property name
-    ///     default (optional): Value to return if key not found
+    ///     default (Any, optional): Value to return if key not found
     ///
     /// Returns:
     ///     Any: Property value if key exists, otherwise default value
@@ -2872,6 +2872,23 @@ impl PyAccessPropertiesView {
 /// local time, look direction, ascending/descending) computed over an access window,
 /// plus location coordinates, plus a dictionary of additional custom properties.
 ///
+/// Args:
+///     azimuth_open (float): Azimuth angle at window opening (degrees, 0-360)
+///     azimuth_close (float): Azimuth angle at window closing (degrees, 0-360)
+///     elevation_min (float): Minimum elevation angle (degrees)
+///     elevation_max (float): Maximum elevation angle (degrees)
+///     elevation_open (float): Elevation angle at window opening (degrees)
+///     elevation_close (float): Elevation angle at window closing (degrees)
+///     off_nadir_min (float): Minimum off-nadir angle (degrees)
+///     off_nadir_max (float): Maximum off-nadir angle (degrees)
+///     local_time (float): Local solar time (seconds since midnight, 0-86400)
+///     look_direction (LookDirection): Required look direction (Left or Right)
+///     asc_dsc (AscDsc): Pass type (Ascending or Descending)
+///     center_lon (float): Location center longitude (degrees)
+///     center_lat (float): Location center latitude (degrees)
+///     center_alt (float): Location center altitude (meters)
+///     center_ecef (list[float]): Location center ECEF coordinates [x, y, z] (meters)
+///
 /// Attributes:
 ///     azimuth_open (float): Azimuth angle at window opening (degrees, 0-360)
 ///     azimuth_close (float): Azimuth angle at window closing (degrees, 0-360)
@@ -3599,7 +3616,7 @@ impl PyAdditionalPropertiesDict {
     ///
     /// Args:
     ///     key (str): Property name
-    ///     default (optional): Value to return if key not found
+    ///     default (Any, optional): Value to return if key not found
     ///
     /// Returns:
     ///     Any: Property value if key exists, otherwise default value
@@ -4020,6 +4037,12 @@ impl PyRangeRateComputer {
 /// The compute method is called for each access window and should return a dictionary
 /// of property names to values. Properties can be scalars, vectors, time series,
 /// booleans, strings, or any JSON-serializable value.
+///
+/// Args:
+///     _args (Any): Positional arguments, accepted and ignored so that subclasses
+///         can define their own constructor parameters.
+///     _kwargs (Any): Keyword arguments, accepted and ignored so that subclasses
+///         can define their own constructor parameters.
 ///
 /// Example:
 ///     ```python

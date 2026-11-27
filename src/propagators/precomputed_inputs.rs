@@ -146,12 +146,12 @@ fn lerp(a: &SMatrix3, b: &SMatrix3, s: f64) -> SMatrix3 {
 /// [`interpolate_lagrange_svector`](crate::math::interpolation::interpolate_lagrange_svector)
 /// allocates and recomputes the weights on every call.
 #[derive(Debug, Clone)]
-struct Stencil {
+struct GridInterpolator {
     method: InterpolationMethod,
     weights: Vec<f64>,
 }
 
-impl Stencil {
+impl GridInterpolator {
     fn new(method: InterpolationMethod) -> Self {
         let weights = match method {
             InterpolationMethod::Lagrange { degree } => {
@@ -167,7 +167,7 @@ impl Stencil {
             }
             _ => Vec::new(),
         };
-        Stencil { method, weights }
+        GridInterpolator { method, weights }
     }
 
     /// Node offsets `(lo, hi)` from `k = floor(x)` that a query anywhere in
@@ -207,7 +207,7 @@ impl Stencil {
     /// - `end`: The other end of the span
     ///
     /// # Returns
-    /// - `NodeRange`: [`NodeRange::bracketing`] widened by the stencil's reach
+    /// - `NodeRange`: [`NodeRange::bracketing`] widened by the interpolator's reach
     fn span(&self, step: f64, start: Epoch, end: Epoch) -> NodeRange {
         let (lo, hi) = self.reach();
         let bracket = NodeRange::bracketing(step, start, end);
@@ -398,7 +398,7 @@ impl<T> NodeStore<T> {
 #[derive(Debug, Clone)]
 pub(crate) struct FrameRotationTable {
     store: NodeStore<(SMatrix3, SMatrix3)>,
-    stencil: Stencil,
+    interpolator: GridInterpolator,
     #[cfg(test)]
     pub(crate) nodes_computed: usize,
 }
@@ -411,7 +411,7 @@ impl FrameRotationTable {
     pub(crate) fn new(step: f64) -> Self {
         FrameRotationTable {
             store: NodeStore::new(step),
-            stencil: Stencil::new(InterpolationMethod::Linear),
+            interpolator: GridInterpolator::new(InterpolationMethod::Linear),
             #[cfg(test)]
             nodes_computed: 0,
         }
@@ -427,7 +427,7 @@ impl FrameRotationTable {
     /// - `FrameRotationTable`: The table using `method`
     pub(crate) fn with_interpolation(mut self, method: InterpolationMethod) -> Self {
         debug_assert!(self.store.nodes.is_empty());
-        self.stencil = Stencil::new(method);
+        self.interpolator = GridInterpolator::new(method);
         self
     }
 
@@ -446,7 +446,7 @@ impl FrameRotationTable {
     /// # Returns
     /// - `NodeRange`: Nodes bracketing the span, widened by the interpolation method's reach
     pub(crate) fn span(&self, start: Epoch, end: Epoch) -> NodeRange {
-        self.stencil.span(self.store.step, start, end)
+        self.interpolator.span(self.store.step, start, end)
     }
 
     /// Extend the table to cover `need`, computing only missing nodes.
@@ -479,12 +479,12 @@ impl FrameRotationTable {
     /// - `Option<SMatrix3>`: `PM * ERA(epoch) * BPN`, with `PM` and `BPN` interpolated, or
     ///   `None` when a node the interpolation reads is not held
     pub(crate) fn rotation(&self, epoch: Epoch) -> Option<SMatrix3> {
-        let InterpolationMethod::Lagrange { degree } = self.stencil.method else {
+        let InterpolationMethod::Lagrange { degree } = self.interpolator.method else {
             let ((bpn0, pm0), (bpn1, pm1), s) = self.store.bracket(epoch)?;
             return Some(lerp(pm0, pm1, s) * earth_rotation(epoch) * lerp(bpn0, bpn1, s));
         };
         let (k, s) = NodeRange::locate(self.store.step, epoch);
-        let first = Stencil::lagrange_first(degree, k, s);
+        let first = GridInterpolator::lagrange_first(degree, k, s);
         let i = self.store.window(first, degree + 1)?;
         let nodes = &self.store.nodes;
         if s == 0.0 {
@@ -495,7 +495,7 @@ impl FrameRotationTable {
         let mut bpn = SMatrix3::zeros();
         let mut pm = SMatrix3::zeros();
         let mut den = 0.0;
-        for (j, c) in self.stencil.lagrange_terms(u).enumerate() {
+        for (j, c) in self.interpolator.lagrange_terms(u).enumerate() {
             let (bpn_j, pm_j) = &nodes[i + j];
             bpn += bpn_j * c;
             pm += pm_j * c;
@@ -877,7 +877,7 @@ pub(crate) struct EphemerisTable {
     queries: Vec<ChannelQuery>,
     offsets: Vec<usize>,
     stride: usize,
-    stencil: Stencil,
+    interpolator: GridInterpolator,
 }
 
 impl EphemerisTable {
@@ -902,7 +902,7 @@ impl EphemerisTable {
             queries,
             offsets: Vec::new(),
             stride: 0,
-            stencil: Stencil::new(InterpolationMethod::Linear),
+            interpolator: GridInterpolator::new(InterpolationMethod::Linear),
         };
         table.layout();
         table
@@ -918,14 +918,14 @@ impl EphemerisTable {
     /// - `EphemerisTable`: The table using `method`
     pub(crate) fn with_interpolation(mut self, method: InterpolationMethod) -> Self {
         debug_assert!(self.store.nodes.is_empty());
-        self.stencil = Stencil::new(method);
+        self.interpolator = GridInterpolator::new(method);
         self.layout();
         self
     }
 
     /// Whether nodes store each channel's time derivatives after its values.
     fn stores_derivatives(&self) -> bool {
-        self.stencil.method == InterpolationMethod::HermiteCubic
+        self.interpolator.method == InterpolationMethod::HermiteCubic
     }
 
     fn layout(&mut self) {
@@ -953,7 +953,7 @@ impl EphemerisTable {
     /// # Returns
     /// - `NodeRange`: Nodes bracketing the span, widened by the interpolation method's reach
     pub(crate) fn span(&self, start: Epoch, end: Epoch) -> NodeRange {
-        self.stencil.span(self.store.step, start, end)
+        self.interpolator.span(self.store.step, start, end)
     }
 
     /// Extend the table to cover `need`, computing only missing nodes.
@@ -1020,7 +1020,7 @@ impl EphemerisTable {
         let dim = self.queries.get(channel)?.dim();
         let off = self.offsets[channel];
         let mut out = [0.0; 6];
-        match self.stencil.method {
+        match self.interpolator.method {
             InterpolationMethod::Linear | InterpolationMethod::HermiteQuintic => {
                 let (a, b, s) = self.store.bracket(epoch)?;
                 for (o, (a, b)) in out
@@ -1032,7 +1032,7 @@ impl EphemerisTable {
             }
             InterpolationMethod::Lagrange { degree } => {
                 let (k, s) = NodeRange::locate(self.store.step, epoch);
-                let first = Stencil::lagrange_first(degree, k, s);
+                let first = GridInterpolator::lagrange_first(degree, k, s);
                 let i = self.store.window(first, degree + 1)?;
                 let nodes = &self.store.nodes;
                 if s == 0.0 {
@@ -1042,7 +1042,7 @@ impl EphemerisTable {
                 }
                 let u = (k - first) as f64 + s;
                 let mut den = 0.0;
-                for (j, c) in self.stencil.lagrange_terms(u).enumerate() {
+                for (j, c) in self.interpolator.lagrange_terms(u).enumerate() {
                     for (o, y) in out.iter_mut().zip(&nodes[i + j][off..off + dim]) {
                         *o += c * y;
                     }

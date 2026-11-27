@@ -4774,6 +4774,165 @@ impl PyTidesConfiguration {
     }
 }
 
+/// Precomputed force-model input configuration.
+///
+/// Tabulates inputs that depend only on time, once per propagator, and
+/// interpolates them at the exact epoch of every dynamics call. Assigning an
+/// instance to ``ForceModelConfig.precompute`` enables the tables; the default
+/// ``None`` computes every input at each call.
+///
+/// The frame-rotation table stores the bias-precession-nutation matrix and
+/// polar-motion matrix every ``frame_rotation_step`` and interpolates them
+/// linearly. The Earth rotation angle is computed exactly at each call epoch. The table is used
+/// when the central body is Earth and the frame transformation is
+/// ``FrameTransformationModel.FULL_EARTH_ROTATION``.
+///
+/// ``ephemeris_step`` sets the node spacing of the Sun, Moon, and planet
+/// ephemeris table, and ``cache_space_weather`` enables a per-propagator
+/// space-weather cache for NRLMSISE-00 drag.
+///
+/// The frame-rotation table is the only implemented table: ``ephemeris_step``
+/// and ``cache_space_weather`` currently have no effect.
+///
+/// Steps are checked by ``ForceModelConfig.validate()``, which the propagator
+/// constructor calls, so a non-finite or non-positive step is rejected at
+/// propagator construction. Changing global data (EOP provider, SPICE kernels,
+/// space-weather provider) during propagation is the caller's responsibility.
+///
+/// Args:
+///     frame_rotation_step (float | None, optional): Node spacing of the frame-rotation
+///         table [s]. Must be finite and positive. None disables the table. Default is 600.0.
+///     ephemeris_step (float | None, optional): Node spacing of the ephemeris table [s].
+///         Must be finite and positive. None disables the table. Default is 60.0.
+///     cache_space_weather (bool, optional): Cache space-weather records for the
+///         duration of the propagation. Default is True.
+///
+/// Attributes:
+///     frame_rotation_step (float or None): Node spacing of the frame-rotation table [s]
+///     ephemeris_step (float or None): Node spacing of the ephemeris table [s]
+///     cache_space_weather (bool): Whether space-weather caching is enabled
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     precompute = bh.PrecomputeConfig(frame_rotation_step=300.0)
+///     config = bh.ForceModelConfig(
+///         gravity=bh.GravityConfiguration(degree=20, order=20),
+///         precompute=precompute,
+///     )
+///     assert config.precompute.frame_rotation_step == 300.0
+///     ```
+#[pyclass(module = "brahe._brahe", from_py_object)]
+#[pyo3(name = "PrecomputeConfig")]
+#[derive(Clone)]
+pub struct PyPrecomputeConfig {
+    pub config: propagators::PrecomputeConfig,
+}
+
+#[pymethods]
+impl PyPrecomputeConfig {
+    #[new]
+    #[pyo3(signature = (frame_rotation_step=Some(600.0), ephemeris_step=Some(60.0), cache_space_weather=true))]
+    fn new(
+        frame_rotation_step: Option<f64>,
+        ephemeris_step: Option<f64>,
+        cache_space_weather: bool,
+    ) -> Self {
+        Self {
+            config: propagators::PrecomputeConfig {
+                frame_rotation_step,
+                ephemeris_step,
+                cache_space_weather,
+            },
+        }
+    }
+
+    /// Create the default precompute configuration.
+    ///
+    /// Returns:
+    ///     PrecomputeConfig: Configuration with a 600 s frame-rotation step, a 60 s
+    ///         ephemeris step, and space-weather caching enabled.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     cfg = bh.PrecomputeConfig.default()
+    ///     assert cfg.frame_rotation_step == 600.0
+    ///     ```
+    #[classmethod]
+    fn default(_cls: &Bound<'_, PyType>) -> Self {
+        Self {
+            config: propagators::PrecomputeConfig::default(),
+        }
+    }
+
+    /// Get the frame-rotation table node spacing [s] (None if disabled).
+    ///
+    /// Returns:
+    ///     float | None: Node spacing of the frame-rotation table [s], or None if
+    ///         the table is disabled.
+    #[getter]
+    fn frame_rotation_step(&self) -> Option<f64> {
+        self.config.frame_rotation_step
+    }
+
+    /// Set the frame-rotation table node spacing [s] (None to disable).
+    #[setter]
+    fn set_frame_rotation_step(&mut self, step: Option<f64>) {
+        self.config.frame_rotation_step = step;
+    }
+
+    /// Get the ephemeris table node spacing [s] (None if disabled).
+    ///
+    /// Returns:
+    ///     float | None: Node spacing of the ephemeris table [s], or None if the
+    ///         table is disabled.
+    #[getter]
+    fn ephemeris_step(&self) -> Option<f64> {
+        self.config.ephemeris_step
+    }
+
+    /// Set the ephemeris table node spacing [s] (None to disable).
+    #[setter]
+    fn set_ephemeris_step(&mut self, step: Option<f64>) {
+        self.config.ephemeris_step = step;
+    }
+
+    /// Get whether space-weather caching is enabled.
+    ///
+    /// Returns:
+    ///     bool: True if space-weather records are cached for the propagation.
+    #[getter]
+    fn cache_space_weather(&self) -> bool {
+        self.config.cache_space_weather
+    }
+
+    /// Set whether space-weather caching is enabled.
+    #[setter]
+    fn set_cache_space_weather(&mut self, enabled: bool) {
+        self.config.cache_space_weather = enabled;
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "PrecomputeConfig(frame_rotation_step={}, ephemeris_step={}, cache_space_weather={})",
+            self.config
+                .frame_rotation_step
+                .map_or("None".to_string(), |v| format!("{v:?}")),
+            self.config
+                .ephemeris_step
+                .map_or("None".to_string(), |v| format!("{v:?}")),
+            if self.config.cache_space_weather {
+                "True"
+            } else {
+                "False"
+            }
+        )
+    }
+}
+
 // =============================================================================
 // Gravity Configuration
 // =============================================================================
@@ -6356,6 +6515,8 @@ impl PyNumericalPropagationConfig {
 ///         used by every body-fixed force term. Defaults to ``FULL_EARTH_ROTATION``.
 ///     tides (TidesConfiguration | None, optional): Earth tides configuration.
 ///         Default is None (disabled).
+///     precompute (PrecomputeConfig | None, optional): Precomputed force-input tables.
+///         Default is None (disabled).
 ///
 /// Attributes:
 ///     gravity (GravityConfiguration): Gravity model configuration
@@ -6365,6 +6526,7 @@ impl PyNumericalPropagationConfig {
 ///     relativity (bool): Enable relativistic corrections
 ///     mass (ParameterSource or None): Spacecraft mass source
 ///     frame_transform (FrameTransformationModel): ECI-to-body-fixed rotation model
+///     precompute (PrecomputeConfig or None): Precomputed force-input tables
 ///
 /// Example:
 ///     ```python
@@ -6390,7 +6552,7 @@ pub struct PyForceModelConfig {
 #[pymethods]
 impl PyForceModelConfig {
     #[new]
-    #[pyo3(signature = (gravity=None, drag=None, srp=None, third_body=None, relativity=false, mass=None, frame_transform=None, tides=None))]
+    #[pyo3(signature = (gravity=None, drag=None, srp=None, third_body=None, relativity=false, mass=None, frame_transform=None, tides=None, precompute=None))]
     #[allow(clippy::too_many_arguments)]
     fn new(
         gravity: Option<&PyGravityConfiguration>,
@@ -6401,6 +6563,7 @@ impl PyForceModelConfig {
         mass: Option<&PyParameterSource>,
         frame_transform: Option<&PyFrameTransformationModel>,
         tides: Option<&PyTidesConfiguration>,
+        precompute: Option<&PyPrecomputeConfig>,
     ) -> Self {
         PyForceModelConfig {
             config: propagators::ForceModelConfig {
@@ -6415,6 +6578,7 @@ impl PyForceModelConfig {
                 mass: mass.map(|m| m.source.clone()),
                 frame_transform: frame_transform.map(|f| f.model.clone()).unwrap_or_default(),
                 tides: tides.map(|t| t.config.clone()),
+                precompute: precompute.map(|p| p.config),
             },
         }
     }
@@ -6758,6 +6922,24 @@ impl PyForceModelConfig {
     #[setter]
     fn set_tides(&mut self, tides: Option<&PyTidesConfiguration>) {
         self.config.tides = tides.map(|t| t.config.clone());
+    }
+
+    /// Get the precomputed-input configuration (None if disabled).
+    ///
+    /// Returns:
+    ///     PrecomputeConfig | None: Precomputed force-input table configuration, or
+    ///         None if precomputation is disabled.
+    #[getter]
+    fn precompute(&self) -> Option<PyPrecomputeConfig> {
+        self.config
+            .precompute
+            .map(|p| PyPrecomputeConfig { config: p })
+    }
+
+    /// Set the precomputed-input configuration (None to disable).
+    #[setter]
+    fn set_precompute(&mut self, precompute: Option<&PyPrecomputeConfig>) {
+        self.config.precompute = precompute.map(|p| p.config);
     }
 
     fn __repr__(&self) -> String {

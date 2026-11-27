@@ -13,13 +13,16 @@ from brahe import (
     GM_MOON,
     R_EARTH,
     R_MOON,
+    AltitudeEvent,
     AngleFormat,
     AtmosphericModel,
     CelestialFrame,
     CentralBody,
     DragConfiguration,
     Epoch,
+    EventDirection,
     ForceModelConfig,
+    FrameTransformationModel,
     GravityConfiguration,
     IntegrationMethod,
     IntegratorConfig,
@@ -28,6 +31,7 @@ from brahe import (
     NumericalOrbitPropagator,
     NumericalPropagationConfig,
     ParameterSource,
+    PrecomputeConfig,
     TimeSystem,
     VariationalConfig,
     orbital_period,
@@ -6640,3 +6644,209 @@ def test_numericalorbitpropagator_tolerances_affect_slow_orbit():
     assert difference > 0.0, (
         f"Tolerances must affect the propagated state, diff = {difference:.6e} m"
     )
+
+
+# =============================================================================
+# Precomputed force inputs
+# =============================================================================
+
+
+def _precompute_rk4_config():
+    return NumericalPropagationConfig(
+        IntegrationMethod.RK4,
+        IntegratorConfig.fixed_step(30.0),
+        VariationalConfig(),
+    )
+
+
+def _precompute_rk4_30s_config(variational=None):
+    return NumericalPropagationConfig(
+        IntegrationMethod.RK4,
+        IntegratorConfig(initial_step=30.0, fixed_step_size=30.0),
+        variational if variational is not None else VariationalConfig(),
+    )
+
+
+def _precompute_propagator(precompute, prop_config=None):
+    epoch = Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem.UTC)
+    oe = np.array([R_EARTH + 500e3, 0.001, 97.8, 15.0, 30.0, 45.0])
+    state = state_koe_to_eci(oe, AngleFormat.DEGREES)
+    force_config = ForceModelConfig(
+        gravity=GravityConfiguration(degree=20, order=20), precompute=precompute
+    )
+    return NumericalOrbitPropagator(
+        epoch,
+        state,
+        prop_config if prop_config is not None else _precompute_rk4_config(),
+        force_config,
+        None,
+    )
+
+
+def test_precompute_rotation_fixed_step_accuracy():
+    on = _precompute_propagator(
+        PrecomputeConfig(
+            frame_rotation_step=600.0, ephemeris_step=None, cache_space_weather=False
+        )
+    )
+    off = _precompute_propagator(None)
+    target = on.initial_epoch + 86400.0
+    on.propagate_to(target)
+    off.propagate_to(target)
+    dr = np.linalg.norm(on.current_state()[:3] - off.current_state()[:3])
+    assert dr < 1e-3
+
+
+def _precompute_rotation_only():
+    return PrecomputeConfig(
+        frame_rotation_step=600.0, ephemeris_step=None, cache_space_weather=False
+    )
+
+
+def test_precompute_rotation_deterministic_across_entry_points():
+    single = _precompute_propagator(
+        _precompute_rotation_only(), _precompute_rk4_30s_config()
+    )
+    stepped = _precompute_propagator(
+        _precompute_rotation_only(), _precompute_rk4_30s_config()
+    )
+    split = _precompute_propagator(
+        _precompute_rotation_only(), _precompute_rk4_30s_config()
+    )
+    t0 = single.initial_epoch
+    target = t0 + 86400.0
+
+    single.propagate_to(target)
+    assert len(single.trajectory) == 2881
+    for _ in range(2880):
+        stepped.step_by(30.0)
+    split.propagate_to(t0 + 43200.0)
+    split.propagate_to(target)
+
+    assert stepped.current_epoch() == target
+    assert split.current_epoch() == target
+    assert np.array_equal(single.current_state(), stepped.current_state())
+    assert np.array_equal(single.current_state(), split.current_state())
+
+
+def test_precompute_rotation_backward():
+    on = _precompute_propagator(
+        _precompute_rotation_only(), _precompute_rk4_30s_config()
+    )
+    off = _precompute_propagator(None, _precompute_rk4_30s_config())
+    t0 = on.initial_epoch
+    for prop in (on, off):
+        prop.propagate_to(t0 + 86400.0)
+        prop.propagate_to(t0)
+    assert on.current_epoch() == t0
+    dr = np.linalg.norm(on.current_state()[:3] - off.current_state()[:3])
+    assert dr < 1e-3
+
+
+def test_precompute_rotation_events_match():
+    on = _precompute_propagator(
+        _precompute_rotation_only(), _precompute_rk4_30s_config()
+    )
+    off = _precompute_propagator(None, _precompute_rk4_30s_config())
+    t0 = on.initial_epoch
+    for prop in (on, off):
+        prop.add_event_detector(
+            AltitudeEvent(510e3, "Altitude 510 km", EventDirection.ANY)
+        )
+        prop.propagate_to(t0 + 86400.0)
+    assert len(off.event_log()) > 0, "expected an altitude crossing"
+    assert len(on.event_log()) == len(off.event_log())
+    max_dt = max(
+        abs(a.window_open - b.window_open)
+        for a, b in zip(on.event_log(), off.event_log())
+    )
+    assert max_dt < 1e-6
+
+
+def test_precompute_construction_paths_use_table():
+    epoch = Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem.UTC)
+    oe = np.array([R_EARTH + 500e3, 0.001, 97.8, 15.0, 30.0, 45.0])
+    state = state_koe_to_eci(oe, AngleFormat.DEGREES)
+
+    def build(prop_config, precompute, with_drag):
+        force_config = ForceModelConfig(
+            gravity=GravityConfiguration(degree=20, order=20), precompute=precompute
+        )
+        params = None
+        if with_drag:
+            force_config.drag = DragConfiguration(
+                model=AtmosphericModel.HARRIS_PRIESTER,
+                area=ParameterSource.parameter_index(1),
+                cd=ParameterSource.parameter_index(2),
+            )
+            force_config.mass = ParameterSource.parameter_index(0)
+            params = create_test_params()
+        return NumericalOrbitPropagator(epoch, state, prop_config, force_config, params)
+
+    accel_config = _precompute_rk4_30s_config().with_store_accelerations(True)
+    on = build(accel_config, _precompute_rotation_only(), False)
+    off = build(accel_config, None, False)
+    da = np.linalg.norm(
+        on.trajectory.acceleration_at_idx(0) - off.trajectory.acceleration_at_idx(0)
+    )
+    assert da < 1e-12
+
+    variational_config = _precompute_rk4_30s_config(
+        VariationalConfig(enable_stm=True, enable_sensitivity=True)
+    )
+
+    def relative(a, b):
+        return np.linalg.norm(a - b) / np.linalg.norm(b)
+
+    on = build(variational_config, _precompute_rotation_only(), True)
+    off = build(variational_config, None, True)
+
+    on.propagate_to(epoch + 30.0)
+    off.propagate_to(epoch + 30.0)
+    assert np.linalg.norm(off.sensitivity()) > 0.0
+    assert relative(on.stm(), off.stm()) < 1e-9
+    assert relative(on.sensitivity(), off.sensitivity()) < 1e-9
+
+    on.propagate_to(epoch + 86400.0)
+    off.propagate_to(epoch + 86400.0)
+    assert relative(on.stm(), off.stm()) < 1e-3
+    assert relative(on.sensitivity(), off.sensitivity()) < 1e-3
+
+
+def test_precompute_invalid_step_raises():
+    with pytest.raises(RuntimeError, match="frame_rotation_step"):
+        _precompute_propagator(PrecomputeConfig(frame_rotation_step=0.0))
+
+
+def test_precompute_key_none_for_non_earth_or_era_only(naif_cache_setup):
+    epoch = Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem.UTC)
+    oe = np.array([R_EARTH + 500e3, 0.001, 97.8, 15.0, 30.0, 45.0])
+    earth_state = state_koe_to_eci(oe, AngleFormat.DEGREES)
+    a = R_MOON + 100e3
+    moon_state = np.array(
+        [a, 0.0, 0.0, 0.0, periapsis_velocity(a, 0.0, gm=GM_MOON), 0.0]
+    )
+
+    def era_config(precompute):
+        return ForceModelConfig(
+            gravity=GravityConfiguration(degree=20, order=20),
+            frame_transform=FrameTransformationModel.EARTH_ROTATION_ONLY,
+            precompute=precompute,
+        )
+
+    def moon_config(precompute):
+        config = ForceModelConfig.for_body(
+            CentralBody.Moon, GravityConfiguration.point_mass()
+        )
+        config.precompute = precompute
+        return config
+
+    for build, state in ((era_config, earth_state), (moon_config, moon_state)):
+        final = []
+        for precompute in (_precompute_rotation_only(), None):
+            prop = NumericalOrbitPropagator(
+                epoch, state, _precompute_rk4_30s_config(), build(precompute), None
+            )
+            prop.propagate_to(epoch + 21600.0)
+            final.append(prop.current_state())
+        assert np.array_equal(final[0], final[1])

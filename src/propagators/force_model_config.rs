@@ -180,6 +180,11 @@ pub struct ForceModelConfig {
     /// Tidal corrections to the gravity field. `None` (default) disables tides.
     #[serde(default)]
     pub tides: Option<TidesConfiguration>,
+
+    /// Precomputed tables for time-only force-model inputs. `None` (default)
+    /// evaluates every input at each force-model call.
+    #[serde(default)]
+    pub precompute: Option<PrecomputeConfig>,
 }
 
 impl Default for ForceModelConfig {
@@ -209,6 +214,7 @@ impl Default for ForceModelConfig {
             mass: Some(ParameterSource::ParameterIndex(0)),
             frame_transform: FrameTransformationModel::default(),
             tides: None,
+            precompute: None,
         }
     }
 }
@@ -328,6 +334,7 @@ impl ForceModelConfig {
     ///     mass: Some(ParameterSource::ParameterIndex(0)),
     ///     frame_transform: Default::default(),
     ///     tides: None,
+    ///     precompute: None,
     /// };
     ///
     /// // This will fail - config needs params but none provided
@@ -455,6 +462,7 @@ impl ForceModelConfig {
                 // positions come from the same ephemeris and share the cache.
                 ephemeris_source: EphemerisSource::DE440s,
             }),
+            precompute: None,
         }
     }
 
@@ -475,6 +483,7 @@ impl ForceModelConfig {
             mass: None,
             frame_transform: FrameTransformationModel::default(),
             tides: None,
+            precompute: None,
         }
     }
 
@@ -494,6 +503,7 @@ impl ForceModelConfig {
             mass: None,
             frame_transform: FrameTransformationModel::default(),
             tides: None,
+            precompute: None,
         }
     }
 
@@ -514,6 +524,7 @@ impl ForceModelConfig {
             mass: None,
             frame_transform: FrameTransformationModel::default(),
             tides: None,
+            precompute: None,
         }
     }
 
@@ -547,6 +558,7 @@ impl ForceModelConfig {
             mass: Some(ParameterSource::ParameterIndex(0)),
             frame_transform: FrameTransformationModel::default(),
             tides: None,
+            precompute: None,
         }
     }
 
@@ -575,6 +587,7 @@ impl ForceModelConfig {
             mass: Some(ParameterSource::ParameterIndex(0)),
             frame_transform: FrameTransformationModel::default(),
             tides: None,
+            precompute: None,
         }
     }
 }
@@ -633,6 +646,64 @@ impl Default for OceanTideConfig {
             order: 20,
             include_admittance: true,
             pole_tide: false,
+        }
+    }
+}
+
+/// Opt-in precomputed tables for force-model inputs that depend only on time.
+///
+/// Each table holds the nodes that bracket the spans requested during
+/// propagation, and values between nodes are linearly interpolated. `None` on
+/// [`ForceModelConfig`] disables all tables.
+///
+/// The frame-rotation table is the only implemented table: `ephemeris_step`
+/// and `cache_space_weather` currently have no effect.
+///
+/// Steps are checked by [`ForceModelConfig::validate`], which the propagator
+/// constructor calls, so a non-finite or non-positive step is rejected at
+/// propagator construction. Changing global data (EOP provider, SPICE kernels,
+/// space-weather provider) during propagation is the caller's responsibility.
+///
+/// # Arguments
+///
+/// * `frame_rotation_step` - Grid spacing of the frame-rotation table [s].
+///   `None` disables the table.
+/// * `ephemeris_step` - Grid spacing of the Sun/Moon/third-body ephemeris
+///   table [s]. `None` disables the table.
+/// * `cache_space_weather` - Cache space-weather records for the duration of
+///   the propagation.
+///
+/// # Examples
+///
+/// ```rust
+/// use brahe::propagators::{ForceModelConfig, PrecomputeConfig};
+///
+/// let config = ForceModelConfig {
+///     precompute: Some(PrecomputeConfig::default()),
+///     ..Default::default()
+/// };
+/// assert!(config.validate().is_ok());
+/// ```
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct PrecomputeConfig {
+    /// Grid spacing of the frame-rotation table [s]. Must be finite and
+    /// positive. `None` disables the table.
+    pub frame_rotation_step: Option<f64>,
+    /// Grid spacing of the ephemeris table [s]. Must be finite and positive.
+    /// `None` disables the table.
+    pub ephemeris_step: Option<f64>,
+    /// Cache space-weather records for the duration of the propagation.
+    pub cache_space_weather: bool,
+}
+
+impl Default for PrecomputeConfig {
+    /// Returns a 600 s frame-rotation grid, a 60 s ephemeris grid, and
+    /// space-weather caching enabled.
+    fn default() -> Self {
+        Self {
+            frame_rotation_step: Some(600.0),
+            ephemeris_step: Some(60.0),
+            cache_space_weather: true,
         }
     }
 }
@@ -727,6 +798,7 @@ impl ForceModelConfig {
             mass,
             frame_transform: FrameTransformationModel::default(),
             tides: None,
+            precompute: None,
         }
     }
 
@@ -888,6 +960,22 @@ impl ForceModelConfig {
     /// assert!(config.validate().is_ok());
     /// ```
     pub fn validate(&self) -> Result<(), BraheError> {
+        if let Some(ref pre) = self.precompute {
+            for (name, step) in [
+                ("frame_rotation_step", pre.frame_rotation_step),
+                ("ephemeris_step", pre.ephemeris_step),
+            ] {
+                if let Some(step) = step
+                    && !(step.is_finite() && step > 0.0)
+                {
+                    return Err(BraheError::Error(format!(
+                        "precompute.{} must be finite and positive, got {}",
+                        name, step
+                    )));
+                }
+            }
+        }
+
         let is_earth = matches!(self.central_body, CentralBody::Earth);
 
         if !is_earth {
@@ -2150,10 +2238,73 @@ impl DefaultParameterLayout {
 }
 
 #[cfg(test)]
+#[allow(non_snake_case)]
 mod tests {
     use super::*;
     use crate::earth_models::{NRLMSISE00ApMode, NRLMSISE00Switch};
+    use rstest::rstest;
     use serial_test::{parallel, serial};
+
+    #[test]
+    #[parallel]
+    fn test_PrecomputeConfig_default() {
+        let cfg = PrecomputeConfig::default();
+        assert_eq!(cfg.frame_rotation_step, Some(600.0));
+        assert_eq!(cfg.ephemeris_step, Some(60.0));
+        assert!(cfg.cache_space_weather);
+    }
+
+    #[rstest]
+    #[case(0.0)]
+    #[case(-60.0)]
+    #[case(f64::NAN)]
+    #[case(f64::INFINITY)]
+    #[parallel]
+    fn test_ForceModelConfig_validate_precompute_steps(#[case] bad: f64) {
+        let mut config = ForceModelConfig::two_body_gravity();
+        config.precompute = Some(PrecomputeConfig {
+            frame_rotation_step: Some(bad),
+            ..PrecomputeConfig::default()
+        });
+        let err = config.validate().unwrap_err().to_string();
+        assert!(err.contains("precompute.frame_rotation_step"), "{err}");
+
+        config.precompute = Some(PrecomputeConfig {
+            ephemeris_step: Some(bad),
+            ..PrecomputeConfig::default()
+        });
+        let err = config.validate().unwrap_err().to_string();
+        assert!(err.contains("precompute.ephemeris_step"), "{err}");
+    }
+
+    #[test]
+    #[parallel]
+    fn test_ForceModelConfig_validate_precompute_valid() {
+        let mut config = ForceModelConfig::two_body_gravity();
+        config.precompute = Some(PrecomputeConfig::default());
+        assert!(config.validate().is_ok());
+        config.precompute = Some(PrecomputeConfig {
+            frame_rotation_step: None,
+            ephemeris_step: None,
+            cache_space_weather: false,
+        });
+        assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_ForceModelConfig_precompute_serde_default() {
+        let mut config = ForceModelConfig::two_body_gravity();
+        config.precompute = Some(PrecomputeConfig::default());
+        let json = serde_json::to_string(&config).unwrap();
+        let back: ForceModelConfig = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.precompute, Some(PrecomputeConfig::default()));
+
+        let mut value: serde_json::Value = serde_json::from_str(&json).unwrap();
+        value.as_object_mut().unwrap().remove("precompute");
+        let back: ForceModelConfig = serde_json::from_value(value).unwrap();
+        assert_eq!(back.precompute, None);
+    }
 
     #[test]
     #[parallel]
@@ -2769,6 +2920,7 @@ mod tests {
             relativity: false,
             mass: None,
             frame_transform: FrameTransformationModel::default(),
+            precompute: None,
         };
         let err = cfg.validate().unwrap_err().to_string();
         assert!(err.contains("HarrisPriester"), "{err}");
@@ -2793,6 +2945,7 @@ mod tests {
             relativity: false,
             mass: None,
             frame_transform: FrameTransformationModel::default(),
+            precompute: None,
         };
         let err = cfg.validate().unwrap_err().to_string();
         assert!(err.contains("NRLMSISE00"), "{err}");
@@ -2814,6 +2967,7 @@ mod tests {
             relativity: false,
             mass: None,
             frame_transform: FrameTransformationModel::default(),
+            precompute: None,
         };
         let err = cfg.validate().unwrap_err().to_string();
         assert!(err.contains("EarthZonal"), "{err}");
@@ -2833,6 +2987,7 @@ mod tests {
             relativity: false,
             mass: None,
             frame_transform: FrameTransformationModel::EarthRotationOnly,
+            precompute: None,
         };
         let err = cfg.validate().unwrap_err().to_string();
         assert!(err.contains("EarthRotationOnly"), "{err}");
@@ -2852,6 +3007,7 @@ mod tests {
             relativity: false,
             mass: None,
             frame_transform: FrameTransformationModel::default(),
+            precompute: None,
         };
         let err = cfg.validate().unwrap_err().to_string();
         assert!(err.contains("TidesConfiguration"), "{err}");
@@ -2875,6 +3031,7 @@ mod tests {
             relativity: false,
             mass: None,
             frame_transform: FrameTransformationModel::default(),
+            precompute: None,
         };
         let err = cfg.validate().unwrap_err().to_string();
         assert!(err.contains("LowPrecision"), "{err}");
@@ -2905,6 +3062,7 @@ mod tests {
             relativity: false,
             mass: None,
             frame_transform: FrameTransformationModel::default(),
+            precompute: None,
         };
         assert!(cfg.validate().is_ok());
     }
@@ -2926,6 +3084,7 @@ mod tests {
             relativity: false,
             mass: None,
             frame_transform: FrameTransformationModel::default(),
+            precompute: None,
         };
         let err = cfg.validate().unwrap_err().to_string();
         assert!(err.contains("LowPrecision"), "{err}");
@@ -2945,6 +3104,7 @@ mod tests {
             relativity: false,
             mass: None,
             frame_transform: FrameTransformationModel::default(),
+            precompute: None,
         };
         let err = cfg.validate().unwrap_err().to_string();
         assert!(err.contains("NAIF"), "{err}");
@@ -2968,6 +3128,7 @@ mod tests {
             relativity: false,
             mass: None,
             frame_transform: FrameTransformationModel::default(),
+            precompute: None,
         };
         let err = cfg.validate().unwrap_err().to_string();
         assert!(err.contains("SphericalHarmonic"), "{err}");
@@ -2996,6 +3157,7 @@ mod tests {
             relativity: false,
             mass: None,
             frame_transform: FrameTransformationModel::default(),
+            precompute: None,
         };
         let err = cfg.validate().unwrap_err().to_string();
         assert!(err.to_lowercase().contains("drag"), "{err}");
@@ -3032,6 +3194,7 @@ mod tests {
             relativity: false,
             mass: None,
             frame_transform: FrameTransformationModel::default(),
+            precompute: None,
         };
         let err = cfg.validate().unwrap_err().to_string();
         assert!(err.to_lowercase().contains("drag"), "{err}");
@@ -3064,6 +3227,7 @@ mod tests {
             relativity: false,
             mass: None,
             frame_transform: FrameTransformationModel::default(),
+            precompute: None,
         };
         let err = cfg.validate().unwrap_err().to_string();
         assert!(err.contains("SphericalHarmonic"), "{err}");

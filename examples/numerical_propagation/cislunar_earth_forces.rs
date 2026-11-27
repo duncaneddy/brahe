@@ -54,6 +54,7 @@ fn main() {
         mass: Some(bh::ParameterSource::Value(1000.0)),
         frame_transform: bh::FrameTransformationModel::default(),
         tides: None,
+        precompute: None,
     };
     force_config.validate().unwrap();
 

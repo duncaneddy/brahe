@@ -426,6 +426,42 @@ $$
 
 where $c$ is the speed of light, $\mathbf{e}_r$ is the radial unit vector, and $\mathbf{e}_v$ is the velocity unit vector.
 
+### Precomputed Inputs
+
+`ForceModelConfig.precompute` takes a `PrecomputeConfig` that tabulates inputs depending only on time, so the dynamics function interpolates them instead of recomputing them at every call. The default value `None` evaluates every input exactly at each call.
+
+The frame-rotation table applies when the central body is Earth and `frame_transform` is `FULL_EARTH_ROTATION`. It stores the bias-precession-nutation matrix (BPN) and the polar-motion matrix every `frame_rotation_step` and interpolates both linearly. The Earth rotation angle changes too quickly to interpolate, so it is computed exactly at the epoch of every call. The table holds only the nodes that bracket the epochs the propagation requests, and `propagate_to` and `step_by` extend it in place. Setting `frame_rotation_step` to `None` disables the table.
+
+The example below propagates a LEO orbit for one day with and without the table. With a fixed-step integrator both runs take identical steps, so the position difference isolates the interpolation error.
+
+=== "Python"
+
+    ``` python
+    --8<-- "./examples/numerical_propagation/precomputed_inputs.py:8"
+    ```
+
+=== "Rust"
+
+    ``` rust
+    --8<-- "./examples/numerical_propagation/precomputed_inputs.rs:4"
+    ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/precomputed_inputs.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/precomputed_inputs.rs.txt"
+        ```
+
+`PrecomputeConfig` also carries `ephemeris_step`, the node spacing of a Sun, Moon, and planet ephemeris table, and `cache_space_weather`, which enables a per-propagator space-weather cache for NRLMSISE-00 drag. Both settings currently have no effect.
+
+!!! warning "Global data during propagation"
+    The frame-rotation table reads EOP data from the global provider when a node is built. Changing global data during a propagation is the caller's responsibility. When EOP data does not cover a node, the EOP provider's extrapolation setting decides the outcome, as it does without the option. A table can extend one step past the last epoch the integrator evaluates, because interpolation needs the node after it. With an EOP provider set to raise errors on extrapolation, a propagation that ends within one `frame_rotation_step` of the end of the EOP data can therefore reach the provider's error where the same propagation without the option would not.
+
 ## Parameter Configuration
 
 Force model parameters (mass, drag area, Cd, etc.) can be specified either as fixed values or as indices into a parameter vector.

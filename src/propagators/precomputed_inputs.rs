@@ -1,0 +1,622 @@
+/*!
+ * Precomputed time-only inputs for the numerical orbit propagator.
+ *
+ * Tables are sampled on an absolute-epoch grid anchored at J2000 TT, so the
+ * node at index `k` is always at `anchor + k * step` regardless of the
+ * propagation start epoch. Tables hold only the nodes bracketing requested
+ * spans and extend contiguously in place.
+ */
+
+use std::collections::VecDeque;
+
+use rayon::prelude::*;
+
+use crate::frames::{bias_precession_nutation, earth_rotation, polar_motion};
+use crate::math::SMatrix3;
+use crate::propagators::{CentralBody, ForceModelConfig, FrameTransformationModel};
+use crate::time::{Epoch, TimeSystem};
+use crate::utils::errors::BraheError;
+use crate::utils::threading::get_thread_pool;
+
+/// Epoch of node index zero for every precomputed grid (J2000, TT).
+pub(crate) fn grid_anchor() -> Epoch {
+    Epoch::from_jd(2451545.0, TimeSystem::TT)
+}
+
+/// Tolerance, in grid steps, within which an epoch offset snaps to the nearest node.
+const NODE_SNAP_TOLERANCE: f64 = 1e-9;
+
+/// Inclusive range of grid node indices on a uniform step.
+///
+/// The range is empty when `k_min > k_max`.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) struct NodeRange {
+    /// Grid spacing in seconds.
+    pub(crate) step: f64,
+    /// First node index.
+    pub(crate) k_min: i64,
+    /// Last node index (inclusive).
+    pub(crate) k_max: i64,
+}
+
+impl NodeRange {
+    /// Node range whose nodes bracket the span between two epochs.
+    ///
+    /// The epochs may be given in either order.
+    ///
+    /// # Arguments
+    /// - `step`: Grid spacing in seconds
+    /// - `start`: One end of the span
+    /// - `end`: The other end of the span
+    ///
+    /// # Returns
+    /// - `NodeRange`: Nodes `floor(x_first)` through `floor(x_last) + 1`, where `x` is the
+    ///   epoch offset from the grid anchor in units of `step`
+    pub(crate) fn bracketing(step: f64, start: Epoch, end: Epoch) -> NodeRange {
+        let (first, last) = if end < start {
+            (end, start)
+        } else {
+            (start, end)
+        };
+        let (k_first, _) = Self::locate(step, first);
+        let (k_last, _) = Self::locate(step, last);
+        NodeRange {
+            step,
+            k_min: k_first,
+            k_max: k_last + 1,
+        }
+    }
+
+    /// Epoch of node `k`.
+    ///
+    /// # Arguments
+    /// - `k`: Node index
+    ///
+    /// # Returns
+    /// - `Epoch`: `anchor + k * step`
+    pub(crate) fn epoch(&self, k: i64) -> Epoch {
+        grid_anchor() + k as f64 * self.step
+    }
+
+    /// Interval index and fractional position of an epoch.
+    ///
+    /// # Arguments
+    /// - `step`: Grid spacing in seconds
+    /// - `epoch`: Epoch to locate
+    ///
+    /// # Returns
+    /// - `(i64, f64)`: Index `k = floor(x)` and fraction `s = x - k` in `[0, 1)`, where `x` is
+    ///   the epoch offset from the grid anchor in steps, snapped to the nearest integer when
+    ///   within `1e-9` steps so node epochs return `s = 0` exactly
+    pub(crate) fn locate(step: f64, epoch: Epoch) -> (i64, f64) {
+        let mut x = (epoch - grid_anchor()) / step;
+        let nearest = x.round();
+        if (x - nearest).abs() <= NODE_SNAP_TOLERANCE {
+            x = nearest;
+        }
+        let k = x.floor();
+        (k as i64, x - k)
+    }
+
+    fn contains(&self, other: &NodeRange) -> bool {
+        self.k_min <= other.k_min && other.k_max <= self.k_max
+    }
+}
+
+fn lerp(a: &SMatrix3, b: &SMatrix3, s: f64) -> SMatrix3 {
+    a + (b - a) * s
+}
+
+/// Table of bias-precession-nutation and polar-motion matrices on the absolute
+/// grid. Earth rotation angle is always evaluated exactly at the query epoch.
+#[derive(Debug, Clone)]
+pub(crate) struct FrameRotationTable {
+    step: f64,
+    k_min: i64,
+    nodes: VecDeque<(SMatrix3, SMatrix3)>,
+    #[cfg(test)]
+    pub(crate) nodes_computed: usize,
+}
+
+impl FrameRotationTable {
+    /// Create an empty table.
+    ///
+    /// # Arguments
+    /// - `step`: Grid spacing in seconds
+    pub(crate) fn new(step: f64) -> Self {
+        FrameRotationTable {
+            step,
+            k_min: 0,
+            nodes: VecDeque::new(),
+            #[cfg(test)]
+            nodes_computed: 0,
+        }
+    }
+
+    /// Node range currently held, or `None` when empty.
+    pub(crate) fn coverage(&self) -> Option<NodeRange> {
+        if self.nodes.is_empty() {
+            None
+        } else {
+            Some(NodeRange {
+                step: self.step,
+                k_min: self.k_min,
+                k_max: self.k_min + self.nodes.len() as i64 - 1,
+            })
+        }
+    }
+
+    fn compute_nodes(&mut self, k_first: i64, k_last: i64) -> Vec<(SMatrix3, SMatrix3)> {
+        let range = NodeRange {
+            step: self.step,
+            k_min: k_first,
+            k_max: k_last,
+        };
+        #[cfg(test)]
+        {
+            self.nodes_computed += (k_last - k_first + 1).max(0) as usize;
+        }
+        get_thread_pool().install(|| {
+            (k_first..=k_last)
+                .into_par_iter()
+                .map(|k| {
+                    let e = range.epoch(k);
+                    (bias_precession_nutation(e), polar_motion(e))
+                })
+                .collect()
+        })
+    }
+
+    /// Extend the table to cover `need`, computing only missing nodes.
+    ///
+    /// Missing nodes are appended or prepended in place. When `need` is disjoint
+    /// from the current coverage, the nodes in the gap are computed too and the
+    /// table stays contiguous, provided the gap is no longer than the current
+    /// coverage (both in nodes). A larger gap replaces the contents.
+    ///
+    /// # Arguments
+    /// - `need`: Node range that must be held after the call
+    pub(crate) fn ensure(&mut self, need: NodeRange) {
+        let Some(cov) = self.coverage() else {
+            self.replace(need);
+            return;
+        };
+        let len = self.nodes.len() as i64;
+        if need.k_min - cov.k_max - 1 > len || cov.k_min - need.k_max - 1 > len {
+            self.replace(need);
+            return;
+        }
+        if need.k_max > cov.k_max {
+            let new = self.compute_nodes(cov.k_max + 1, need.k_max);
+            self.nodes.extend(new);
+        }
+        if need.k_min < cov.k_min {
+            let new = self.compute_nodes(need.k_min, cov.k_min - 1);
+            for node in new.into_iter().rev() {
+                self.nodes.push_front(node);
+            }
+            self.k_min = need.k_min;
+        }
+    }
+
+    /// Whether the table holds every node of `need`.
+    fn holds(&self, need: &NodeRange) -> bool {
+        self.coverage().is_some_and(|cov| cov.contains(need))
+    }
+
+    fn replace(&mut self, need: NodeRange) {
+        let new = self.compute_nodes(need.k_min, need.k_max);
+        self.nodes = new.into();
+        self.k_min = need.k_min;
+    }
+
+    /// GCRF to ITRF rotation at an epoch.
+    ///
+    /// # Arguments
+    /// - `epoch`: Epoch to evaluate
+    ///
+    /// # Returns
+    /// - `Option<SMatrix3>`: `PM(lerp) * ERA(epoch) * BPN(lerp)`, or `None` when the bracketing
+    ///   node pair is not held
+    pub(crate) fn rotation(&self, epoch: Epoch) -> Option<SMatrix3> {
+        let (k, s) = NodeRange::locate(self.step, epoch);
+        let i = k.checked_sub(self.k_min)?;
+        if i < 0 {
+            return None;
+        }
+        let i = i as usize;
+        let (bpn0, pm0) = self.nodes.get(i)?;
+        let (bpn1, pm1) = self.nodes.get(i + 1)?;
+        Some(lerp(pm0, pm1, s) * earth_rotation(epoch) * lerp(bpn0, bpn1, s))
+    }
+}
+
+/// Identity of a [`PrecomputedInputs`] bundle.
+///
+/// Two propagators whose force models produce equal keys can share one bundle.
+/// The key is derived from [`ForceModelConfig::precompute`] and the parts of the
+/// force model that decide which tables apply; a frame-rotation table applies
+/// only to an Earth central body with
+/// [`FrameTransformationModel::FullEarthRotation`].
+///
+/// # Examples
+///
+/// ```rust
+/// use brahe::eop::{StaticEOPProvider, set_global_eop_provider};
+/// use brahe::propagators::{
+///     DNumericalOrbitPropagator, ForceModelConfig, PrecomputeConfig,
+/// };
+/// use brahe::time::{Epoch, TimeSystem};
+/// use brahe::traits::DStatePropagator;
+/// use brahe::constants::R_EARTH;
+/// use nalgebra::DVector;
+///
+/// set_global_eop_provider(StaticEOPProvider::from_zero());
+///
+/// let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0]);
+///
+/// // An Earth central body with the full Earth rotation model uses the
+/// // frame-rotation table.
+/// let force_config = ForceModelConfig {
+///     precompute: Some(PrecomputeConfig::default()),
+///     ..ForceModelConfig::earth_gravity()
+/// };
+/// let prop = DNumericalOrbitPropagator::builder(epoch, state, force_config)
+///     .build()
+///     .unwrap();
+/// assert_eq!(prop.current_epoch(), epoch);
+/// ```
+#[derive(Debug, Clone, PartialEq)]
+pub struct PrecomputeKey {
+    frame_rotation_step: Option<f64>,
+}
+
+impl PrecomputeKey {
+    /// Key for the tables a force model uses.
+    ///
+    /// # Arguments
+    /// - `cfg`: Force model configuration
+    ///
+    /// # Returns
+    /// - `Option<PrecomputeKey>`: `None` when `cfg.precompute` is `None` or no table applies
+    pub(crate) fn from_force_config(cfg: &ForceModelConfig) -> Option<PrecomputeKey> {
+        let pre = cfg.precompute.as_ref()?;
+        let frame_rotation_step = match (&cfg.central_body, &cfg.frame_transform) {
+            (CentralBody::Earth, FrameTransformationModel::FullEarthRotation) => {
+                pre.frame_rotation_step
+            }
+            _ => None,
+        };
+        frame_rotation_step.map(|step| PrecomputeKey {
+            frame_rotation_step: Some(step),
+        })
+    }
+}
+
+/// Precomputed time-only force-model inputs for a [`PrecomputeKey`].
+///
+/// Holds the frame-rotation table on the absolute grid. A propagator extends
+/// the tables over each requested span before integrating and on demand when
+/// the dynamics are evaluated at an epoch outside them. Bundles are shared
+/// between propagators through `Arc` and copied on write when one extends them.
+///
+/// # Examples
+///
+/// ```rust
+/// use brahe::eop::{StaticEOPProvider, set_global_eop_provider};
+/// use brahe::propagators::{
+///     DNumericalOrbitPropagator, ForceModelConfig, PrecomputeConfig,
+/// };
+/// use brahe::time::{Epoch, TimeSystem};
+/// use brahe::traits::DStatePropagator;
+/// use brahe::constants::R_EARTH;
+/// use nalgebra::DVector;
+///
+/// set_global_eop_provider(StaticEOPProvider::from_zero());
+///
+/// let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0]);
+/// let force_config = ForceModelConfig {
+///     precompute: Some(PrecomputeConfig::default()),
+///     ..ForceModelConfig::earth_gravity()
+/// };
+///
+/// // The propagator builds and extends its `PrecomputedInputs` internally.
+/// let mut prop = DNumericalOrbitPropagator::builder(epoch, state, force_config)
+///     .build()
+///     .unwrap();
+/// prop.propagate_to(epoch + 3600.0).unwrap();
+/// assert_eq!(prop.current_epoch(), epoch + 3600.0);
+/// ```
+#[derive(Debug, Clone)]
+pub struct PrecomputedInputs {
+    key: PrecomputeKey,
+    rotation: Option<FrameRotationTable>,
+}
+
+impl PrecomputedInputs {
+    /// Create a bundle with empty tables.
+    ///
+    /// # Arguments
+    /// - `key`: Tables to hold and their grid steps
+    ///
+    /// # Returns
+    /// - `PrecomputedInputs`: Bundle holding no nodes
+    pub(crate) fn new(key: &PrecomputeKey) -> Self {
+        PrecomputedInputs {
+            key: key.clone(),
+            rotation: key.frame_rotation_step.map(FrameRotationTable::new),
+        }
+    }
+
+    /// Key this bundle was built for.
+    ///
+    /// # Returns
+    /// - `&PrecomputeKey`: The bundle's key
+    pub(crate) fn key(&self) -> &PrecomputeKey {
+        &self.key
+    }
+
+    /// Whether every table holds the nodes bracketing the span between two epochs.
+    ///
+    /// # Arguments
+    /// - `start`: One end of the span
+    /// - `end`: The other end of the span
+    ///
+    /// # Returns
+    /// - `bool`: `true` when no table needs extending to cover the span
+    pub(crate) fn covers_span(&self, start: Epoch, end: Epoch) -> bool {
+        self.rotation
+            .as_ref()
+            .is_none_or(|t| t.holds(&NodeRange::bracketing(t.step, start, end)))
+    }
+
+    /// Whether every table holds the nodes bracketing an epoch.
+    ///
+    /// # Arguments
+    /// - `epoch`: Epoch to check
+    ///
+    /// # Returns
+    /// - `bool`: `true` when each table holds nodes `k` and `k + 1` around `epoch`
+    pub(crate) fn covers(&self, epoch: Epoch) -> bool {
+        self.covers_span(epoch, epoch)
+    }
+
+    /// Extend every table to hold the nodes bracketing the span between two epochs.
+    ///
+    /// Does nothing when the span is already covered.
+    ///
+    /// # Arguments
+    /// - `start`: One end of the span
+    /// - `end`: The other end of the span
+    ///
+    /// # Returns
+    /// - `Result<(), BraheError>`: `Ok(())` once every table covers the span
+    pub(crate) fn ensure(&mut self, start: Epoch, end: Epoch) -> Result<(), BraheError> {
+        if let Some(table) = self.rotation.as_mut() {
+            table.ensure(NodeRange::bracketing(table.step, start, end));
+        }
+        Ok(())
+    }
+
+    /// GCRF to ITRF rotation from the frame-rotation table.
+    ///
+    /// # Arguments
+    /// - `epoch`: Epoch to evaluate
+    ///
+    /// # Returns
+    /// - `Option<SMatrix3>`: Interpolated rotation, or `None` when the bundle has no
+    ///   frame-rotation table or the table does not bracket `epoch`
+    pub(crate) fn rotation(&self, epoch: Epoch) -> Option<SMatrix3> {
+        self.rotation.as_ref()?.rotation(epoch)
+    }
+
+    /// Number of frame-rotation nodes computed over the bundle's lifetime.
+    #[cfg(test)]
+    pub(crate) fn rotation_nodes_computed(&self) -> usize {
+        self.rotation.as_ref().map_or(0, |t| t.nodes_computed)
+    }
+
+    /// Node range held by the frame-rotation table.
+    #[cfg(test)]
+    pub(crate) fn rotation_coverage(&self) -> Option<NodeRange> {
+        self.rotation.as_ref()?.coverage()
+    }
+}
+
+#[cfg(test)]
+#[allow(non_snake_case)]
+mod tests {
+    use super::*;
+    use crate::frames::rotation_eci_to_ecef;
+    use crate::propagators::PrecomputeConfig;
+    use crate::utils::testing::setup_global_test_eop;
+    use approx::assert_abs_diff_eq;
+    use serial_test::parallel;
+
+    #[test]
+    #[parallel]
+    fn test_NodeRange_locate_negative_index() {
+        let (k, s) = NodeRange::locate(60.0, grid_anchor() - 90.0);
+        assert_eq!(k, -2);
+        assert_abs_diff_eq!(s, 0.5, epsilon = 1e-9);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_NodeRange_bracketing_reversed_span() {
+        let earlier = grid_anchor() + 1000.0 * 60.0 + 10.0;
+        let later = earlier + 20.0;
+        assert_eq!(
+            NodeRange::bracketing(60.0, later, earlier),
+            NodeRange::bracketing(60.0, earlier, later)
+        );
+        let r = NodeRange::bracketing(60.0, earlier, later);
+        assert_eq!(r.k_max - r.k_min + 1, 2);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_FrameRotationTable_node_exact() {
+        setup_global_test_eop();
+        let mut table = FrameRotationTable::new(600.0);
+        let t0 = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let need = NodeRange::bracketing(600.0, t0, t0 + 3000.0);
+        table.ensure(need);
+        for k in need.k_min..need.k_max {
+            let e = need.epoch(k);
+            let exact = polar_motion(e) * earth_rotation(e) * bias_precession_nutation(e);
+            assert_eq!(table.rotation(e).unwrap(), exact);
+        }
+    }
+
+    #[test]
+    #[parallel]
+    fn test_FrameRotationTable_offgrid_error() {
+        setup_global_test_eop();
+        let mut table = FrameRotationTable::new(600.0);
+        let t0 = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        table.ensure(NodeRange::bracketing(600.0, t0, t0 + 86400.0));
+        let mut max_err: f64 = 0.0;
+        let mut t = 0.0;
+        while t < 86400.0 {
+            let e = t0 + t;
+            let exact = rotation_eci_to_ecef(e);
+            let approx = table.rotation(e).unwrap();
+            let err = (exact.transpose() * approx - SMatrix3::identity()).norm() / 2f64.sqrt();
+            max_err = max_err.max(err);
+            t += 7.3;
+        }
+        assert!(max_err < 1e-11, "max error {max_err}");
+    }
+
+    #[test]
+    #[parallel]
+    fn test_NodeRange_locate_roundtrip() {
+        for step in [30.0, 60.0, 600.0, 3600.0] {
+            let range = NodeRange {
+                step,
+                k_min: 0,
+                k_max: 0,
+            };
+            for k in [-1_000_000, -12345, -1, 0, 1, 777, 12345, 1_000_000] {
+                assert_eq!(NodeRange::locate(step, range.epoch(k)), (k, 0.0));
+            }
+        }
+    }
+
+    #[test]
+    #[parallel]
+    fn test_FrameRotationTable_ensure_fills_small_gap() {
+        setup_global_test_eop();
+        let mut table = FrameRotationTable::new(600.0);
+        let base = NodeRange {
+            step: 600.0,
+            k_min: 40000,
+            k_max: 40002,
+        };
+        table.ensure(base);
+        assert_eq!(table.nodes_computed, 3);
+        let need = NodeRange {
+            step: 600.0,
+            k_min: base.k_max + 3,
+            k_max: base.k_max + 4,
+        };
+        table.ensure(need);
+        assert_eq!(table.nodes_computed, 3 + 2 + 2);
+        let cov = table.coverage().unwrap();
+        assert_eq!((cov.k_min, cov.k_max), (base.k_min, need.k_max));
+        let e = base.epoch(base.k_max) + 700.0;
+        assert!(table.rotation(e).is_some());
+
+        let below = NodeRange {
+            step: 600.0,
+            k_min: base.k_min - 5,
+            k_max: base.k_min - 4,
+        };
+        table.ensure(below);
+        let cov = table.coverage().unwrap();
+        assert_eq!((cov.k_min, cov.k_max), (below.k_min, need.k_max));
+    }
+
+    #[test]
+    #[parallel]
+    fn test_FrameRotationTable_outside_range_none() {
+        setup_global_test_eop();
+        let mut table = FrameRotationTable::new(600.0);
+        let t0 = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        assert!(table.rotation(t0).is_none());
+        table.ensure(NodeRange::bracketing(600.0, t0, t0 + 100.0));
+        assert!(table.rotation(t0 + 50.0).is_some());
+        assert!(table.rotation(t0 - 3600.0).is_none());
+        assert!(table.rotation(t0 + 3600.0).is_none());
+    }
+
+    #[test]
+    #[parallel]
+    fn test_FrameRotationTable_ensure_appends_only_missing() {
+        setup_global_test_eop();
+        let mut table = FrameRotationTable::new(600.0);
+        let t0 = grid_anchor() + 600.0 * 40000.0 + 300.0;
+        table.ensure(NodeRange::bracketing(600.0, t0, t0 + 600.0));
+        let first = table.coverage().unwrap();
+        assert_eq!(first.k_max - first.k_min + 1, 3);
+        assert_eq!(table.nodes_computed, 3);
+
+        table.ensure(NodeRange::bracketing(600.0, t0 + 600.0, t0 + 1200.0));
+        assert_eq!(table.nodes_computed, 4);
+        let cov = table.coverage().unwrap();
+        assert_eq!((cov.k_min, cov.k_max), (first.k_min, first.k_max + 1));
+
+        table.ensure(NodeRange::bracketing(600.0, t0 - 600.0, t0));
+        assert_eq!(table.nodes_computed, 5);
+        let cov = table.coverage().unwrap();
+        assert_eq!((cov.k_min, cov.k_max), (first.k_min - 1, first.k_max + 1));
+        let e = t0 - 300.0;
+        assert_abs_diff_eq!(
+            (table.rotation(e).unwrap() - rotation_eci_to_ecef(e)).norm(),
+            0.0,
+            epsilon = 1e-9
+        );
+
+        let far = NodeRange::bracketing(600.0, t0 + 864000.0, t0 + 864100.0);
+        table.ensure(far);
+        assert_eq!(table.coverage().unwrap(), far);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_PrecomputedInputs_ensure_without_tables() {
+        let mut inputs = PrecomputedInputs::new(&PrecomputeKey {
+            frame_rotation_step: None,
+        });
+        let t0 = grid_anchor() + 600.0 * 40000.0 + 300.0;
+        inputs.ensure(t0, t0 + 3600.0).unwrap();
+        assert!(inputs.covers_span(t0, t0 + 3600.0));
+        assert!(inputs.rotation(t0).is_none());
+        assert_eq!(inputs.rotation_nodes_computed(), 0);
+    }
+
+    #[test]
+    #[parallel]
+    fn test_PrecomputedInputs_ensure_covered_span_computes_nothing() {
+        setup_global_test_eop();
+        let cfg = ForceModelConfig {
+            precompute: Some(PrecomputeConfig {
+                frame_rotation_step: Some(600.0),
+                ..PrecomputeConfig::default()
+            }),
+            ..ForceModelConfig::earth_gravity()
+        };
+        let mut inputs = PrecomputedInputs::new(&PrecomputeKey::from_force_config(&cfg).unwrap());
+        let t0 = grid_anchor() + 600.0 * 40000.0 + 300.0;
+        inputs.ensure(t0, t0 + 3600.0).unwrap();
+        let computed = inputs.rotation_nodes_computed();
+        assert!(computed > 0);
+
+        inputs.ensure(t0 + 600.0, t0 + 1200.0).unwrap();
+        assert_eq!(inputs.rotation_nodes_computed(), computed);
+        assert!(inputs.covers_span(t0, t0 + 3600.0));
+    }
+}

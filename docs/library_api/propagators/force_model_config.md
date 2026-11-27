@@ -31,6 +31,8 @@ Configuration classes for numerical orbit propagation force models. `ForceModelC
 
 ::: brahe.PermanentTideConfig
 
+::: brahe.PrecomputeConfig
+
 ## Enumerations
 
 ::: brahe.AtmosphericModel

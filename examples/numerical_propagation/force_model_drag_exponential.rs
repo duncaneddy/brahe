@@ -32,5 +32,6 @@ fn main() {
         mass: Some(bh::ParameterSource::ParameterIndex(0)),
         frame_transform: bh::FrameTransformationModel::default(),
         tides: None,
+        precompute: None,
     };
 }

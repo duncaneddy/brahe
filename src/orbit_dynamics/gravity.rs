@@ -3655,6 +3655,7 @@ mod tests {
                 mass: None,
                 frame_transform: FrameTransformationModel::FullEarthRotation,
                 tides: None,
+                precompute: None,
             },
             None,
             None,
@@ -3679,6 +3680,7 @@ mod tests {
                 mass: None,
                 frame_transform: FrameTransformationModel::FullEarthRotation,
                 tides: None,
+                precompute: None,
             },
             None,
             None,
@@ -3741,6 +3743,7 @@ mod tests {
                     mass: None,
                     frame_transform: FrameTransformationModel::FullEarthRotation,
                     tides: None,
+                    precompute: None,
                 },
                 None,
                 None,
@@ -4171,6 +4174,7 @@ mod tests {
             mass: None,
             frame_transform: FrameTransformationModel::FullEarthRotation,
             tides: None,
+            precompute: None,
         };
 
         // Construction must succeed: the propagator has to be able to resolve

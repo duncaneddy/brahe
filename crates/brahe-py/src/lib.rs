@@ -1146,6 +1146,7 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyOceanTideConfig>()?;
     module.add_class::<PyPermanentTideConfig>()?;
     module.add_class::<PyTidesConfiguration>()?;
+    module.add_class::<PyPrecomputeConfig>()?;
     module.add_class::<PyForceModelConfig>()?;
     module.add_class::<PyNumericalOrbitPropagator>()?;
     module.add_class::<PyNumericalOrbitPropagatorBuilder>()?;

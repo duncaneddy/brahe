@@ -478,6 +478,10 @@ impl NumericalPropagationConfig {
     /// `integrator.initial_step`. An adaptive method uses
     /// `integrator.initial_step` and ignores `fixed_step_size`. Either falls
     /// back to 60 s when neither applicable field is set.
+    ///
+    /// # Returns
+    ///
+    /// * `f64` - Initial step size in seconds
     pub(crate) fn initial_step_size(&self) -> f64 {
         let configured = if self.method.is_adaptive() {
             self.integrator.initial_step

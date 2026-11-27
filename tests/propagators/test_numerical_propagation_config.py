@@ -4,13 +4,19 @@ Tests for NumericalPropagationConfig and related types Python bindings
 These tests mirror the Rust tests from src/propagators/numerical_propagation_config.rs
 """
 
+import numpy as np
 import pytest
 
 from brahe import (
+    R_EARTH,
+    Epoch,
+    ForceModelConfig,
     IntegrationMethod,
     IntegratorConfig,
     InterpolationMethod,
+    NumericalOrbitPropagator,
     NumericalPropagationConfig,
+    TimeSystem,
     VariationalConfig,
 )
 
@@ -221,3 +227,39 @@ def test_numericalpropagationconfig_validate_hermite_cubic_without_accelerations
         InterpolationMethod.HERMITE_CUBIC
     )
     config.validate()  # no exception
+
+
+# =============================================================================
+# Initial Step Size Tests
+# =============================================================================
+
+
+@pytest.mark.parametrize(
+    "method, fixed_step_size, initial_step, expected",
+    [
+        (IntegrationMethod.RK4, None, None, 60.0),
+        (IntegrationMethod.RK4, 30.0, None, 30.0),
+        (IntegrationMethod.RK4, None, 45.0, 45.0),
+        (IntegrationMethod.RK4, 30.0, 45.0, 30.0),
+        (IntegrationMethod.DP54, None, None, 60.0),
+        (IntegrationMethod.DP54, 30.0, None, 60.0),
+        (IntegrationMethod.DP54, None, 45.0, 45.0),
+        (IntegrationMethod.RKN1210, 30.0, 45.0, 45.0),
+    ],
+)
+def test_numerical_propagation_config_initial_step_size(
+    method, fixed_step_size, initial_step, expected
+):
+    """Step-size precedence seen through a new propagator (mirrors Rust test)"""
+    config = NumericalPropagationConfig(
+        method,
+        IntegratorConfig(initial_step=initial_step, fixed_step_size=fixed_step_size),
+        VariationalConfig(),
+    )
+    epoch = Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem.UTC)
+    state = np.array([R_EARTH + 500e3, 0.0, 0.0, 0.0, 7612.0, 0.0])
+    prop = NumericalOrbitPropagator(
+        epoch, state, config, ForceModelConfig.two_body(), None
+    )
+
+    assert prop.step_size == expected

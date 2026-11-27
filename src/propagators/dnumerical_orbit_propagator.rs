@@ -42,12 +42,13 @@ use crate::orbit_dynamics::{
 };
 use crate::propagators::force_model_config::{EphemerisSource, PermanentTideConfig};
 use crate::propagators::precomputed_inputs::{
-    CachedSpaceWeather, ChannelRole, SpaceWeatherCache, resolve_sun_moon_eci,
+    CachedSpaceWeather, ChannelRole, PrecomputeKey, PrecomputedInputs, SpaceWeatherCache,
+    resolve_sun_moon_eci,
 };
 use crate::propagators::tide_field::TideField;
 use crate::propagators::{
     AtmosphericModel, CentralBody, EclipseModel, ForceModelConfig, FrameTransformationModel,
-    GravityConfiguration, GravityModelSource, PrecomputeKey, PrecomputedInputs, ThirdBody,
+    GravityConfiguration, GravityModelSource, ThirdBody,
 };
 use crate::relative_motion::jacobian_eci_to_rtn;
 use crate::spice::{spk_position, spk_state};
@@ -2715,44 +2716,6 @@ impl DNumericalOrbitPropagator {
         Ok(())
     }
 
-    /// Replace the precomputed-input bundle with one shared from elsewhere.
-    ///
-    /// The rotation cache is cleared so later evaluations read the new bundle.
-    ///
-    /// # Arguments
-    ///
-    /// * `inputs` - Bundle to use; its key must equal this propagator's key
-    ///
-    /// # Returns
-    ///
-    /// `Ok(())` when the bundle is attached, or an error when the propagator has
-    /// no precomputed inputs or the bundle's key differs from its own.
-    #[cfg_attr(not(test), allow(dead_code))]
-    pub(crate) fn attach_precomputed(
-        &mut self,
-        inputs: Arc<PrecomputedInputs>,
-    ) -> Result<(), BraheError> {
-        let Some(handle) = &self.precomputed else {
-            return Err(BraheError::PropagatorError(
-                "cannot attach precomputed inputs to a propagator without precomputed inputs"
-                    .to_string(),
-            ));
-        };
-        {
-            let mut inner = handle.lock().unwrap();
-            if inputs.key() != inner.key() {
-                return Err(BraheError::PropagatorError(format!(
-                    "precomputed inputs key {:?} does not match propagator key {:?}",
-                    inputs.key(),
-                    inner.key()
-                )));
-            }
-            *inner = inputs;
-        }
-        self.rotation_cache.lock().unwrap().entries.clear();
-        Ok(())
-    }
-
     /// Get current covariance matrix P(t).
     ///
     /// Returns `None` if covariance propagation was not enabled (no initial
@@ -3312,6 +3275,85 @@ impl DNumericalOrbitPropagator {
             TrajectoryMode::AllSteps => true,
             TrajectoryMode::Disabled => false,
         }
+    }
+
+    /// Identity of the precomputed force-model inputs this propagator uses.
+    ///
+    /// A propagator stopped by a terminal event does not propagate further, so
+    /// it returns `None` until its termination is reset. Grouping by key (see
+    /// [`share_precomputed_inputs`](crate::propagators::functions::share_precomputed_inputs))
+    /// then neither widens a shared span to its epoch nor attaches a shared
+    /// bundle to it.
+    ///
+    /// # Returns
+    ///
+    /// `Some(key)` when the force model uses precomputed inputs and the
+    /// propagator is not terminated, `None` otherwise.
+    pub(crate) fn precompute_key(&self) -> Option<PrecomputeKey> {
+        if self.terminated {
+            return None;
+        }
+        self.precomputed
+            .as_ref()
+            .map(|handle| handle.lock().unwrap().key().clone())
+    }
+
+    /// The precomputed-input bundle the propagator currently holds.
+    ///
+    /// # Returns
+    ///
+    /// `Some(bundle)` when the force model uses precomputed inputs, `None`
+    /// otherwise.
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// let bundle = prop.precomputed_inputs().unwrap();
+    /// assert!(bundle.covers(prop.current_epoch()));
+    /// ```
+    pub(crate) fn precomputed_inputs(&self) -> Option<Arc<PrecomputedInputs>> {
+        self.precomputed
+            .as_ref()
+            .map(|h| Arc::clone(&h.lock().unwrap()))
+    }
+
+    /// Replace the precomputed-input bundle with one shared from elsewhere.
+    ///
+    /// The rotation cache is cleared so later evaluations read the new bundle.
+    /// The tidal Sun/Moon cache holds only directly evaluated positions, which
+    /// do not depend on the bundle, so it is kept.
+    ///
+    /// # Arguments
+    ///
+    /// * `inputs` - Bundle to use; its key must equal this propagator's key
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` when the bundle is attached, or an error when the propagator has
+    /// no precomputed inputs or the bundle's key differs from its own.
+    pub(crate) fn attach_precomputed(
+        &mut self,
+        inputs: Arc<PrecomputedInputs>,
+    ) -> Result<(), BraheError> {
+        let Some(handle) = &self.precomputed else {
+            return Err(BraheError::PropagatorError(
+                "cannot attach precomputed inputs to a propagator without precomputed inputs"
+                    .to_string(),
+            ));
+        };
+        {
+            let mut inner = handle.lock().unwrap();
+            if inputs.key() != inner.key() {
+                return Err(BraheError::PropagatorError(format!(
+                    "precomputed inputs key {:?} does not match propagator key {:?}",
+                    inputs.key(),
+                    inner.key()
+                )));
+            }
+            *inner = inputs;
+        }
+        self.rotation_cache.lock().unwrap().entries.clear();
+        Ok(())
     }
 }
 
@@ -3918,13 +3960,6 @@ impl DNumericalOrbitPropagator {
             .as_ref()
             .map_or(0, |h| h.lock().unwrap().rotation_nodes_computed())
     }
-
-    /// The bundle currently held by the precomputed-input handle.
-    pub(crate) fn precomputed_inputs(&self) -> Option<Arc<PrecomputedInputs>> {
-        self.precomputed
-            .as_ref()
-            .map(|h| Arc::clone(&h.lock().unwrap()))
-    }
 }
 
 // =============================================================================
@@ -4017,11 +4052,9 @@ mod tests {
         ParameterSource, SolarRadiationPressureConfiguration, ThirdBody, ThirdBodyConfiguration,
         TidesConfiguration,
     };
-    use crate::propagators::precomputed_inputs::NodeRange;
+    use crate::propagators::precomputed_inputs::{NodeRange, PrecomputeKey};
     use crate::propagators::traits::DStatePropagator;
-    use crate::propagators::{
-        IntegratorMethod, PrecomputeConfig, PrecomputeKey, VariationalConfig,
-    };
+    use crate::propagators::{IntegratorMethod, PrecomputeConfig, VariationalConfig};
     use crate::time::TimeSystem;
     use crate::utils::testing::setup_global_test_eop;
     use crate::utils::testing::setup_global_test_gravity_model;

@@ -34,8 +34,6 @@ use pyo3::types::{
 };
 use pyo3::{IntoPyObjectExt, PyRefMut, exceptions, wrap_pyfunction};
 
-use rayon::prelude::*;
-
 use brahe::datafiles::sp3;
 use brahe::math::interpolation::CovarianceInterpolationConfig;
 use brahe::traits::*;

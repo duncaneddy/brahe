@@ -3543,6 +3543,16 @@ impl PyKeplerianPropagator {
 /// group is propagated in parallel; results are written back to the original objects
 /// in place, preserving their order.
 ///
+/// Before propagating, `NumericalOrbitPropagator` instances with matching precompute
+/// settings are grouped, and each group shares one set of precomputed tables
+/// covering its members' spans, so the group evaluates each table node once. Tables
+/// are built over the requested span of every propagator not already terminated when
+/// the call starts, before any propagator processes events, so a propagator that an
+/// event stops at or after its start epoch still contributes its span, and an EOP or
+/// SPICE coverage error for that span can be returned where serial `propagate_to`
+/// would not reach it. A terminated propagator remains at the epoch where it stopped;
+/// every other propagator reaches the target epoch.
+///
 /// Note: `NumericalPropagator` (with user-defined Python dynamics) is NOT supported because
 /// Python callbacks cannot safely execute in parallel due to the GIL. Use `NumericalOrbitPropagator`
 /// for parallel propagation of orbital dynamics.
@@ -3726,16 +3736,9 @@ fn py_par_propagate_to(propagators: &Bound<'_, PyAny>, target_epoch: &PyEpoch) -
 
     // Process NumericalOrbitPropagator instances as a group.
     if !num_orbit_idx.is_empty() {
-        // Note: DNumericalOrbitPropagator cannot be cloned (has Box<dyn DIntegrator>),
-        // so we work directly with mutable references using raw pointers
-
-        // Wrapper for raw pointer that implements Send
-        // SAFETY: We ensure that each pointer is accessed by only one thread
-        struct SendPtr(*mut propagators::DNumericalOrbitPropagator);
-        unsafe impl Send for SendPtr {}
-        unsafe impl Sync for SendPtr {}
-
-        // Collect borrow guards (must stay alive while we use raw pointers)
+        // DNumericalOrbitPropagator cannot be cloned (it holds a Box<dyn DIntegrator>),
+        // so the propagators are updated in place through the Python objects' borrows,
+        // which stay held until the group is finished.
         let mut borrow_guards: Vec<PyRefMut<'_, PyNumericalOrbitPropagator>> =
             Vec::with_capacity(num_orbit_idx.len());
 
@@ -3744,25 +3747,10 @@ fn py_par_propagate_to(propagators: &Bound<'_, PyAny>, target_epoch: &PyEpoch) -
             borrow_guards.push(item.cast::<PyNumericalOrbitPropagator>()?.borrow_mut());
         }
 
-        // Create wrapped raw pointers from the borrow guards
-        let prop_ptrs: Vec<SendPtr> = borrow_guards
-            .iter_mut()
-            .map(|guard| SendPtr(&mut guard.propagator as *mut _))
-            .collect();
-
-        // Use rayon scoped parallelism with wrapped raw pointers
-        // SAFETY: No Python objects are involved in the parallel execution.
-        // Each propagator (DNumericalOrbitPropagator) is accessed by exactly one thread,
-        // and the borrow_guards are kept alive throughout this scope to ensure validity.
-        let target = target_epoch.obj;
-        let result: Result<(), RustBraheError> = brahe::utils::threading::get_thread_pool()
-            .install(|| {
-                prop_ptrs.par_iter().try_for_each(|SendPtr(ptr)| {
-                    // SAFETY: ptr is valid because it points to data owned by borrow_guards
-                    // which are still alive in the outer scope
-                    unsafe { (*(*ptr)).propagate_to(target) }
-                })
-            });
+        let result = propagators::par_propagate_to_d(
+            borrow_guards.iter_mut().map(|guard| &mut guard.propagator),
+            target_epoch.obj,
+        );
 
         // On failure, re-raise the original Python exception stashed by whichever
         // propagator's additional-dynamics/control callback raised it, falling
@@ -3782,8 +3770,6 @@ fn py_par_propagate_to(propagators: &Bound<'_, PyAny>, target_epoch: &PyEpoch) -
             }
             return Err(first_py_err.unwrap_or_else(|| PyErr::from(e)));
         }
-
-        // borrow_guards are dropped here, releasing the borrows
     }
 
     Ok(())

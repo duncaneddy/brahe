@@ -10,17 +10,23 @@ import pytest
 from brahe import (
     R_EARTH,
     AngleFormat,
+    BraheError,
     Epoch,
     EventDirection,
     ForceModelConfig,
+    IntegrationMethod,
+    IntegratorConfig,
     KeplerianPropagator,
     NumericalOrbitPropagator,
     NumericalPropagationConfig,
     NumericalPropagator,
+    PrecomputeConfig,
     SGPPropagator,
+    ThirdBody,
     TimeEvent,
     TimeSystem,
     ValueEvent,
+    VariationalConfig,
     par_propagate_to,
     state_koe_to_eci,
 )
@@ -465,3 +471,126 @@ def test_par_propagate_to_numerical_orbit_with_events():
         assert f"OrbitEvent_{i}" in event_log[0].name, (
             f"Event name should contain OrbitEvent_{i}"
         )
+
+
+def _precompute_propagator(epoch):
+    oe = np.array([R_EARTH + 500e3, 0.001, 97.8, 15.0, 30.0, 45.0])
+    state = state_koe_to_eci(oe, AngleFormat.DEGREES)
+    force_config = ForceModelConfig.earth_gravity()
+    force_config.precompute = PrecomputeConfig(frame_rotation_step=600.0)
+    config = NumericalPropagationConfig(
+        IntegrationMethod.RK4,
+        IntegratorConfig.fixed_step(30.0),
+        VariationalConfig(),
+    )
+    return NumericalOrbitPropagator(epoch, state, config, force_config, None)
+
+
+def test_par_propagate_to_precompute_matches_serial():
+    """Shared precomputed inputs give the same states as serial propagation"""
+    t0 = Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem.UTC)
+    target = t0 + 43200.0
+    parallel_props = [_precompute_propagator(t0 + 3600.0 * i) for i in range(8)]
+    serial_props = [_precompute_propagator(t0 + 3600.0 * i) for i in range(8)]
+
+    par_propagate_to(parallel_props, target)
+    for prop in serial_props:
+        prop.propagate_to(target)
+
+    for par, ser in zip(parallel_props, serial_props):
+        assert par.current_epoch() == target
+        assert ser.current_epoch() == target
+        assert np.array_equal(par.current_state(), ser.current_state())
+
+
+def test_par_propagate_to_terminated_propagator_not_shared():
+    """A propagator stopped by a terminal event stays where it stopped while
+    the others share tables and match serial propagation"""
+    t0 = Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem.UTC)
+    target = t0 + 7200.0
+
+    stopped = _precompute_propagator(t0)
+    stopped.add_event_detector(TimeEvent(t0 + 600.0, "Stop").set_terminal())
+    stopped.propagate_to(t0 + 1200.0)
+    assert stopped.terminated()
+    stopped_epoch = stopped.current_epoch()
+    stopped_state = stopped.current_state()
+
+    props = [
+        stopped,
+        _precompute_propagator(t0 + 3600.0),
+        _precompute_propagator(t0 + 3600.0),
+    ]
+    serial = _precompute_propagator(t0 + 3600.0)
+
+    par_propagate_to(props, target)
+    serial.propagate_to(target)
+
+    assert props[0].current_epoch() == stopped_epoch
+    assert np.array_equal(props[0].current_state(), stopped_state)
+    for prop in props[1:]:
+        assert prop.current_epoch() == target
+        assert np.array_equal(prop.current_state(), serial.current_state())
+
+
+def test_par_propagate_to_precompute_mixed_directions_matches_serial():
+    """Members that start before the first one or propagate backward widen the
+    shared span and match serial propagation"""
+    t0 = Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem.UTC)
+    target = t0 + 3600.0
+    offsets = [1800.0, 0.0, 7200.0]
+    parallel_props = [_precompute_propagator(t0 + dt) for dt in offsets]
+    serial_props = [_precompute_propagator(t0 + dt) for dt in offsets]
+
+    par_propagate_to(parallel_props, target)
+    for prop in serial_props:
+        prop.propagate_to(target)
+
+    for par, ser in zip(parallel_props, serial_props):
+        assert par.current_epoch() == target
+        assert np.array_equal(par.current_state(), ser.current_state())
+
+
+def test_par_propagate_to_short_cadence_matches_serial():
+    """Repeated parallel propagation in 1 s increments, shorter than the
+    table step, matches serial propagation"""
+    t0 = Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem.UTC)
+    first = t0 + 1000.0
+    parallel_props = [_precompute_propagator(t0 + 60.0 * i) for i in range(3)]
+    serial_props = [_precompute_propagator(t0 + 60.0 * i) for i in range(3)]
+    targets = [first + float(i) for i in range(61)]
+
+    for target in targets:
+        par_propagate_to(parallel_props, target)
+    for prop in serial_props:
+        for target in targets:
+            prop.propagate_to(target)
+
+    for par, ser in zip(parallel_props, serial_props):
+        assert par.current_epoch() == targets[-1]
+        assert np.array_equal(par.current_state(), ser.current_state())
+
+
+def test_par_propagate_to_precompute_table_error_propagates(naif_cache_setup):
+    """A shared table that cannot be built raises before any propagator
+    advances (de440s ends on 2150-01-22)"""
+    t0 = Epoch.from_datetime(2150, 1, 21, 0, 0, 0.0, 0.0, TimeSystem.UTC)
+    oe = np.array([R_EARTH + 500e3, 0.001, 97.8, 15.0, 30.0, 45.0])
+    state = state_koe_to_eci(oe, AngleFormat.DEGREES)
+    force_config = ForceModelConfig.earth_gravity()
+    force_config.third_body = [ThirdBody.SUN]
+    force_config.precompute = PrecomputeConfig()
+    config = NumericalPropagationConfig(
+        IntegrationMethod.RK4,
+        IntegratorConfig.fixed_step(30.0),
+        VariationalConfig(),
+    )
+    props = [
+        NumericalOrbitPropagator(t0, state, config, force_config, None)
+        for _ in range(2)
+    ]
+
+    with pytest.raises(BraheError):
+        par_propagate_to(props, t0 + 2.0 * 86400.0)
+    for prop in props:
+        assert prop.current_epoch() == t0

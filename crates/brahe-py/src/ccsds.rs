@@ -1713,7 +1713,7 @@ impl PyOEM {
     ///     segment_idx (int): Index of the segment to convert (0-based)
     ///
     /// Returns:
-    ///     OrbitalTrajectory: Trajectory containing the segment's state vectors
+    ///     OrbitTrajectory: Trajectory containing the segment's state vectors
     ///
     /// Raises:
     ///     BraheError: If segment index is out of range or frame is unsupported
@@ -1736,7 +1736,7 @@ impl PyOEM {
     /// state vectors in its reference frame.
     ///
     /// Returns:
-    ///     list[OrbitalTrajectory]: One trajectory per segment
+    ///     list[OrbitTrajectory]: One trajectory per segment
     ///
     /// Raises:
     ///     BraheError: If any segment's frame is unsupported

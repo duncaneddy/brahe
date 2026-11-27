@@ -7,62 +7,70 @@ a complete .pyi stub file for IDE support and documentation with proper type ann
 """
 
 import ast
+import builtins
+import functools
+import importlib.util
 import inspect
+import math
 import re
 import sys
+import traceback
+import types
 from pathlib import Path
 from typing import Any
 
+RETURN_TYPE_MAP = {
+    "tuple": "Tuple",
+    "list": "List",
+}
+
+# One member of a documented type union: a dotted name with optional
+# subscript, e.g. "float", "numpy.ndarray", "dict[str, list[Epoch]]".
+TYPE_MEMBER = re.compile(r"[\w.]+(?:\[[\w.\[\], |]*\])?")
+
+# Docstring spellings of the numpy array type: "numpy.ndarray", "ndarray" and
+# "array". The stub imports numpy as ``np``.
+NDARRAY_SPELLING = re.compile(r"(?<![\w.])(?:(?:numpy\.)?ndarray|array)\b(?!\.)")
+
+
+def normalize_ndarray(py_type: str) -> str:
+    """Rewrite every docstring spelling of the numpy array type to ``np.ndarray``."""
+    return NDARRAY_SPELLING.sub("np.ndarray", py_type)
+
 
 def parse_return_type_from_docstring(doc: str) -> str:
-    """Extract return type from docstring Returns section."""
+    """Extract return type from docstring Returns section.
+
+    The type is the text before the first top-level colon on the first line
+    of the Returns section. Unions may be written ``A | B``, ``A or B``,
+    ``Optional[A]`` or ``Union[A, B]``; the description may wrap onto
+    following lines.
+    """
     if not doc:
         return "Any"
 
-    # Look for Returns: section - match type including dots for numpy.ndarray, etc.
-    returns_match = re.search(
-        r"Returns:\s*\n\s*([\w.]+(?:\[[\w\[\], ]+\])?(?: or [\w.]+)*)(?=:)",
-        doc,
-        re.MULTILINE,
+    returns_match = re.search(r"Returns:[ \t]*\n\s*(\S.*)", doc)
+    if not returns_match:
+        return "Any"
+    head = split_top_level(returns_match.group(1), ":")
+    if len(head) < 2:
+        return "Any"
+    type_str = head[0]
+
+    separator = " or " if " or " in type_str else "|"
+    members = split_top_level(type_str, separator)
+    if not all(TYPE_MEMBER.fullmatch(member) for member in members):
+        return "Any"
+    mapped = [RETURN_TYPE_MAP.get(member, member) for member in members]
+    py_type = (
+        f"Union[{', '.join(mapped)}]" if separator == " or " else " | ".join(mapped)
     )
-    if returns_match:
-        type_str = returns_match.group(1).strip()
-
-        # Handle "A or B" union syntax from docstrings
-        if " or " in type_str:
-            types = [t.strip() for t in type_str.split(" or ")]
-            mapped_types = []
-            for t in types:
-                if t == "numpy.ndarray" or t == "ndarray":
-                    mapped_types.append("np.ndarray")
-                elif t == "list":
-                    mapped_types.append("List")
-                elif t == "tuple":
-                    mapped_types.append("Tuple")
-                else:
-                    mapped_types.append(t)
-            return f"Union[{', '.join(mapped_types)}]"
-
-        # Map common types
-        type_map = {
-            "str": "str",
-            "int": "int",
-            "float": "float",
-            "bool": "bool",
-            "ndarray": "np.ndarray",
-            "numpy.ndarray": "np.ndarray",  # Map numpy.ndarray to np.ndarray
-            "Epoch": "Epoch",
-            "Quaternion": "Quaternion",
-            "RotationMatrix": "RotationMatrix",
-            "EulerAngle": "EulerAngle",
-            "EulerAxis": "EulerAxis",
-            "OrbitalTrajectory": "SOrbitTrajectory",  # Fix typo in docstring
-            "tuple": "Tuple",
-            "list": "List",
-        }
-        return type_map.get(type_str, type_str)
-
-    return "Any"
+    py_type = normalize_ndarray(py_type)
+    try:
+        ast.parse(py_type, mode="eval")
+    except SyntaxError:
+        return "Any"
+    return py_type
 
 
 def infer_return_type_from_name(name: str, doc: str) -> str:
@@ -87,10 +95,6 @@ def infer_return_type_from_name(name: str, doc: str) -> str:
         return "Any"  # Iterator type
     if name in ["__repr__", "__str__"]:
         return "str"
-
-    # Special case: trajectory property returns SOrbitTrajectory (not OrbitalTrajectory)
-    if name == "trajectory":
-        return "SOrbitTrajectory"
 
     # Special case: metadata property returns a dict; without this, the
     # generic "data" substring heuristic below (meant for methods like
@@ -152,8 +156,6 @@ def infer_return_type_from_name(name: str, doc: str) -> str:
 ACCESS_CONSTRAINT_TYPE = "Union[ElevationConstraint, OffNadirConstraint, LocalTimeConstraint, LookDirectionConstraint, AscDscConstraint, ElevationMaskConstraint, ConstraintAll, ConstraintAny, ConstraintNot]"
 
 PARAM_TYPE_MAP = {
-    "numpy.ndarray": "np.ndarray",
-    "ndarray": "np.ndarray",
     "list": "Sequence",
     "tuple": "Tuple",
     # AccessConstraint is a union of all constraint types
@@ -195,7 +197,7 @@ def map_param_type(param_type: str) -> str:
         types = split_top_level(param_type, "|")
         py_type = " | ".join(PARAM_TYPE_MAP.get(t, t) for t in types)
     # The builtin predicate ``callable`` is not a type.
-    return re.sub(r"\bcallable\b", "Callable[..., Any]", py_type)
+    return re.sub(r"\bcallable\b", "Callable[..., Any]", normalize_ndarray(py_type))
 
 
 def accepts_none(py_type: str) -> bool:
@@ -394,15 +396,410 @@ def format_docstring(doc: str, indent: int = 4) -> str:
     return "\n".join(result)
 
 
-def is_classmethod(cls: type, name: str, member: Any) -> bool:
-    """Check if a member is a classmethod."""
-    # For PyO3 classes, classmethods typically start with 'from_' or are constructors
-    if name.startswith("from_"):
-        return True
-    # Check if it's a builtin_function_or_method (static/class methods in PyO3)
-    if hasattr(member, "__self__"):
-        return member.__self__ is cls
-    return False
+def format_default(value: Any) -> str:
+    """Render a runtime default value as stub source.
+
+    Args:
+        value (Any): Default value reported by ``inspect.signature``.
+
+    Returns:
+        str: The literal for None, bool, int, str and finite float values,
+            otherwise ``...``.
+    """
+    if value is None or type(value) in (bool, int, str):
+        return repr(value)
+    if type(value) is float and math.isfinite(value):
+        return repr(value)
+    return "..."
+
+
+def format_signature_params(
+    sig: inspect.Signature, doc: str, receiver: str | None
+) -> str:
+    """Render a parameter list from a runtime signature and docstring types.
+
+    Parameter names, kinds and defaults come from the signature; annotations
+    come from the docstring Args section, or ``Any`` when undocumented.
+
+    Args:
+        sig (inspect.Signature): Runtime signature of the callable.
+        doc (str): Docstring whose Args section supplies the parameter types.
+        receiver (str | None): Implicit first parameter (``self`` or ``cls``),
+            or None for static methods and functions. A leading ``self``
+            parameter in the signature is replaced by it and keeps its
+            positional-only marker.
+
+    Returns:
+        str: Comma-separated parameter list, without parentheses.
+    """
+    doc_types = {
+        name: py_type for name, py_type, _, _ in parse_params_from_docstring(doc)
+    }
+    params = list(sig.parameters.values())
+    previous_kind = None
+    if receiver is not None and params and params[0].name == "self":
+        previous_kind = params[0].kind
+        params = params[1:]
+
+    parts = [] if receiver is None else [receiver]
+    star_emitted = False
+    for param in params:
+        if (
+            previous_kind is inspect.Parameter.POSITIONAL_ONLY
+            and param.kind is not inspect.Parameter.POSITIONAL_ONLY
+        ):
+            parts.append("/")
+        annotation = doc_types.get(param.name, "Any")
+        if param.kind is inspect.Parameter.VAR_POSITIONAL:
+            parts.append(f"*{param.name}: {annotation}")
+            star_emitted = True
+        elif param.kind is inspect.Parameter.VAR_KEYWORD:
+            parts.append(f"**{param.name}: {annotation}")
+        else:
+            if param.kind is inspect.Parameter.KEYWORD_ONLY and not star_emitted:
+                parts.append("*")
+                star_emitted = True
+            text = f"{param.name}: {annotation}"
+            if param.default is not inspect.Parameter.empty:
+                text += f" = {format_default(param.default)}"
+            parts.append(text)
+        previous_kind = param.kind
+    if previous_kind is inspect.Parameter.POSITIONAL_ONLY:
+        parts.append("/")
+    return ", ".join(parts)
+
+
+def runtime_signature(obj: Any) -> inspect.Signature | None:
+    """Return the runtime signature of a callable, or None if unavailable."""
+    try:
+        return inspect.signature(obj)
+    except (ValueError, TypeError):
+        return None
+
+
+def member_kind(cls: type, name: str, member: Any) -> str:
+    """Classify a class member for stub rendering.
+
+    Args:
+        cls (type): Class that owns the member.
+        name (str): Attribute name of the member.
+        member (Any): Value returned by ``getattr(cls, name)``.
+
+    Returns:
+        str: One of ``"attribute"`` (a class attribute holding an instance of
+            ``cls``, such as an enum member), ``"classmethod"``,
+            ``"staticmethod"``, ``"method"`` or ``"property"``.
+    """
+    if isinstance(member, cls):
+        return "attribute"
+    raw = inspect.getattr_static(cls, name, None)
+    if isinstance(raw, staticmethod):
+        return "staticmethod"
+    if isinstance(raw, (classmethod, types.ClassMethodDescriptorType)):
+        return "classmethod"
+    if callable(member):
+        return "method"
+    return "property"
+
+
+# Parameter lists for container-protocol methods of classes without a Rust
+# binding definition.
+DUNDER_PARAMS = {
+    "__setitem__": "self, key: str, value: Any, /",
+    "__getitem__": "self, key: str, /",
+    "__delitem__": "self, key: str, /",
+    "__contains__": "self, key: str, /",
+}
+
+RUST_BINDINGS_DIR = (
+    Path(__file__).resolve().parent.parent / "crates" / "brahe-py" / "src"
+)
+
+RUST_SCALAR_TYPES = {
+    "isize": "int",
+    "usize": "int",
+    "i8": "int",
+    "i16": "int",
+    "i32": "int",
+    "i64": "int",
+    "u8": "int",
+    "u16": "int",
+    "u32": "int",
+    "u64": "int",
+    "f32": "float",
+    "f64": "float",
+    "bool": "bool",
+    "String": "str",
+    "str": "str",
+}
+
+# Generic wrappers whose Python type is that of their last type argument.
+RUST_TRANSPARENT_WRAPPERS = {"PyResult", "Bound", "Borrowed", "Py", "PyRef", "PyRefMut"}
+
+# A pyclass attribute and the struct or enum it annotates. Any attributes
+# between them, such as ``#[pyo3(name = "...")]``, are captured.
+RUST_PYCLASS = re.compile(
+    r"#\[pyclass\b(?P<attrs>.*?)\b(?:struct|enum)\s+(?P<rust>\w+)", re.DOTALL
+)
+RUST_PYCLASS_NAME = re.compile(r"\bname\s*=\s*\"(\w+)\"")
+
+# Items that decide which type a slot method belongs to: a ``#[pymethods]``
+# impl header, any other impl header, and a slot method definition.
+RUST_ITEM = re.compile(
+    r"#\[pymethods\]\s*(?:#\[[^\]]*\]\s*)*impl\s*(?:<[^>]*>\s*)?(?P<pymethods>\w+)"
+    r"|^[ \t]*(?:unsafe\s+)?impl\b(?P<impl>)"
+    r"|\bfn\s+(?P<slot>__(?:getitem|setitem|delitem|contains)__)\b",
+    re.MULTILINE,
+)
+
+
+# A receiver written with an explicit type, such as ``slf: PyRef<'_, Self>``.
+RUST_TYPED_RECEIVER = re.compile(
+    r"&?\s*(?:(?:PyRef|PyRefMut|Bound|Borrowed|Py)\s*<\s*(?:'\w+\s*,\s*)?)?Self\s*>?"
+)
+
+
+def merge_slot_definitions(definitions: list) -> tuple:
+    """Combine the definitions of one slot method into a single signature.
+
+    A method defined more than once, for example in alternative
+    ``#[cfg(...)]`` branches, keeps the annotations its definitions agree on
+    and uses ``Any`` for the rest. The result does not depend on the order of
+    the definitions.
+
+    Args:
+        definitions (list): ``(params, return_type)`` pairs, where ``params``
+            lists ``(name, annotation)`` pairs.
+
+    Returns:
+        tuple: The merged ``(params, return_type)`` pair.
+    """
+    definitions = sorted(definitions)
+    params, return_type = definitions[0]
+    for other_params, other_return in definitions[1:]:
+        if len(other_params) != len(params):
+            params = [(name, "Any") for name, _ in params]
+        else:
+            params = [
+                (name, py_type if py_type == other_type else "Any")
+                for (name, py_type), (_, other_type) in zip(params, other_params)
+            ]
+        if other_return != return_type:
+            return_type = "Any"
+    return params, return_type
+
+
+def split_rust_top_level(text: str) -> list:
+    """Split Rust source text on commas outside any brackets.
+
+    Args:
+        text (str): Comma-separated Rust parameters or type arguments.
+
+    Returns:
+        list: Stripped, non-empty parts.
+    """
+    parts, depth, start = [], 0, 0
+    for i, char in enumerate(text):
+        if char in "<([":
+            depth += 1
+        elif char in ">)]" and not (char == ">" and text[i - 1 : i] == "-"):
+            depth -= 1
+        elif char == "," and depth == 0:
+            parts.append(text[start:i].strip())
+            start = i + 1
+    parts.append(text[start:].strip())
+    return [part for part in parts if part]
+
+
+def rust_type_to_python(rust_type: str, class_names: dict) -> str:
+    """Map a Rust binding parameter or return type to a stub annotation.
+
+    Args:
+        rust_type (str): Rust type as written in the binding source.
+        class_names (dict): Rust pyclass type names mapped to Python class
+            names, including ``Self`` for the type whose method is parsed.
+
+    Returns:
+        str: The Python annotation, or ``Any`` when the type has no specific
+            Python equivalent.
+    """
+    text = re.sub(r"\s+", " ", rust_type).strip()
+    text = re.sub(r"^&\s*(?:'\w+\s+)?(?:mut\s+)?", "", text)
+    if text == "()":
+        return "None"
+    if text.startswith("(") and text.endswith(")"):
+        members = [
+            rust_type_to_python(member, class_names)
+            for member in split_rust_top_level(text[1:-1])
+        ]
+        if not members or "Any" in members:
+            return "Any"
+        return f"tuple[{', '.join(members)}]"
+    match = re.fullmatch(r"(?:\w+::)*(\w+)\s*(?:<(.*)>)?", text)
+    if match is None:
+        return "Any"
+    head, args = match.groups()
+    if args is None:
+        if head in RUST_SCALAR_TYPES:
+            return RUST_SCALAR_TYPES[head]
+        if head == "PySlice":
+            return "slice"
+        if head in class_names:
+            return class_names[head]
+    if head.startswith(("PyArray", "PyReadonlyArray")):
+        return "np.ndarray"
+    type_args = [
+        arg for arg in split_rust_top_level(args or "") if not arg.startswith("'")
+    ]
+    if not type_args:
+        return "Any"
+    if head in RUST_TRANSPARENT_WRAPPERS:
+        return rust_type_to_python(type_args[-1], class_names)
+    if head == "Result":
+        return rust_type_to_python(type_args[0], class_names)
+    if head == "Option":
+        inner = rust_type_to_python(type_args[0], class_names)
+        return "Any" if inner == "Any" else f"{inner} | None"
+    return "Any"
+
+
+def parse_rust_fn_signature(source: str, start: int) -> tuple[list, str]:
+    """Read the parameters and return type of a Rust function definition.
+
+    Args:
+        source (str): Rust source text.
+        start (int): Index just past the function name.
+
+    Returns:
+        tuple[list, str]: The ``(name, rust_type)`` pairs of the parameters
+            other than the receiver and the ``Python`` token, and the return
+            type text (``()`` when omitted).
+    """
+    open_paren = source.index("(", start)
+    depth = 0
+    for i in range(open_paren, len(source)):
+        if source[i] == "(":
+            depth += 1
+        elif source[i] == ")":
+            depth -= 1
+            if depth == 0:
+                close_paren = i
+                break
+    params = []
+    for position, param in enumerate(
+        split_rust_top_level(source[open_paren + 1 : close_paren])
+    ):
+        match = re.fullmatch(r"(?:mut\s+)?(\w+)\s*:(?!:)\s*(.+)", param, re.DOTALL)
+        if match is None:
+            continue
+        name, rust_type = match.groups()
+        if position == 0 and RUST_TYPED_RECEIVER.fullmatch(rust_type.strip()):
+            continue
+        if re.fullmatch(r"(?:\w+::)*Python\s*(?:<[^>]*>)?", rust_type.strip()):
+            continue
+        params.append((name, rust_type))
+    tail = re.match(
+        r"\s*(?:->\s*(.*?))?\s*(?:\bwhere\b|\{)", source[close_paren + 1 :], re.DOTALL
+    )
+    return_type = tail.group(1) if tail and tail.group(1) else "()"
+    return params, return_type
+
+
+def parse_rust_slot_signatures(sources: list) -> dict:
+    """Extract container slot method signatures from Rust binding sources.
+
+    Each ``#[pymethods] impl`` block is attributed to the Python class name of
+    its type: the ``name`` given in ``#[pyclass(...)]`` or ``#[pyo3(...)]``,
+    otherwise the Rust type name. Receiver and ``Python`` token parameters are
+    omitted, and ``Self`` in other parameters names the class itself.
+
+    Args:
+        sources (list): Rust source texts, parsed together so that a pyclass
+            defined in one source resolves in another.
+
+    Returns:
+        dict: Python class names mapped to ``{slot_name: (params,
+            return_type)}``, where ``params`` lists ``(name, annotation)``
+            pairs.
+    """
+    sources = [re.sub(r"//[^\n]*", "", source) for source in sources]
+    class_names = {}
+    for source in sources:
+        for match in RUST_PYCLASS.finditer(source):
+            name = RUST_PYCLASS_NAME.search(match.group("attrs"))
+            rust = match.group("rust")
+            class_names[rust] = name.group(1) if name else rust
+
+    definitions = {}
+    for source in sources:
+        current = None
+        for match in RUST_ITEM.finditer(source):
+            if match.group("pymethods") is not None:
+                current = match.group("pymethods")
+            elif match.group("impl") is not None:
+                current = None
+            elif current is not None:
+                params, return_type = parse_rust_fn_signature(source, match.end())
+                py_class = class_names.get(current, current)
+                names = {**class_names, "Self": py_class}
+                definitions.setdefault(py_class, {}).setdefault(
+                    match.group("slot"), []
+                ).append(
+                    (
+                        [
+                            (name, rust_type_to_python(rust_type, names))
+                            for name, rust_type in params
+                        ],
+                        rust_type_to_python(return_type, names),
+                    )
+                )
+    return {
+        py_class: {
+            slot: merge_slot_definitions(slot_definitions)
+            for slot, slot_definitions in class_slots.items()
+        }
+        for py_class, class_slots in definitions.items()
+    }
+
+
+@functools.cache
+def rust_slot_signatures() -> dict:
+    """Return the container slot signatures defined in the Rust bindings."""
+    sources = [
+        path.read_text(encoding="utf-8")
+        for path in sorted(RUST_BINDINGS_DIR.glob("*.rs"))
+    ]
+    return parse_rust_slot_signatures(sources)
+
+
+def defining_class(cls: type, name: str) -> type | None:
+    """Return the first class in ``cls.__mro__`` whose namespace defines ``name``."""
+    return next((base for base in cls.__mro__ if name in vars(base)), None)
+
+
+def rust_slots_of(cls: type, name: str) -> dict | None:
+    """Return the Rust slot signatures of the class that defines member ``name``.
+
+    Args:
+        cls (type): Class whose member is rendered.
+        name (str): Member name.
+
+    Returns:
+        dict | None: The slot signatures parsed for the defining class, or
+            None when the Rust bindings define no slot method for it.
+    """
+    owner = defining_class(cls, name)
+    if owner is None:
+        return None
+    return rust_slot_signatures().get(owner.__name__)
+
+
+def is_builtin_inherited(cls: type, name: str) -> bool:
+    """Return whether ``cls`` inherits ``name`` unchanged from a builtin type."""
+    if name in vars(cls):
+        return False
+    owner = defining_class(cls, name)
+    return owner is not None and owner.__module__ == "builtins"
 
 
 def generate_class_stub(name: str, cls: type, errors: list) -> str:
@@ -411,7 +808,8 @@ def generate_class_stub(name: str, cls: type, errors: list) -> str:
     doc = inspect.getdoc(cls)
     check_none_defaults(name, cls, doc or "", errors)
 
-    lines.append(f"class {name}:")
+    bases = [base.__name__ for base in cls.__bases__ if base is not object]
+    lines.append(f"class {name}({', '.join(bases)}):" if bases else f"class {name}:")
     if doc:
         lines.append(format_docstring(doc))
     else:
@@ -424,41 +822,10 @@ def generate_class_stub(name: str, cls: type, errors: list) -> str:
     # First add __init__ if it exists
     if hasattr(cls, "__init__"):
         try:
-            # Try to get actual signature from inspect first (captures defaults from pyo3)
-            try:
-                sig = inspect.signature(cls)
-                params = []
-                for param_name, param in sig.parameters.items():
-                    if param_name == "self":
-                        continue
-                    # Get type from docstring if available
-                    param_type = "Any"
-                    docstring_params = parse_params_from_docstring(doc)
-                    for dp_name, dp_type, _, _ in docstring_params:
-                        if dp_name == param_name:
-                            param_type = dp_type
-                            break
-
-                    if param.default is not inspect.Parameter.empty:
-                        # Format default value
-                        default = param.default
-                        if default is None:
-                            default_str = "None"
-                        elif isinstance(default, bool):
-                            default_str = str(default)
-                        elif isinstance(default, str):
-                            default_str = repr(default)
-                        else:
-                            default_str = str(default)
-                        params.append(f"{param_name}: {param_type} = {default_str}")
-                    else:
-                        params.append(f"{param_name}: {param_type}")
-
-                if params:
-                    init_params = "self, " + ", ".join(params)
-                else:
-                    init_params = "self"
-            except (ValueError, TypeError):
+            sig = runtime_signature(cls)
+            if sig is not None:
+                init_params = format_signature_params(sig, doc or "", "self")
+            else:
                 # Fall back to docstring parsing if signature not available
                 init_params = parse_init_params_from_docstring(doc)
                 # If no parameters were found in docstring, use empty signature
@@ -494,6 +861,15 @@ def generate_class_stub(name: str, cls: type, errors: list) -> str:
             continue
         if member_name in added_members:
             continue
+        if is_builtin_inherited(cls, member_name):
+            continue
+        if member_name in DUNDER_PARAMS:
+            rust_slots = rust_slots_of(cls, member_name)
+            # PyO3 implements __setitem__ and __delitem__ with one slot, so
+            # defining either exposes both; the undefined one raises
+            # NotImplementedError.
+            if rust_slots is not None and member_name not in rust_slots:
+                continue
 
         try:
             member = getattr(cls, member_name)
@@ -507,36 +883,55 @@ def generate_class_stub(name: str, cls: type, errors: list) -> str:
             print(f"Warning: Could not get {name}.{member_name}: {e}", file=sys.stderr)
             continue
 
-    # Sort: classmethods first, then regular methods, then properties
-    def sort_key(item):
-        member_name, member = item
-        if is_classmethod(cls, member_name, member):
-            return (0, member_name)
-        elif callable(member):
-            return (1, member_name)
-        else:
-            return (2, member_name)
-
-    all_members.sort(key=sort_key)
+    # Sort: enum-like class attributes, class/static methods, regular
+    # methods, then properties.
+    kind_order = {
+        "attribute": 0,
+        "classmethod": 1,
+        "staticmethod": 1,
+        "method": 2,
+        "property": 3,
+    }
+    kinds = {
+        member_name: member_kind(cls, member_name, member)
+        for member_name, member in all_members
+    }
+    all_members.sort(key=lambda item: (kind_order[kinds[item[0]]], item[0]))
 
     # Process each member
     for member_name, member in all_members:
         try:
+            kind = kinds[member_name]
+            if kind == "attribute":
+                lines.append(f"    {member_name}: {name}")
+                lines.append("")
+                continue
+
             member_doc = inspect.getdoc(member)
             if callable(member):
                 check_none_defaults(
                     f"{name}.{member_name}", member, member_doc or "", errors
                 )
+            sig = runtime_signature(member) if callable(member) else None
 
-            # Check if it's a classmethod (PyO3 classmethods are often builtin_function_or_method)
-            if is_classmethod(cls, member_name, member):
+            if kind in ("classmethod", "staticmethod"):
                 # Constructor classmethods return an instance of the class
                 # unless the docstring names another return type.
-                doc_type = parse_return_type_from_docstring(member_doc or "")
-                return_type = doc_type if doc_type != "Any" else name
-                # Parse parameters from docstring
-                params_str = parse_classmethod_params_from_docstring(member_doc or "")
-                lines.append("    @classmethod")
+                return_type = parse_return_type_from_docstring(member_doc or "")
+                if return_type == "Any" and kind == "classmethod":
+                    return_type = name
+                receiver = "cls" if kind == "classmethod" else None
+                if sig is not None:
+                    params_str = format_signature_params(
+                        sig, member_doc or "", receiver
+                    )
+                elif kind == "classmethod":
+                    params_str = parse_classmethod_params_from_docstring(
+                        member_doc or ""
+                    )
+                else:
+                    params_str = parse_function_params_from_docstring(member_doc or "")
+                lines.append(f"    @{kind}")
                 lines.append(f"    def {member_name}({params_str}) -> {return_type}:")
                 if member_doc:
                     lines.append(format_docstring(member_doc, indent=8))
@@ -546,23 +941,36 @@ def generate_class_stub(name: str, cls: type, errors: list) -> str:
                 lines.append("")
 
             # Regular methods
-            elif callable(member):
+            elif kind == "method":
                 return_type = infer_return_type_from_name(member_name, member_doc or "")
-                # Parse parameters from docstring
-                params_str = parse_method_params_from_docstring(member_doc or "")
-
-                # Special handling for dunder methods with known signatures
-                if member_name == "__setitem__" and params_str == "self":
-                    params_str = "self, key: str, value: Any"
-                elif (
-                    member_name == "__getitem__"
-                    and params_str == "self"
-                    or member_name == "__delitem__"
-                    and params_str == "self"
-                    or member_name == "__contains__"
-                    and params_str == "self"
+                rust_slots = (
+                    rust_slots_of(cls, member_name)
+                    if member_name in DUNDER_PARAMS
+                    else None
+                )
+                if rust_slots is not None:
+                    # Slot wrappers carry no parameter types at runtime; the
+                    # Rust definition supplies them.
+                    slot_params, slot_return = rust_slots[member_name]
+                    params_str = ", ".join(
+                        [
+                            "self",
+                            *(f"{param}: {py_type}" for param, py_type in slot_params),
+                            "/",
+                        ]
+                    )
+                    if slot_return != "Any":
+                        return_type = slot_return
+                elif member_name in DUNDER_PARAMS and not parse_params_from_docstring(
+                    member_doc or ""
                 ):
-                    params_str = "self, key: str"
+                    # Slot wrappers without a Rust definition use the
+                    # container protocol's conventional key/value types.
+                    params_str = DUNDER_PARAMS[member_name]
+                elif sig is not None:
+                    params_str = format_signature_params(sig, member_doc or "", "self")
+                else:
+                    params_str = parse_method_params_from_docstring(member_doc or "")
 
                 lines.append(f"    def {member_name}({params_str}) -> {return_type}:")
                 if member_doc:
@@ -621,7 +1029,11 @@ def generate_function_stub(name: str, func: Any, errors: list) -> str:
     doc = inspect.getdoc(func)
     check_none_defaults(name, func, doc or "", errors)
     return_type = infer_return_type_from_name(name, doc or "")
-    params_str = parse_function_params_from_docstring(doc or "")
+    sig = runtime_signature(func)
+    if sig is not None:
+        params_str = format_signature_params(sig, doc or "", None)
+    else:
+        params_str = parse_function_params_from_docstring(doc or "")
 
     lines = []
     lines.append(f"def {name}({params_str}) -> {return_type}:")
@@ -634,22 +1046,125 @@ def generate_function_stub(name: str, func: Any, errors: list) -> str:
     return "\n".join(lines)
 
 
-def main():
-    """Generate the stub file."""
-    repo_root = Path(__file__).parent.parent
-    stub_path = repo_root / "brahe" / "_brahe.pyi"
+class StubGenerationError(Exception):
+    """Raised when the generated stub fails validation."""
 
-    # Import the module
-    sys.path.insert(0, str(repo_root))
-    try:
-        from brahe import _brahe
-    except ImportError as e:
-        print(f"Error: Could not import brahe._brahe: {e}")
-        print("Make sure the package is installed: uv pip install -e .")
-        return 1
 
+def annotation_names(tree: ast.Module) -> tuple[set, set]:
+    """Collect the names that annotations and class bases in a stub refer to.
+
+    Args:
+        tree (ast.Module): Parsed stub.
+
+    Returns:
+        tuple[set, set]: Names used directly (``Epoch`` in ``Epoch | None``)
+            and names used only as the root of an attribute chain
+            (``datetime`` in ``datetime.datetime``).
+    """
+    annotations = []
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            args = node.args
+            for arg in [
+                *args.posonlyargs,
+                *args.args,
+                *args.kwonlyargs,
+                args.vararg,
+                args.kwarg,
+            ]:
+                if arg is not None and arg.annotation is not None:
+                    annotations.append(arg.annotation)
+            if node.returns is not None:
+                annotations.append(node.returns)
+        elif isinstance(node, ast.AnnAssign):
+            annotations.append(node.annotation)
+        elif isinstance(node, ast.ClassDef):
+            annotations.extend(node.bases)
+
+    direct, roots = set(), set()
+    for annotation in annotations:
+        attribute_roots = {
+            id(sub.value)
+            for sub in ast.walk(annotation)
+            if isinstance(sub, ast.Attribute) and isinstance(sub.value, ast.Name)
+        }
+        for sub in ast.walk(annotation):
+            if isinstance(sub, ast.Name):
+                (roots if id(sub) in attribute_roots else direct).add(sub.id)
+    return direct, roots - direct
+
+
+def defined_names(tree: ast.Module) -> set:
+    """Return the names a stub defines or imports at module level."""
+    names = set()
+    for node in tree.body:
+        if isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
+            names.add(node.name)
+        elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+            names.add(node.target.id)
+        elif isinstance(node, (ast.Import, ast.ImportFrom)):
+            for alias in node.names:
+                names.add((alias.asname or alias.name).split(".")[0])
+    return names
+
+
+def resolve_annotation_imports(tree: ast.Module, package: Any) -> tuple[list, list]:
+    """Find imports for annotation names that a stub does not define.
+
+    A class in the namespace of ``package`` is imported from the module that
+    defines it (the namespace is read directly, so lazy module attributes are
+    never triggered). A name used only as an attribute root (``polars`` in
+    ``polars.DataFrame``) is imported as a module when it is importable.
+
+    Args:
+        tree (ast.Module): Parsed stub.
+        package (Any): Package whose exported classes may be referenced.
+
+    Returns:
+        tuple[list, list]: Import statements to add, and names that could not
+            be resolved.
+    """
+    known = defined_names(tree) | set(dir(builtins))
+    direct, roots = annotation_names(tree)
+    imports, unresolved = [], []
+    for name in sorted(direct - known):
+        obj = vars(package).get(name)
+        if inspect.isclass(obj):
+            imports.append(f"from {obj.__module__} import {name}")
+        else:
+            unresolved.append(name)
+    for name in sorted(roots - known):
+        if importlib.util.find_spec(name) is not None:
+            imports.append(f"import {name}")
+        else:
+            unresolved.append(name)
+    return imports, unresolved
+
+
+def generate_stub(module: Any, package: Any) -> str:
+    """Generate the complete, validated stub source for an extension module.
+
+    Args:
+        module (Any): Extension module to describe.
+        package (Any): Package whose exported classes annotations may name.
+
+    Returns:
+        str: Stub source.
+
+    Raises:
+        StubGenerationError: If a docstring type omits a None default, the
+            stub is not valid Python, or an annotation names something that
+            is neither defined in the stub nor importable.
+        OSError: If a Rust binding source cannot be read.
+        UnicodeDecodeError: If a Rust binding source is not valid UTF-8.
+    """
     output_lines = []
     errors = []
+
+    # Parse the Rust slot signatures before any per-member isolation, so a
+    # source that cannot be read or parsed fails generation instead of
+    # falling back to conventional slot types.
+    rust_slot_signatures()
 
     # Header
     output_lines.append('"""Type stubs for brahe._brahe module - AUTO-GENERATED"""')
@@ -658,15 +1173,16 @@ def main():
         "from typing import Any, Callable, Iterable, List, Sequence, Tuple, Optional, Union"
     )
     output_lines.append("import numpy as np")
+    import_index = len(output_lines)
     output_lines.append("")
 
     # Process all module members
     module_members = {}
-    for name in dir(_brahe):
+    for name in dir(module):
         if name.startswith("_") and name != "__version__":
             continue
         try:
-            member = getattr(_brahe, name)
+            member = getattr(module, name)
             module_members[name] = member
         except Exception as e:  # noqa: BLE001 - isolate arbitrary failures of the wrapped implementation
             print(f"Warning: Could not get {name}: {e}", file=sys.stderr)
@@ -694,8 +1210,6 @@ def main():
             output_lines.append(stub)
         except Exception as e:  # noqa: BLE001 - isolate arbitrary failures of the wrapped implementation
             print(f"Error processing class {name}: {e}", file=sys.stderr)
-            import traceback
-
             traceback.print_exc()
             output_lines.append(f"class {name}: ...")
             output_lines.append("")
@@ -730,37 +1244,64 @@ def main():
             else:
                 output_lines.append(f"{name}: Any")
 
+    print(
+        f"Processed {len(classes)} classes, {len(functions)} functions, "
+        f"{len(constants)} constants"
+    )
+
     if errors:
-        print(
-            f"Error: {len(errors)} docstring parameter type(s) omit a None default:",
-            file=sys.stderr,
+        raise StubGenerationError(
+            f"{len(errors)} docstring parameter type(s) omit a None default:\n"
+            + "\n".join(f"    {error}" for error in errors)
         )
-        for error in errors:
-            print(f"    {error}", file=sys.stderr)
-        return 1
 
     # Validate before writing: an unparseable stub is silently discarded by
     # tools like griffe, which then fall back to bare inspection of the
     # compiled module and lose every annotation.
     output = "\n".join(output_lines)
     try:
-        ast.parse(output)
+        tree = ast.parse(output)
     except SyntaxError as e:
-        print(
-            f"Error: generated stub is not valid Python (line {e.lineno}): {e.msg}",
-            file=sys.stderr,
-        )
+        message = f"generated stub is not valid Python (line {e.lineno}): {e.msg}"
         if e.text:
-            print(f"    {e.text.strip()}", file=sys.stderr)
+            message += f"\n    {e.text.strip()}"
+        raise StubGenerationError(message) from e
+
+    imports, unresolved = resolve_annotation_imports(tree, package)
+    if unresolved:
+        raise StubGenerationError(
+            "annotation name(s) neither defined in the stub nor importable: "
+            + ", ".join(unresolved)
+        )
+    output_lines[import_index:import_index] = imports
+    return "\n".join(output_lines)
+
+
+def main():
+    """Generate the stub file."""
+    repo_root = Path(__file__).parent.parent
+    stub_path = repo_root / "brahe" / "_brahe.pyi"
+
+    # Import the module
+    sys.path.insert(0, str(repo_root))
+    try:
+        import brahe
+        from brahe import _brahe
+    except ImportError as e:
+        print(f"Error: Could not import brahe._brahe: {e}")
+        print("Make sure the package is installed: uv pip install -e .")
         return 1
 
-    with open(stub_path, "w") as f:
+    try:
+        output = generate_stub(_brahe, brahe)
+    except StubGenerationError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return 1
+
+    with open(stub_path, "w", encoding="utf-8") as f:
         f.write(output)
 
     print(f"\n✓ Generated stub file: {stub_path}")
-    print(
-        f"✓ Processed {len(classes)} classes, {len(functions)} functions, {len(constants)} constants"
-    )
     return 0
 
 

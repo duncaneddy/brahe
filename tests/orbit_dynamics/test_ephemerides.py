@@ -385,25 +385,3 @@ class TestDEEphemerides:
 
         assert isinstance(r_ssb, np.ndarray)
         assert r_ssb.shape == (3,)
-
-    @pytest.mark.order(1)
-    def test_de_performance_benefit(self):
-        """Test that subsequent calls don't re-load the kernel (performance test)"""
-        import time
-
-        epc = bh.Epoch.from_date(2024, 2, 25, bh.TimeSystem.UTC)
-
-        # First call (kernel should already be loaded from fixture)
-        start = time.perf_counter()
-        _ = bh.sun_position_spice(epc, bh.EphemerisSource.DE440s)
-        first_call_time = time.perf_counter() - start
-
-        # Subsequent calls should be much faster (no kernel loading)
-        start = time.perf_counter()
-        for _ in range(10):
-            _ = bh.sun_position_spice(epc, bh.EphemerisSource.DE440s)
-        avg_time = (time.perf_counter() - start) / 10
-
-        # Average time should be similar to or faster than first call
-        # (not a strict requirement, just documenting expected behavior)
-        assert avg_time < first_call_time

@@ -1,0 +1,3 @@
+Position difference after one day: 6.01e-06 m
+Position difference with higher-order interpolation: 4.26e-06 m
+Propagated 4 propagators with shared tables

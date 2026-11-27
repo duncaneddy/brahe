@@ -21,8 +21,8 @@ Sensitivity matrix shape: (6, 5)
 
 Position sensitivity to 1% parameter uncertainty:
   mass      : 0.06 m
-  drag_area : 0.06 m
-  Cd        : 0.06 m
+  drag_area : 0.05 m
+  Cd        : 0.05 m
   srp_area  : 0.01 m
   Cr        : 0.01 m
 
